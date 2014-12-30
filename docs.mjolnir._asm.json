@@ -1,0 +1,318 @@
+[
+  [
+    "=== mjolnir._asm.extras ===",
+    "",
+    "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.",
+    "",
+    "I include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions/tools become real."
+  ],
+  [
+    "mjolnir._asm.extras.mods[...]",
+    "Variable",
+    "Table of key modifier maps for mjolnir._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt/Option, Shift, and Control.",
+    "",
+    "    mjolnir._asm.extras.mods = {",
+    "      casc = {                     }, casC = {                       \"ctrl\"},",
+    "      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},",
+    "      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},",
+    "      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},",
+    "      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},",
+    "      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},",
+    "      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},",
+    "      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},",
+    "    }",
+    "",
+    "What fun if we ever differentiate between left, right, either, and both!",
+    ""
+  ],
+  [
+    "mjolnir._asm.extras.applekeys[...]",
+    "Variable",
+    "Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again."
+  ],
+  [
+    "mjolnir._asm.extras.hexdump(string [, count]) -> string",
+    "Function",
+    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
+  ],
+  [
+    "mjolnir._asm.extras.split(div, string) -> { ... }",
+    "Function",
+    "Convert string to an array of strings, breaking at the specified divider(s), similar to \"split\" in Perl."
+  ],
+  [
+    "mjolnir._asm.extras.sorted_keys(table[ , function]) -> function",
+    "Function",
+    "Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.",
+    "",
+    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sorted_keys(t[, f]) do ... end`"
+  ],
+  [
+    "mjolnir._asm.extras.mt_tools[...]",
+    "Variable",
+    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = mjolnir._asm.extras.mt_tools })`",
+    "Currently defined:",
+    "    my_table:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+    "    my_table:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
+  ],
+  [
+    "mjolnir._asm.extras.ascii_only(string[, all]) -> string",
+    "Function",
+    "Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \\x## so that it can be safely printed in the Mjolnir console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes."
+  ],
+  [
+    "mjolnir._asm.extras.fnutils_every(table, fn) -> bool",
+    "Function",
+    "Returns true if the application of fn on every entry in table is truthy."
+  ],
+  [
+    "mjolnir._asm.extras.fnutils_some(table, fn) -> bool",
+    "Function",
+    "Returns true if the application of fn on entries in table are truthy for at least one of the members."
+  ],
+  [
+    "mjolnir._asm.extras.exec(command[, with_user_env]) -> output, status, type, rc",
+    "Function",
+    "Runs a shell command and returns stdout as a string (may include a trailing newline), followed by true or nil indicating if the command completed successfully, the exit type (\"exit\" or \"signal\"), and the result code.",
+    "",
+    " If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary."
+  ],
+  [
+    "mjolnir._asm.extras.version_compare(v1, v2) -> bool",
+    "Function",
+    "Compare version strings and return `true` if v1 < v2, otherwise false.",
+    "",
+    "Note that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.",
+    "",
+    "Luarocks version numbers: x(%.y)*-z",
+    "     x and y are probably numbers... but maybe not... z is a number",
+    "",
+    "More generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.",
+    "",
+    "Our rules for testing:",
+    "1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.",
+    "2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)",
+    "3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.",
+    "",
+    "Repeat the following for each part:",
+    "1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)",
+    "2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.",
+    "",
+    "This does mean that the following probably won't work correctly, but at",
+    "least with luarocks, none have been this bad yet...",
+    "",
+    "    3.0 \"should\" be > then a release candidate: 3.0rc",
+    "    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)",
+    "    3.0.0 aren't 3.0 \"equal\" (should they be?)",
+    "    \"dev\" should be before \"alpha\" or \"beta\"",
+    "    \"final\" should be after \"rc\" or \"release\"",
+    "    dates as version numbers that aren't yyyymmdd",
+    "    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))",
+    "    \"1a\" and \"10a\"",
+    "",
+    "    others?"
+  ],
+  [
+    "mjolnir._asm.extras.showabout()",
+    "Function",
+    "Displays the standard OS X about panel; implicitly focuses Mjolnir."
+  ],
+  [
+    "mjolnir._asm.extras.fileexists(path) -> exists, isdir",
+    "Function",
+    "Checks if a file exists, and whether it's a directory."
+  ],
+  [
+    "mjolnir._asm.extras._version",
+    "Variable",
+    "The current Mjolnir version as a string."
+  ],
+  [
+    "mjolnir._asm.extras._paths[]",
+    "Variable",
+    "A table containing the resourcePath, the bundlePath, and the executablePath for the Mjolnir application."
+  ],
+  [
+    "mjolnir._asm.extras.uuid() -> string",
+    "Function",
+    "Returns a newly generated UUID as a string"
+  ],
+  [
+    "mjolnir._asm.extras.accessibility(shouldprompt) -> isenabled",
+    "Function",
+    "Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it."
+  ],
+  [
+    "mjolnir._asm.extras.autolaunch([arg]) -> bool",
+    "Function",
+    " When argument is absent or not a boolean value, this function returns true or false indicating whether or not Mjolnir is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status."
+  ],
+  [
+    "mjolnir._asm.extras.nslog(luavalue)",
+    "Function",
+    "Send a representation of the lua value passed in to the Console application via NSLog."
+  ],
+  [
+    "mjolnir._asm.extras.userdata_tostring(userdata) -> string",
+    "Function",
+    "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with mjolnir._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
+  ],
+  [
+    "=== mjolnir._asm.extras ===",
+    "",
+    "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.",
+    "",
+    "I include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions/tools become real."
+  ],
+  [
+    "mjolnir._asm.extras.mods[...]",
+    "Variable",
+    "Table of key modifier maps for mjolnir._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt/Option, Shift, and Control.",
+    "",
+    "    mjolnir._asm.extras.mods = {",
+    "      casc = {                     }, casC = {                       \"ctrl\"},",
+    "      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},",
+    "      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},",
+    "      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},",
+    "      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},",
+    "      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},",
+    "      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},",
+    "      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},",
+    "    }",
+    "",
+    "What fun if we ever differentiate between left, right, either, and both!",
+    ""
+  ],
+  [
+    "mjolnir._asm.extras.applekeys[...]",
+    "Variable",
+    "Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again."
+  ],
+  [
+    "mjolnir._asm.extras.hexdump(string [, count]) -> string",
+    "Function",
+    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
+  ],
+  [
+    "mjolnir._asm.extras.split(div, string) -> { ... }",
+    "Function",
+    "Convert string to an array of strings, breaking at the specified divider(s), similar to \"split\" in Perl."
+  ],
+  [
+    "mjolnir._asm.extras.sorted_keys(table[ , function]) -> function",
+    "Function",
+    "Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.",
+    "",
+    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sorted_keys(t[, f]) do ... end`"
+  ],
+  [
+    "mjolnir._asm.extras.mt_tools[...]",
+    "Variable",
+    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = mjolnir._asm.extras.mt_tools })`",
+    "Currently defined:",
+    "    my_table:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+    "    my_table:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
+  ],
+  [
+    "mjolnir._asm.extras.ascii_only(string[, all]) -> string",
+    "Function",
+    "Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \\x## so that it can be safely printed in the Mjolnir console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes."
+  ],
+  [
+    "mjolnir._asm.extras.fnutils_every(table, fn) -> bool",
+    "Function",
+    "Returns true if the application of fn on every entry in table is truthy."
+  ],
+  [
+    "mjolnir._asm.extras.fnutils_some(table, fn) -> bool",
+    "Function",
+    "Returns true if the application of fn on entries in table are truthy for at least one of the members."
+  ],
+  [
+    "mjolnir._asm.extras.exec(command[, with_user_env]) -> output, status, type, rc",
+    "Function",
+    "Runs a shell command and returns stdout as a string (may include a trailing newline), followed by true or nil indicating if the command completed successfully, the exit type (\"exit\" or \"signal\"), and the result code.",
+    "",
+    " If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary."
+  ],
+  [
+    "mjolnir._asm.extras.version_compare(v1, v2) -> bool",
+    "Function",
+    "Compare version strings and return `true` if v1 < v2, otherwise false.",
+    "",
+    "Note that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.",
+    "",
+    "Luarocks version numbers: x(%.y)*-z",
+    "     x and y are probably numbers... but maybe not... z is a number",
+    "",
+    "More generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.",
+    "",
+    "Our rules for testing:",
+    "1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.",
+    "2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)",
+    "3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.",
+    "",
+    "Repeat the following for each part:",
+    "1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)",
+    "2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.",
+    "",
+    "This does mean that the following probably won't work correctly, but at",
+    "least with luarocks, none have been this bad yet...",
+    "",
+    "    3.0 \"should\" be > then a release candidate: 3.0rc",
+    "    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)",
+    "    3.0.0 aren't 3.0 \"equal\" (should they be?)",
+    "    \"dev\" should be before \"alpha\" or \"beta\"",
+    "    \"final\" should be after \"rc\" or \"release\"",
+    "    dates as version numbers that aren't yyyymmdd",
+    "    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))",
+    "    \"1a\" and \"10a\"",
+    "",
+    "    others?"
+  ],
+  [
+    "mjolnir._asm.extras.showabout()",
+    "Function",
+    "Displays the standard OS X about panel; implicitly focuses Mjolnir."
+  ],
+  [
+    "mjolnir._asm.extras.fileexists(path) -> exists, isdir",
+    "Function",
+    "Checks if a file exists, and whether it's a directory."
+  ],
+  [
+    "mjolnir._asm.extras._version",
+    "Variable",
+    "The current Mjolnir version as a string."
+  ],
+  [
+    "mjolnir._asm.extras._paths[]",
+    "Variable",
+    "A table containing the resourcePath, the bundlePath, and the executablePath for the Mjolnir application."
+  ],
+  [
+    "mjolnir._asm.extras.uuid() -> string",
+    "Function",
+    "Returns a newly generated UUID as a string"
+  ],
+  [
+    "mjolnir._asm.extras.accessibility(shouldprompt) -> isenabled",
+    "Function",
+    "Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it."
+  ],
+  [
+    "mjolnir._asm.extras.autolaunch([arg]) -> bool",
+    "Function",
+    " When argument is absent or not a boolean value, this function returns true or false indicating whether or not Mjolnir is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status."
+  ],
+  [
+    "mjolnir._asm.extras.nslog(luavalue)",
+    "Function",
+    "Send a representation of the lua value passed in to the Console application via NSLog."
+  ],
+  [
+    "mjolnir._asm.extras.userdata_tostring(userdata) -> string",
+    "Function",
+    "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with mjolnir._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
+  ]
+]
