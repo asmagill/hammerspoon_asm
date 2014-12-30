@@ -1,9 +1,9 @@
 Organizational space for Hammerspoon/Mjolnir modules.
 =====================================================
 
-I attempt to write these modules using documented OS X API functionality and develop under OS X Yosemite (10.10.x).  I do routinely try loading and testing these modules under 10.8, but these do not get rigorously tested there -- primarily I make sure that they don't crash, but YMMV.
+I attempt to write these modules using documented OS X API functionality and develop under OS X Yosemite (10.10.x).  I do routinely try loading and testing these modules under 10.8, but they do not get rigorously tested there -- primarily I make sure that they don't crash, but YMMV.
 
-Any module in which I explicitly use private or undocumented API's can be found at (https://github.com/asmagill/hammerspoon_asm.undocumented).
+Any module in which I knowingly and explicitly use private or undocumented API's can be found at https://github.com/asmagill/hammerspoon_asm.undocumented.
 
 Unless otherwise indicated, these modules *should* work from 10.8, forward, but see above -- I routinely use and test under 10.10.  Where I use 10.9 or 10.10 specific functionality, I try to add code to fail gracefully, but no promises.  I will, however, note such in the documentation.
 
