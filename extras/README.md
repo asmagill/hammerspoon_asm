@@ -111,11 +111,13 @@ Note that this started out for comparing luarocks version numbers, but should wo
 More generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.
 
 Our rules for testing:
+
 1. if a or b start with "v" or "r" followed immediately by a number, drop the letter.
 2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)
 3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.
 
 Repeat the following for each part:
+
 1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)
 2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.
 
