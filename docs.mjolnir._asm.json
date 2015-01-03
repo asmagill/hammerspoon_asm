@@ -78,6 +78,11 @@
     " If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary."
   ],
   [
+    "mjolnir._asm.extras.restart()",
+    "Function",
+    "Completely restart Mjolnir by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of Mjolnir  is 2 seconds, but you can adjust this by using the `settings` module to set \"_asm.sleepCount\" to your desired wait time."
+  ],
+  [
     "mjolnir._asm.extras.version_compare(v1, v2) -> bool",
     "Function",
     "Compare version strings and return `true` if v1 < v2, otherwise false.",
@@ -234,6 +239,11 @@
     "Runs a shell command and returns stdout as a string (may include a trailing newline), followed by true or nil indicating if the command completed successfully, the exit type (\"exit\" or \"signal\"), and the result code.",
     "",
     " If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary."
+  ],
+  [
+    "mjolnir._asm.extras.restart()",
+    "Function",
+    "Completely restart Mjolnir by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of Mjolnir  is 2 seconds, but you can adjust this by using the `settings` module to set \"_asm.sleepCount\" to your desired wait time."
   ],
   [
     "mjolnir._asm.extras.version_compare(v1, v2) -> bool",

@@ -72,6 +72,11 @@ extras.nslog(luavalue)
 Send a representation of the lua value passed in to the Console application via NSLog.
 
 ~~~lua
+extras.restart()
+~~~
+Completely restart {TARGET} by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of {TARGET}  is 2 seconds, but you can adjust this by using the `settings` module to set "_asm.sleepCount" to your desired wait time.
+
+~~~lua
 extras.showabout()
 ~~~
 Displays the standard OS X about panel.

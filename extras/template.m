@@ -233,8 +233,6 @@ static int ud_tostring (lua_State *L) {
 static const luaL_Reg {MODULE}Lib[] = {
     { "showabout",      showabout },
     { "fileexists",     fileexists },
-//     { "_version",       version },
-//     { "_paths",         paths },
     { "uuid",           uuid },
     { "accessibility",  accessibility },
     { "autolaunch",     autolaunch },

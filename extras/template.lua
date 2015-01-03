@@ -228,6 +228,15 @@ module.exec = function(command, user_env)
     return s, status, exit_type, rc
 end
 
+--- {PATH}.{MODULE}.restart()
+--- Function
+--- Completely restart {TARGET} by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of {TARGET}  is 2 seconds, but you can adjust this by using the `settings` module to set "_asm.sleepCount" to your desired wait time.
+module.restart = function()
+    sleepCount = ((mjolnir and require("mjolnir._asm.settings")) or (hs and require("hs.settings"))).get("_asm.restartSleep") or 2
+    os.execute("(sleep "..sleepCount.." ; open -a "..module._paths.bundlePath..") &")
+    {BASE}._exit("What is this argument for?",true)
+end
+
 --- {PATH}.{MODULE}.version_compare(v1, v2) -> bool
 --- Function
 --- Compare version strings and return `true` if v1 < v2, otherwise false.
