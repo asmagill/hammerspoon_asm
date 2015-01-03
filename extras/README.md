@@ -30,12 +30,12 @@ extras.accessibility(shouldprompt) -> isenabled
 Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
 
 ~~~lua
-extras.ascii_only(string[, all]) -> string
+extras.asciiOnly(string[, all]) -> string
 ~~~
 Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \x## so that it can be safely printed in the console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes.
 
 ~~~lua
-extras.autolaunch([arg]) -> bool
+extras.autoLaunch([arg]) -> bool
 ~~~
 When argument is absent or not a boolean value, this function returns true or false indicating whether or not the environment is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status.
 
@@ -47,7 +47,7 @@ Runs a shell command and returns stdout as a string (may include a trailing newl
 If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary.
 
 ~~~lua
-extras.fileexists(path) -> exists, isdir
+extras.fileExists(path) -> exists, isdir
 ~~~
 Checks if a file exists, and whether it's a directory.
 
@@ -62,12 +62,12 @@ extras.fnutils_some(table, fn) -> bool
 Returns true if the application of fn on entries in table are truthy for at least one of the members.
 
 ~~~lua
-extras.hexdump(string [, count]) -> string
+extras.hexDump(string [, count]) -> string
 ~~~
-Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `extras.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
+Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `extras.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
 
 ~~~lua
-extras.nslog(luavalue)
+extras.NSLog(luavalue)
 ~~~
 Send a representation of the lua value passed in to the Console application via NSLog.
 
@@ -77,16 +77,16 @@ extras.restart()
 Completely restart {TARGET} by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of {TARGET}  is 2 seconds, but you can adjust this by using the `settings` module to set "_asm.sleepCount" to your desired wait time.
 
 ~~~lua
-extras.showabout()
+extras.showAbout()
 ~~~
 Displays the standard OS X about panel.
 
 ~~~lua
-extras.sorted_keys(table[ , function]) -> function
+extras.sortedKeys(table[ , function]) -> function
 ~~~
 Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.
 
-Similar to Perl's sort(keys %hash).  Use like this: `for i,v in extras.sorted_keys(t[, f]) do ... end`
+Similar to Perl's sort(keys %hash).  Use like this: `for i,v in extras.sortedKeys(t[, f]) do ... end`
 
 ~~~lua
 extras.split(div, string) -> { ... }
@@ -94,7 +94,7 @@ extras.split(div, string) -> { ... }
 Convert string to an array of strings, breaking at the specified divider(s), similar to "split" in Perl.
 
 ~~~lua
-extras.userdata_tostring(userdata) -> string
+extras.userDataToString(userdata) -> string
 ~~~
 Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.
 
@@ -104,7 +104,7 @@ extras.uuid() -> string
 Returns a newly generated UUID as a string
 
 ~~~lua
-extras.version_compare(v1, v2) -> bool
+extras.versionCompare(v1, v2) -> bool
 ~~~
 Compare version strings and return `true` if v1 < v2, otherwise false.
 
@@ -153,7 +153,7 @@ extras._paths[]
 A table containing the resourcePath, the bundlePath, and the executablePath for the application.
 
 ~~~lua
-extras.applekeys[...]
+extras.appleKeys[...]
 ~~~
 Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again.
 
@@ -176,12 +176,12 @@ Table of key modifier maps for `hotkey.bind`. It's a 16 element table of keys co
 What fun if we ever differentiate between left, right, either, and both!
 
 ~~~lua
-extras.mt_tools[...]
+extras.mtTools[...]
 ~~~
-An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = extras.mt_tools })`
+An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = extras.mtTools })`
  Currently defined:
-     my_table:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
-     my_table:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
+     myTable:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
+     myTable:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
 
 ### License
 

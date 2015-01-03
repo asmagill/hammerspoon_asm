@@ -39,10 +39,10 @@ module.mods = {
 }
 
 
---- {PATH}.{MODULE}.applekeys[...]
+--- {PATH}.{MODULE}.appleKeys[...]
 --- Variable
 --- Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again.
-module.applekeys = {
+module.appleKeys = {
     ["escape"] = "⎋",               ["tab"] = "⇥",
     ["backtab"] = "⇤",              ["capslock"] = "⇪",
     ["shift"] = "⇧",                ["ctrl"] = "⌃",
@@ -65,10 +65,10 @@ module.applekeys = {
     ["padenter3"] = "↩",
 }
 
---- {PATH}.{MODULE}.hexdump(string [, count]) -> string
+--- {PATH}.{MODULE}.hexDump(string [, count]) -> string
 --- Function
---- Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `{PATH}.{MODULE}.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
-module.hexdump = function(stuff, linemax)
+--- Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `{PATH}.{MODULE}.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
+module.hexDump = function(stuff, linemax)
 	local ascii = ""
 	local count = 0
 	local linemax = tonumber(linemax) or 16
@@ -116,12 +116,12 @@ module.split = function(div,str)
     return arr
 end
 
---- {PATH}.{MODULE}.sorted_keys(table[ , function]) -> function
+--- {PATH}.{MODULE}.sortedKeys(table[ , function]) -> function
 --- Function
 --- Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.
 ---
---- Similar to Perl's sort(keys %hash).  Use like this: `for i,v in {PATH}.{MODULE}.sorted_keys(t[, f]) do ... end`
-module.sorted_keys = function(t, f)
+--- Similar to Perl's sort(keys %hash).  Use like this: `for i,v in {PATH}.{MODULE}.sortedKeys(t[, f]) do ... end`
+module.sortedKeys = function(t, f)
     if t then
         local a = {}
         for n in pairs(t) do table.insert(a, n) end
@@ -139,13 +139,13 @@ module.sorted_keys = function(t, f)
     end
 end
 
---- {PATH}.{MODULE}.mt_tools[...]
+--- {PATH}.{MODULE}.mtTools[...]
 --- Variable
---- An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = {PATH}.{MODULE}.mt_tools })`
+--- An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = {PATH}.{MODULE}.mtTools })`
 --- Currently defined:
----     my_table:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
----     my_table:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
-module.mt_tools = {
+---     myTable:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
+---     myTable:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
+module.mtTools = {
     get = function(self, key_path, default)
         local root = self
         for part in string.gmatch(key_path, "[%w_]+") do
@@ -175,10 +175,10 @@ module.mt_tools = {
     end
 }
 
---- {PATH}.{MODULE}.ascii_only(string[, all]) -> string
+--- {PATH}.{MODULE}.asciiOnly(string[, all]) -> string
 --- Function
 --- Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \x## so that it can be safely printed in the {TARGET} console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes.
-function module.ascii_only(theString, all)
+function module.asciiOnly(theString, all)
     local all = all or false
     if all then
         return (theString:gsub("[\x00-\x1f\x7f-\xff]",function(a)
@@ -237,7 +237,7 @@ module.restart = function()
     {BASE}._exit("What is this argument for?",true)
 end
 
---- {PATH}.{MODULE}.version_compare(v1, v2) -> bool
+--- {PATH}.{MODULE}.versionCompare(v1, v2) -> bool
 --- Function
 --- Compare version strings and return `true` if v1 < v2, otherwise false.
 ---
@@ -318,39 +318,3 @@ end
 -- Return Module Object --------------------------------------------------
 
 return module
-
---- {PATH}.{MODULE}.showabout()
---- Function
---- Displays the standard OS X about panel; implicitly focuses {TARGET}.
-
---- {PATH}.{MODULE}.fileexists(path) -> exists, isdir
---- Function
---- Checks if a file exists, and whether it's a directory.
-
---- {PATH}.{MODULE}._version
---- Variable
---- The current {TARGET} version as a string.
-
---- {PATH}.{MODULE}._paths[]
---- Variable
---- A table containing the resourcePath, the bundlePath, and the executablePath for the {TARGET} application.
-
---- {PATH}.{MODULE}.uuid() -> string
---- Function
---- Returns a newly generated UUID as a string
-
---- {PATH}.{MODULE}.accessibility(shouldprompt) -> isenabled
---- Function
---- Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
-
---- {PATH}.{MODULE}.autolaunch([arg]) -> bool
---- Function
----  When argument is absent or not a boolean value, this function returns true or false indicating whether or not {TARGET} is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status.
-
---- {PATH}.{MODULE}.nslog(luavalue)
---- Function
---- Send a representation of the lua value passed in to the Console application via NSLog.
-
---- {PATH}.{MODULE}.userdata_tostring(userdata) -> string
---- Function
---- Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with {PATH}.{MODULE}.hexdump for debugging to see what parts of the structure are actually getting set, etc.

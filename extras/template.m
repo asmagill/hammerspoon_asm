@@ -1,18 +1,18 @@
 #import <Cocoa/Cocoa.h>
 #import <lauxlib.h>
 
-// {PATH}.{MODULE}.showabout()
-// Function
-// Displays the standard OS X about panel; implicitly focuses {TARGET}.
+/// {PATH}.{MODULE}.showAbout()
+/// Function
+/// Displays the standard OS X about panel; implicitly focuses {TARGET}.
 static int showabout(lua_State* __unused L) {
     [NSApp activateIgnoringOtherApps:YES];
     [NSApp orderFrontStandardAboutPanel:nil];
     return 0;
 }
 
-// {PATH}.{MODULE}.fileexists(path) -> exists, isdir
-// Function
-// Checks if a file exists, and whether it's a directory.
+/// {PATH}.{MODULE}.fileExists(path) -> exists, isdir
+/// Function
+/// Checks if a file exists, and whether it's a directory.
 static int fileexists(lua_State* L) {
     NSString* path = [NSString stringWithUTF8String:luaL_checkstring(L, 1)];
 
@@ -24,20 +24,18 @@ static int fileexists(lua_State* L) {
     return 2;
 }
 
-// {PATH}.{MODULE}._version
-// Variable
-// The current {TARGET} version as a string.
+/// {PATH}.{MODULE}._version
+/// Variable
+/// The current {TARGET} version as a string.
 static int version(lua_State* L) {
     NSString* ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"];
     lua_pushstring(L, [ver UTF8String]);
     return 1;
 }
 
-
-// {PATH}.{MODULE}._paths[]
-// Variable
-// A table containing the resourcePath, the bundlePath, and the executablePath for the {TARGET} application.
-
+/// {PATH}.{MODULE}._paths[]
+/// Variable
+/// A table containing the resourcePath, the bundlePath, and the executablePath for the {TARGET} application.
 static int paths(lua_State* L) {
     lua_newtable(L) ;
         lua_pushstring(L, [[[NSBundle mainBundle] resourcePath] fileSystemRepresentation]);
@@ -50,17 +48,17 @@ static int paths(lua_State* L) {
     return 1;
 }
 
-// {PATH}.{MODULE}.uuid() -> string
-// Function
-// Returns a newly generated UUID as a string
+/// {PATH}.{MODULE}.uuid() -> string
+/// Function
+/// Returns a newly generated UUID as a string
 static int uuid(lua_State* L) {
     lua_pushstring(L, [[[NSUUID UUID] UUIDString] UTF8String]);
     return 1;
 }
 
-// {PATH}.{MODULE}.accessibility(shouldprompt) -> isenabled
-// Function
-// Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
+/// {PATH}.{MODULE}.accessibility(shouldprompt) -> isenabled
+/// Function
+/// Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
 static int accessibility(lua_State* L) {
     extern BOOL MJAccessibilityIsEnabled(void);
     extern void MJAccessibilityOpenPanel(void);
@@ -72,9 +70,9 @@ static int accessibility(lua_State* L) {
     return 1;
 }
 
-// {PATH}.{MODULE}.autolaunch([arg]) -> bool
-// Function
-//  When argument is absent or not a boolean value, this function returns true or false indicating whether or not {TARGET} is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status.
+/// {PATH}.{MODULE}.autoLaunch([arg]) -> bool
+/// Function
+///  When argument is absent or not a boolean value, this function returns true or false indicating whether or not {TARGET} is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status.
 static int autolaunch(lua_State* L) {
     extern BOOL MJAutoLaunchGet(void);
     extern void MJAutoLaunchSet(BOOL opensAtLogin);
@@ -204,18 +202,18 @@ static id lua_to_NSObject(lua_State* L, int idx) {
 //     }
 // }
 
-// {PATH}.{MODULE}.nslog(luavalue)
-// Function
-// Send a representation of the lua value passed in to the Console application via NSLog.
+/// {PATH}.{MODULE}.NSLog(luavalue)
+/// Function
+/// Send a representation of the lua value passed in to the Console application via NSLog.
 static int extras_nslog(lua_State* L) {
     id val = lua_to_NSObject(L, 1);
     NSLog(@"%@", val);
     return 0;
 }
 
-// {PATH}.{MODULE}.userdata_tostring(userdata) -> string
-// Function
-// Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with {PATH}.{MODULE}.hexdump for debugging to see what parts of the structure are actually getting set, etc.
+/// {PATH}.{MODULE}.userDataToString(userdata) -> string
+/// Function
+/// Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with {PATH}.{MODULE}.hexdump for debugging to see what parts of the structure are actually getting set, etc.
 static int ud_tostring (lua_State *L) {
     void *data = lua_touserdata(L,1);
     int sz;
@@ -230,15 +228,30 @@ static int ud_tostring (lua_State *L) {
     }
 }
 
+/// {PATH}.{MODULE}.listFonts() -> table
+/// Function
+/// Returns the names of the installed fonts for this system.
+static int listFonts(lua_State *L) {
+    NSArray *fontNames = [[NSFontManager sharedFontManager] availableFonts];
+
+    lua_newtable(L) ;
+    for (unsigned long indFont=0; indFont<[fontNames count]; ++indFont)
+    {
+        lua_pushstring(L, [[fontNames objectAtIndex:indFont] UTF8String]) ; lua_rawseti(L, -2, indFont + 1);
+    }
+    return 1 ;
+}
+
 static const luaL_Reg {MODULE}Lib[] = {
-    { "showabout",      showabout },
-    { "fileexists",     fileexists },
-    { "uuid",           uuid },
-    { "accessibility",  accessibility },
-    { "autolaunch",     autolaunch },
-    {"nslog",           extras_nslog },
-    {"ud_tostring",     ud_tostring},
-    {NULL,              NULL}
+    {"showAbout",           showabout },
+    {"fileExists",          fileexists },
+    {"uuid",                uuid },
+    {"accessibility",       accessibility },
+    {"autoLaunch",          autolaunch },
+    {"NSLog",               extras_nslog },
+    {"userDataToString",    ud_tostring},
+    {"listFonts",           listFonts},
+    {NULL,                  NULL}
 };
 
 int luaopen_{F_PATH}_{MODULE}_internal(lua_State* L) {

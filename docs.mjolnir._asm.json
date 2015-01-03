@@ -26,14 +26,14 @@
     ""
   ],
   [
-    "mjolnir._asm.extras.applekeys[...]",
+    "mjolnir._asm.extras.appleKeys[...]",
     "Variable",
     "Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again."
   ],
   [
-    "mjolnir._asm.extras.hexdump(string [, count]) -> string",
+    "mjolnir._asm.extras.hexDump(string [, count]) -> string",
     "Function",
-    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
+    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
   ],
   [
     "mjolnir._asm.extras.split(div, string) -> { ... }",
@@ -41,22 +41,22 @@
     "Convert string to an array of strings, breaking at the specified divider(s), similar to \"split\" in Perl."
   ],
   [
-    "mjolnir._asm.extras.sorted_keys(table[ , function]) -> function",
+    "mjolnir._asm.extras.sortedKeys(table[ , function]) -> function",
     "Function",
     "Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.",
     "",
-    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sorted_keys(t[, f]) do ... end`"
+    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sortedKeys(t[, f]) do ... end`"
   ],
   [
-    "mjolnir._asm.extras.mt_tools[...]",
+    "mjolnir._asm.extras.mtTools[...]",
     "Variable",
-    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = mjolnir._asm.extras.mt_tools })`",
+    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = mjolnir._asm.extras.mtTools })`",
     "Currently defined:",
-    "    my_table:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
-    "    my_table:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
+    "    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+    "    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
   ],
   [
-    "mjolnir._asm.extras.ascii_only(string[, all]) -> string",
+    "mjolnir._asm.extras.asciiOnly(string[, all]) -> string",
     "Function",
     "Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \\x## so that it can be safely printed in the Mjolnir console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes."
   ],
@@ -83,7 +83,7 @@
     "Completely restart Mjolnir by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of Mjolnir  is 2 seconds, but you can adjust this by using the `settings` module to set \"_asm.sleepCount\" to your desired wait time."
   ],
   [
-    "mjolnir._asm.extras.version_compare(v1, v2) -> bool",
+    "mjolnir._asm.extras.versionCompare(v1, v2) -> bool",
     "Function",
     "Compare version strings and return `true` if v1 < v2, otherwise false.",
     "",
@@ -118,12 +118,12 @@
     "    others?"
   ],
   [
-    "mjolnir._asm.extras.showabout()",
+    "mjolnir._asm.extras.showAbout()",
     "Function",
     "Displays the standard OS X about panel; implicitly focuses Mjolnir."
   ],
   [
-    "mjolnir._asm.extras.fileexists(path) -> exists, isdir",
+    "mjolnir._asm.extras.fileExists(path) -> exists, isdir",
     "Function",
     "Checks if a file exists, and whether it's a directory."
   ],
@@ -148,19 +148,24 @@
     "Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it."
   ],
   [
-    "mjolnir._asm.extras.autolaunch([arg]) -> bool",
+    "mjolnir._asm.extras.autoLaunch([arg]) -> bool",
     "Function",
     " When argument is absent or not a boolean value, this function returns true or false indicating whether or not Mjolnir is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status."
   ],
   [
-    "mjolnir._asm.extras.nslog(luavalue)",
+    "mjolnir._asm.extras.NSLog(luavalue)",
     "Function",
     "Send a representation of the lua value passed in to the Console application via NSLog."
   ],
   [
-    "mjolnir._asm.extras.userdata_tostring(userdata) -> string",
+    "mjolnir._asm.extras.userDataToString(userdata) -> string",
     "Function",
     "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with mjolnir._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
+  ],
+  [
+    "mjolnir._asm.extras.listFonts() -> table",
+    "Function",
+    "Returns the names of the installed fonts for this system."
   ],
   [
     "=== mjolnir._asm.extras ===",
@@ -189,14 +194,14 @@
     ""
   ],
   [
-    "mjolnir._asm.extras.applekeys[...]",
+    "mjolnir._asm.extras.appleKeys[...]",
     "Variable",
     "Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again."
   ],
   [
-    "mjolnir._asm.extras.hexdump(string [, count]) -> string",
+    "mjolnir._asm.extras.hexDump(string [, count]) -> string",
     "Function",
-    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.ud_tostring` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
+    "Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `mjolnir._asm.extras.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted."
   ],
   [
     "mjolnir._asm.extras.split(div, string) -> { ... }",
@@ -204,22 +209,22 @@
     "Convert string to an array of strings, breaking at the specified divider(s), similar to \"split\" in Perl."
   ],
   [
-    "mjolnir._asm.extras.sorted_keys(table[ , function]) -> function",
+    "mjolnir._asm.extras.sortedKeys(table[ , function]) -> function",
     "Function",
     "Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.",
     "",
-    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sorted_keys(t[, f]) do ... end`"
+    "Similar to Perl's sort(keys %hash).  Use like this: `for i,v in mjolnir._asm.extras.sortedKeys(t[, f]) do ... end`"
   ],
   [
-    "mjolnir._asm.extras.mt_tools[...]",
+    "mjolnir._asm.extras.mtTools[...]",
     "Variable",
-    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(my_table, { __index = mjolnir._asm.extras.mt_tools })`",
+    "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = mjolnir._asm.extras.mtTools })`",
     "Currently defined:",
-    "    my_table:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
-    "    my_table:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
+    "    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+    "    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
   ],
   [
-    "mjolnir._asm.extras.ascii_only(string[, all]) -> string",
+    "mjolnir._asm.extras.asciiOnly(string[, all]) -> string",
     "Function",
     "Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \\x## so that it can be safely printed in the Mjolnir console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes."
   ],
@@ -246,7 +251,7 @@
     "Completely restart Mjolnir by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of Mjolnir  is 2 seconds, but you can adjust this by using the `settings` module to set \"_asm.sleepCount\" to your desired wait time."
   ],
   [
-    "mjolnir._asm.extras.version_compare(v1, v2) -> bool",
+    "mjolnir._asm.extras.versionCompare(v1, v2) -> bool",
     "Function",
     "Compare version strings and return `true` if v1 < v2, otherwise false.",
     "",
@@ -281,12 +286,12 @@
     "    others?"
   ],
   [
-    "mjolnir._asm.extras.showabout()",
+    "mjolnir._asm.extras.showAbout()",
     "Function",
     "Displays the standard OS X about panel; implicitly focuses Mjolnir."
   ],
   [
-    "mjolnir._asm.extras.fileexists(path) -> exists, isdir",
+    "mjolnir._asm.extras.fileExists(path) -> exists, isdir",
     "Function",
     "Checks if a file exists, and whether it's a directory."
   ],
@@ -311,18 +316,23 @@
     "Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it."
   ],
   [
-    "mjolnir._asm.extras.autolaunch([arg]) -> bool",
+    "mjolnir._asm.extras.autoLaunch([arg]) -> bool",
     "Function",
     " When argument is absent or not a boolean value, this function returns true or false indicating whether or not Mjolnir is set to launch when you first log in.  When a boolean argument is provided, it's true or false value is used to set the auto-launch status."
   ],
   [
-    "mjolnir._asm.extras.nslog(luavalue)",
+    "mjolnir._asm.extras.NSLog(luavalue)",
     "Function",
     "Send a representation of the lua value passed in to the Console application via NSLog."
   ],
   [
-    "mjolnir._asm.extras.userdata_tostring(userdata) -> string",
+    "mjolnir._asm.extras.userDataToString(userdata) -> string",
     "Function",
     "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with mjolnir._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
+  ],
+  [
+    "mjolnir._asm.extras.listFonts() -> table",
+    "Function",
+    "Returns the names of the installed fonts for this system."
   ]
 ]
