@@ -235,6 +235,9 @@ module.restart = function()
     sleepCount = ((mjolnir and require("mjolnir._asm.settings")) or (hs and require("hs.settings"))).get("_asm.restartSleep") or 2
     os.execute("(sleep "..sleepCount.." ; open -a "..module._paths.bundlePath..") &")
     {BASE}._exit("What is this argument for?",true)
+-- Oh... from the lua docs... os.exit ([code [, close]):
+-- Calls the ANSI C function exit to terminate the host program. If code is true, the returned status is EXIT_SUCCESS; if code is false, the returned status is EXIT_FAILURE; if code is a number, the returned status is this number. The default value for code is true.
+-- If the optional second argument close is true, closes the Lua state before exiting.
 end
 
 --- {PATH}.{MODULE}.versionCompare(v1, v2) -> bool
