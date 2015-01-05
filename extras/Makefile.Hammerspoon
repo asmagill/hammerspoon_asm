@@ -1,9 +1,9 @@
-MODULE = {MODULE}
-PREFIX ?= {PREFIX}
+MODULE = extras
+PREFIX ?= ~/.hammerspoon/hs/_asm
 
 OBJCFILE = internal.m
 LUAFILE  = init.lua
-SOFILE  := {SOFILE}
+SOFILE  := internal-extras.so
 DEBUG_CFLAGS ?= -g
 
 CC=clang
