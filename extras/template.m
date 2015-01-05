@@ -357,7 +357,7 @@ static const luaL_Reg {MODULE}Lib[] = {
     {NULL,                  NULL}
 };
 
-int luaopen_{F_PATH}_{MODULE}_internal(lua_State* L) {
+int luaopen_{MODULE}(lua_State* L) {
     luaL_newlib(L, {MODULE}Lib);
         version(L) ;
         lua_setfield(L, -2, "_version") ;

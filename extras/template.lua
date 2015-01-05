@@ -4,7 +4,7 @@
 ---
 --- I include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions/tools become real.
 
-local module = require("{PATH}.{MODULE}.internal")
+local module = require("{PATH}.{MODULE}.internal-{MODULE}")
 
 -- private variables and methods -----------------------------------------
 
