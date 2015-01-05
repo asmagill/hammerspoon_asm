@@ -242,6 +242,108 @@ static int listFonts(lua_State *L) {
     return 1 ;
 }
 
+// // // // // BEGIN: hs.application candidate
+
+// // Turning into more of a AXUIElement browser... how does this affect plans for uielement?
+// // Must ponder and maybe ask, once the code to retrieve all attributes is added...
+
+// // May eventually go into hs.application with the rest of menu commands... Or not... but
+// // isolate relevant code for simplicity later
+
+#define get_app(L, idx) *((AXUIElementRef*)luaL_checkudata(L, idx, "hs.application"))
+
+// // use "open -th AXError" to get reference for AXError numbers... too cumbersome and
+// // (hopefully) unlikely/unimportant to bother dereferencing within HS...
+
+// // Indent titles in log to get a sense of hierarchy
+// static int depth = -1 ;
+
+// Internal helper function for getMenuArray
+static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef menuItem) {
+
+// depth++ ; // NSLog(@"Another recursion") ;
+
+    CFTypeRef cf_title ; NSString* title ;
+    AXError error = AXUIElementCopyAttributeValue(menuItem, kAXTitleAttribute, &cf_title);
+    if (error == kAXErrorAttributeUnsupported) {
+        title = @"-- title unsupported --" ; // Special case, mostly for wrapper objects
+    } else if (error) {
+        NSLog(@"AXTitleAttribute Error: AXError %d", error) ;
+        title = [NSString stringWithFormat:@"-- title error: AXError %d --", error] ;
+    } else {
+        title = (__bridge_transfer NSString *)cf_title;
+    }
+    lua_pushstring(L, [title UTF8String]) ; lua_setfield(L, -2, "title") ;
+
+    CFIndex count = -1;
+    error = AXUIElementGetAttributeValueCount(menuItem, kAXChildrenAttribute, &count);
+    if (error) {
+        NSLog(@"Unable to get children count for %@: AXError %d", title, error) ;
+        lua_pushfstring(L, "unable to get child count: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+        count = -1 ; // just to make sure it didn't get some funky value
+    }
+
+// NSLog(@"%*sTitle: %@ (%ld)", depth * 2, "", title, count) ;
+
+    if (count > 0) {
+        CFArrayRef cf_children;
+        error = AXUIElementCopyAttributeValues(menuItem, kAXChildrenAttribute, 0, count, &cf_children);
+        if (error) {
+            NSLog(@"Unable to get children for %@: AXError %d", title, error) ;
+            lua_pushfstring(L, "unable to get children: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+        } else {
+            NSMutableArray *toCheck = [[NSMutableArray alloc] init];
+            [toCheck addObjectsFromArray:(__bridge NSArray *)cf_children];
+
+            lua_newtable(L) ;
+            for(unsigned int i = 0 ; i < [toCheck count] ; i++) {
+                AXUIElementRef element = (__bridge AXUIElementRef)[toCheck objectAtIndex: i] ;
+                lua_newtable(L) ;
+                _buildMenuArray(L, app, element) ;
+                lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                CFRelease(element) ;
+            }
+            lua_setfield(L, -2, "items") ;
+        }
+    } else if (count == 0) {
+        CFTypeRef enabled; error = AXUIElementCopyAttributeValue(menuItem, kAXEnabledAttribute, &enabled);
+        if (error) { NSLog(@"AXEnabled Error for %@: AXError %d", title, error) ; }
+        lua_pushboolean(L, [(__bridge NSNumber *)enabled boolValue]); lua_setfield(L, -2, "enabled");
+
+        CFTypeRef markchar; error = AXUIElementCopyAttributeValue(menuItem, kAXMenuItemMarkCharAttribute, &markchar);
+        if (error && error != kAXErrorNoValue) { NSLog(@"AXMenuItemMarkCharAttribute Error for %@: AXError %d", title, error) ; }
+        BOOL marked; if (error == kAXErrorNoValue) { marked = false; } else { marked = true; }
+        lua_pushboolean(L, marked); lua_setfield(L, -2, "marked");
+    }
+
+// depth-- ;
+
+    return ;
+}
+
+/// {PATH}.{MODULE}.getMenuArray(application) -> array
+/// Function
+/// Returns an array containing the menu items for the specified application.
+static int getMenuArray(lua_State *L) {
+
+// depth = -1 ;
+
+    AXUIElementRef app = get_app(L, 1);
+    AXUIElementRef menuBar ;
+    AXError error = AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute, (CFTypeRef *)&menuBar) ;
+    if (error) {
+        NSLog(@"Unable to retrieve menuBar object: AXError %d", error) ;
+        return luaL_error(L, "Unable to retrieve menuBar object: AXError %d", error) ;
+    }
+    lua_settop(L, 0) ;
+    lua_newtable(L) ;
+    _buildMenuArray(L, app, menuBar) ;
+    CFRelease(menuBar) ;
+    return 1 ;
+}
+
+// // // // // END: hs.application candidate
+
 static const luaL_Reg {MODULE}Lib[] = {
     {"showAbout",           showabout },
     {"fileExists",          fileexists },
@@ -251,6 +353,7 @@ static const luaL_Reg {MODULE}Lib[] = {
     {"NSLog",               extras_nslog },
     {"userDataToString",    ud_tostring},
     {"listFonts",           listFonts},
+    {"getMenuArray",        getMenuArray},
     {NULL,                  NULL}
 };
 

@@ -168,6 +168,11 @@
     "Returns the names of the installed fonts for this system."
   ],
   [
+    "hs._asm.extras.getMenuArray(application) -> array",
+    "Function",
+    "Returns an array containing the menu items for the specified application."
+  ],
+  [
     "=== hs._asm.extras ===",
     "",
     "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.",
@@ -334,5 +339,10 @@
     "hs._asm.extras.listFonts() -> table",
     "Function",
     "Returns the names of the installed fonts for this system."
+  ],
+  [
+    "hs._asm.extras.getMenuArray(application) -> array",
+    "Function",
+    "Returns an array containing the menu items for the specified application."
   ]
 ]
