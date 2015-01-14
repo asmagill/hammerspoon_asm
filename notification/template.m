@@ -73,7 +73,7 @@ typedef struct _notification_t {
 @implementation ourNotificationManager
 
 + (ourNotificationManager*) sharedManagerForLua:(lua_State*)L {
-NSLog(@"sharedManagerForLua") ;
+//NSLog(@"sharedManagerForLua") ;
 //    static ourNotificationManager* sharedManager;
     if (!sharedManager) {
         sharedManager = [[ourNotificationManager alloc] init];
@@ -85,12 +85,12 @@ NSLog(@"sharedManagerForLua") ;
 }
 
 - (void) sendNotification:(NSUserNotification*)note {
-NSLog(@"sendNotification") ;
+//NSLog(@"sendNotification") ;
     [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification: note];
 }
 
 - (void) releaseNotification:(NSUserNotification*)note {
-NSLog(@"releaseNotification") ;
+//NSLog(@"releaseNotification") ;
     NSNumber* value = [[note userInfo] objectForKey:@"handler"];
     if (value) {
         [self.activeCallbacks removeObjectForKey:[[note userInfo] objectForKey:@"handler"]];
@@ -101,7 +101,7 @@ NSLog(@"releaseNotification") ;
 }
 
 - (void) withdrawNotification:(NSUserNotification*)note {
-NSLog(@"releaseNotification") ;
+//NSLog(@"withdrawNotification") ;
     [[NSUserNotificationCenter defaultUserNotificationCenter] removeDeliveredNotification: note];
 //    [[NSUserNotificationCenter defaultUserNotificationCenter] removeScheduledNotification: note];
 }
@@ -109,10 +109,11 @@ NSLog(@"releaseNotification") ;
 // Notification delivered to Notification Center
 - (void)userNotificationCenter:(NSUserNotificationCenter __unused *)center
     didDeliverNotification:(NSUserNotification *)notification {
-NSLog(@"didDeliverNotification") ;
+//NSLog(@"didDeliverNotification") ;
         NSNumber* value = [[notification userInfo] objectForKey:@"handler"];
         if (value) {
             [self.activeCallbacks setObject:@1 forKey:value];
+//NSLog(@"uservalue = %@", value) ;
             int myHandle = [value intValue];
             lua_State* L = self.L;
             lua_rawgeti(L, LUA_REGISTRYINDEX, (int)myHandle);
@@ -133,32 +134,37 @@ NSLog(@"didDeliverNotification") ;
 // User clicked on notification...
 - (void)userNotificationCenter:(NSUserNotificationCenter *)center
     didActivateNotification:(NSUserNotification *)notification {
-NSLog(@"didActivateNotification") ;
+//NSLog(@"didActivateNotification") ;
         NSNumber* value = [[notification userInfo] objectForKey:@"handler"];
         if (value) {
             if ([self.activeCallbacks objectForKey:value]) {
                 if (value) {
+//NSLog(@"uservalue = %@", value) ;
                     int myHandle = [value intValue];
                     lua_State* L = self.L;
-                    lua_rawgeti(L, LUA_REGISTRYINDEX, (int)myHandle);
-                    notification_t* thisNote = lua_touserdata(L, -1);
-                    thisNote->note = nil ;
-                    thisNote->note = (__bridge_retained void *) [notification copy];
-                    if (thisNote->autoWithdraw) {
-                        [[NSUserNotificationCenter defaultUserNotificationCenter] removeDeliveredNotification: notification];
-                    }
-                    if (thisNote) {
-                        lua_getglobal(L, "debug"); lua_getfield(L, -1, "traceback"); lua_remove(L, -2);
-                        lua_rawgeti(L, LUA_REGISTRYINDEX, thisNote->fn);
-                        lua_pushvalue(L, -3);
-                        if (lua_pcall(L, 1, 0, -3) != 0) {
-                            NSLog(@"%s", lua_tostring(L, -1));
-                            lua_getglobal(L, "hs"); lua_getfield(L, -1, "showerror"); lua_remove(L, -2);
-                            lua_pushvalue(L, -2);
-                            lua_pcall(L, 1, 0, 0);
+                    if (L && (lua_status(L) == LUA_OK)) {
+                        lua_rawgeti(L, LUA_REGISTRYINDEX, (int)myHandle);
+                        notification_t* thisNote = lua_touserdata(L, -1);
+                        thisNote->note = nil ;
+                        thisNote->note = (__bridge_retained void *) [notification copy];
+                        if (thisNote->autoWithdraw) {
+                            [[NSUserNotificationCenter defaultUserNotificationCenter] removeDeliveredNotification: notification];
+                        }
+                        if (thisNote) {
+                            lua_getglobal(L, "debug"); lua_getfield(L, -1, "traceback"); lua_remove(L, -2);
+                            lua_rawgeti(L, LUA_REGISTRYINDEX, thisNote->fn);
+                            lua_pushvalue(L, -3);
+                            if (lua_pcall(L, 1, 0, -3) != 0) {
+                                NSLog(@"%s", lua_tostring(L, -1));
+                                lua_getglobal(L, "hs"); lua_getfield(L, -1, "showerror"); lua_remove(L, -2);
+                                lua_pushvalue(L, -2);
+                                lua_pcall(L, 1, 0, 0);
+                            }
+                        } else {
+                            NSLog(@"didActivateNotification: userdata NULL");
                         }
                     } else {
-                        NSLog(@"didActivateNotification: userdata NULL");
+                        NSLog(@"undefined lua_State -- ours went away, didn't it?") ;
                     }
                 }
             } else {
@@ -173,10 +179,10 @@ NSLog(@"didActivateNotification") ;
 // Should notification show, even if we're the foremost application?
 - (BOOL)userNotificationCenter:(NSUserNotificationCenter __unused *)center
     shouldPresentNotification:(NSUserNotification *)notification {
-NSLog(@"shouldPresentNotification") ;
+//NSLog(@"shouldPresentNotification") ;
         NSNumber* value = [[notification userInfo] objectForKey:@"handler"];
         if (value) {
-            [self.activeCallbacks setObject:@1 forKey:value];
+//NSLog(@"uservalue = %@", value) ;
             int myHandle = [value intValue];
             lua_State* L = self.L;
             lua_rawgeti(L, LUA_REGISTRYINDEX, (int)myHandle);
@@ -187,19 +193,14 @@ NSLog(@"shouldPresentNotification") ;
             if (thisNote) {
                 return thisNote->alwaysPresent;
             } else {
-                NSLog(@"didDeliverNotification: userdata NULL");
+                NSLog(@"shouldPresentNotification: userdata NULL");
                return YES;
             }
         } else {
-            NSLog(@"didDeliverNotification: no tagged handler -- not ours?");
+            NSLog(@"shouldPresentNotification: no tagged handler -- not ours?");
            return YES;
         }
     }
-
--(void)dealloc {
-    if (sharedManager) { sharedManager = nil ; }
-//    [super dealloc];  // Not with ARC enabled
-}
 @end
 
 //// End of new delegate code
@@ -592,9 +593,6 @@ int luaopen_{F_PATH}_{MODULE}_internal(lua_State* L) {
     return 1;
 }
 
-// n = require("hs._asm.notification") ; f = function(obj) print(obj:presented(), obj:remote(), os.date("%c",obj:actualDeliveryDate()), n.activationType[obj:activationType()]) end ; a = n.new(f)
+// n = require("hs._asm.notification") ; f = function(obj) print(obj:presented(), obj:remote(), os.date("%c",obj:actualDeliveryDate()), n.activationType[obj:activationType()]) end ; a = n.new(f,{title="1"}) ; b = n.new(f,{title="2"}) ; c = n.new(f,{title="3"})
 
-// Two arrays?
-// clean up
-// why is presented sometimes false?
 // Proper documentation

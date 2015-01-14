@@ -8,17 +8,6 @@ local module = require("{PATH}.{MODULE}.internal")
 
 -- private variables and methods -----------------------------------------
 
-local function callback(tag)
-  for k, v in pairs(module.registry) do
-    if k ~= "n" and v ~= nil then
-      local fntag, fn = v[1], v[2]
-      if tag == fntag then
-        fn()
-      end
-    end
-  end
-end
-
 local protected_functions = {
     show = true,
     release = true,
@@ -29,7 +18,7 @@ local protected_functions = {
 
 -- Public interface ------------------------------------------------------
 
---- {PATH}.{MODULE}.notification.new([fn,][attributes]) -> notification
+--- {PATH}.{MODULE}.new([fn,][attributes]) -> notification
 --- Constructor
 --- Returns a new notification object with the assigned callback function after applying the attributes specified in the attributes argument.  The attribute table can contain one or more key-value pairs where the key corrosponds to the short name of a notification attribute method.  The callback function receives as it's argument the notification object. Note that a notification with an empty title will not be delivered.
 ---
@@ -38,7 +27,7 @@ local protected_functions = {
 ---     informativeText     soundName
 ---     alwaysPresent       autoWithdraw
 ---
---- Note that the following attributes only affect notifications if the user has set the Hammerspoon/Mjolnir notification type to "Alert" in the Notification Center System Preferences pane.
+--- Note that the following attributes only affect notifications if the user has set the Application notification type to "Alert" in the Notification Center System Preferences pane.
 ---     actionButtonTitle   otherButtonTitle
 ---     hasActionButton
 module.new = function(fn, attributes)
@@ -58,7 +47,20 @@ module.new = function(fn, attributes)
     return note
 end
 
---- {PATH}.{MODULE}.notification.show(title, subtitle, information, tag) -> notfication
+-------- What follows is to mimic hs.notify and actually could replace it if this module is added to core as something else.
+
+local function callback(tag)
+  for k, v in pairs(module.registry) do
+    if k ~= "n" and v ~= nil then
+      local fntag, fn = v[1], v[2]
+      if tag == fntag then
+        fn()
+      end
+    end
+  end
+end
+
+--- {PATH}.{MODULE}.show(title, subtitle, information, tag) -> notfication
 --- Constructor
 --- This function and it's supporting functions are deprecated and are provided only for convenience in migrating from Mjolnir or Hydra.  You are encouraged to use the `{PATH}.{MODULE}.notification.new` function instead.
 ---
@@ -66,7 +68,7 @@ end
 module.show = function(title, subtitle, information, tag)
     if type(title) ~= "string" or type(subtitle) ~= "string" or
         type(information) ~= "string" or type(tag) ~= "string" then
-        error("All four arguments to show must be present and must be strings.",2)
+        error("All four arguments to {PATH}.{MODULE}.show must be present and must be strings.",2)
         return nil
     else
         return module.new(function(note)
@@ -80,13 +82,13 @@ module.show = function(title, subtitle, information, tag)
     end
 end
 
---- {PATH}.{MODULE}.notification.registry[]
+--- {PATH}.{MODULE}.registry[]
 --- Variable
---- This table contains the list of registered tags and their functions.  It should not be modified directly, but instead by the mjolnir._asm.notify.register(tag, fn) and mjolnir._asm.notify.unregister(id) functions.
+--- This table contains the list of registered tags and their functions.  It should not be modified directly, but instead by the {PATH}.{MODULE}.register(tag, fn) and {PATH}.{MODULE}.unregister(id) functions.
 module.registry = {}
 module.registry.n = 0
 
---- {PATH}.{MODULE}.notification.register(tag, fn) -> id
+--- {PATH}.{MODULE}.register(tag, fn) -> id
 --- Function
 --- Registers a function to be called when an Apple notification with the given tag is clicked.
 module.register = function(tag, fn)
@@ -96,7 +98,7 @@ module.register = function(tag, fn)
   return id
 end
 
---- {PATH}.{MODULE}.notification.unregister(id)
+--- {PATH}.{MODULE}.unregister(id)
 --- Function
 --- Unregisters a function to no longer be called when an Apple notification with the given tag is clicked.  Note that this uses the `id` returned by `{PATH}.{MODULE}.notification.register`.
 module.unregister = function(id)
