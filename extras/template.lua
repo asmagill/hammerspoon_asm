@@ -180,14 +180,18 @@ module.mtTools = {
 --- Returns the provided string with all non-printable ascii characters (except for Return, Linefeed, and Tab unless `all` is provided and is true) escaped as \x## so that it can be safely printed in the {TARGET} console, rather than result in an uninformative '(null)'.  Note that this will break up Unicode characters into their individual bytes.
 function module.asciiOnly(theString, all)
     local all = all or false
-    if all then
-        return (theString:gsub("[\x00-\x1f\x7f-\xff]",function(a)
-                return string.format("\\x%02X",string.byte(a))
-            end))
+    if type(theString) == "string" then
+        if all then
+            return (theString:gsub("[\x00-\x1f\x7f-\xff]",function(a)
+                    return string.format("\\x%02X",string.byte(a))
+                end))
+        else
+            return (theString:gsub("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]",function(a)
+                    return string.format("\\x%02X",string.byte(a))
+                end))
+        end
     else
-        return (theString:gsub("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]",function(a)
-                return string.format("\\x%02X",string.byte(a))
-            end))
+        error("string expected", 2) ;
     end
 end
 

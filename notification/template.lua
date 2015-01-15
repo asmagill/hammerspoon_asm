@@ -1,4 +1,4 @@
---- === {PATH}.{MODULE}.notification ===
+--- === {PATH}.{MODULE} ===
 ---
 --- Apple's built-in notifications system.
 ---
@@ -47,7 +47,7 @@ module.new = function(fn, attributes)
     return note
 end
 
--------- What follows is to mimic hs.notify and actually could replace it if this module is added to core as something else.
+-- ------ What follows is to mimic hs.notify and actually could replace it if this module is added to core as something else.
 
 local function callback(tag)
   for k, v in pairs(module.registry) do

@@ -5,7 +5,7 @@
 
 // Common Code
 
-#define USERDATA_TAG    "{PATH}.{MODULE}.notification"
+#define USERDATA_TAG    "{PATH}.{MODULE}"
 
 static int store_udhandler(lua_State* L, NSMutableIndexSet* theHandler, int idx) {
     lua_pushvalue(L, idx);
@@ -28,7 +28,7 @@ static void remove_udhandler(lua_State* L, NSMutableIndexSet* theHandler, int x)
 
 static NSMutableIndexSet* notificationHandlers;
 
-//// Hammerspoon's notification interface (from MJUserNotificationManager.h and MJUserNotificationUser.m)
+// // Hammerspoon's notification interface (from MJUserNotificationManager.h and MJUserNotificationUser.m)
 
 @interface MJUserNotificationManager : NSObject
 + (MJUserNotificationManager*) sharedManager;
@@ -39,9 +39,9 @@ static NSMutableIndexSet* notificationHandlers;
 @property NSMutableDictionary* callbacks;
 @end
 
-//// New Delegate for notifications
+// // New Delegate for notifications
 
-//// our delegate header
+// // our delegate header
 
 @interface ourNotificationManager : NSObject
 + (ourNotificationManager*) sharedManagerForLua:(lua_State*)L;
@@ -51,7 +51,7 @@ static NSMutableIndexSet* notificationHandlers;
 - (void) withdrawNotification:(NSUserNotification*)note;
 @end
 
-//// our delegate code
+// // our delegate code
 
 @interface ourNotificationManager () <NSUserNotificationCenterDelegate>
 @property (retain) NSMutableDictionary* activeCallbacks;
@@ -203,7 +203,7 @@ typedef struct _notification_t {
     }
 @end
 
-//// End of new delegate code
+// // End of new delegate code
 
 static int notification_delegate_setup(lua_State* L) {
     // Get and store old (core app) delegate.  If it hasn't been setup yet, do so.
@@ -220,9 +220,9 @@ static int notification_delegate_setup(lua_State* L) {
     return 0;
 }
 
-//// Module Lua Interface ////
+// // Module Lua Interface // //
 
-/// {PATH}.{MODULE}.notification.withdraw_all()
+/// {PATH}.{MODULE}.withdraw_all()
 /// Function
 /// Withdraw all posted notifications for Hammerspoon.  Note that this will withdraw all notifications for Hammerspoon, including those not sent by us or that linger from previous loads of Hammerspoon.
 static int notification_withdraw_all(lua_State* __unused L) {
@@ -230,7 +230,7 @@ static int notification_withdraw_all(lua_State* __unused L) {
     return 0;
 }
 
-// {PATH}.{MODULE}.notification._new(fn) -> notification
+// {PATH}.{MODULE}._new(fn) -> notification
 // Constructor
 // Returns a new notification object with the specified information and the assigned callback function.
 static int notification_new(lua_State* L) {
@@ -258,7 +258,7 @@ static int notification_new(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:send() -> self
+/// {PATH}.{MODULE}:send() -> self
 /// Method
 /// Delivers the notification to the Notification Center.  If a notification has been modified, then this will resend it, setting the delivered status again.  You can invoke this multiple times if you wish to repeat the same notification.
 static int notification_send(lua_State* L) {
@@ -268,7 +268,7 @@ static int notification_send(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:release() -> self
+/// {PATH}.{MODULE}:release() -> self
 /// Method
 /// Disables the callback function for a notification.  Is also invoked during garbage collection (or a hammerspoon.reload()).
 static int notification_release(lua_State* L) {
@@ -280,7 +280,7 @@ static int notification_release(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:withdraw() -> self
+/// {PATH}.{MODULE}:withdraw() -> self
 /// Method
 /// Withdraws a delivered notification from the Notification Center.  Note that if you modify a delivered note, even with `release`, then it is no longer considered delivered and this method will do nothing.  If you want to fully remove a notification, invoke this method and then invoke `release`, not the other way around.
 static int notification_withdraw(lua_State* L) {
@@ -291,7 +291,7 @@ static int notification_withdraw(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:title([string]) -> string
+/// {PATH}.{MODULE}:title([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's title to that value.  Returns current value for notification title. Can be blank, but not nil.  Defaults to "Notification".
 static int notification_title(lua_State* L) {
@@ -303,7 +303,7 @@ static int notification_title(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:subtitle([string]) -> string
+/// {PATH}.{MODULE}:subtitle([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's subtitle to that value.  Returns current value for notification subtitle.
 static int notification_subtitle(lua_State* L) {
@@ -319,7 +319,7 @@ static int notification_subtitle(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:informativeText([string]) -> string
+/// {PATH}.{MODULE}:informativeText([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's informativeText to that value.  Returns current value for notification informativeText.
 static int notification_informativeText(lua_State* L) {
@@ -335,7 +335,7 @@ static int notification_informativeText(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:actionButtonTitle([string]) -> string
+/// {PATH}.{MODULE}:actionButtonTitle([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's action button title to that value.  Returns current value for notification action button title.
 static int notification_actionButtonTitle(lua_State* L) {
@@ -351,7 +351,7 @@ static int notification_actionButtonTitle(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:otherButtonTitle([string]) -> string
+/// {PATH}.{MODULE}:otherButtonTitle([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's cancel button's title to that value.  Returns current value for notification cancel button title.
 static int notification_otherButtonTitle(lua_State* L) {
@@ -367,7 +367,7 @@ static int notification_otherButtonTitle(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:hasActionButton([bool]) -> bool
+/// {PATH}.{MODULE}:hasActionButton([bool]) -> bool
 /// Attribute
 /// If a boolean argument is provided, first set whether or not the notification has an action button.  Returns current presence of notification action button. Defaults to true.
 static int notification_hasActionButton(lua_State* L) {
@@ -379,7 +379,7 @@ static int notification_hasActionButton(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:alwaysPresent([bool]) -> bool
+/// {PATH}.{MODULE}:alwaysPresent([bool]) -> bool
 /// Attribute
 /// If a boolean argument is provided, determines whether or not the notification should be presented, even if the Notification Center's normal decision would be not to.  This does not affect the return value of the `presented` attribute -- that will still reflect the decision of the Notification Center. Returns the current status. Defaults to true.
 static int notification_alwaysPresent(lua_State* L) {
@@ -391,7 +391,7 @@ static int notification_alwaysPresent(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:autoWithdraw([bool]) -> bool
+/// {PATH}.{MODULE}:autoWithdraw([bool]) -> bool
 /// Attribute
 /// If a boolean argument is provided, sets whether or not a notification should be automatically withdrawn once activated. Returns the current status.  Defaults to true.
 static int notification_autoWithdraw(lua_State* L) {
@@ -403,7 +403,7 @@ static int notification_autoWithdraw(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:soundName([string]) -> string
+/// {PATH}.{MODULE}:soundName([string]) -> string
 /// Attribute
 /// If a string argument is provided, first set the notification's delivery sound to that value.  Returns current value for notification delivery sound.  If it's nil, no sound will be played.  Defaults to nil.
 static int notification_soundName(lua_State* L) {
@@ -419,7 +419,7 @@ static int notification_soundName(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:presented() -> bool
+/// {PATH}.{MODULE}:presented() -> bool
 /// Attribute
 /// Returns whether the notification was presented by the decision of the Notification Center.  Under certain conditions (most notably if you're currently active in the application which sent the notification), the Notification Center can decide not to present a notification.  This flag represents that decision.
 static int notification_presented(lua_State* L) {
@@ -428,7 +428,7 @@ static int notification_presented(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:delivered() -> bool
+/// {PATH}.{MODULE}:delivered() -> bool
 /// Attribute
 /// Returns whether the notification has been delivered to the Notification Center.
 static int notification_delivered(lua_State* L) {
@@ -437,7 +437,7 @@ static int notification_delivered(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:remote() -> bool
+/// {PATH}.{MODULE}:remote() -> bool
 /// Attribute
 /// Returns whether the notification was generated by a push notification (remotely).  Currently unused, but perhaps not forever.
 static int notification_remote(lua_State* L) {
@@ -446,7 +446,7 @@ static int notification_remote(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:activationType() -> int
+/// {PATH}.{MODULE}:activationType() -> int
 /// Attribute
 /// Returns whether the notification was generated by a push notification (remotely).  Currently unused, but perhaps not forever.
 static int notification_activationType(lua_State* L) {
@@ -455,7 +455,7 @@ static int notification_activationType(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification:actualDeliveryDate() -> int
+/// {PATH}.{MODULE}:actualDeliveryDate() -> int
 /// Attribute
 /// Returns the delivery date of the notification in seconds since 1970-01-01 00:00:00 +0000 (e.g. `os.time()`).
 static int notification_actualDeliveryDate(lua_State* L) {
@@ -464,15 +464,13 @@ static int notification_actualDeliveryDate(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.notification.activationType[]
+/// {PATH}.{MODULE}.activationType[]
 /// Variable
 /// Convenience array of the possible activation types for a notification, and their reverse for reference.
 /// ~~~lua
 ///     None                        The user has not interacted with the notification.
 ///     ContentsClicked             User clicked on notification
 ///     ActionButtonClicked         User clicked on Action button
-///     Replied                     User used Reply button (10.9) (not implemented yet)
-///     AdditionalActionClicked     Additional Action selected (10.10) (not implemented yet)
 /// ~~~
 static void notification_activationTypeTable(lua_State *L) {
     lua_newtable(L) ;
@@ -482,20 +480,22 @@ static void notification_activationTypeTable(lua_State *L) {
         lua_setfield(L, -2, "ContentsClicked") ;
     lua_pushinteger(L, NSUserNotificationActivationTypeActionButtonClicked);
         lua_setfield(L, -2, "ActionButtonClicked") ;
-    lua_pushinteger(L, NSUserNotificationActivationTypeReplied);
-        lua_setfield(L, -2, "Replied") ;
-    lua_pushinteger(L, NSUserNotificationActivationTypeAdditionalActionClicked);
-        lua_setfield(L, -2, "AdditionalActionClicked") ;
+// /     Replied                     User used Reply button (10.9) (not implemented yet)
+// /     AdditionalActionClicked     Additional Action selected (10.10) (not implemented yet)
+//     lua_pushinteger(L, NSUserNotificationActivationTypeReplied);
+//         lua_setfield(L, -2, "Replied") ;
+//     lua_pushinteger(L, NSUserNotificationActivationTypeAdditionalActionClicked);
+//         lua_setfield(L, -2, "AdditionalActionClicked") ;
     lua_pushstring(L, "None") ;
         lua_rawseti(L, -2, NSUserNotificationActivationTypeNone);
     lua_pushstring(L, "ContentsClicked") ;
         lua_rawseti(L, -2, NSUserNotificationActivationTypeContentsClicked);
     lua_pushstring(L, "ActionButtonClicked") ;
         lua_rawseti(L, -2, NSUserNotificationActivationTypeActionButtonClicked);
-    lua_pushstring(L, "Replied") ;
-        lua_rawseti(L, -2, NSUserNotificationActivationTypeReplied);
-    lua_pushstring(L, "AdditionalActionClicked") ;
-        lua_rawseti(L, -2, NSUserNotificationActivationTypeAdditionalActionClicked);
+//     lua_pushstring(L, "Replied") ;
+//         lua_rawseti(L, -2, NSUserNotificationActivationTypeReplied);
+//     lua_pushstring(L, "AdditionalActionClicked") ;
+//         lua_rawseti(L, -2, NSUserNotificationActivationTypeAdditionalActionClicked);
 }
 
 static int notification_gc(lua_State* L) {
@@ -581,7 +581,7 @@ int luaopen_{F_PATH}_{MODULE}_internal(lua_State* L) {
     luaL_newlib(L, {MODULE}Lib);
         notification_activationTypeTable(L) ;
         lua_setfield(L, -2, "activationType") ;
-/// {PATH}.{MODULE}.notification.defaultNotificationSound
+/// {PATH}.{MODULE}.defaultNotificationSound
 /// Variable
 /// The string representation of the default notification sound.  Set `soundName` attribute to this if you want to use the default sound.
         lua_pushstring(L, [NSUserNotificationDefaultSoundName UTF8String]) ;
