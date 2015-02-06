@@ -7,17 +7,19 @@ MODULE := $(current_dir)
 
 ifeq ($(TARGET), Hammerspoon)
 BASE = hs
+MODULE=notify
 USERPATH = ~/.hammerspoon
+L_PATH := $(BASE)
+F_PATH := $(subst .,_,$(L_PATH))
 endif
 
 ifeq ($(TARGET), Mjolnir)
 BASE = mjolnir
 USERPATH = ~/.mjolnir
+L_PATH := $(BASE).$(CONTAINER)
+F_PATH := $(subst .,_,$(L_PATH))
 endif
 
-L_PATH := $(BASE).$(CONTAINER)
-#L_PATH := $(BASE)
-F_PATH := $(subst .,_,$(L_PATH))
 
 PREFIX ?= $(USERPATH)/$(subst .,/,$(L_PATH))
 

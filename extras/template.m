@@ -56,6 +56,11 @@ static int uuid(lua_State* L) {
     return 1;
 }
 
+static int luastate(lua_State* L) {
+    lua_pushlightuserdata(L, L) ;
+    return 1 ;
+}
+
 /// {PATH}.{MODULE}.accessibility(shouldprompt) -> isenabled
 /// Function
 /// Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
@@ -357,6 +362,7 @@ static const luaL_Reg {MODULE}Lib[] = {
     {"userDataToString",    ud_tostring},
     {"listFonts",           listFonts},
     {"getMenuArray",        getMenuArray},
+    {"luaState",            luastate},
     {NULL,                  NULL}
 };
 
