@@ -180,6 +180,7 @@ extras.mtTools[...]
 ~~~
 An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = extras.mtTools })`
  Currently defined:
+ 
      myTable:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
      myTable:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
 
