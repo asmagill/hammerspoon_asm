@@ -67,6 +67,11 @@ extras.hexDump(string [, count]) -> string
 Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `extras.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
 
 ~~~lua
+extras.listFonts() -> table
+~~~
+Returns the names of the installed fonts for this system.
+
+~~~lua
 extras.NSLog(luavalue)
 ~~~
 Send a representation of the lua value passed in to the Console application via NSLog.
@@ -180,6 +185,7 @@ extras.mtTools[...]
 ~~~
 An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = extras.mtTools })`
  Currently defined:
+ 
      myTable:get("path.key" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
      myTable:set("path.key", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that "path" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).
 

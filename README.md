@@ -13,6 +13,7 @@ The following submodules are located in this repository for organizational purpo
 |Module         | Available | Description                                                                |
 |:--------------|:---------:|:---------------------------------------------------------------------------|
 |_asm.extras    | Git       | Random useful stuff I haven't decided how to package yet.                  |
+|[_asm.filelistmenu](https://github.com/asmagill/hammerspoon_filelistmenu) | Git | Hammerspoon only; create drop-down menus based upon file matching criteria easily. |
 
 I am uncertain at this time if I will be providing these and future modules via Luarocks... I am less than impressed with it's limited flexibility concerning makefiles and local variances.  If there is interest in precompiled binaries for these modules, post an issue and I'll see what the interest level is.
 
