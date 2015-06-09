@@ -5,6 +5,7 @@ OBJCFILE = internal.m
 LUAFILE  = init.lua
 SOFILE  := {SOFILE}
 DEBUG_CFLAGS ?= -g
+DOC_FILE = {L_PATH}.$(MODULE).json
 
 CC=cc
 CFLAGS  += $(DEBUG_CFLAGS) -Wall -Wextra -I ../../Pods/lua/src -I /usr/local/include/lua5.2 -fobjc-arc $(EXTRA_CFLAGS)
@@ -24,6 +25,15 @@ install-objc: $(SOFILE)
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/$(MODULE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/$(MODULE)
+
+docs: $(DOC_FILE)
+
+install-docs: docs
+	mkdir -p $(PREFIX)/$(MODULE)
+	install -m 0644 $(DOC_FILE) $(PREFIX)/$(MODULE)
+
+$(DOC_FILE): $(LUAFILE) $(OBJFILE)
+	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | ../../__doc_tools/gencomments | ../../__doc_tools/genjson > $@
 
 clean:
 	rm -v -f $(SOFILE)

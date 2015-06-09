@@ -65,6 +65,7 @@ Makefile.$(TARGET): Makefile.template
 		-e 's/{SOFILE}/$(SOFILE)/g' \
 		-e 's/{PREFIX}/$(subst /,\/,$(PREFIX))/g' \
 		-e 's/{F_PATH}/$(F_PATH)/g' \
+		-e 's/{L_PATH}/$(L_PATH)/g' \
 		Makefile.template > $@
 
 install: target
