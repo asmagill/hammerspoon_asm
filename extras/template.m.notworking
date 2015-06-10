@@ -244,6 +244,9 @@ static int listFonts(lua_State *L) {
 
 // // // // // BEGIN: hs.application candidate
 
+// // inspect(_asm.extras.getMenuArray(hs.application.frontmostApplication()))
+// // _asm.extras.asciiOnly(inspect(_asm.extras.getMenuArray(hs.application.frontmostApplication())))
+
 // // Turning into more of a AXUIElement browser... how does this affect plans for uielement?
 // // Must ponder and maybe ask, once the code to retrieve all attributes is added...
 
@@ -260,64 +263,78 @@ static int listFonts(lua_State *L) {
 
 // Internal helper function for getMenuArray
 static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef menuItem) {
-
-// depth++ ; // NSLog(@"Another recursion") ;
-
-    CFTypeRef cf_title ; NSString* title ;
-    AXError error = AXUIElementCopyAttributeValue(menuItem, kAXTitleAttribute, &cf_title);
-    if (error == kAXErrorAttributeUnsupported) {
-        title = @"-- title unsupported --" ; // Special case, mostly for wrapper objects
-    } else if (error) {
-        NSLog(@"AXTitleAttribute Error: AXError %d", error) ;
-        title = [NSString stringWithFormat:@"-- title error: AXError %d --", error] ;
-    } else {
-        title = (__bridge_transfer NSString *)cf_title;
-    }
-    lua_pushstring(L, [title UTF8String]) ; lua_setfield(L, -2, "title") ;
-
-    CFIndex count = -1;
-    error = AXUIElementGetAttributeValueCount(menuItem, kAXChildrenAttribute, &count);
+    CFArrayRef cf_attributes;
+NSLog(@"Getting attribute names array...");
+    AXError error = AXUIElementCopyAttributeNames(menuItem, &cf_attributes);
     if (error) {
-        NSLog(@"Unable to get children count for %@: AXError %d", title, error) ;
-        lua_pushfstring(L, "unable to get child count: AXError %d", error) ; lua_setfield(L, -2, "error") ;
-        count = -1 ; // just to make sure it didn't get some funky value
-    }
-
-// NSLog(@"%*sTitle: %@ (%ld)", depth * 2, "", title, count) ;
-
-    if (count > 0) {
-        CFArrayRef cf_children;
-        error = AXUIElementCopyAttributeValues(menuItem, kAXChildrenAttribute, 0, count, &cf_children);
-        if (error) {
-            NSLog(@"Unable to get children for %@: AXError %d", title, error) ;
-            lua_pushfstring(L, "unable to get children: AXError %d", error) ; lua_setfield(L, -2, "error") ;
-        } else {
-            NSMutableArray *toCheck = [[NSMutableArray alloc] init];
-            [toCheck addObjectsFromArray:(__bridge NSArray *)cf_children];
-
+        NSLog(@"Unable to get attribute names: AXError %d", error) ;
+        lua_pushfstring(L, "unable to get attribute names: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+    } else {
+        NSMutableArray *attributeNames = [[NSMutableArray alloc] init];
+NSLog(@"Converting to NSMutableArray...");
+        [attributeNames addObjectsFromArray:(__bridge NSArray *)cf_attributes];
+        if ([attributeNames count] > 0) {
             lua_newtable(L) ;
-            for(unsigned int i = 0 ; i < [toCheck count] ; i++) {
-                AXUIElementRef element = (__bridge AXUIElementRef)[toCheck objectAtIndex: i] ;
-                lua_newtable(L) ;
-                _buildMenuArray(L, app, element) ;
-                lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-                CFRelease(element) ;
+            for(unsigned int i = 0 ; i < [attributeNames count] ; i++) {
+NSLog(@"Getting attribute name...");
+                CFTypeRef cf_name = (__bridge CFTypeRef)[attributeNames objectAtIndex: i] ;
+                NSString* ns_name = (__bridge_transfer NSString *)cf_name;
+
+                CFIndex count = -1;
+NSLog(@"Getting attribute count...");
+                error = AXUIElementGetAttributeValueCount(menuItem, cf_name, &count);
+                if (error && error != kAXErrorInvalidUIElement) {
+// This may be where we deal with final values...
+                    NSLog(@"Unable to get count for %@: AXError %d", ns_name, error) ;
+                    lua_pushfstring(L, "unable to get child count: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+                } else {
+                    if (count > 0) {
+                        CFArrayRef cf_children;
+NSLog(@"Getting children...");
+                        error = AXUIElementCopyAttributeValues(menuItem, cf_name, 0, count, &cf_children);
+                        if (error) {
+                            NSLog(@"Unable to get children for %@: AXError %d", ns_name, error) ;
+                            lua_pushfstring(L, "unable to get children: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+                        } else {
+                            NSMutableArray *toCheck = [[NSMutableArray alloc] init];
+NSLog(@"Converting children to NSMutableArray...");
+                            [toCheck addObjectsFromArray:(__bridge NSArray *)cf_children];
+
+//                            lua_newtable(L) ;
+                            for(unsigned int j = 0 ; j < [toCheck count] ; j++) {
+NSLog(@"Getting child...");
+                                AXUIElementRef element = (__bridge AXUIElementRef)[toCheck objectAtIndex: j] ;
+                                lua_newtable(L) ;
+NSLog(@"Recursing, whee!...");
+                                _buildMenuArray(L, app, element) ;
+                                lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                                CFRelease(element) ;
+                            }
+//                            lua_setfield(L, -2, "items") ;
+                        }
+//                     } else if (count == 0) {
+                    } else {
+                        CFTypeRef cf_value; error = AXUIElementCopyAttributeValue(menuItem, cf_name, &cf_value);
+NSLog(@"Getting child value...");
+                        if (error) {
+                            NSLog(@"Unable to get value for %@: AXError %d", ns_name, error) ;
+                            lua_pushfstring(L, "unable to get value: AXError %d", error) ; lua_setfield(L, -2, "error") ;
+                        } else {
+NSLog(@"Converting child value to string...");
+                            NSString* ns_value = (__bridge_transfer NSString *)cf_value;
+                            if ([ns_value respondsToSelector:@selector(UTF8String)])
+                                lua_pushstring(L, [ns_value UTF8String]) ;
+                            else
+                                lua_pushstring(L, "--unable to get child value as NSString--") ;
+                        }
+                    }
+                }
+//                lua_setfield(L, -2, cf_name) ;
+//                CFRelease(element) ;
             }
-            lua_setfield(L, -2, "items") ;
+            lua_setfield(L, -2, "attributes") ;
         }
-    } else if (count == 0) {
-        CFTypeRef enabled; error = AXUIElementCopyAttributeValue(menuItem, kAXEnabledAttribute, &enabled);
-        if (error) { NSLog(@"AXEnabled Error for %@: AXError %d", title, error) ; }
-        lua_pushboolean(L, [(__bridge NSNumber *)enabled boolValue]); lua_setfield(L, -2, "enabled");
-
-        CFTypeRef markchar; error = AXUIElementCopyAttributeValue(menuItem, kAXMenuItemMarkCharAttribute, &markchar);
-        if (error && error != kAXErrorNoValue) { NSLog(@"AXMenuItemMarkCharAttribute Error for %@: AXError %d", title, error) ; }
-        BOOL marked; if (error == kAXErrorNoValue) { marked = false; } else { marked = true; }
-        lua_pushboolean(L, marked); lua_setfield(L, -2, "marked");
     }
-
-// depth-- ;
-
     return ;
 }
 
