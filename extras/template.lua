@@ -237,7 +237,7 @@ end
 --- Completely restart {TARGET} by actually quitting the application and then reopening it.  Default pause to allow for a complete shutdown of {TARGET}  is 2 seconds, but you can adjust this by using the `settings` module to set "_asm.sleepCount" to your desired wait time.
 module.restart = function()
     sleepCount = ((mjolnir and require("mjolnir._asm.settings")) or (hs and require("hs.settings"))).get("_asm.restartSleep") or 2
-    os.execute("(sleep "..sleepCount.." ; open -a "..module._paths.bundlePath..") &")
+    os.execute("(sleep "..sleepCount.." ; open -a \""..module._paths.bundlePath.."\") &")
     {BASE}._exit("What is this argument for?",true)
 -- Oh... from the lua docs... os.exit ([code [, close]):
 -- Calls the ANSI C function exit to terminate the host program. If code is true, the returned status is EXIT_SUCCESS; if code is false, the returned status is EXIT_FAILURE; if code is a number, the returned status is this number. The default value for code is true.
