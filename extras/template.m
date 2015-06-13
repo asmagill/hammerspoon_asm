@@ -98,7 +98,7 @@ static id lua_to_NSObject(lua_State* L, int idx) {
         case LUA_TNIL: return [NSNull null];
         case LUA_TBOOLEAN: return lua_toboolean(L, idx) ? (id)kCFBooleanTrue : (id)kCFBooleanFalse;
         case LUA_TTABLE: {
-            NSMutableDictionary* numerics = [NSMutableDictionary dictionary];
+            NSMutableDictionary* numerics    = [NSMutableDictionary dictionary];
             NSMutableDictionary* nonNumerics = [NSMutableDictionary dictionary];
             NSMutableIndexSet*   numericKeys = [NSMutableIndexSet indexSet];
             NSMutableArray*      numberArray = [NSMutableArray array];
