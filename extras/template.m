@@ -1,6 +1,21 @@
 #import <Cocoa/Cocoa.h>
 #import <lauxlib.h>
 
+#import <sys/sysctl.h>
+#import <mach/host_info.h>
+#import <mach/mach_host.h>
+#import <mach/task_info.h>
+#import <mach/task.h>
+
+// Print a C string to the Hammerspoon console as an error
+void showError(lua_State *L, char *message) {
+    lua_getglobal(L, "hs");
+    lua_getfield(L, -1, "showError");
+    lua_remove(L, -2);
+    lua_pushstring(L, message);
+    lua_pcall(L, 1, 0, 0);
+}
+
 /// {PATH}.{MODULE}.showAbout()
 /// Function
 /// Displays the standard OS X about panel; implicitly focuses {TARGET}.
@@ -242,6 +257,143 @@ static int listFonts(lua_State *L) {
     return 1 ;
 }
 
+
+// struct vm_statistics64 {
+//     natural_t   free_count;         /* # of pages free */
+//     natural_t   active_count;       /* # of pages active */
+//     natural_t   inactive_count;     /* # of pages inactive */
+//     natural_t   wire_count;         /* # of pages wired down */
+//     uint64_t    zero_fill_count;    /* # of zero fill pages */
+//     uint64_t    reactivations;      /* # of pages reactivated */
+//     uint64_t    pageins;            /* # of pageins */
+//     uint64_t    pageouts;           /* # of pageouts */
+//     uint64_t    faults;             /* # of faults */
+//     uint64_t    cow_faults;         /* # of copy-on-writes */
+//     uint64_t    lookups;            /* object cache lookups */
+//     uint64_t    hits;               /* object cache hits */
+//
+//     /* added for rev1 */
+//     uint64_t    purges;             /* # of pages purged */
+//     natural_t   purgeable_count;    /* # of pages purgeable */
+//
+//     /* added for rev2 */
+//     /*
+//      * NB: speculative pages are already accounted for in "free_count",
+//      * so "speculative_count" is the number of "free" pages that are
+//      * used to hold data that was read speculatively from disk but
+//      * haven't actually been used by anyone so far.
+//      */
+//     natural_t   speculative_count;  /* # of pages speculative */
+//
+// }
+
+/// {PATH}.{MODULE}.memoryInfo() -> table
+/// Function
+/// Returns an array containing memory information for this system.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * A table containing the following keys:
+///    * activePages      -- number of active pages
+///    * cacheHits        -- number of cache hits
+///    * cacheLookups     -- number of cache lookups
+///    * cow              -- number of copy-on-writes
+///    * faults           -- number of "Translation faults"
+///    * freePages        -- number of free pages
+///    * inactivePages    -- number of inactive pages
+///    * pageIns          -- number of pageins
+///    * pageOuts         -- number of pageouts
+///    * purgeablePages   -- number of purgeable pages
+///    * purgedPages      -- number of purged pages
+///    * reactivatedPages -- number of reactivated pages
+///    * speculativePages -- number of speculative pages
+///    * wiredPages       -- number of wired down pages
+///    * zeroFillPages    -- number of zero fill pages
+///    * memSize          -- physical memory size in bytes
+///    * pageSize         -- page size in bytes
+///    * totalPages       -- shortcut for active + inactive + free + wired
+///
+/// Notes:
+///  * Adapted from code sample shared at http://stackoverflow.com/questions/6094444/how-can-i-programmatically-check-free-system-memory-on-mac-like-the-activity-mon
+static int memoryInfo(lua_State *L) {
+    int mib[6];
+    mib[0] = CTL_HW; mib[1] = HW_PAGESIZE;
+
+    unsigned int pagesize;
+    size_t length;
+    length = sizeof (pagesize);
+    if (sysctl (mib, 2, &pagesize, &length, NULL, 0) < 0) {
+        char errStr[255] ;
+        snprintf(errStr, 255, "Error getting page size (%d): %s", errno, strerror(errno)) ;
+        showError(L, errStr) ;
+        return 0 ;
+    }
+
+    mib[0] = CTL_HW; mib[1] = HW_MEMSIZE;
+    unsigned long memsize;
+    length = sizeof (memsize);
+    if (sysctl (mib, 2, &memsize, &length, NULL, 0) < 0) {
+        char errStr[255] ;
+        snprintf(errStr, 255, "Error getting mem size (%d): %s", errno, strerror(errno)) ;
+        showError(L, errStr) ;
+        return 0 ;
+    }
+
+
+    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+
+    vm_statistics64_data_t vmstat;
+    kern_return_t retVal = host_statistics64 (mach_host_self (), HOST_VM_INFO64, (host_info_t) &vmstat, &count);
+
+    if (retVal != KERN_SUCCESS) {
+        char errStr[255] ;
+        snprintf(errStr, 255, "Error getting VM Statistics: %s", mach_error_string(retVal)) ;
+        showError(L, errStr) ;
+        return 0 ;
+    }
+
+    unsigned long total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
+// Can be done in lua if desired
+//     double wired = vmstat.wire_count / total;
+//     double active = vmstat.active_count / total;
+//     double inactive = vmstat.inactive_count / total;
+//     double free = vmstat.free_count / total;
+//
+//Really begs for a more generic "resident size of applicationObject" method
+//     task_basic_info_64_data_t info;
+//     unsigned size = sizeof (info);
+//     task_info (mach_task_self (), TASK_BASIC_INFO_64, (task_info_t) &info, &size);
+//
+//     double unit = 1024 * 1024;
+//     memLabel.text = [NSString stringWithFormat: @"% 3.1f MB\n% 3.1f MB\n% 3.1f MB",
+//         vmstat.free_count * pagesize / unit,
+//         (vmstat.free_count + vmstat.inactive_count) * pagesize / unit,
+//         info.resident_size / unit];
+
+    lua_newtable(L) ;
+        lua_pushnumber(L, total)                    ; lua_setfield(L, -2, "totalPages") ;
+        lua_pushnumber(L, vmstat.free_count)        ; lua_setfield(L, -2, "freePages") ;
+        lua_pushnumber(L, vmstat.active_count)      ; lua_setfield(L, -2, "activePages") ;
+        lua_pushnumber(L, vmstat.inactive_count)    ; lua_setfield(L, -2, "inactivePages") ;
+        lua_pushnumber(L, vmstat.wire_count)        ; lua_setfield(L, -2, "wiredPages") ;
+        lua_pushnumber(L, vmstat.zero_fill_count)   ; lua_setfield(L, -2, "zeroFillPages") ;
+        lua_pushnumber(L, vmstat.reactivations)     ; lua_setfield(L, -2, "reactivatedPages") ;
+        lua_pushnumber(L, vmstat.pageins)           ; lua_setfield(L, -2, "pageIns") ;
+        lua_pushnumber(L, vmstat.pageouts)          ; lua_setfield(L, -2, "pageOuts") ;
+        lua_pushnumber(L, vmstat.faults)            ; lua_setfield(L, -2, "faults") ;
+        lua_pushnumber(L, vmstat.cow_faults)        ; lua_setfield(L, -2, "cow") ;
+        lua_pushnumber(L, vmstat.lookups)           ; lua_setfield(L, -2, "cacheLookups") ;
+        lua_pushnumber(L, vmstat.hits);             ; lua_setfield(L, -2, "cacheHits") ;
+        lua_pushnumber(L, vmstat.purges)            ; lua_setfield(L, -2, "purgedPages") ;
+        lua_pushnumber(L, vmstat.purgeable_count)   ; lua_setfield(L, -2, "purgeablePages") ;
+        lua_pushnumber(L, vmstat.speculative_count) ; lua_setfield(L, -2, "speculativePages") ;
+        lua_pushnumber(L, memsize)                  ; lua_setfield(L, -2, "memSize") ;
+
+    return 1 ;
+}
+
 // // // // // BEGIN: hs.application candidate
 
 // // Turning into more of a AXUIElement browser... how does this affect plans for uielement?
@@ -354,6 +506,7 @@ static const luaL_Reg {MODULE}Lib[] = {
     {"userDataToString",    ud_tostring},
     {"listFonts",           listFonts},
     {"getMenuArray",        getMenuArray},
+    {"memoryInfo",          memoryInfo},
     {NULL,                  NULL}
 };
 
