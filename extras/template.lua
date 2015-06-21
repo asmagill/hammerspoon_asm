@@ -38,33 +38,6 @@ module.mods = {
     CASc = {"cmd", "alt", "shift"}, CASC = {"cmd", "alt", "shift", "ctrl"},
 }
 
-
---- {PATH}.{MODULE}.appleKeys[...]
---- Variable
---- Array of symbols representing special keys in the mac environment, as per http://macbiblioblog.blogspot.com/2005/05/special-key-symbols.html.  Where there are alternatives, I've tried to verify that the first is Apple's preference for their own documentation.  I found a dev file concerning this once, but forgot to link it, so I'll add that here when I find it again.
-module.appleKeys = {
-    ["escape"] = "⎋",               ["tab"] = "⇥",
-    ["backtab"] = "⇤",              ["capslock"] = "⇪",
-    ["shift"] = "⇧",                ["ctrl"] = "⌃",
-    ["alt"] = "⌥",                  ["option"] = "⌥",
-    ["apple"] = "",                ["cmd"] = "⌘",
-    ["space"] = "␣",                ["return"] = "⏎",
-    ["return2"] = "↩",              ["delete"] = "⌫",
-    ["forwarddelete"] = "⌦",        ["help"] = "﹖",
-    ["home"] = "⇱",                 ["home alternate2"] = "↖",
-    ["home alternate3"] = "↸",      ["end"] = "⇲",
-    ["end2"] = "↘",                 ["pageup"] = "⇞",
-    ["pagedown"] = "⇟",             ["up"] = "↑",
-    ["up2"] = "⇡",                  ["down"] = "↓",
-    ["down2"] = "⇣",                ["left"] = "←",
-    ["left2"] = "⇠",                ["right"] = "→",
-    ["right2"] = "⇢",               ["padclear"] = "⌧",
-    ["numlock"] = "⇭",              ["eject"] = "⏏",
-    ["power"] = "⌽",                ["padenter"] = "⌤", -- apple preferred
-    ["padenter2"] = "⎆", -- sun preferred
-    ["padenter3"] = "↩",
-}
-
 --- {PATH}.{MODULE}.hexDump(string [, count]) -> string
 --- Function
 --- Treats the input string as a binary blob and returns a prettied up hex dump of it's contents. By default, a newline character is inserted after every 16 bytes, though this can be changed by also providing the optional count argument.  This is useful with the results of `{PATH}.{MODULE}.userDataToString` or `string.dump` for debugging and the curious, and may also provide some help with troubleshooting utf8 data that is being mis-handled or corrupted.
@@ -114,29 +87,6 @@ module.split = function(div,str)
         table.insert(arr,string.sub(str,pos))
     end
     return arr
-end
-
---- {PATH}.{MODULE}.sortedKeys(table[ , function]) -> function
---- Function
---- Iterator for getting keys from a table in a sorted order. Provide function 'f' as per _Programming_In_Lua,_3rd_ed_, page 52; otherwise order is ascii order ascending. (e.g. `function(m,n) return not (m < n) end` would result in reverse order.
----
---- Similar to Perl's sort(keys %hash).  Use like this: `for i,v in {PATH}.{MODULE}.sortedKeys(t[, f]) do ... end`
-module.sortedKeys = function(t, f)
-    if t then
-        local a = {}
-        for n in pairs(t) do table.insert(a, n) end
-            table.sort(a, f)
-            local i = 0      -- iterator variable
-            local iter = function ()   -- iterator function
-            i = i + 1
-            if a[i] == nil then return nil
-                else return a[i], t[a[i]]
-            end
-        end
-        return iter
-    else
-        return function() return nil end
-    end
 end
 
 --- {PATH}.{MODULE}.mtTools[...]
@@ -193,43 +143,6 @@ function module.asciiOnly(theString, all)
     else
         error("string expected", 2) ;
     end
-end
-
---- {PATH}.{MODULE}.fnutils_every(table, fn) -> bool
---- Function
---- Returns true if the application of fn on every entry in table is truthy.
-function module.fnutils_every(table, fn)
-    for k, v in pairs(table) do
-        if not fn(v, k) then return false end
-    end
-    return true
-end
-
---- {PATH}.{MODULE}.fnutils_some(table, fn) -> bool
---- Function
---- Returns true if the application of fn on entries in table are truthy for at least one of the members.
-function module.fnutils_some(table, fn)
-    local function is_invalid(v, k)
-        return not fn(v, k)
-    end
-    return not module.fnutils_every(table, is_invalid)
-end
-
---- {PATH}.{MODULE}.exec(command[, with_user_env]) -> output, status, type, rc
---- Function
---- Runs a shell command and returns stdout as a string (may include a trailing newline), followed by true or nil indicating if the command completed successfully, the exit type ("exit" or "signal"), and the result code.
----
----  If `with_user_env` is `true`, then invoke the user's default shell as an interactive login shell in which to execute the provided command in order to make sure their setup files are properly evaluated so extra path and environment variables can be set.  This is not done, if `with_user_env` is `false` or not provided, as it does add some overhead and is not always strictly necessary.
-module.exec = function(command, user_env)
-    local f
-    if user_env then
-        f = io.popen(os.getenv("SHELL").." -l -i -c \""..command.."\"", 'r')
-    else
-        f = io.popen(command, 'r')
-    end
-    local s = f:read('*a')
-    local status, exit_type, rc = f:close()
-    return s, status, exit_type, rc
 end
 
 --- {PATH}.{MODULE}.restart()

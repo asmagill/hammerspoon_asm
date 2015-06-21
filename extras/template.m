@@ -243,21 +243,6 @@ static int ud_tostring (lua_State *L) {
     }
 }
 
-/// {PATH}.{MODULE}.listFonts() -> table
-/// Function
-/// Returns the names of the installed fonts for this system.
-static int listFonts(lua_State *L) {
-    NSArray *fontNames = [[NSFontManager sharedFontManager] availableFonts];
-
-    lua_newtable(L) ;
-    for (unsigned long indFont=0; indFont<[fontNames count]; ++indFont)
-    {
-        lua_pushstring(L, [[fontNames objectAtIndex:indFont] UTF8String]) ; lua_rawseti(L, -2, indFont + 1);
-    }
-    return 1 ;
-}
-
-
 // struct vm_statistics64 {
 //     natural_t   free_count;         /* # of pages free */
 //     natural_t   active_count;       /* # of pages active */
@@ -504,7 +489,6 @@ static const luaL_Reg {MODULE}Lib[] = {
     {"autoLaunch",          autolaunch },
     {"NSLog",               extras_nslog },
     {"userDataToString",    ud_tostring},
-    {"listFonts",           listFonts},
     {"getMenuArray",        getMenuArray},
     {"memoryInfo",          memoryInfo},
     {NULL,                  NULL}
