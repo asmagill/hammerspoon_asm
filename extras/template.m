@@ -7,6 +7,9 @@
 #import <mach/task_info.h>
 #import <mach/task.h>
 
+// forward declare so we can use this earlier than we define it:
+static id lua_to_NSObject(lua_State* L, int idx) ;
+
 // Print a C string to the Hammerspoon console as an error
 void showError(lua_State *L, char *message) {
     lua_getglobal(L, "hs");
@@ -16,51 +19,45 @@ void showError(lua_State *L, char *message) {
     lua_pcall(L, 1, 0, 0);
 }
 
-/// {PATH}.{MODULE}.showAbout()
+// use hs.fs.attributes("path-to-file") instead
+// /// {PATH}.{MODULE}.fileExists(path) -> exists, isdir
+// /// Function
+// /// Checks if a file exists, and whether it's a directory.
+// static int fileexists(lua_State* L) {
+//     NSString* path = [NSString stringWithUTF8String:luaL_checkstring(L, 1)];
+//
+//     BOOL isdir;
+//     BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isdir];
+//
+//     lua_pushboolean(L, exists);
+//     lua_pushboolean(L, isdir);
+//     return 2;
+// }
+
+/// {PATH}.{MODULE}.NSLog(luavalue)
 /// Function
-/// Displays the standard OS X about panel; implicitly focuses {TARGET}.
-static int showabout(lua_State* __unused L) {
-    [NSApp activateIgnoringOtherApps:YES];
-    [NSApp orderFrontStandardAboutPanel:nil];
+/// Send a representation of the lua value passed in to the Console application via NSLog.
+static int extras_nslog(lua_State* L) {
+    id val = lua_to_NSObject(L, 1);
+    NSLog(@"%@", val);
     return 0;
 }
 
-/// {PATH}.{MODULE}.fileExists(path) -> exists, isdir
+/// {PATH}.{MODULE}.userDataToString(userdata) -> string
 /// Function
-/// Checks if a file exists, and whether it's a directory.
-static int fileexists(lua_State* L) {
-    NSString* path = [NSString stringWithUTF8String:luaL_checkstring(L, 1)];
-
-    BOOL isdir;
-    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:path isDirectory:&isdir];
-
-    lua_pushboolean(L, exists);
-    lua_pushboolean(L, isdir);
-    return 2;
-}
-
-/// {PATH}.{MODULE}._version
-/// Variable
-/// The current {TARGET} version as a string.
-static int version(lua_State* L) {
-    NSString* ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"];
-    lua_pushstring(L, [ver UTF8String]);
-    return 1;
-}
-
-/// {PATH}.{MODULE}._paths[]
-/// Variable
-/// A table containing the resourcePath, the bundlePath, and the executablePath for the {TARGET} application.
-static int paths(lua_State* L) {
-    lua_newtable(L) ;
-        lua_pushstring(L, [[[NSBundle mainBundle] resourcePath] fileSystemRepresentation]);
-        lua_setfield(L, -2, "resourcePath");
-        lua_pushstring(L, [[[NSBundle mainBundle] bundlePath] fileSystemRepresentation]);
-        lua_setfield(L, -2, "bundlePath");
-        lua_pushstring(L, [[[NSBundle mainBundle] executablePath] fileSystemRepresentation]);
-        lua_setfield(L, -2, "executablePath");
-
-    return 1;
+/// Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with {PATH}.{MODULE}.hexdump for debugging to see what parts of the structure are actually getting set, etc.
+static int ud_tostring (lua_State *L) {
+    void *data = lua_touserdata(L,1);
+    int sz;
+    if (data == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L,"not a userdata type");
+        return 2;
+    } else {
+        sz = lua_rawlen(L,1);
+        lua_pushlstring(L,data,sz);
+        return 1;
+    }
 }
 
 /// {PATH}.{MODULE}.uuid() -> string
@@ -71,18 +68,13 @@ static int uuid(lua_State* L) {
     return 1;
 }
 
-/// {PATH}.{MODULE}.accessibility(shouldprompt) -> isenabled
+/// {PATH}.{MODULE}.showAbout()
 /// Function
-/// Returns whether accessibility is enabled. If passed `true`, prompts the user to enable it.
-static int accessibility(lua_State* L) {
-    extern BOOL MJAccessibilityIsEnabled(void);
-    extern void MJAccessibilityOpenPanel(void);
-
-    BOOL shouldprompt = lua_toboolean(L, 1);
-    BOOL enabled = MJAccessibilityIsEnabled();
-    if (shouldprompt) { MJAccessibilityOpenPanel(); }
-    lua_pushboolean(L, enabled);
-    return 1;
+/// Displays the standard OS X about panel; implicitly focuses {TARGET}.
+static int showabout(lua_State* __unused L) {
+    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp orderFrontStandardAboutPanel:nil];
+    return 0;
 }
 
 /// {PATH}.{MODULE}.autoLaunch([arg]) -> bool
@@ -217,32 +209,6 @@ static id lua_to_NSObject(lua_State* L, int idx) {
 //     }
 // }
 
-/// {PATH}.{MODULE}.NSLog(luavalue)
-/// Function
-/// Send a representation of the lua value passed in to the Console application via NSLog.
-static int extras_nslog(lua_State* L) {
-    id val = lua_to_NSObject(L, 1);
-    NSLog(@"%@", val);
-    return 0;
-}
-
-/// {PATH}.{MODULE}.userDataToString(userdata) -> string
-/// Function
-/// Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with {PATH}.{MODULE}.hexdump for debugging to see what parts of the structure are actually getting set, etc.
-static int ud_tostring (lua_State *L) {
-    void *data = lua_touserdata(L,1);
-    int sz;
-    if (data == NULL) {
-        lua_pushnil(L);
-        lua_pushstring(L,"not a userdata type");
-        return 2;
-    } else {
-        sz = lua_rawlen(L,1);
-        lua_pushlstring(L,data,sz);
-        return 1;
-    }
-}
-
 // struct vm_statistics64 {
 //     natural_t   free_count;         /* # of pages free */
 //     natural_t   active_count;       /* # of pages active */
@@ -358,23 +324,23 @@ static int memoryInfo(lua_State *L) {
 //         info.resident_size / unit];
 
     lua_newtable(L) ;
-        lua_pushnumber(L, total)                    ; lua_setfield(L, -2, "totalPages") ;
-        lua_pushnumber(L, vmstat.free_count)        ; lua_setfield(L, -2, "freePages") ;
-        lua_pushnumber(L, vmstat.active_count)      ; lua_setfield(L, -2, "activePages") ;
-        lua_pushnumber(L, vmstat.inactive_count)    ; lua_setfield(L, -2, "inactivePages") ;
-        lua_pushnumber(L, vmstat.wire_count)        ; lua_setfield(L, -2, "wiredPages") ;
-        lua_pushnumber(L, vmstat.zero_fill_count)   ; lua_setfield(L, -2, "zeroFillPages") ;
-        lua_pushnumber(L, vmstat.reactivations)     ; lua_setfield(L, -2, "reactivatedPages") ;
-        lua_pushnumber(L, vmstat.pageins)           ; lua_setfield(L, -2, "pageIns") ;
-        lua_pushnumber(L, vmstat.pageouts)          ; lua_setfield(L, -2, "pageOuts") ;
-        lua_pushnumber(L, vmstat.faults)            ; lua_setfield(L, -2, "faults") ;
-        lua_pushnumber(L, vmstat.cow_faults)        ; lua_setfield(L, -2, "cow") ;
-        lua_pushnumber(L, vmstat.lookups)           ; lua_setfield(L, -2, "cacheLookups") ;
-        lua_pushnumber(L, vmstat.hits);             ; lua_setfield(L, -2, "cacheHits") ;
-        lua_pushnumber(L, vmstat.purges)            ; lua_setfield(L, -2, "purgedPages") ;
-        lua_pushnumber(L, vmstat.purgeable_count)   ; lua_setfield(L, -2, "purgeablePages") ;
-        lua_pushnumber(L, vmstat.speculative_count) ; lua_setfield(L, -2, "speculativePages") ;
-        lua_pushnumber(L, memsize)                  ; lua_setfield(L, -2, "memSize") ;
+        lua_pushinteger(L, total)                    ; lua_setfield(L, -2, "totalPages") ;
+        lua_pushinteger(L, vmstat.free_count)        ; lua_setfield(L, -2, "freePages") ;
+        lua_pushinteger(L, vmstat.active_count)      ; lua_setfield(L, -2, "activePages") ;
+        lua_pushinteger(L, vmstat.inactive_count)    ; lua_setfield(L, -2, "inactivePages") ;
+        lua_pushinteger(L, vmstat.wire_count)        ; lua_setfield(L, -2, "wiredPages") ;
+        lua_pushinteger(L, vmstat.zero_fill_count)   ; lua_setfield(L, -2, "zeroFillPages") ;
+        lua_pushinteger(L, vmstat.reactivations)     ; lua_setfield(L, -2, "reactivatedPages") ;
+        lua_pushinteger(L, vmstat.pageins)           ; lua_setfield(L, -2, "pageIns") ;
+        lua_pushinteger(L, vmstat.pageouts)          ; lua_setfield(L, -2, "pageOuts") ;
+        lua_pushinteger(L, vmstat.faults)            ; lua_setfield(L, -2, "faults") ;
+        lua_pushinteger(L, vmstat.cow_faults)        ; lua_setfield(L, -2, "cow") ;
+        lua_pushinteger(L, vmstat.lookups)           ; lua_setfield(L, -2, "cacheLookups") ;
+        lua_pushinteger(L, vmstat.hits);             ; lua_setfield(L, -2, "cacheHits") ;
+        lua_pushinteger(L, vmstat.purges)            ; lua_setfield(L, -2, "purgedPages") ;
+        lua_pushinteger(L, vmstat.purgeable_count)   ; lua_setfield(L, -2, "purgeablePages") ;
+        lua_pushinteger(L, vmstat.speculative_count) ; lua_setfield(L, -2, "speculativePages") ;
+        lua_pushinteger(L, memsize)                  ; lua_setfield(L, -2, "memSize") ;
 
     return 1 ;
 }
@@ -461,6 +427,9 @@ static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef men
 /// {PATH}.{MODULE}.getMenuArray(application) -> array
 /// Function
 /// Returns an array containing the menu items for the specified application.
+///
+/// Notes:
+///  * Really amazingly in-progress/pre-alpha/don't-use-unless-you-like-broken-things/it's-your-fault-not-mine.  Seriously, I've lost my train of thought and will get back to this... or something similar... There are interesting things lurking in the AXUIElement area, but I don't have time to figure them out right now...
 static int getMenuArray(lua_State *L) {
 
 // depth = -1 ;
@@ -483,9 +452,7 @@ static int getMenuArray(lua_State *L) {
 
 static const luaL_Reg {MODULE}Lib[] = {
     {"showAbout",           showabout },
-    {"fileExists",          fileexists },
     {"uuid",                uuid },
-    {"accessibility",       accessibility },
     {"autoLaunch",          autolaunch },
     {"NSLog",               extras_nslog },
     {"userDataToString",    ud_tostring},
@@ -496,10 +463,6 @@ static const luaL_Reg {MODULE}Lib[] = {
 
 int luaopen_{F_PATH}_{MODULE}_internal(lua_State* L) {
     luaL_newlib(L, {MODULE}Lib);
-        version(L) ;
-        lua_setfield(L, -2, "_version") ;
-        paths(L) ;
-        lua_setfield(L, -2, "_paths") ;
 
     return 1;
 }
