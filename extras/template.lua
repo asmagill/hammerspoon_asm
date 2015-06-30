@@ -22,7 +22,7 @@ local module = require("{PATH}.{MODULE}.internal")
 ---  * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.
 ---
 --- Notes:
----  * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following:
+---  * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):
 ---
 ---     newTable = setmetatable(
 ---             {PATH}.{MODULE}.tableCopy(originalTable),
