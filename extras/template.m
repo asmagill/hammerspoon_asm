@@ -1,11 +1,5 @@
 #import <Cocoa/Cocoa.h>
-#import <lauxlib.h>
-
-#import <sys/sysctl.h>
-#import <mach/host_info.h>
-#import <mach/mach_host.h>
-#import <mach/task_info.h>
-#import <mach/task.h>
+#import <LuaSkin/LuaSkin.h>
 
 // forward declare so we can use this earlier than we define it:
 static id lua_to_NSObject(lua_State* L, int idx) ;
@@ -209,190 +203,34 @@ static id lua_to_NSObject(lua_State* L, int idx) {
 //     }
 // }
 
-// struct vm_statistics64 {
-//     natural_t   free_count;         /* # of pages free */
-//     natural_t   active_count;       /* # of pages active */
-//     natural_t   inactive_count;     /* # of pages inactive */
-//     natural_t   wire_count;         /* # of pages wired down */
-//     uint64_t    zero_fill_count;    /* # of zero fill pages */
-//     uint64_t    reactivations;      /* # of pages reactivated */
-//     uint64_t    pageins;            /* # of pageins */
-//     uint64_t    pageouts;           /* # of pageouts */
-//     uint64_t    faults;             /* # of faults */
-//     uint64_t    cow_faults;         /* # of copy-on-writes */
-//     uint64_t    lookups;            /* object cache lookups */
-//     uint64_t    hits;               /* object cache hits */
-//
-//     /* added for rev1 */
-//     uint64_t    purges;             /* # of pages purged */
-//     natural_t   purgeable_count;    /* # of pages purgeable */
-//
-//     /* added for rev2 */
-//     /*
-//      * NB: speculative pages are already accounted for in "free_count",
-//      * so "speculative_count" is the number of "free" pages that are
-//      * used to hold data that was read speculatively from disk but
-//      * haven't actually been used by anyone so far.
-//      */
-//     natural_t   speculative_count;  /* # of pages speculative */
-//
-// }
-
-/// {PATH}.{MODULE}.memoryInfo() -> table
-/// Function
-/// Returns an array containing memory information for this system.
-///
-/// Parameters:
-///  * None
-///
-/// Returns:
-///  * A table containing the following keys:
-///    * activePages      -- number of active pages
-///    * cacheHits        -- number of cache hits
-///    * cacheLookups     -- number of cache lookups
-///    * cow              -- number of copy-on-writes
-///    * faults           -- number of "Translation faults"
-///    * freePages        -- number of free pages
-///    * inactivePages    -- number of inactive pages
-///    * pageIns          -- number of pageins
-///    * pageOuts         -- number of pageouts
-///    * purgeablePages   -- number of purgeable pages
-///    * purgedPages      -- number of purged pages
-///    * reactivatedPages -- number of reactivated pages
-///    * speculativePages -- number of speculative pages
-///    * wiredPages       -- number of wired down pages
-///    * zeroFillPages    -- number of zero fill pages
-///    * memSize          -- physical memory size in bytes
-///    * pageSize         -- page size in bytes
-///    * totalPages       -- shortcut for active + inactive + free + wired
-///
-/// Notes:
-///  * Adapted from code sample shared at http://stackoverflow.com/questions/6094444/how-can-i-programmatically-check-free-system-memory-on-mac-like-the-activity-mon
-static int memoryInfo(lua_State *L) {
-    int mib[6];
-    mib[0] = CTL_HW; mib[1] = HW_PAGESIZE;
-
-    unsigned int pagesize;
-    size_t length;
-    length = sizeof (pagesize);
-    if (sysctl (mib, 2, &pagesize, &length, NULL, 0) < 0) {
-        char errStr[255] ;
-        snprintf(errStr, 255, "Error getting page size (%d): %s", errno, strerror(errno)) ;
-        showError(L, errStr) ;
-        return 0 ;
-    }
-
-    mib[0] = CTL_HW; mib[1] = HW_MEMSIZE;
-    unsigned long memsize;
-    length = sizeof (memsize);
-    if (sysctl (mib, 2, &memsize, &length, NULL, 0) < 0) {
-        char errStr[255] ;
-        snprintf(errStr, 255, "Error getting mem size (%d): %s", errno, strerror(errno)) ;
-        showError(L, errStr) ;
-        return 0 ;
-    }
-
-
-    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-
-    vm_statistics64_data_t vmstat;
-    kern_return_t retVal = host_statistics64 (mach_host_self (), HOST_VM_INFO64, (host_info_t) &vmstat, &count);
-
-    if (retVal != KERN_SUCCESS) {
-        char errStr[255] ;
-        snprintf(errStr, 255, "Error getting VM Statistics: %s", mach_error_string(retVal)) ;
-        showError(L, errStr) ;
-        return 0 ;
-    }
-
-    unsigned long total = vmstat.wire_count + vmstat.active_count + vmstat.inactive_count + vmstat.free_count;
-// Can be done in lua if desired
-//     double wired = vmstat.wire_count / total;
-//     double active = vmstat.active_count / total;
-//     double inactive = vmstat.inactive_count / total;
-//     double free = vmstat.free_count / total;
-//
-//Really begs for a more generic "resident size of applicationObject" method
-//     task_basic_info_64_data_t info;
-//     unsigned size = sizeof (info);
-//     task_info (mach_task_self (), TASK_BASIC_INFO_64, (task_info_t) &info, &size);
-//
-//     double unit = 1024 * 1024;
-//     memLabel.text = [NSString stringWithFormat: @"% 3.1f MB\n% 3.1f MB\n% 3.1f MB",
-//         vmstat.free_count * pagesize / unit,
-//         (vmstat.free_count + vmstat.inactive_count) * pagesize / unit,
-//         info.resident_size / unit];
-
-    lua_newtable(L) ;
-        lua_pushinteger(L, total)                    ; lua_setfield(L, -2, "totalPages") ;
-        lua_pushinteger(L, vmstat.free_count)        ; lua_setfield(L, -2, "freePages") ;
-        lua_pushinteger(L, vmstat.active_count)      ; lua_setfield(L, -2, "activePages") ;
-        lua_pushinteger(L, vmstat.inactive_count)    ; lua_setfield(L, -2, "inactivePages") ;
-        lua_pushinteger(L, vmstat.wire_count)        ; lua_setfield(L, -2, "wiredPages") ;
-        lua_pushinteger(L, vmstat.zero_fill_count)   ; lua_setfield(L, -2, "zeroFillPages") ;
-        lua_pushinteger(L, vmstat.reactivations)     ; lua_setfield(L, -2, "reactivatedPages") ;
-        lua_pushinteger(L, vmstat.pageins)           ; lua_setfield(L, -2, "pageIns") ;
-        lua_pushinteger(L, vmstat.pageouts)          ; lua_setfield(L, -2, "pageOuts") ;
-        lua_pushinteger(L, vmstat.faults)            ; lua_setfield(L, -2, "faults") ;
-        lua_pushinteger(L, vmstat.cow_faults)        ; lua_setfield(L, -2, "cow") ;
-        lua_pushinteger(L, vmstat.lookups)           ; lua_setfield(L, -2, "cacheLookups") ;
-        lua_pushinteger(L, vmstat.hits);             ; lua_setfield(L, -2, "cacheHits") ;
-        lua_pushinteger(L, vmstat.purges)            ; lua_setfield(L, -2, "purgedPages") ;
-        lua_pushinteger(L, vmstat.purgeable_count)   ; lua_setfield(L, -2, "purgeablePages") ;
-        lua_pushinteger(L, vmstat.speculative_count) ; lua_setfield(L, -2, "speculativePages") ;
-        lua_pushinteger(L, memsize)                  ; lua_setfield(L, -2, "memSize") ;
-
-    return 1 ;
-}
-
-// // // // // BEGIN: hs.application candidate
-
-// // Turning into more of a AXUIElement browser... how does this affect plans for uielement?
-// // Must ponder and maybe ask, once the code to retrieve all attributes is added...
-
-// // May eventually go into hs.application with the rest of menu commands... Or not... but
-// // isolate relevant code for simplicity later
-
 #define get_app(L, idx) *((AXUIElementRef*)luaL_checkudata(L, idx, "hs.application"))
 
-// // use "open -th AXError" to get reference for AXError numbers... too cumbersome and
-// // (hopefully) unlikely/unimportant to bother dereferencing within HS...
-
-// // Indent titles in log to get a sense of hierarchy
-// static int depth = -1 ;
 
 // Internal helper function for getMenuArray
 static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef menuItem) {
-
-// depth++ ; // NSLog(@"Another recursion") ;
 
     CFTypeRef cf_title ; NSString* title ;
     AXError error = AXUIElementCopyAttributeValue(menuItem, kAXTitleAttribute, &cf_title);
     if (error == kAXErrorAttributeUnsupported) {
         title = @"-- title unsupported --" ; // Special case, mostly for wrapper objects
     } else if (error) {
-        NSLog(@"AXTitleAttribute Error: AXError %d", error) ;
         title = [NSString stringWithFormat:@"-- title error: AXError %d --", error] ;
     } else {
         title = (__bridge_transfer NSString *)cf_title;
-    }
+   }
     lua_pushstring(L, [title UTF8String]) ; lua_setfield(L, -2, "title") ;
 
     CFIndex count = -1;
     error = AXUIElementGetAttributeValueCount(menuItem, kAXChildrenAttribute, &count);
     if (error) {
-        NSLog(@"Unable to get children count for %@: AXError %d", title, error) ;
         lua_pushfstring(L, "unable to get child count: AXError %d", error) ; lua_setfield(L, -2, "error") ;
         count = -1 ; // just to make sure it didn't get some funky value
     }
-
-// NSLog(@"%*sTitle: %@ (%ld)", depth * 2, "", title, count) ;
 
     if (count > 0) {
         CFArrayRef cf_children;
         error = AXUIElementCopyAttributeValues(menuItem, kAXChildrenAttribute, 0, count, &cf_children);
         if (error) {
-            NSLog(@"Unable to get children for %@: AXError %d", title, error) ;
             lua_pushfstring(L, "unable to get children: AXError %d", error) ; lua_setfield(L, -2, "error") ;
         } else {
             NSMutableArray *toCheck = [[NSMutableArray alloc] init];
@@ -406,20 +244,17 @@ static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef men
                 lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
                 CFRelease(element) ;
             }
-            lua_setfield(L, -2, "items") ;
+
+            if (luaL_len(L, -1) == 0) lua_pop(L,1) ; else lua_setfield(L, -2, "items") ;
         }
     } else if (count == 0) {
         CFTypeRef enabled; error = AXUIElementCopyAttributeValue(menuItem, kAXEnabledAttribute, &enabled);
-        if (error) { NSLog(@"AXEnabled Error for %@: AXError %d", title, error) ; }
         lua_pushboolean(L, [(__bridge NSNumber *)enabled boolValue]); lua_setfield(L, -2, "enabled");
 
         CFTypeRef markchar; error = AXUIElementCopyAttributeValue(menuItem, kAXMenuItemMarkCharAttribute, &markchar);
-        if (error && error != kAXErrorNoValue) { NSLog(@"AXMenuItemMarkCharAttribute Error for %@: AXError %d", title, error) ; }
         BOOL marked; if (error == kAXErrorNoValue) { marked = false; } else { marked = true; }
         lua_pushboolean(L, marked); lua_setfield(L, -2, "marked");
     }
-
-// depth-- ;
 
     return ;
 }
@@ -431,16 +266,10 @@ static void _buildMenuArray(lua_State* L, AXUIElementRef app, AXUIElementRef men
 /// Notes:
 ///  * Really amazingly in-progress/pre-alpha/don't-use-unless-you-like-broken-things/it's-your-fault-not-mine.  Seriously, I've lost my train of thought and will get back to this... or something similar... There are interesting things lurking in the AXUIElement area, but I don't have time to figure them out right now...
 static int getMenuArray(lua_State *L) {
-
-// depth = -1 ;
-
     AXUIElementRef app = get_app(L, 1);
     AXUIElementRef menuBar ;
     AXError error = AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute, (CFTypeRef *)&menuBar) ;
-    if (error) {
-        NSLog(@"Unable to retrieve menuBar object: AXError %d", error) ;
-        return luaL_error(L, "Unable to retrieve menuBar object: AXError %d", error) ;
-    }
+    if (error) { return luaL_error(L, "Unable to retrieve menuBar object: AXError %d", error) ; }
     lua_settop(L, 0) ;
     lua_newtable(L) ;
     _buildMenuArray(L, app, menuBar) ;
@@ -457,7 +286,6 @@ static const luaL_Reg {MODULE}Lib[] = {
     {"NSLog",               extras_nslog },
     {"userDataToString",    ud_tostring},
     {"getMenuArray",        getMenuArray},
-    {"memoryInfo",          memoryInfo},
     {NULL,                  NULL}
 };
 
