@@ -16,8 +16,9 @@ SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
 DOC_FILE = hs._asm.$(MODULE).json
 
-CC=cc
-EXTRA_CFLAGS ?= -fobjc-arc -DHS_EXTERNAL_MODULE
+#CC=cc
+CC=clang
+EXTRA_CFLAGS ?= -fobjc-arc -DHS_EXTERNAL_MODULE -pedantic -Wall -Wextra -Wconversion -Wdeprecated
 CFLAGS  += $(DEBUG_CFLAGS) -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
