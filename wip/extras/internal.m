@@ -66,83 +66,6 @@ static int extras_defaults(lua_State* L) {
 //     return 1 ;
 // }
 
-// /// hs.automaticallyChecksForUpdates([setting]) -> bool
-// /// Function
-// /// Gets and optionally sets the Hammerspoon option to automatically check for updates.
-// ///
-// /// Parameters:
-// ///  * setting - an optional boolean variable indicating if Hammerspoon should (true) or should not (false) check for updates.
-// ///
-// /// Returns:
-// ///  * The current (or newly set) value indicating whether or not automatic update checks should occur for Hammerspoon.
-// ///
-// /// Notes:
-// ///  * If you are running a non-release or locally compiled version of Hammerspoon then the results of this function are unspecified.
-// static int automaticallyChecksForUpdates(lua_State *L) {
-//     if (NSClassFromString(@"SUUpdater")) {
-//         NSString *frameworkPath = [[[NSBundle mainBundle] privateFrameworksPath] stringByAppendingPathComponent:@"Sparkle.framework"];
-//         if ([[NSBundle bundleWithPath:frameworkPath] load]) {
-//             id sharedUpdater = [NSClassFromString(@"SUUpdater")  performSelector:@selector(sharedUpdater)] ;
-//             if (lua_isboolean(L, 1)) {
-//
-//             // This convoluted #$@#% is required (a) because we want to weakly link to the SparkleFramework for dev builds, and
-//             // (b) because performSelector: withObject: only works when withObject: takes an argument of type id or nil
-//
-//             // the following is equivalent to: [sharedUpdater setAutomaticallyChecksForUpdates:lua_toboolean(L, 1)] ;
-//
-//                 BOOL myBoolValue = lua_toboolean(L, 1) ;
-//                 NSMethodSignature * mySignature = [NSClassFromString(@"SUUpdater") instanceMethodSignatureForSelector:@selector(setAutomaticallyChecksForUpdates:)];
-//                 NSInvocation * myInvocation = [NSInvocation invocationWithMethodSignature:mySignature];
-//                 [myInvocation setTarget:sharedUpdater];
-//             // even though signature specifies this, we need to specify it in the invocation, since the signature is re-usable
-//             // for any method which accepts the same signature list for the target.
-//                 [myInvocation setSelector:@selector(setAutomaticallyChecksForUpdates:)];
-//                 [myInvocation setArgument:&myBoolValue atIndex:2];
-//                 [myInvocation invoke];
-//
-//             // whew!
-//
-//             }
-//             lua_pushboolean(L, (BOOL)[sharedUpdater performSelector:@selector(automaticallyChecksForUpdates)]) ;
-//         } else {
-//             printToConsole(L, "-- Sparkle Update framework not available for the running instance of Hammerspoon.") ;
-//             lua_pushboolean(L, NO) ;
-//         }
-//     } else {
-//         printToConsole(L, "-- Sparkle Update framework not available for the running instance of Hammerspoon.") ;
-//         lua_pushboolean(L, NO) ;
-//     }
-//     return 1 ;
-// }
-//
-// /// hs.checkForUpdates() -> none
-// /// Function
-// /// Check for an update now, and if one is available, prompt the user to continue the update process.
-// ///
-// /// Parameters:
-// ///  * None
-// ///
-// /// Returns:
-// ///  * None
-// ///
-// /// Notes:
-// ///  * If you are running a non-release or locally compiled version of Hammerspoon then the results of this function are unspecified.
-// static int checkForUpdates(lua_State *L) {
-//     if (NSClassFromString(@"SUUpdater")) {
-//         NSString *frameworkPath = [[[NSBundle mainBundle] privateFrameworksPath] stringByAppendingPathComponent:@"Sparkle.framework"];
-//         if ([[NSBundle bundleWithPath:frameworkPath] load]) {
-//             id sharedUpdater = [NSClassFromString(@"SUUpdater")  performSelector:@selector(sharedUpdater)] ;
-//
-//             [sharedUpdater performSelector:@selector(checkForUpdates:) withObject:nil] ;
-//         } else {
-//             printToConsole(L, "-- Sparkle Update framework not available for the running instance of Hammerspoon.") ;
-//         }
-//     } else {
-//         printToConsole(L, "-- Sparkle Update framework not available for the running instance of Hammerspoon.") ;
-//     }
-//     return 0 ;
-// }
-
 @interface MJConsoleWindowController : NSWindowController
 
 + (instancetype) singleton;
@@ -267,8 +190,6 @@ static const luaL_Reg extrasLib[] = {
     {"defaults",            extras_defaults },
     {"userDataToString",    ud_tostring},
     {"getMenuArray",        getMenuArray},
-//     {"automaticallyChecksForUpdates",     automaticallyChecksForUpdates},
-//     {"checkForUpdates",  checkForUpdates},
     {NULL,                  NULL}
 };
 
