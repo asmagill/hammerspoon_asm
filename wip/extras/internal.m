@@ -13,6 +13,14 @@ static int extras_nslog(lua_State* L) {
     return 0;
 }
 
+static int listWindows(lua_State *L) {
+//     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) ;
+    CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID) ;
+    // CGWindowID(0) is equal to kCGNullWindowID
+    NSArray *windowList = CFBridgingRelease(windowInfosRef) ;  // same as __bridge_transfer
+    NSObject_tolua(L, windowList) ;
+    return 1 ;
+}
 
 static int extras_defaults(lua_State* L) {
     NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName: [[NSBundle mainBundle] bundleIdentifier]] ;
@@ -239,6 +247,7 @@ static int getMenuArray(lua_State *L) {
 
 static const luaL_Reg extrasLib[] = {
     {"consoleBehavior",     console_behavior },
+    {"listWindows", listWindows},
     {"NSLog",               extras_nslog },
     {"defaults",            extras_defaults },
     {"userDataToString",    ud_tostring},
