@@ -13,9 +13,24 @@ static int extras_nslog(lua_State* L) {
     return 0;
 }
 
+/// hs._asm.extras.listWindows([includeDesktopElements])
+/// Function
+/// Returns an array containing information about all available windows, even those ignored by hs.window
+///
+/// Parameters:
+///  * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.
+///
+/// Returns:
+///  * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.
+///
+/// Notes:
+///  * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.
+///  * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just "this space" or "not this space") there is at present no way to positively distinguish "real" windows from "virtual" windows used for internal application purposes.
+///  * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.
 static int listWindows(lua_State *L) {
 //     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) ;
-    CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID) ;
+
+    CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll | (lua_toboolean(L,1) ? 0 : kCGWindowListExcludeDesktopElements), kCGNullWindowID) ;
     // CGWindowID(0) is equal to kCGNullWindowID
     NSArray *windowList = CFBridgingRelease(windowInfosRef) ;  // same as __bridge_transfer
     NSObject_tolua(L, windowList) ;

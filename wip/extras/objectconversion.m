@@ -291,6 +291,10 @@ static int nsnumber_tolua(lua_State *L, id obj) {
             case 'L': lua_pushinteger(L, (long long)[number unsignedLongValue]) ; break ;
 
             case 'q': lua_pushinteger(L, [number longLongValue]) ; break ;
+
+            // Lua only does signed long long, not unsigned, so we keep it an integer as
+            // far as we can; after that, sorry -- lua has to treat it as a number (real)
+            // or it will wrap and we lose the whole point of being unsigned.
             case 'Q': if ([number unsignedLongLongValue] < 0x8000000000000000)
                           lua_pushinteger(L, (long long)[number unsignedLongLongValue]) ;
                       else

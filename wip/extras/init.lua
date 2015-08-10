@@ -10,6 +10,62 @@ local module = require("hs._asm.extras.internal")
 
 -- Public interface ------------------------------------------------------
 
+--- hs._asm.extras.windowsByName([includeDesktopElements])
+--- Function
+--- Returns a table containing information about all available windows, even those ignored by hs.window
+---
+--- Parameters:
+---  * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.
+---
+--- Returns:
+---  * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.
+---
+--- Notes:
+---  * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.
+---  * This function also utilizes metatables to allow an easier browsing experience of the data from the console.
+---  * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just "this space" or "not this space") there is at present no way to positively distinguish "real" windows from "virtual" windows used for internal application purposes.
+---  * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.
+module.windowsByName = function(all)
+    local windowTable = module.listWindows(all)
+    local resultTable = {}
+    for i,v in ipairs(windowTable) do
+        resultTable[v.kCGWindowOwnerName] = resultTable[v.kCGWindowOwnerName] or
+            setmetatable({},{__tostring = function(_)
+                    local result = "contains "..tostring(#_).." windows"
+                    return result
+                end
+            })
+        v.kCGWindowBounds = setmetatable(v.kCGWindowBounds, { __tostring=function(_)
+                local result = ""
+                for i,v in pairs(_) do
+                    result = result..tostring(i).."="..tostring(v)..", "
+                end
+                return "{ "..result.."}"
+            end
+        })
+        table.insert(resultTable[v.kCGWindowOwnerName],
+            setmetatable(v,{__tostring = function(_)
+                    local result = ""
+                    local width = 0
+                    for i,v in pairs(_) do width = width < #i and #i or width end
+                    for i,v in pairs(_) do
+                        result = result..string.format("%-"..tostring(width).."s %s\n", i, tostring(v))
+                    end
+                    return result
+                end
+            }))
+    end
+    return setmetatable(resultTable, { __tostring=function(_)
+          local result = ""
+          local width = 0
+          for i,v in pairs(_) do width = width < #i and #i or width end
+          for i,v in pairs(_) do
+              result = result..string.format("%-"..tostring(width).."s %s\n", i, tostring(v))
+          end
+          return result
+      end
+    })
+end
 
 --- hs._asm.extras.tableCopy(table1) -> table2
 --- Function
