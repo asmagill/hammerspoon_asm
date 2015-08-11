@@ -1,3 +1,5 @@
+#import "objectconversion.h"
+
 // Recursion depth needs to be setable at call time, not necesarily by lua, but
 // definately by the calling C function
 //
@@ -15,14 +17,6 @@
 
 // NSObject to/from Lua
 #define maxParseDepth 10
-
-// structures to allow easily adding helper functions for new NSClasses as becomes necessary...
-
-typedef id (*lua2nsFunction) (lua_State *L, int idx);
-typedef struct lua2nsHelpers {
-  const int      type;
-  lua2nsFunction func;
-} lua2nsHelpers;
 
 static int parseDepth = 0 ;
 
@@ -98,9 +92,6 @@ size_t is_utf8(unsigned char *str, size_t len) {
     return 0;
 }
 
-// Forward declaration since Table requires recursion...
-static id lua_toNSObject(lua_State* L, int idx) ;
-
 id luanumber_tons(lua_State *L, int idx) {
     if (lua_isinteger(L, idx))
         return @(lua_tointeger(L, idx)) ;
@@ -155,7 +146,7 @@ id luaunknown_tons(lua_State *L, int idx) {
     return [NSString stringWithFormat:@"%s: %p", luaL_typename(L, idx), lua_topointer(L, idx)];
 }
 
-static lua2nsHelpers luaobj_tons_helpers[] = {
+lua2nsHelpers luaobj_tons_helpers[] = {
 //  LUA_TYPE        HELPER_FUNCTION
     {LUA_TNUMBER,   luanumber_tons },
     {LUA_TSTRING,   luastring_tons },
@@ -176,7 +167,7 @@ static lua2nsHelpers luaobj_tons_helpers[] = {
 // missing indexes and any table with even 1 non-numeric key (even the n from table.pack)
 // will be converted to NSDictionary, so if this matters, null them out first.
 
-static id lua_toNSObject(lua_State* L, int idx) {
+id lua_toNSObject(lua_State* L, int idx) {
     parseDepth++ ;
     if (parseDepth > maxParseDepth) {
         parseDepth-- ;
@@ -254,22 +245,16 @@ static id lua_toNSObject(lua_State* L, int idx) {
 
 
 
-typedef int (*ns2luaFunction) (lua_State *L, id obj);
-typedef struct ns2luaHelpers {
-  const char     *name;
-  ns2luaFunction  func;
-} ns2luaHelpers;
-
 // Forward declaration since NSArray and such require recursion...
-static int NSObject_tolua(lua_State *L, id obj) ;
+int NSObject_tolua(lua_State *L, id obj) ;
 
 // simplistic maybe, but useful to be called individually if I ever put these into hammerspoon.h
 // or a hammerspoon framework.
-static int nsnull_tolua(lua_State *L, __unused id obj) {
+int nsnull_tolua(lua_State *L, __unused id obj) {
     lua_pushnil(L);
     return 1 ;
 }
-static int nsnumber_tolua(lua_State *L, id obj) {
+int nsnumber_tolua(lua_State *L, id obj) {
     NSNumber    *number = obj ;
     if (number == (id)kCFBooleanTrue)
         lua_pushboolean(L, YES);
@@ -313,22 +298,22 @@ static int nsnumber_tolua(lua_State *L, id obj) {
     }
     return 1 ;
 }
-static int nsstring_tolua(lua_State *L, id obj) {
+int nsstring_tolua(lua_State *L, id obj) {
     NSString *string = obj;
     lua_pushstring(L, [string UTF8String]);
     return 1 ;
 }
-static int nsdata_tolua(lua_State *L, id obj) {
+int nsdata_tolua(lua_State *L, id obj) {
     NSData *data = obj;
     lua_pushlstring(L, [data bytes], [data length]) ;
     return 1 ;
 }
-static int nsdate_tolua(lua_State *L, id obj) {
+int nsdate_tolua(lua_State *L, id obj) {
     NSDate *date = obj ;
     lua_pushnumber(L, [date timeIntervalSince1970]);
     return 1 ;
 }
-static int nsarray_tolua(lua_State *L, id obj) {
+int nsarray_tolua(lua_State *L, id obj) {
     NSArray* list = obj;
     lua_newtable(L);
     for (id item in list) {
@@ -337,7 +322,7 @@ static int nsarray_tolua(lua_State *L, id obj) {
     }
     return 1 ;
 }
-static int nsset_tolua(lua_State *L, id obj) {
+int nsset_tolua(lua_State *L, id obj) {
     NSSet* list = obj;
     lua_newtable(L);
     for (id item in list) {
@@ -346,7 +331,7 @@ static int nsset_tolua(lua_State *L, id obj) {
     }
     return 1 ;
 }
-static int nsdictionary_tolua(lua_State *L, id obj) {
+int nsdictionary_tolua(lua_State *L, id obj) {
     NSArray *keys = [obj allKeys];
     NSArray *values = [obj allValues];
     lua_newtable(L);
@@ -358,14 +343,14 @@ static int nsdictionary_tolua(lua_State *L, id obj) {
     }
     return 1 ;
 }
-static int nsunknown_tolua(lua_State *L, id obj) {
+int nsunknown_tolua(lua_State *L, id obj) {
     lua_pushstring(L, [[NSString stringWithFormat:@"Unknown object: %@", obj] UTF8String]) ;
     return 1 ;
 }
 
 // The first class an object returns YES to will be used. "NSObject" is supposed to
 // match all of them, so we use it as a "default".
-static ns2luaHelpers nsobj_tolua_helpers[] = {
+ns2luaHelpers nsobj_tolua_helpers[] = {
 //  CLASS_NAME        HELPER_FUNCTION
     {"NSNull",        nsnull_tolua },
     {"NSNumber",      nsnumber_tolua },
@@ -380,7 +365,7 @@ static ns2luaHelpers nsobj_tolua_helpers[] = {
     {NULL,            NULL}
 };
 
-static int NSObject_tolua(lua_State *L, id obj) {
+int NSObject_tolua(lua_State *L, id obj) {
     if (obj == nil) {
     // special case -- shouldn't happen (things should return [NSNull null]), but it does...
         lua_pushnil(L) ;
@@ -401,3 +386,8 @@ static int NSObject_tolua(lua_State *L, id obj) {
     }
     return 1 ;
 }
+
+// int luaopen_hs__asm_extras_objectconversion(lua_State* L) {
+//     lua_pushstring(L, "C helper library to be loaded at runtime") ;
+//     return 1;
+// }

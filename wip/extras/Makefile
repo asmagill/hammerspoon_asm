@@ -10,11 +10,13 @@ current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 MODULE := $(current_dir)
 PREFIX ?= ~/.hammerspoon/hs/_asm
 
-OBJCFILE = internal.m
+OBJCFILE = ${wildcard *.m}
 LUAFILE  = init.lua
 SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
 DOC_FILE = hs._asm.$(MODULE).json
+
+.SUFFIXES: .m .so
 
 #CC=cc
 CC=clang
@@ -40,8 +42,8 @@ DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 
 all: verify $(SOFILE)
 
-$(SOFILE): $(OBJCFILE)
-	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+.m.so:
+	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 install: install-objc install-lua
 

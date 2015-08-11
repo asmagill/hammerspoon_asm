@@ -4,6 +4,12 @@
 ---
 --- I include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions/tools become real.
 
+-- make sure these are in the right place for for doSpacesKey in internal.m
+    if not hs.keycodes then hs.keycodes = require("hs.keycodes") end
+    if not hs.window   then hs.window   = require("hs.window")   end
+-- make object conversion library available to internal.m
+    package.loadlib(package.searchpath("hs._asm.extras.objectconversion", package.cpath),"*")
+
 local module = require("hs._asm.extras.internal")
 
 -- private variables and methods -----------------------------------------

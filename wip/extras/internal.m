@@ -1,8 +1,9 @@
 #import <Cocoa/Cocoa.h>
+#import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 
-#import "objectconversion.m"
+#import "objectconversion.h"
 
 /// hs._asm.extras.NSLog(luavalue)
 /// Function
@@ -183,13 +184,152 @@ static int getMenuArray(lua_State *L) {
 
 // // // // // END: hs.application candidate
 
+// // Not sure what I'll do with this now... just got lua/hs.eventtap version working.  Args are different
+// // (I like these better now), but that's just a simple code change when I'm not tired...
+
+
+/// _asm.extras.doSpacesKey([key],[win],[mod]) -> None
+/// Function
+/// Preforms Mission Control key sequences (and clicks, when a window or point is provided) for spaces.
+///
+/// Parameters:
+///  * key - the string representing the keyboard character which is to be "pressed" -- defaults to the right arrow ("right") -- see hs.keycodes.map for other keys.
+///  * win - a hs.window object or point table indicating where the mouse pointer and mouse click should occur for the trigger. Defaults to no window.
+///  * mod - a table containing the keyboard modifiers to be "pressed".  Defaults to { "ctrl" }. The following values are allowed in this table:
+///   * cmd
+///   * alt
+///   * shift
+///   * ctrl
+///   * fn
+///
+/// Notes:
+///  * The only semi-reliable way to move windows around in Spaces is to take advantage of the fact that we can simulate the keypresses which are defined for Mission Control and Spaces in the Keyboard Shortcuts System Preferences Panel.  That is what this function is intended for.  It will have no effect if you disabled these shortcuts.  By default they are defined as:
+///    * Ctrl-# - jump to a specific space, or if a window title bar is being clicked on when pressed, move the window to the specific space.
+///    * Ctrl-Right Arrow - move (or move a window) one space to the right.
+///    * Ctrl-Left Arrow - move (or move a window) one space to the left.
+///    * Ctrl-Up Arrow - show the Mission Control panel (has no effect if a window is clicked on during this keypress)
+///    * Ctrl-Down Arror - show the Application Windows screen (has no effect if a window is clicked on during this keypress)
+///  * Technically this could probably replicate almost any Keyboard Shortcut from the System Preferences Panel, but only Spaces has been tested.
+///  * For window movement, if a window is provided, it will be brought into focus and the mouse moved for the click and keypress.
+///  * If a point table ({ x = #, y= # }) is provided instead of a window, no window focus is performed -- it is assumed that you have already done so or that you know what you are doing.  This is supported in case some window is found to have a different acceptable click region for inclusion in Space moves, or in case this function turns out to be useful in other contexts.
+///  * This function performs the following steps (unfortunately I couldn't seem to get the timing right using hs.eventtap.events, though I may try again at another date since it should be possible.) -- edit: maybe I just did... hmm... keep this for reference/legacy?
+///    * If a window is provided, focus it and get it's topLeft corner.  Set the targetMouseLocation to just between the Close Circle and the Minimize Circle in its title bar.
+///    * If a point table is provided, set the targetMouseLocation to the provided point.
+///    * If a targetMouseLocation is set, move the mouse to it and perform a leftClickDown event
+///    * perform a keyDown event with the provided key and modifiers (or default Ctrl-Right Arrow, if none are provided)
+///    * perform a keyUp event with the same key and modifiers
+///    * If a targetMouseLocation is set, perform a leftClickUp event.
+static int doSpacesKey(lua_State *L) {
+    CGPoint       mouseCursorPoint ;
+    CGKeyCode     theKey           = kVK_RightArrow ;
+    CGEventFlags  theMods          = kCGEventFlagMaskControl ;
+    BOOL           withWindow      = NO ;
+
+    if (!lua_isnoneornil(L, 1)) {
+        const char* key = luaL_checkstring(L, 1);
+        lua_getglobal(L, "hs"); lua_getfield(L, -1, "keycodes"); lua_getfield(L, -1, "map");
+        lua_pushstring(L, key);
+        lua_gettable(L, -2);
+        theKey = (CGKeyCode) lua_tointeger(L, -1);
+        lua_pop(L, 4); // hs.window.map and result
+    }
+
+    if (lua_isuserdata(L, 2)) {
+        withWindow = YES ;
+
+        lua_getglobal(L, "hs"); lua_getfield(L, -1, "window"); lua_getfield(L, -1, "topLeft");
+        lua_pushvalue(L, 2) ;
+        if (lua_pcall(L, 1, 1, 0) != LUA_OK)
+            return luaL_error(L, "unable to get window position") ;
+        else {
+            lua_getfield(L, -1, "x") ;
+            mouseCursorPoint.x = lua_tonumber(L, -1) + 24 ; // approx midway between the close
+            lua_pop(L, 1) ;
+            lua_getfield(L, -1, "y") ;
+            mouseCursorPoint.y = lua_tonumber(L, -1) + 11 ; // circle and the minimize circle
+            lua_pop(L, 4) ; // 1 for the getfield, 1 for the function result, 2 for the hs.window
+        }
+
+        lua_getglobal(L, "hs"); lua_getfield(L, -1, "window"); lua_getfield(L, -1, "focus");
+        lua_pushvalue(L, 2) ;
+        if (lua_pcall(L, 1, 1, 0) != LUA_OK)
+            return luaL_error(L, "unable to bring window to the front for space change") ;
+        else {
+            lua_pop(L, 3) ; // 1 for the result and 2 for the hs.window
+            usleep(125000) ; // duration seems to work -- we need time for the window activation to complete
+        }
+
+    } else if (!lua_isnoneornil(L, 2)) {
+        withWindow = YES ;
+
+        luaL_checktype(L, 2, LUA_TTABLE) ;
+        if (lua_getfield(L, 2, "x") == LUA_TNUMBER) {
+            mouseCursorPoint.x = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+        } else
+            return luaL_error(L, "you must provide an x coordinate in a point table") ;
+        if (lua_getfield(L, 2, "y") == LUA_TNUMBER) {
+            mouseCursorPoint.y = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+        } else
+            return luaL_error(L, "you must provide a y coordinate in a point table") ;
+    }
+
+    if (!lua_isnoneornil(L, 3)) {
+        luaL_checktype(L, 3, LUA_TTABLE) ;
+        lua_pushnil(L);
+        theMods = 0 ;
+        while (lua_next(L, 3) != 0) {
+            const char *modifier = lua_tostring(L, -1);
+
+            // lenient for now... ignore if not string key
+            if (!modifier) { lua_pop(L, 1); continue; }
+
+            if      (strcmp(modifier, "cmd") == 0   || strcmp(modifier, "⌘") == 0) theMods |= kCGEventFlagMaskCommand;
+            else if (strcmp(modifier, "ctrl") == 0  || strcmp(modifier, "⌃") == 0) theMods |= kCGEventFlagMaskControl;
+            else if (strcmp(modifier, "alt") == 0   || strcmp(modifier, "⌥") == 0) theMods |= kCGEventFlagMaskAlternate;
+            else if (strcmp(modifier, "shift") == 0 || strcmp(modifier, "⇧") == 0) theMods |= kCGEventFlagMaskShift;
+            else if (strcmp(modifier, "fn") == 0)                                  theMods |= kCGEventFlagMaskSecondaryFn;
+            lua_pop(L, 1);
+        }
+    }
+
+    CGEventRef mouseMoveEvent    = CGEventCreateMouseEvent(NULL, kCGEventMouseMoved,    mouseCursorPoint, kCGMouseButtonLeft);
+    CGEventRef mouseDownEvent    = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown, mouseCursorPoint, kCGMouseButtonLeft);
+    CGEventRef mouseUpEvent      = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp,   mouseCursorPoint, kCGMouseButtonLeft);
+    CGEventRef keyboardDownEvent = CGEventCreateKeyboardEvent(NULL, theKey, true);
+    CGEventRef keyboardUpEvent   = CGEventCreateKeyboardEvent(NULL, theKey, false);
+
+    CGEventSetFlags(mouseMoveEvent, 0);
+    CGEventSetFlags(mouseDownEvent, 0);
+    CGEventSetFlags(mouseUpEvent, 0);
+    CGEventSetFlags(keyboardDownEvent, theMods);
+    CGEventSetFlags(keyboardUpEvent, 0);
+
+    if (withWindow) CGEventPost(kCGHIDEventTap, mouseMoveEvent);
+    if (withWindow) CGEventPost(kCGHIDEventTap, mouseDownEvent);
+    usleep(125000) ; // and apparently for the window to realize it's clicked on
+    CGEventPost(kCGHIDEventTap, keyboardDownEvent);
+    usleep(125000) ; // and that a keypress occurred... hey, it's working for me so far!
+    CGEventPost(kCGHIDEventTap, keyboardUpEvent);
+    if (withWindow) CGEventPost(kCGHIDEventTap, mouseUpEvent);
+
+    CFRelease(mouseMoveEvent);
+    CFRelease(mouseDownEvent);
+    CFRelease(mouseUpEvent);
+    CFRelease(keyboardDownEvent);
+    CFRelease(keyboardUpEvent);
+    return 0 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"consoleBehavior",     console_behavior },
-    {"listWindows", listWindows},
+    {"listWindows",         listWindows},
     {"NSLog",               extras_nslog },
     {"defaults",            extras_defaults },
     {"userDataToString",    ud_tostring},
     {"getMenuArray",        getMenuArray},
+    {"doSpacesKey",         doSpacesKey},
     {NULL,                  NULL}
 };
 
