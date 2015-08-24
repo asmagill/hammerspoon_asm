@@ -7,8 +7,6 @@
 -- make sure these are in the right place for for doSpacesKey in internal.m
     if not hs.keycodes then hs.keycodes = require("hs.keycodes") end
     if not hs.window   then hs.window   = require("hs.window")   end
--- make object conversion library available to internal.m
-    package.loadlib(package.searchpath("hs._asm.extras.objectconversion", package.cpath),"*")
 
 local module = require("hs._asm.extras.internal")
 

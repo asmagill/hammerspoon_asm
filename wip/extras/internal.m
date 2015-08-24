@@ -3,13 +3,11 @@
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 
-#import "objectconversion.h"
-
 /// hs._asm.extras.NSLog(luavalue)
 /// Function
 /// Send a representation of the lua value passed in to the Console application via NSLog.
-static int extras_nslog(lua_State* L) {
-    id val = lua_toNSObject(L, 1);
+static int extras_nslog(__unused lua_State* L) {
+    id val = [[LuaSkin shared] toNSObjectFromIndex:1] ;
     NSLog(@"%@", val);
     return 0;
 }
@@ -34,13 +32,13 @@ static int listWindows(lua_State *L) {
     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll | (lua_toboolean(L,1) ? 0 : kCGWindowListExcludeDesktopElements), kCGNullWindowID) ;
     // CGWindowID(0) is equal to kCGNullWindowID
     NSArray *windowList = CFBridgingRelease(windowInfosRef) ;  // same as __bridge_transfer
-    NSObject_tolua(L, windowList) ;
+    [[LuaSkin shared] pushNSObject:windowList] ;
     return 1 ;
 }
 
-static int extras_defaults(lua_State* L) {
+static int extras_defaults(__unused lua_State* L) {
     NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName: [[NSBundle mainBundle] bundleIdentifier]] ;
-    NSObject_tolua(L, defaults) ;
+    [[LuaSkin shared] pushNSObject:defaults] ;
     return 1;
 }
 
@@ -54,7 +52,7 @@ static int extras_defaults(lua_State* L) {
 //
 //     if (NSClassFromString(className)) {
 //         if ([NSClassFromString(className) respondsToSelector:NSSelectorFromString(selectorName)]) {
-//             NSObject_tolua(L, [NSClassFromString(className) performSelector:NSSelectorFromString(selectorName)]) ;
+//             lua_pushNSObject(L, [NSClassFromString(className) performSelector:NSSelectorFromString(selectorName)]) ;
 //         } else {
 //             printToConsole(L, (char *)[[NSString stringWithFormat:@"Class %@ does not respond to selector %@", className, selectorName] UTF8String]) ;
 //             lua_pushnil(L) ;
@@ -322,6 +320,36 @@ static int doSpacesKey(lua_State *L) {
     return 0 ;
 }
 
+// Can self-reference be created in NSObjects and returned to Lua?
+static int pathological(__unused lua_State *L) {
+    NSMutableDictionary *test = [[NSMutableDictionary alloc] init] ;
+    [test setValue:test forKey:@"myself"] ;
+    [test setValue:@"otherStuff" forKey:@"notMySelf"] ;
+
+    [[LuaSkin shared] pushNSObject:test] ;
+    return 1 ;
+}
+
+// Verify conversion tools properly handle self reference
+static int copyAndTouch(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TTABLE) ;
+    id stuff = [[LuaSkin shared] toNSObjectFromIndex:1 allowSelfReference:(BOOL)lua_toboolean(L, 2)] ;
+    if ([stuff isKindOfClass: [NSArray class]]) {
+        [stuff addObject:@"KilroyWasHere"] ;
+    } else {
+        [stuff setObject:@(YES) forKey:@"KilroyWasHere"] ;
+    }
+//     NSLog(@"cAt: %@",stuff) ;
+    [[LuaSkin shared] pushNSObject:stuff] ;
+    return 1 ;
+}
+
+static int spotlight(lua_State *L) {
+    lua_pushboolean(L, [[NSWorkspace sharedWorkspace] showSearchResultsForQueryString:[NSString stringWithUTF8String:luaL_checkstring(L, 1)]]) ;
+    return 1 ;
+}
+
+
 static const luaL_Reg extrasLib[] = {
     {"consoleBehavior",     console_behavior },
     {"listWindows",         listWindows},
@@ -330,6 +358,9 @@ static const luaL_Reg extrasLib[] = {
     {"userDataToString",    ud_tostring},
     {"getMenuArray",        getMenuArray},
     {"doSpacesKey",         doSpacesKey},
+    {"spotlight",           spotlight},
+    {"pathological",        pathological},
+    {"copyAndTouch",        copyAndTouch},
     {NULL,                  NULL}
 };
 
