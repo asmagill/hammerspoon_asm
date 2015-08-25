@@ -349,9 +349,46 @@ static int spotlight(lua_State *L) {
     return 1 ;
 }
 
+static int cleanUTF8(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TSTRING) ;
+    size_t sourceLength ;
+    unsigned char *src  = (unsigned char *)lua_tolstring(L, 1, &sourceLength) ;
+    NSMutableData *dest = [[NSMutableData alloc] init] ;
+
+    unsigned char nullChar[]    = { 0xE2, 0x88, 0x85 } ;
+    unsigned char invalidChar[] = { 0xEF, 0xBF, 0xBD } ;
+
+    size_t pos = 0 ;
+    while (pos < sourceLength) {
+        if (src[pos] > 0 && src[pos] <= 127) {
+            [dest appendBytes:(void *)(src + pos) length:1] ; pos++ ;
+        } else if ((src[pos] >= 194 && src[pos] <= 223) && (src[pos+1] >= 128 && src[pos+1] <= 191)) {
+            [dest appendBytes:(void *)(src + pos) length:2] ; pos = pos + 2 ;
+        } else if ((src[pos] == 224 && (src[pos+1] >= 160 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
+                   ((src[pos] >= 225 && src[pos] <= 236) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
+                   (src[pos] == 237 && (src[pos+1] >= 128 && src[pos+1] <= 159) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
+                   ((src[pos] >= 238 && src[pos] <= 239) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191))) {
+            [dest appendBytes:(void *)(src + pos) length:3] ; pos = pos + 3 ;
+        } else if ((src[pos] == 240 && (src[pos+1] >= 144 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191)) ||
+                   ((src[pos] >= 241 && src[pos] <= 243) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191)) ||
+                   (src[pos] == 244 && (src[pos+1] >= 128 && src[pos+1] <= 143) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191))) {
+            [dest appendBytes:(void *)(src + pos) length:4] ; pos = pos + 4 ;
+        } else {
+            if (src[pos] == 0)
+                [dest appendBytes:(void *)nullChar length:3] ;
+            else
+                [dest appendBytes:(void *)invalidChar length:3] ;
+            pos = pos + 1 ;
+        }
+    }
+
+    NSString *destStr = [[NSString alloc] initWithData:dest encoding:NSUTF8StringEncoding] ;
+    lua_pushlstring(L, [destStr UTF8String], [destStr lengthOfBytesUsingEncoding:NSUTF8StringEncoding] + 1) ;
+    return 1 ;
+}
 
 static const luaL_Reg extrasLib[] = {
-    {"consoleBehavior",     console_behavior },
+    {"consoleBehavior",     console_behavior},
     {"listWindows",         listWindows},
     {"NSLog",               extras_nslog },
     {"defaults",            extras_defaults },
@@ -361,6 +398,7 @@ static const luaL_Reg extrasLib[] = {
     {"spotlight",           spotlight},
     {"pathological",        pathological},
     {"copyAndTouch",        copyAndTouch},
+    {"cleanUTF8",           cleanUTF8},
     {NULL,                  NULL}
 };
 
