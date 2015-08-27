@@ -27,7 +27,7 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=clang
-EXTRA_CFLAGS ?= -Wconversion -Wdeprecated
+EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F/Library/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 

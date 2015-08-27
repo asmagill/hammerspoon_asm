@@ -8,13 +8,13 @@ mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 MODULE := $(current_dir)
-PREFIX ?= ~/.hammerspoon/hs
+PREFIX ?= ~/.hammerspoon/hs/_asm
 
 OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
 SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
-DOC_FILE = hs.$(MODULE).json
+DOC_FILE = hs._asm.$(MODULE).json
 
 # special vars for uninstall
 space :=
@@ -27,8 +27,8 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=clang
-EXTRA_CFLAGS ?= -fobjc-arc -DHS_EXTERNAL_MODULE -pedantic -Wall -Wextra -Wconversion -Wdeprecated
-CFLAGS  += $(DEBUG_CFLAGS) -Wall -Wextra $(EXTRA_CFLAGS)
+EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F/Library/Frameworks
+CFLAGS  += $(DEBUG_CFLAGS) -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
@@ -46,7 +46,7 @@ verify: $(LUAFILE)
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/$(MODULE)
-	cp -vpR {$(subst $(space),$(comma),$(SOFILE))}.dSYM $(PREFIX)/$(MODULE)
+	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/$(MODULE)
 
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/$(MODULE)
@@ -66,7 +66,7 @@ clean:
 
 uninstall:
 	rm -v -f $(PREFIX)/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	rm -v -fr $(PREFIX)/$(MODULE)/{$(subst $(space),$(comma),$(SOFILE))}.dSYM
+	(pushd $(PREFIX)/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
 	rm -v -f $(PREFIX)/$(MODULE)/$(DOC_FILE)
 	rmdir -p $(PREFIX)/$(MODULE) ; exit 0
 

@@ -72,6 +72,22 @@ static int extras_defaults(__unused lua_State* L) {
 
 @end
 
+static int console_alpha(lua_State* L) {
+    NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+
+    if (lua_type(L, 1) != LUA_TNONE) {
+        CGFloat newLevel = luaL_checknumber(L, 1);
+        if ((newLevel < 0.0) || (newLevel > 1.0)) {
+            showError(L, "Alpha must be between 0.0 and 1.0") ;
+        } else {
+            [console setAlphaValue:newLevel] ;
+        }
+    }
+
+    lua_pushnumber(L, [console alphaValue]) ;
+    return 1 ;
+}
+
 static int console_behavior(lua_State* L) {
     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
 
@@ -387,23 +403,70 @@ static int cleanUTF8(lua_State *L) {
     return 1 ;
 }
 
+static int fontCharacterPalette(lua_State *L) {
+    [[NSApplication sharedApplication] orderFrontCharacterPalette:nil] ;
+    return 0 ;
+}
+
+static int colorPanel(lua_State *L) {
+    [[NSApplication sharedApplication]  orderFrontColorPanel:nil] ;
+    return 0 ;
+}
+
+static int drawing_windowLevels(lua_State *L) {
+    lua_newtable(L) ;
+        lua_pushinteger(L, NSNormalWindowLevel) ;       lua_setfield(L, -2, "NSNormalWindowLevel") ;
+        lua_pushinteger(L, NSFloatingWindowLevel) ;     lua_setfield(L, -2, "NSFloatingWindowLevel") ;
+        lua_pushinteger(L, NSSubmenuWindowLevel) ;      lua_setfield(L, -2, "NSSubmenuWindowLevel") ;
+        lua_pushinteger(L, NSTornOffMenuWindowLevel) ;  lua_setfield(L, -2, "NSTornOffMenuWindowLevel") ;
+        lua_pushinteger(L, NSMainMenuWindowLevel) ;     lua_setfield(L, -2, "NSMainMenuWindowLevel") ;
+        lua_pushinteger(L, NSStatusWindowLevel) ;       lua_setfield(L, -2, "NSStatusWindowLevel") ;
+        lua_pushinteger(L, NSModalPanelWindowLevel) ;   lua_setfield(L, -2, "NSModalPanelWindowLevel") ;
+        lua_pushinteger(L, NSPopUpMenuWindowLevel) ;    lua_setfield(L, -2, "NSPopUpMenuWindowLevel") ;
+        lua_pushinteger(L, NSScreenSaverWindowLevel) ;  lua_setfield(L, -2, "NSScreenSaverWindowLevel") ;
+        lua_pushinteger(L, NSDockWindowLevel) ;         lua_setfield(L, -2, "NSDockWindowLevel") ;
+    return 1 ;
+}
+
+// Declare our Lua userdata object and a storage container for them
+typedef struct _drawing_t {
+    void *window;
+} drawing_t;
+
+static int drawing_setLevel(lua_State *L) {
+    drawing_t *drawingObject = (drawing_t *)luaL_checkudata(L, 1, "hs.drawing") ;
+    NSWindow *drawingWindow = (__bridge NSWindow *)drawingObject->window;
+
+    if (!lua_isnone(L, 2)) {
+        [drawingWindow setLevel:luaL_checkinteger(L, 2)] ;
+    }
+    lua_pushinteger(L, [drawingWindow level]) ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
-    {"consoleBehavior",     console_behavior},
-    {"listWindows",         listWindows},
-    {"NSLog",               extras_nslog },
-    {"defaults",            extras_defaults },
-    {"userDataToString",    ud_tostring},
-    {"getMenuArray",        getMenuArray},
-    {"doSpacesKey",         doSpacesKey},
-    {"spotlight",           spotlight},
-    {"pathological",        pathological},
-    {"copyAndTouch",        copyAndTouch},
-    {"cleanUTF8",           cleanUTF8},
-    {NULL,                  NULL}
+    {"consoleBehavior",      console_behavior},
+    {"consoleAlpha",         console_alpha},
+    {"listWindows",          listWindows},
+    {"NSLog",                extras_nslog },
+    {"defaults",             extras_defaults },
+    {"userDataToString",     ud_tostring},
+    {"getMenuArray",         getMenuArray},
+    {"doSpacesKey",          doSpacesKey},
+    {"spotlight",            spotlight},
+    {"pathological",         pathological},
+    {"copyAndTouch",         copyAndTouch},
+    {"cleanUTF8",            cleanUTF8},
+    {"fontCharacterPalette", fontCharacterPalette},
+    {"colorPanel",           colorPanel},
+    {"drawingLevel",         drawing_setLevel},
+    {NULL,                   NULL}
 };
 
 int luaopen_hs__asm_extras_internal(lua_State* L) {
     luaL_newlib(L, extrasLib);
+    drawing_windowLevels(L) ;
+    lua_setfield(L, -2, "windowLevels") ;
 
     return 1;
 }
