@@ -1,0 +1,15 @@
+[submodule "ModuleWalkthrough"]
+	path = ModuleWalkthrough
+	url = https://github.com/asmagill/HS_ModuleWalkthrough.git
+[submodule "wip/_undocumented"]
+	path = wip/_undocumented
+	url = https://github.com/asmagill/hammerspoon_asm.undocumented.git
+[submodule "wip/filelistmenu"]
+	path = wip/filelistmenu
+	url = https://github.com/asmagill/hammerspoon_filelistmenu.git
+[submodule "wip/hotkey"]
+	path = wip/hotkey
+	url = https://github.com/asmagill/hammerspoon_hotkey.git
+[submodule "wip/text"]
+	path = wip/text
+	url = https://github.com/asmagill/hammerspoon_text.git
