@@ -7,7 +7,7 @@
 /// Function
 /// Send a representation of the lua value passed in to the Console application via NSLog.
 static int extras_nslog(__unused lua_State* L) {
-    id val = [[LuaSkin shared] toNSObjectFromIndex:1] ;
+    id val = [[LuaSkin shared] toNSObjectAtIndex:1] ;
     NSLog(@"%@", val);
     return 0;
 }
@@ -82,39 +82,67 @@ static int extras_defaults(__unused lua_State* L) {
 
 @end
 
-static int console_alpha(lua_State* L) {
+typedef struct _drawing_t {
+    void *window;
+} drawing_t;
+
+
+static int console_asDrawing(lua_State *L) {
     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+    lua_getglobal(L, "require"); lua_pushstring(L, "hs.drawing"); lua_call(L, 1, 1);
 
-    if (lua_type(L, 1) != LUA_TNONE) {
-        CGFloat newLevel = luaL_checknumber(L, 1);
-        if ((newLevel < 0.0) || (newLevel > 1.0)) {
-            showError(L, "Alpha must be between 0.0 and 1.0") ;
-        } else {
-            [console setAlphaValue:newLevel] ;
-        }
-    }
+    drawing_t *drawingObject = lua_newuserdata(L, sizeof(drawing_t));
+    memset(drawingObject, 0, sizeof(drawing_t));
+    drawingObject->window = (__bridge_retained void*)console;
+    luaL_getmetatable(L, "hs.drawing");
+    lua_setmetatable(L, -2);
 
-    lua_pushnumber(L, [console alphaValue]) ;
     return 1 ;
 }
 
-static int console_behavior(lua_State* L) {
+static int console_asWindow(lua_State *L) {
     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
-
-    @try {
-        if (lua_type(L, 1) != LUA_TNONE)
-            [console setCollectionBehavior: lua_tonumber(L, 1) ] ;
-    }
-    @catch ( NSException *theException ) {
-        showError(L, (char *)[[NSString stringWithFormat:@"%@: %@", theException.name, theException.reason] UTF8String]);
-        return 0 ;
-    }
-
-    if (lua_type(L, 1) != LUA_TNONE)
-        [console setCollectionBehavior: lua_tonumber(L, 1) ] ;
-    lua_pushinteger(L, [console collectionBehavior]) ;
+    CGWindowID windowID = (CGWindowID)[console windowNumber];
+    lua_getglobal(L, "require"); lua_pushstring(L, "hs.window"); lua_call(L, 1, 1);
+    lua_getfield(L, -1, "windowForID") ;
+    lua_pushinteger(L, windowID) ;
+    lua_call(L, 1, 1) ;
     return 1 ;
 }
+
+// static int console_alpha(lua_State* L) {
+//     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+//
+//     if (lua_type(L, 1) != LUA_TNONE) {
+//         CGFloat newLevel = luaL_checknumber(L, 1);
+//         if ((newLevel < 0.0) || (newLevel > 1.0)) {
+//             showError(L, "Alpha must be between 0.0 and 1.0") ;
+//         } else {
+//             [console setAlphaValue:newLevel] ;
+//         }
+//     }
+//
+//     lua_pushnumber(L, [console alphaValue]) ;
+//     return 1 ;
+// }
+//
+// static int console_behavior(lua_State* L) {
+//     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+//
+//     @try {
+//         if (lua_type(L, 1) != LUA_TNONE)
+//             [console setCollectionBehavior: lua_tonumber(L, 1) ] ;
+//     }
+//     @catch ( NSException *theException ) {
+//         showError(L, (char *)[[NSString stringWithFormat:@"%@: %@", theException.name, theException.reason] UTF8String]);
+//         return 0 ;
+//     }
+//
+//     if (lua_type(L, 1) != LUA_TNONE)
+//         [console setCollectionBehavior: lua_tonumber(L, 1) ] ;
+//     lua_pushinteger(L, [console collectionBehavior]) ;
+//     return 1 ;
+// }
 
 static int console_backgroundColor(lua_State *L) {
     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
@@ -149,15 +177,15 @@ static int console_inputBackgroundColor(lua_State *L) {
     return [[LuaSkin shared] pushNSObject:[input backgroundColor]] ;
 }
 
-static int console_setLevel(lua_State *L) {
-    NSWindow *console = [[MJConsoleWindowController singleton] window] ;
-
-    if (!lua_isnone(L, 1)) {
-        [console setLevel:luaL_checkinteger(L, 1)] ;
-    }
-    lua_pushinteger(L, [console level]) ;
-    return 1 ;
-}
+// static int console_setLevel(lua_State *L) {
+//     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+//
+//     if (!lua_isnone(L, 1)) {
+//         [console setLevel:luaL_checkinteger(L, 1)] ;
+//     }
+//     lua_pushinteger(L, [console level]) ;
+//     return 1 ;
+// }
 
 /// hs._asm.extras.userDataToString(userdata) -> string
 /// Function
@@ -402,7 +430,7 @@ static int pathological(__unused lua_State *L) {
 // Verify conversion tools properly handle self reference
 static int copyAndTouch(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE) ;
-    id stuff = [[LuaSkin shared] toNSObjectFromIndex:1 allowSelfReference:(BOOL)lua_toboolean(L, 2)] ;
+    id stuff = [[LuaSkin shared] toNSObjectAtIndex:1 allowSelfReference:(BOOL)lua_toboolean(L, 2)] ;
     if ([stuff isKindOfClass: [NSArray class]]) {
         [stuff addObject:@"KilroyWasHere"] ;
     } else {
@@ -418,117 +446,22 @@ static int spotlight(lua_State *L) {
     return 1 ;
 }
 
-static int cleanUTF8(lua_State *L) {
-    luaL_checktype(L, 1, LUA_TSTRING) ;
-    size_t sourceLength ;
-    unsigned char *src  = (unsigned char *)lua_tolstring(L, 1, &sourceLength) ;
-    NSMutableData *dest = [[NSMutableData alloc] init] ;
-
-    unsigned char nullChar[]    = { 0xE2, 0x88, 0x85 } ;
-    unsigned char invalidChar[] = { 0xEF, 0xBF, 0xBD } ;
-
-    size_t pos = 0 ;
-    while (pos < sourceLength) {
-        if (src[pos] > 0 && src[pos] <= 127) {
-            [dest appendBytes:(void *)(src + pos) length:1] ; pos++ ;
-        } else if ((src[pos] >= 194 && src[pos] <= 223) && (src[pos+1] >= 128 && src[pos+1] <= 191)) {
-            [dest appendBytes:(void *)(src + pos) length:2] ; pos = pos + 2 ;
-        } else if ((src[pos] == 224 && (src[pos+1] >= 160 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
-                   ((src[pos] >= 225 && src[pos] <= 236) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
-                   (src[pos] == 237 && (src[pos+1] >= 128 && src[pos+1] <= 159) && (src[pos+2] >= 128 && src[pos+2] <= 191)) ||
-                   ((src[pos] >= 238 && src[pos] <= 239) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191))) {
-            [dest appendBytes:(void *)(src + pos) length:3] ; pos = pos + 3 ;
-        } else if ((src[pos] == 240 && (src[pos+1] >= 144 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191)) ||
-                   ((src[pos] >= 241 && src[pos] <= 243) && (src[pos+1] >= 128 && src[pos+1] <= 191) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191)) ||
-                   (src[pos] == 244 && (src[pos+1] >= 128 && src[pos+1] <= 143) && (src[pos+2] >= 128 && src[pos+2] <= 191) && (src[pos+3] >= 128 && src[pos+3] <= 191))) {
-            [dest appendBytes:(void *)(src + pos) length:4] ; pos = pos + 4 ;
-        } else {
-            if (src[pos] == 0)
-                [dest appendBytes:(void *)nullChar length:3] ;
-            else
-                [dest appendBytes:(void *)invalidChar length:3] ;
-            pos = pos + 1 ;
-        }
-    }
-
-    NSString *destStr = [[NSString alloc] initWithData:dest encoding:NSUTF8StringEncoding] ;
-    lua_pushlstring(L, [destStr UTF8String], [destStr lengthOfBytesUsingEncoding:NSUTF8StringEncoding] + 1) ;
-    return 1 ;
-}
-
-static int fontCharacterPalette(lua_State *L) {
+static int fontCharacterPalette(lua_State __unused *L) {
     [[NSApplication sharedApplication] orderFrontCharacterPalette:nil] ;
     return 0 ;
 }
 
-static int colorPanel(lua_State *L) {
+static int colorPanel(lua_State __unused *L) {
     [[NSApplication sharedApplication]  orderFrontColorPanel:nil] ;
     return 0 ;
 }
 
-static int drawing_windowLevels(lua_State *L) {
-    lua_newtable(L) ;
-        lua_pushinteger(L, NSNormalWindowLevel) ;       lua_setfield(L, -2, "NSNormalWindowLevel") ;
-        lua_pushinteger(L, NSFloatingWindowLevel) ;     lua_setfield(L, -2, "NSFloatingWindowLevel") ;
-        lua_pushinteger(L, NSSubmenuWindowLevel) ;      lua_setfield(L, -2, "NSSubmenuWindowLevel") ;
-        lua_pushinteger(L, NSTornOffMenuWindowLevel) ;  lua_setfield(L, -2, "NSTornOffMenuWindowLevel") ;
-        lua_pushinteger(L, NSMainMenuWindowLevel) ;     lua_setfield(L, -2, "NSMainMenuWindowLevel") ;
-        lua_pushinteger(L, NSStatusWindowLevel) ;       lua_setfield(L, -2, "NSStatusWindowLevel") ;
-        lua_pushinteger(L, NSModalPanelWindowLevel) ;   lua_setfield(L, -2, "NSModalPanelWindowLevel") ;
-        lua_pushinteger(L, NSPopUpMenuWindowLevel) ;    lua_setfield(L, -2, "NSPopUpMenuWindowLevel") ;
-        lua_pushinteger(L, NSScreenSaverWindowLevel) ;  lua_setfield(L, -2, "NSScreenSaverWindowLevel") ;
-        lua_pushinteger(L, NSDockWindowLevel) ;         lua_setfield(L, -2, "NSDockWindowLevel") ;
-    return 1 ;
-}
-
-static int cg_windowLevels(lua_State *L) {
-    lua_newtable(L) ;
-
-//       lua_pushinteger(L, CGWindowLevelForKey(kCGBaseWindowLevelKey)) ; lua_setfield(L, -2, "kCGBaseWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGMinimumWindowLevelKey)) ; lua_setfield(L, -2, "kCGMinimumWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopWindowLevelKey)) ; lua_setfield(L, -2, "kCGDesktopWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGBackstopMenuLevelKey)) ; lua_setfield(L, -2, "kCGBackstopMenuLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGNormalWindowLevelKey)) ; lua_setfield(L, -2, "kCGNormalWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGFloatingWindowLevelKey)) ; lua_setfield(L, -2, "kCGFloatingWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGTornOffMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGTornOffMenuWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGDockWindowLevelKey)) ; lua_setfield(L, -2, "kCGDockWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGMainMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGMainMenuWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGStatusWindowLevelKey)) ; lua_setfield(L, -2, "kCGStatusWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGModalPanelWindowLevelKey)) ; lua_setfield(L, -2, "kCGModalPanelWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGPopUpMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGPopUpMenuWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGDraggingWindowLevelKey)) ; lua_setfield(L, -2, "kCGDraggingWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGScreenSaverWindowLevelKey)) ; lua_setfield(L, -2, "kCGScreenSaverWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGMaximumWindowLevelKey)) ; lua_setfield(L, -2, "kCGMaximumWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGOverlayWindowLevelKey)) ; lua_setfield(L, -2, "kCGOverlayWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGHelpWindowLevelKey)) ; lua_setfield(L, -2, "kCGHelpWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGUtilityWindowLevelKey)) ; lua_setfield(L, -2, "kCGUtilityWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopIconWindowLevelKey)) ; lua_setfield(L, -2, "kCGDesktopIconWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGCursorWindowLevelKey)) ; lua_setfield(L, -2, "kCGCursorWindowLevelKey") ;
-      lua_pushinteger(L, CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey)) ; lua_setfield(L, -2, "kCGAssistiveTechHighWindowLevelKey") ;
-//       lua_pushinteger(L, CGWindowLevelForKey(kCGNumberOfWindowLevelKeys)) ; lua_setfield(L, -2, "kCGNumberOfWindowLevelKeys") ;
-    return 1 ;
-}
-
-// Declare our Lua userdata object and a storage container for them
-typedef struct _drawing_t {
-    void *window;
-} drawing_t;
-
-static int drawing_setLevel(lua_State *L) {
-    drawing_t *drawingObject = (drawing_t *)luaL_checkudata(L, 1, "hs.drawing") ;
-    NSWindow *drawingWindow = (__bridge NSWindow *)drawingObject->window;
-
-    if (!lua_isnone(L, 2)) {
-        [drawingWindow setLevel:luaL_checkinteger(L, 2)] ;
-    }
-    lua_pushinteger(L, [drawingWindow level]) ;
-    return 1 ;
-}
-
 static const luaL_Reg extrasLib[] = {
-    {"consoleBehavior",      console_behavior},
-    {"consoleAlpha",         console_alpha},
-    {"consoleLevel",         console_setLevel},
+//     {"consoleBehavior",      console_behavior},
+//     {"consoleAlpha",         console_alpha},
+//     {"consoleLevel",         console_setLevel},
+    {"consoleAsHSDrawing",           console_asDrawing},
+    {"consoleAsHSWindow",            console_asWindow},
     {"consoleWindowBackgroundColor", console_backgroundColor},
     {"consoleInputBackgroundColor",  console_inputBackgroundColor},
     {"consoleOutputBackgroundColor", console_outputBackgroundColor},
@@ -541,19 +474,13 @@ static const luaL_Reg extrasLib[] = {
     {"spotlight",            spotlight},
     {"pathological",         pathological},
     {"copyAndTouch",         copyAndTouch},
-    {"cleanUTF8",            cleanUTF8},
     {"fontCharacterPalette", fontCharacterPalette},
     {"colorPanel",           colorPanel},
-    {"drawingLevel",         drawing_setLevel},
     {NULL,                   NULL}
 };
 
 int luaopen_hs__asm_extras_internal(lua_State* L) {
     luaL_newlib(L, extrasLib);
-    drawing_windowLevels(L) ;
-    lua_setfield(L, -2, "windowLevels") ;
 
-    cg_windowLevels(L) ;
-    lua_setfield(L, -2, "coreGraphicsWindowLevels") ;
     return 1;
 }

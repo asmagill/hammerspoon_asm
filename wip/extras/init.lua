@@ -55,9 +55,6 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.windowLevels = _makeConstantsTable(module.windowLevels)
-module.coreGraphicsWindowLevels = _makeConstantsTable(module.coreGraphicsWindowLevels)
-
 --- hs._asm.extras.windowsByName([includeDesktopElements])
 --- Function
 --- Returns a table containing information about all available windows, even those ignored by hs.window
