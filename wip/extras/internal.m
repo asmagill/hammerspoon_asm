@@ -72,6 +72,16 @@ static int extras_defaults(__unused lua_State* L) {
 
 @end
 
+@interface MJConsoleWindowController ()
+
+@property NSMutableArray* history;
+@property NSInteger historyIndex;
+@property IBOutlet NSTextView* outputView;
+@property (weak) IBOutlet NSTextField* inputField;
+@property NSMutableArray* preshownStdouts;
+
+@end
+
 static int console_alpha(lua_State* L) {
     NSWindow *console = [[MJConsoleWindowController singleton] window] ;
 
@@ -103,6 +113,49 @@ static int console_behavior(lua_State* L) {
     if (lua_type(L, 1) != LUA_TNONE)
         [console setCollectionBehavior: lua_tonumber(L, 1) ] ;
     lua_pushinteger(L, [console collectionBehavior]) ;
+    return 1 ;
+}
+
+static int console_backgroundColor(lua_State *L) {
+    NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+
+    if (lua_type(L, 1) != LUA_TNONE) {
+        luaL_checktype(L, 1, LUA_TTABLE) ;
+        [console setBackgroundColor:[[LuaSkin shared] tableAtIndex:1 toClass:"NSColor"]] ;
+    }
+
+    return [[LuaSkin shared] pushNSObject:[console backgroundColor]] ;
+}
+
+static int console_outputBackgroundColor(lua_State *L) {
+    NSTextView *output = [MJConsoleWindowController singleton].outputView ;
+
+    if (lua_type(L, 1) != LUA_TNONE) {
+        luaL_checktype(L, 1, LUA_TTABLE) ;
+        [output setBackgroundColor:[[LuaSkin shared] tableAtIndex:1 toClass:"NSColor"]] ;
+    }
+
+    return [[LuaSkin shared] pushNSObject:[output backgroundColor]] ;
+}
+
+static int console_inputBackgroundColor(lua_State *L) {
+    NSTextField *input = [MJConsoleWindowController singleton].inputField ;
+
+    if (lua_type(L, 1) != LUA_TNONE) {
+        luaL_checktype(L, 1, LUA_TTABLE) ;
+        [input setBackgroundColor:[[LuaSkin shared] tableAtIndex:1 toClass:"NSColor"]] ;
+    }
+
+    return [[LuaSkin shared] pushNSObject:[input backgroundColor]] ;
+}
+
+static int console_setLevel(lua_State *L) {
+    NSWindow *console = [[MJConsoleWindowController singleton] window] ;
+
+    if (!lua_isnone(L, 1)) {
+        [console setLevel:luaL_checkinteger(L, 1)] ;
+    }
+    lua_pushinteger(L, [console level]) ;
     return 1 ;
 }
 
@@ -428,6 +481,34 @@ static int drawing_windowLevels(lua_State *L) {
     return 1 ;
 }
 
+static int cg_windowLevels(lua_State *L) {
+    lua_newtable(L) ;
+
+//       lua_pushinteger(L, CGWindowLevelForKey(kCGBaseWindowLevelKey)) ; lua_setfield(L, -2, "kCGBaseWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMinimumWindowLevelKey)) ; lua_setfield(L, -2, "kCGMinimumWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopWindowLevelKey)) ; lua_setfield(L, -2, "kCGDesktopWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGBackstopMenuLevelKey)) ; lua_setfield(L, -2, "kCGBackstopMenuLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGNormalWindowLevelKey)) ; lua_setfield(L, -2, "kCGNormalWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGFloatingWindowLevelKey)) ; lua_setfield(L, -2, "kCGFloatingWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGTornOffMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGTornOffMenuWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDockWindowLevelKey)) ; lua_setfield(L, -2, "kCGDockWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMainMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGMainMenuWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGStatusWindowLevelKey)) ; lua_setfield(L, -2, "kCGStatusWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGModalPanelWindowLevelKey)) ; lua_setfield(L, -2, "kCGModalPanelWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGPopUpMenuWindowLevelKey)) ; lua_setfield(L, -2, "kCGPopUpMenuWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDraggingWindowLevelKey)) ; lua_setfield(L, -2, "kCGDraggingWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGScreenSaverWindowLevelKey)) ; lua_setfield(L, -2, "kCGScreenSaverWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMaximumWindowLevelKey)) ; lua_setfield(L, -2, "kCGMaximumWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGOverlayWindowLevelKey)) ; lua_setfield(L, -2, "kCGOverlayWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGHelpWindowLevelKey)) ; lua_setfield(L, -2, "kCGHelpWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGUtilityWindowLevelKey)) ; lua_setfield(L, -2, "kCGUtilityWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopIconWindowLevelKey)) ; lua_setfield(L, -2, "kCGDesktopIconWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGCursorWindowLevelKey)) ; lua_setfield(L, -2, "kCGCursorWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey)) ; lua_setfield(L, -2, "kCGAssistiveTechHighWindowLevelKey") ;
+//       lua_pushinteger(L, CGWindowLevelForKey(kCGNumberOfWindowLevelKeys)) ; lua_setfield(L, -2, "kCGNumberOfWindowLevelKeys") ;
+    return 1 ;
+}
+
 // Declare our Lua userdata object and a storage container for them
 typedef struct _drawing_t {
     void *window;
@@ -447,6 +528,10 @@ static int drawing_setLevel(lua_State *L) {
 static const luaL_Reg extrasLib[] = {
     {"consoleBehavior",      console_behavior},
     {"consoleAlpha",         console_alpha},
+    {"consoleLevel",         console_setLevel},
+    {"consoleWindowBackgroundColor", console_backgroundColor},
+    {"consoleInputBackgroundColor",  console_inputBackgroundColor},
+    {"consoleOutputBackgroundColor", console_outputBackgroundColor},
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults },
@@ -468,5 +553,7 @@ int luaopen_hs__asm_extras_internal(lua_State* L) {
     drawing_windowLevels(L) ;
     lua_setfield(L, -2, "windowLevels") ;
 
+    cg_windowLevels(L) ;
+    lua_setfield(L, -2, "coreGraphicsWindowLevels") ;
     return 1;
 }

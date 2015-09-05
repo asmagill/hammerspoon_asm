@@ -9,6 +9,7 @@
     if not hs.window   then hs.window   = require("hs.window")   end
 
 local module = require("hs._asm.extras.internal")
+local text = require("hs._asm.text")
 
 -- private variables and methods -----------------------------------------
 
@@ -55,6 +56,7 @@ end
 -- Public interface ------------------------------------------------------
 
 module.windowLevels = _makeConstantsTable(module.windowLevels)
+module.coreGraphicsWindowLevels = _makeConstantsTable(module.coreGraphicsWindowLevels)
 
 --- hs._asm.extras.windowsByName([includeDesktopElements])
 --- Function

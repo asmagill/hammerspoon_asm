@@ -1,31 +1,24 @@
-Organizational space for Hammerspoon/Mjolnir modules.
-=====================================================
+In progress Hammerspoon modules
+===============================
 
-I attempt to write these modules using documented OS X API functionality and develop under OS X Yosemite (10.10.x).  I do routinely try loading and testing these modules under 10.8, but they do not get rigorously tested there -- primarily I make sure that they don't crash, but YMMV.
+This repository contains modules I am in the process of working on or testing out for Hammerspoon.  I am no longer attempting to maintain compatibility with Mjolnir as the environments have diverged to a point where attempting to do so was taking more time than actual work on these modules usually does.
 
-Any module in which I knowingly and explicitly use private or undocumented API's can be found at https://github.com/asmagill/hammerspoon_asm.undocumented.
-
-Unless otherwise indicated, these modules *should* work from 10.8, forward, but see above -- I routinely use and test under 10.10.  Where I use 10.9 or 10.10 specific functionality, I try to add code to fail gracefully, but no promises.  I will, however, note such in the documentation.
+The last commit where I paid much attention to compatibility between the two is probably found at https://github.com/asmagill/hammerspoon_asm/tree/270924f390a50fda9c2ae0e1910efaf588ffbac6, if there is still an interest.  Everything after this has been Hammerspoon focused and it's time for me to make a clean break.
 
 ### Sub Modules (See folder README.md)
 The following submodules are located in this repository for organizational purposes.  Installation instructions for each will be given in the appropriate subdirectory.
 
-|Module         | Available | Description                                                                |
-|:--------------|:---------:|:---------------------------------------------------------------------------|
-|_asm.extras    | Git       | Random useful stuff I haven't decided how to package yet.                  |
-|[_asm.filelistmenu](https://github.com/asmagill/hammerspoon_filelistmenu) | Git | Hammerspoon only; create drop-down menus based upon file matching criteria easily. |
-
-I am uncertain at this time if I will be providing these and future modules via Luarocks... I am less than impressed with it's limited flexibility concerning makefiles and local variances.  If there is interest in precompiled binaries for these modules, post an issue and I'll see what the interest level is.
+The modules which have not already been supplanted or removed or deemed dead ends can presently be found in 'wip/' -- this will be undergoing a reorganization and I'm not sure yet what the final layout will be.  I am moving towards a model where you can clone this repository and then just type `make install` in the directory of any module you want to try out (and conversely, `make uninstall` to remove any you find you don't use or that later get added into something else or the Hammerspoon core).
 
 ### Documentation
 
-The json files provided at this level contain the documentation for all of these modules in a format suitable for use with Hammerspoon's `hs.doc.fromJSONFile(file)` function.  In the near future, I hope to extend this support to Mjolnir and provide a simple mechanism for combining multiple json files into one set of documents for use within the appropriate console and Dash docsets.
+The json files provided in some of the directories is in a format suitable for use with Hammerspoon's `hs.doc.fromJSONFile(file)` function.  In the near future, I hope to provide documentation on how to create these files yourself and make them available within the Hammerspoon console's help command.
 
 ### License
 
 > Released under MIT license.
 >
-> Copyright (c) 2014 Aaron Magill
+> Copyright (c) 2015 Aaron Magill
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 >

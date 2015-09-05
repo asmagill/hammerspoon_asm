@@ -1,3 +1,0 @@
-Very bare bones at the moment... just poking around for now... may turn into something, may not...
-
-Only one function at present, the ability to "list" the contents of the iokit domains.

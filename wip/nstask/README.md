@@ -5,20 +5,16 @@ This module provides access to NSTask.
 
 ### Local Install
 ~~~bash
-$ git clone https://github.com/asmagill/hammerspoon_asm
-$ cd hammerspoon_asm/nstask
-$ [PREFIX=/usr/local/share/lua/5.2/] [TARGET=`Hammerspoon|Mjolnir`] make install
+$ [PREFIX=/usr/local/share/lua/5.2/] make install
 ~~~
 
-Note that if you do not provide `TARGET`, then it defaults to `Hammerspoon`, and if you do not provide `PREFIX`, then it defaults to your particular environments home directory (~/.hammerspoon or ~/.mjolnir).
+Note that if you do not provide `PREFIX`, then it defaults to your Hammerspoon home directory (~/.hammerspoon)
 
 ### Require
 
 ~~~lua
-nstask = require("`base`._asm.nstask")
+nstask = require("hs._asm.nstask")
 ~~~
-
-Where `base` is `hs` for Hammerspoon, and `mjolnir` for Mjolnir.
 
 ### Functions
 
@@ -34,7 +30,7 @@ Where `base` is `hs` for Hammerspoon, and `mjolnir` for Mjolnir.
 
 > Released under MIT license.
 >
-> Copyright (c) 2014 Aaron Magill
+> Copyright (c) 2015 Aaron Magill
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 >

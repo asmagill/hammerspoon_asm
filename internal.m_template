@@ -3,14 +3,11 @@
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 
-/// === hs.module ===
-///
-/// Functions for module
-///
-/// A description of module.
-
 // #define USERDATA_TAG        "hs.module"
 int refTable ;
+
+// #define get_objectFromUserdata(objType, L, idx) (__bridge objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
+// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
 
 // static int userdata_tostring(lua_State* L) {
 // }
@@ -48,12 +45,14 @@ static luaL_Reg moduleLib[] = {
 // };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs_module_internal(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared];
-    refTable = [skin registerLibraryWithObject:USERDATA_TAG
-                                     functions:moduleLib
-                                 metaFunctions:nil // or module_metaLib
-                               objectFunctions:nil // or userdata_metaLib];
+int luaopen_hs_module_internal(lua_State* __unused L) {
+// Use this if your module doesn't have a module specific object that it returns.
+//    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+// Use this some of your functions return or act on a specific object unique to this module
+    refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
+                                                 functions:moduleLib
+                                             metaFunctions:nil    // or module_metaLib
+                                           objectFunctions:userdata_metaLib];
 
     return 1;
 }
