@@ -13,3 +13,6 @@
 [submodule "wip/text"]
 	path = wip/text
 	url = https://github.com/asmagill/hammerspoon_text.git
+[submodule "wip/console"]
+	path = wip/console
+	url = https://github.com/asmagill/hammerspoon_console.git
