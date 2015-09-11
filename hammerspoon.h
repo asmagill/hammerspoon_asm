@@ -1,1 +1,1 @@
-../hammerspoon-local/extensions/hammerspoon.h
+../hammerspoon/extensions/hammerspoon.h
