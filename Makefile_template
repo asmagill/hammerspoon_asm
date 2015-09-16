@@ -7,6 +7,8 @@ HS_APPLICATION ?= /Applications
 
 OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
+HEADERS  = ${wildcard *.h}
+
 SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
 DOC_FILE = hs._asm.$(MODULE).json
@@ -30,7 +32,7 @@ DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 
 all: verify $(SOFILE)
 
-.m.so:
+.m.so: $(HEADERS)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua

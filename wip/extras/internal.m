@@ -335,6 +335,19 @@ static int colorPanel(lua_State __unused *L) {
     return 0 ;
 }
 
+static int threadInfo(lua_State *L) {
+    lua_newtable(L) ;
+      lua_pushboolean(L, [NSThread isMainThread]) ; lua_setfield(L, -2, "isMainThread") ;
+      lua_pushboolean(L, [NSThread isMultiThreaded]) ; lua_setfield(L, -2, "isMultiThreaded") ;
+      [[LuaSkin shared] pushNSObject:[[NSThread currentThread] threadDictionary]] ;
+        lua_setfield(L, -2, "threadDictionary") ;
+      [[LuaSkin shared] pushNSObject:[[NSThread currentThread] name]] ;
+        lua_setfield(L, -2, "name") ;
+      lua_pushinteger(L, [[NSThread currentThread] stackSize]) ; lua_setfield(L, -2, "stackSize") ;
+      lua_pushnumber(L, [[NSThread currentThread] threadPriority]) ; lua_setfield(L, -2, "threadPriority") ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -347,6 +360,7 @@ static const luaL_Reg extrasLib[] = {
     {"copyAndTouch",         copyAndTouch},
     {"fontCharacterPalette", fontCharacterPalette},
     {"colorPanel",           colorPanel},
+    {"threadInfo",           threadInfo},
     {NULL,                   NULL}
 };
 
