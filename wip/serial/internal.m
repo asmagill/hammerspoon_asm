@@ -25,13 +25,20 @@ int refTable ;
 #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 
 @interface HSSerialPort : NSObject
-@property  (readonly) int            serialFileDescriptor; // file handle to the serial port
-@property  (readonly) NSString       *path ;
-@property             speed_t        baud ;
-@property             struct termios portAttributes ;
-@property  (readonly) struct termios gOriginalTTYAttrs;    // original termios attributes so we can reset them on quit
-@property  (readonly) BOOL           readThreadRunning ;   // is a background thread reading input?
+@property (readonly) int            serialFileDescriptor;
+@property (readonly) NSString       *path ;
+@property            speed_t        baud ;
+@property            struct termios portAttributes ;
+@property (readonly) struct termios gOriginalTTYAttrs;
+@property (readonly) BOOL           readThreadRunning ;
+@property (readonly) NSMutableData  *incomingData ;
+@property            BOOL           notifyMainThread ;
+@property            int            selfRef ;
+@property            int            callbackFunction ;
+@property            int            lostPortFunction ;
+@property (readonly) BOOL           bufferChanging ;
 @end
+
 
 @implementation HSSerialPort
 
@@ -39,11 +46,17 @@ int refTable ;
     self = [super init] ;
     if (self) {
         _serialFileDescriptor = -1 ;
-        _path = [[NSString alloc] initWithCString:portPath encoding:NSUTF8StringEncoding] ;
-        _baud = B9600 ;
-        _readThreadRunning = NO ;
+        _path                 = [[NSString alloc] initWithCString:portPath encoding:NSUTF8StringEncoding] ;
+        _baud                 = B9600 ;
+        _readThreadRunning    = NO ;
+        _notifyMainThread     = NO ;
+        _bufferChanging       = NO ;
+        _incomingData         = [[NSMutableData alloc] init] ;
+        _selfRef              = LUA_NOREF ;
+        _callbackFunction     = LUA_NOREF ;
+        _lostPortFunction     = LUA_NOREF ;
 
-        NSString   *errorMessage = nil ;
+        NSString *errorMessage = nil ;
 
         // We just open it enough to get the current attributes
 
@@ -70,13 +83,17 @@ int refTable ;
                  */
                 cfmakeraw(&_portAttributes);
 
+                // set VMIN and VTIME so read in monitor thread isn't blocking
+                _portAttributes.c_cc[VMIN]  = 0 ;
+                _portAttributes.c_cc[VTIME] = 10 ;
+
                 close(_serialFileDescriptor);
                 _serialFileDescriptor = -1 ;
             }
         }
 
         if (errorMessage) {
-            NSString *fullErrorMessage = [NSString stringWithFormat:@"%s: new: %@: %s", USERDATA_TAG, errorMessage, strerror(errno)] ;
+            NSString *fullErrorMessage = [NSString stringWithFormat:@"%s: new: %@ for %@: %s", USERDATA_TAG, errorMessage, _path, strerror(errno)] ;
             if (_serialFileDescriptor != -1) close(_serialFileDescriptor);
             _serialFileDescriptor = -1;
             luaL_error([[LuaSkin shared] L], (char *)[fullErrorMessage UTF8String]) ;
@@ -88,9 +105,9 @@ int refTable ;
 
 - (void)openPort {
     if (_serialFileDescriptor == -1) {
-        unsigned long  mics = 3;  // receive latency ( in microseconds )
 
         NSString   *errorMessage = nil ;
+        unsigned long  mics = 3;  // receive latency ( in microseconds )
 
         // open the port
         //     O_NONBLOCK causes the port to open without any delay (we'll block with another call)
@@ -127,7 +144,7 @@ int refTable ;
         }
 
         if (errorMessage) {
-            NSString *fullErrorMessage = [NSString stringWithFormat:@"%s: open: %@: %s", USERDATA_TAG, errorMessage, strerror(errno)] ;
+            NSString *fullErrorMessage = [NSString stringWithFormat:@"%s: open: %@ for %@: %s", USERDATA_TAG, errorMessage, _path, strerror(errno)] ;
 
             if (_serialFileDescriptor != -1) close(_serialFileDescriptor);
             _serialFileDescriptor = -1 ;
@@ -135,76 +152,184 @@ int refTable ;
             return ;
         }
     }
+
+    [self performSelectorInBackground:@selector(monitorIncomingDataThread:) withObject:[NSThread currentThread]];
 }
+
 - (void)closePort {
     if (_serialFileDescriptor != -1) {
-        // The next tcsetattr() call can fail if the port is waiting to send data. This is likely to happen
+       // The next tcsetattr() call can fail if the port is waiting to send data. This is likely to happen
         // e.g. if flow control is on and the CTS line is low. So, turn off flow control before proceeding
         struct termios options;
+
         tcgetattr(_serialFileDescriptor, &options);
         options.c_cflag &= ~(unsigned long)CRTSCTS; // RTS/CTS Flow Control
         options.c_cflag &= ~(unsigned long)(CDTR_IFLOW | CDSR_OFLOW); // DTR/DSR Flow Control
         options.c_cflag &= ~(unsigned long)CCAR_OFLOW; // DCD Flow Control
+        // set VMIN and VTIME so read in monitor thread isn't blocking
+        options.c_cc[VMIN]  = 0 ;
+        options.c_cc[VTIME] = 10 ;
+
         tcsetattr(_serialFileDescriptor, TCSANOW, &options);
 
-        // return the serial port to its normal upright position...
-        tcsetattr(_serialFileDescriptor, TCSADRAIN, &_gOriginalTTYAttrs);
+        int theDescriptor = _serialFileDescriptor ;
+        _serialFileDescriptor = -1 ;
+        while(_readThreadRunning) {} ;
 
-        if (close(_serialFileDescriptor)) {
-            luaL_error([[LuaSkin shared] L], "%s: error closing serial port: %s", USERDATA_TAG, strerror(errno)) ;
+
+        // return the serial port to its normal upright position...
+        tcsetattr(theDescriptor, TCSADRAIN, &_gOriginalTTYAttrs);
+
+
+        if (close(theDescriptor) == -1) {
+            luaL_error([[LuaSkin shared] L], "%s: error closing serial port %@: %s", USERDATA_TAG, _path, strerror(errno)) ;
             return ;
         }
 
-        // wait for the reading thread to die
-        while(_readThreadRunning);
-
         // re-opening the same port REALLY fast will fail spectacularly... better to sleep a bit
         usleep(500000);
+    }
+}
 
-        _serialFileDescriptor = -1 ;
+- (NSData *)getBytesFromBuffer:(NSUInteger)chunkSize {
+    NSData *bufferCopy ;
+
+    if (chunkSize < 1) {
+        luaL_error([[LuaSkin shared] L], "%s: cannot read less than 1 byte from buffer") ;
+        return nil ;
+    }
+
+    while(_bufferChanging) {} ; _bufferChanging = YES ;
+        if ([_incomingData length] > 0) {
+            bufferCopy = [_incomingData subdataWithRange:NSMakeRange(0,MIN(chunkSize, [_incomingData length]))] ;
+            if (chunkSize < [_incomingData length]) {
+                NSData *remainingData = [_incomingData subdataWithRange:NSMakeRange(chunkSize,[_incomingData length] - chunkSize)] ;
+                _incomingData = [remainingData mutableCopy] ;
+            } else {
+                _incomingData = [[NSMutableData alloc] init] ;
+            }
+        } else {
+            bufferCopy = nil ;
+        }
+    _bufferChanging = NO ;
+    return bufferCopy ;
+}
+
+- (NSData *)getDataFromBuffer {
+    NSData *bufferCopy ;
+    while(_bufferChanging) {} ; _bufferChanging = YES ;
+        if ([_incomingData length] > 0) {
+            bufferCopy    = [_incomingData copy] ;
+            _incomingData = [[NSMutableData alloc] init] ;
+        } else {
+            bufferCopy    = nil ;
+        }
+    _bufferChanging = NO ;
+    return bufferCopy ;
+}
+
+- (void)flushBuffer {
+    while(_bufferChanging) {} ; _bufferChanging = YES ;
+        _incomingData = [[NSMutableData alloc] init] ;
+    _bufferChanging = NO ;
+}
+
+- (size_t)bufferSize {
+    size_t bufferSize = 0 ;
+
+    while(_bufferChanging) {} ; _bufferChanging = YES ;
+        bufferSize = [_incomingData length] ;
+    _bufferChanging = NO ;
+
+    return bufferSize ;
+}
+
+- (void)lostPortNotification:(NSNumber *)errorNumber {
+    if (_callbackFunction != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:_lostPortFunction];
+        [[LuaSkin shared] pushLuaRef:refTable ref:_selfRef];
+        lua_pushstring([[LuaSkin shared] L], strerror([errorNumber intValue])) ;
+
+        if (![[LuaSkin shared]  protectedCallAndTraceback:2 nresults:1]) {
+            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
+            lua_pop([[LuaSkin shared] L], 1) ;
+            showError([[LuaSkin shared] L], (char *)[[NSString stringWithFormat:@"%s: lost port %@: %s, callback error: %s", USERDATA_TAG, _path, strerror([errorNumber intValue]), errorMsg] UTF8String]);
+        }
+    } else {
+        showError([[LuaSkin shared] L], (char *)[[NSString stringWithFormat:@"%s: lost port %@: %s", USERDATA_TAG, _path, strerror([errorNumber intValue])] UTF8String]);
+    }
+}
+
+- (void)serialInputNotification:(__unused id)object {
+    if (_callbackFunction != LUA_NOREF) {
+        NSData *theData = [self getDataFromBuffer] ;
+        [[LuaSkin shared] pushLuaRef:refTable ref:_callbackFunction];
+        [[LuaSkin shared] pushLuaRef:refTable ref:_selfRef];
+        [[LuaSkin shared] pushNSObject:theData] ;
+
+        if (![[LuaSkin shared]  protectedCallAndTraceback:2 nresults:1]) {
+            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
+            showError([[LuaSkin shared] L], (char *)[[NSString stringWithFormat:@"%s: callback error for port %@: %s", USERDATA_TAG, _path, errorMsg] UTF8String]);
+        } else {
+            _notifyMainThread = (BOOL)lua_toboolean([[LuaSkin shared] L], -1) ;
+        }
+
+         lua_pop([[LuaSkin shared] L], 1) ;
     }
 }
 
 // This selector/function will be called as another thread...
 //  this thread will read from the serial port and exits when the port is closed
-- (void)monitorIncomingDataThread:(__unused NSThread *) parentThread {
+- (void)monitorIncomingDataThread:(__unused id)object {
     @autoreleasepool {
         // mark that the thread is running
-        _readThreadRunning = TRUE;
+        _readThreadRunning = YES;
 
-        const int BUFFER_SIZE = 512;
-        void      byte_buffer[BUFFER_SIZE]; // buffer for holding incoming data
-        ssize_t   numBytes=0; // number of bytes read during read
+        const int     BUFFER_SIZE = 512;
+        unsigned char byte_buffer[BUFFER_SIZE]; // buffer for holding incoming data
+        ssize_t       numBytes=0; // number of bytes read during read
 
         // assign a high priority to this thread
         [NSThread setThreadPriority:1.0];
 
         while(TRUE) {
             // read() blocks until some data is available or the port is closed
+            if (_serialFileDescriptor == -1) break ;
+
             numBytes = read(_serialFileDescriptor, byte_buffer, BUFFER_SIZE); // read up to the size of the buffer
             if(numBytes>0) {
-                [self performSelectorOnMainThread:@selector(passDataToMainThread:)
-                                       withObject:[NSData dataWithBytes:byte_buffer length:(NSUInteger)numBytes]
-                                    waitUntilDone:YES];
-            } else {
+                while(_bufferChanging) {} ; _bufferChanging = YES ;
+                    [_incomingData appendData:[NSData dataWithBytes:byte_buffer length:(NSUInteger)numBytes]] ;
+                _bufferChanging = NO ;
+                if (_notifyMainThread) {
+                    _notifyMainThread = NO ;
+                    [self performSelectorOnMainThread:@selector(serialInputNotification:)
+                                           withObject:self
+                                        waitUntilDone:NO];
+                }
+            } else if (numBytes < 0) {
+                if (_serialFileDescriptor != -1) {
+                    // It wasn't because of an actual close...
+                    close(_serialFileDescriptor);
+                    _serialFileDescriptor = -1;
+
+                    CLS_NSLOG(@"%s: port %@ unexpectedly died: %s", USERDATA_TAG, _path, strerror(errno)) ;
+                    [self performSelectorOnMainThread:@selector(lostPortNotification:)
+                                           withObject:[NSNumber numberWithInt:errno]
+                                        waitUntilDone:NO];
+                }
                 break; // Stop the thread if there is an error
             }
         }
 
-        // make sure the serial port is closed
-        if (_serialFileDescriptor != -1) {
-            close(_serialFileDescriptor);
-            _serialFileDescriptor = -1;
-        }
-
         // mark that the thread has quit
-        _readThreadRunning = FALSE;
+        _readThreadRunning = NO;
     }
 }
 
 @end
 
-/// hs._asm.serial.listPorts() . array
+/// hs._asm.serial.listPorts() -> array
 /// Function
 /// List the available serial ports for the system
 ///
@@ -258,7 +383,7 @@ static int serial_listPorts(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.serial.port(path) . serialPortObject
+/// hs._asm.serial.port(path) -> serialPortObject
 /// Constructor
 /// Create a Hammerspoon reference to the selected serial port and sets the initial attributes to raw at 9600 baud.
 ///
@@ -271,7 +396,7 @@ static int serial_listPorts(lua_State *L) {
 /// Notes:
 ///  * This constructor does not open the serial port.  It just creates a reference to the serial port for use within Hammerspoon.
 ///  * In most cases, you will want to use the calloutDevice for the serial port (see `hs._asm.serial.listPorts`)
-static int serial_new(lua_State *L) {
+static int serial_port(lua_State *L) {
     [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
 
     size_t     pathLen ;
@@ -280,10 +405,12 @@ static int serial_new(lua_State *L) {
     HSSerialPort *port = [[HSSerialPort alloc] initWithPort:bsdPath] ;
 
     if (port) {
-         void** portPtr = lua_newuserdata(L, sizeof(HSSerialPort *)) ;
+        void** portPtr = lua_newuserdata(L, sizeof(HSSerialPort *)) ;
         *portPtr = (__bridge_retained void *)port ;
         luaL_getmetatable(L, USERDATA_TAG) ;
         lua_setmetatable(L, -2) ;
+        lua_pushvalue(L, -1) ;
+        port.selfRef = [[LuaSkin shared] luaRef:refTable] ;
     } else {
         lua_pushnil(L) ;
     }
@@ -291,7 +418,7 @@ static int serial_new(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.serial:open() . serialPortObject
+/// hs._asm.serial:open() -> serialPortObject
 /// Constructor
 /// Open the serial port for communication and apply the most recently provided settings and baud rate.
 ///
@@ -313,7 +440,7 @@ static int serial_open(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.serial:close() . nil
+/// hs._asm.serial:close() -> nil
 /// Method
 /// Close and release the serial port
 ///
@@ -336,7 +463,7 @@ static int serial_close(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.serial:isOpen() . boolean
+/// hs._asm.serial:isOpen() -> boolean
 /// Method
 /// Returns a boolean value indicating whether or not the serial port is currently open
 ///
@@ -353,7 +480,212 @@ static int serial_isOpen(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.serial:DTR(state) . serialPortObject
+/// hs._asm.serial:incomingDataCallback(fn) -> serialPortObject
+/// Method
+/// Set or clear a callback function for incoming data
+///
+/// Parameters:
+///  * fn - a function to callback when incoming data is detected.  If an explicit nil value is given, remove any existing callback function.  The function should expect two parameters, the serialPortObject and the incoming buffer contents as a lua string, and return one result: True if the callback should remain active for additional incoming data or false if it should not.
+///
+/// Returns:
+///  * the serial port object
+///
+/// Notes:
+///  * Data passed to the callback function is not guaranteed to be valid UTF8 or even complete.  You may need to perform additional reads with `hs._asm.serial:readBuffer` or cache data for an additional callback to get the full results.  See also `hs._asm.serial:bufferSize`.
+///
+///  * This does not enable the callback function, it merely attaches it to this serial port.  See `hs._asm.serial:enableCallback` for more information.
+///  * If the callback function is currently enabled and this method is used to assign a new callback function, there is a small window where data may be buffered, but will not invoke a callback.  This buffered data will be included in the next callback invocation or can be manually retrieved with `hs._asm.serial:readBuffer`.
+///  * If the callback function is currently enabled and this method is used to remove the existing callback, the enable state will be set to false.
+static int serial_incomingDataCallback(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    // either way, we need to set the existing callback to nil, so...
+    BOOL currentState = port.notifyMainThread ;
+    port.notifyMainThread = NO ;
+    port.callbackFunction = [[LuaSkin shared] luaUnref:refTable ref:port.callbackFunction] ;
+
+    if (lua_type(L, 2) != LUA_TNIL) {
+        lua_pushvalue(L, 2);
+        port.callbackFunction = [[LuaSkin shared] luaRef:refTable] ;
+
+        port.notifyMainThread = currentState ;
+    }
+
+    lua_settop(L, 1) ;
+    return 1 ;
+}
+
+/// hs._asm.serial:lostPortCallback(fn) -> serialPortObject
+/// Method
+/// Set or clear a callback function for a lost serial port connection
+///
+/// Parameters:
+///  * fn - a function to callback when the serial port is unexpectedly lost.  If an explicit nil value is given, remove any existing callback function.  The function should expect two parameters, the serialPortObject and a string containing the error message (if any). The function should not return a value.
+///
+/// Returns:
+///  * the serial port object
+///
+/// Notes:
+///  * This function will not be called if the port exits normally; for example because of calling `hs._asm.serial:close` or due to garbage collection (Hammerspoon reloading or termination)
+static int serial_lostPortCallback(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    // either way, we need to set the existing callback to nil, so...
+    port.lostPortFunction = [[LuaSkin shared] luaUnref:refTable ref:port.lostPortFunction] ;
+
+    if (lua_type(L, 2) != LUA_TNIL) {
+        lua_pushvalue(L, 2);
+        port.lostPortFunction = [[LuaSkin shared] luaRef:refTable] ;
+    }
+
+    lua_settop(L, 1) ;
+    return 1 ;
+}
+
+/// hs._asm.serial:enableCallback([flag]) -> serialPortObject | state
+/// Method
+/// Get or set whether or not a callback should occur when incoming data is detected from the serial port
+///
+/// Parameters:
+///  * flag - an optional boolean flag indicating whether or not incoming data should trigger the registered callback function.
+///
+/// Returns:
+///  * If a value is specified, then this method returns the serial port object.  Otherwise this method returns the current value.
+static int serial_enableCallback(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    if (lua_isnone(L, 2)) {
+        lua_pushboolean(L, port.notifyMainThread) ;
+    } else {
+        port.notifyMainThread = (BOOL)lua_toboolean(L, 2) ;
+        lua_settop(L, 1) ;
+    }
+
+    return 1 ;
+}
+
+/// hs._asm.serial:flushBuffer() -> serialPortObject
+/// Method
+/// Dumps all data currently waiting in the incoming data buffer.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the serial port object
+static int serial_flushBuffer(lua_State* L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    if (port.serialFileDescriptor != -1) {
+        [port flushBuffer] ;
+
+        lua_settop(L, 1) ;
+        return 1 ;
+    } else {
+        return luaL_error(L, "%s: serial port %s is not currently open", USERDATA_TAG, [port.path UTF8String]) ;
+    }
+}
+
+/// hs._asm.serial:bufferSize() -> integer
+/// Method
+/// Returns the number of bytes currently in the serial port's receive buffer.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the number of bytes currently in the receive buffer
+static int serial_bufferSize(lua_State* L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    if (port.serialFileDescriptor != -1) {
+        lua_pushinteger(L, (lua_Integer)[port bufferSize]) ;
+        return 1 ;
+    } else {
+        return luaL_error(L, "%s: serial port %s is not currently open", USERDATA_TAG, [port.path UTF8String]) ;
+    }
+}
+
+/// hs._asm.serial:write(data) -> serialPortObject
+/// Method
+/// Write the specified data to the serial port.
+///
+/// Parameters:
+///  * data - the data to send to the serial port.
+///
+/// Returns:
+///  * the serial port object
+///
+/// Notes:
+/// * A number is treated as a string (i.e. 123 will be sent as "123").  To send an actual byte value of 123, use `string.char(123)` as the data.
+static int serial_write(lua_State* L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    if (port.serialFileDescriptor != -1) {
+        size_t     length ;
+        const char *theData = lua_tolstring(L, 2, &length) ;
+
+        ssize_t result = write(port.serialFileDescriptor, theData, length);
+
+        if (result == -1) {
+            return luaL_error(L, "%s: error writing to %s", USERDATA_TAG, [port.path UTF8String], strerror(errno)) ;
+        }
+
+        if (result != (ssize_t)length) {
+            return luaL_error(L, "%s: incomplete write to %s", USERDATA_TAG, [port.path UTF8String]) ;
+        }
+
+        lua_settop(L, 1) ;
+        return 1 ;
+    } else {
+        return luaL_error(L, "%s: serial port %s is not currently open", USERDATA_TAG, [port.path UTF8String]) ;
+    }
+}
+
+/// hs._asm.serial:readBuffer([bytes]) -> string
+/// Method
+/// Reads the incoming serial buffer.  If bytes is specified, only read up to that many bytes; otherwise everything currently in the incoming buffer is read.
+///
+/// Parameters:
+///  * bytes - an optional integer defining how many bytes to read.  If it is not present, the entire buffer is returned.
+///
+/// Returns:
+///  * a string containing the specified contents of the read buffer
+///
+/// Notes:
+///  * Data returned by this method is not guaranteed to be valid UTF8 or even complete.  You may need to perform additional reads or cache data for a later check to get full results.  See also `hs._asm.serial:bufferSize`.
+///
+///  * This method will clear the current incoming buffer of the data it returns.  Cache the data if you need to keep a record.
+///  * This method will return nil if the buffer is currently empty.
+///
+///  * This method can be called even if the serial port is closed (even if closed unexpectedly), though no new data will arrive unless the port is re-opened.
+static int serial_readBuffer(lua_State* L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+
+    lua_Integer chunkSize ;
+    if (lua_isnone(L, 2)) chunkSize = 0 ;
+    else {
+        chunkSize = lua_tointeger(L, 2) ;
+        if (chunkSize < 1)
+            return luaL_error(L, "%s: readBuffer byte parameter must be a positive integer if specified", USERDATA_TAG) ;
+    }
+
+    if (chunkSize == 0)
+        [[LuaSkin shared] pushNSObject:[port getDataFromBuffer]] ;
+    else
+        [[LuaSkin shared] pushNSObject:[port getBytesFromBuffer:(NSUInteger)chunkSize]] ;
+
+    return 1 ;
+}
+
+/// hs._asm.serial:DTR(state) -> serialPortObject
 /// Method
 /// Set the DTR high or low
 ///
@@ -376,11 +708,11 @@ static int serial_DTR(lua_State* L) {
         lua_settop(L, 1) ;
         return 1 ;
     } else {
-        return luaL_error(L, "%s: serial port is not currently open", USERDATA_TAG) ;
+        return luaL_error(L, "%s: serial port %s is not currently open", USERDATA_TAG, [port.path UTF8String]) ;
     }
 }
 
-/// hs._asm.serial:baud(rate) . serialPortObject
+/// hs._asm.serial:baud(rate) -> serialPortObject
 /// Method
 /// Change the current baud rate for the serial port
 ///
@@ -402,7 +734,7 @@ static int serial_baud(lua_State* L) {
     if (port.serialFileDescriptor != -1) {
         speed_t baudRate = port.baud ;
         if (ioctl(port.serialFileDescriptor, IOSSIOSPEED, &baudRate) == -1) {
-            return luaL_error(L, "%s: baud rate out of bounds: %s", USERDATA_TAG, strerror(errno)) ;
+            return luaL_error(L, "%s: baud rate out of bounds for %s: %s", USERDATA_TAG, [port.path UTF8String], strerror(errno)) ;
         }
     }
 
@@ -410,7 +742,7 @@ static int serial_baud(lua_State* L) {
     return 1 ;
 }
 
-/// hs._asm.serial:getAttributes() . termiosTable
+/// hs._asm.serial:getAttributes() -> termiosTable
 /// Method
 /// Get the serial port's termios structure and return it in table form.  This is used internally and provided for advanced serial port manipulation.  It is not expected that you will require this method for most serial port usage requirements.
 ///
@@ -438,7 +770,7 @@ static int serial_getAttributes(lua_State* L) {
     if (port.serialFileDescriptor != -1) {
         struct termios options = port.portAttributes ;
         if (tcgetattr(port.serialFileDescriptor, &options) == -1) {
-            return luaL_error(L, "%s: unable to get serial attributes: %s", USERDATA_TAG, strerror(errno)) ;
+            return luaL_error(L, "%s: unable to get serial attributes for %s: %s", USERDATA_TAG, [port.path UTF8String], strerror(errno)) ;
         } else {
             port.portAttributes = options ;
         }
@@ -460,7 +792,7 @@ static int serial_getAttributes(lua_State* L) {
     return 1 ;
 }
 
-/// hs._asm.serial:setAttributes(termiosTable, action) . serialPortObject
+/// hs._asm.serial:setAttributes(termiosTable, action) -> serialPortObject
 /// Method
 /// Set the serial port's termios structure To the values specified in the provided table.  This is used internally and provided for advanced serial port manipulation.  It is not expected that you will require this method for most serial port usage requirements.
 ///
@@ -562,7 +894,7 @@ static int serial_setAttributes(lua_State* L) {
         }
 
         if (tcsetattr(port.serialFileDescriptor, action, &options) == -1) {
-            return luaL_error(L, "%s: unable to set serial attributes: %s", USERDATA_TAG, strerror(errno)) ;
+            return luaL_error(L, "%s: unable to set serial attributes for %s: %s", USERDATA_TAG, [port.path UTF8String], strerror(errno)) ;
         }
     }
 
@@ -720,15 +1052,25 @@ static int serial_pushConstants(lua_State *L) {
 
 static int userdata_tostring(lua_State* L) {
     HSSerialPort *port = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
-    lua_pushstring(L, [[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, port.path, lua_topointer(L, 1)] UTF8String]) ;
+    lua_pushstring(L, [[NSString stringWithFormat:@"%s: %@ - %s (%p)", USERDATA_TAG, port.path,
+        ((port.serialFileDescriptor == -1) ? "closed" : "open"), lua_topointer(L, 1)] UTF8String]) ;
     return 1 ;
 }
 
-// static int userdata_eq(lua_State* L) {
-// }
+static int userdata_eq(lua_State* L) {
+    HSSerialPort *port1 = get_objectFromUserdata(__bridge HSSerialPort, L, 1) ;
+    HSSerialPort *port2 = get_objectFromUserdata(__bridge HSSerialPort, L, 2) ;
+    lua_pushboolean(L, port1.selfRef = port2.selfRef) ;
+    return 1 ;
+}
 
 static int userdata_gc(lua_State* L) {
     HSSerialPort *port = get_objectFromUserdata(__bridge_transfer HSSerialPort, L, 1) ;
+
+    port.callbackFunction = [[LuaSkin shared] luaUnref:refTable ref:port.callbackFunction] ;
+    port.lostPortFunction = [[LuaSkin shared] luaUnref:refTable ref:port.lostPortFunction] ;
+    port.selfRef          = [[LuaSkin shared] luaUnref:refTable ref:port.selfRef] ;
+
     if (port.serialFileDescriptor != -1) {
         lua_pushcfunction(L, serial_close) ;
         lua_pushvalue(L, 1) ;
@@ -751,23 +1093,31 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"DTR",           serial_DTR},
-    {"baud",          serial_baud},
-    {"getAttributes", serial_getAttributes},
-    {"setAttributes", serial_setAttributes},
-    {"open",          serial_open},
-    {"close",         serial_close},
-    {"isOpen",        serial_isOpen},
-    {"__tostring",    userdata_tostring},
-//     {"__eq",          userdata_eq},
-    {"__gc",          userdata_gc},
-    {NULL,            NULL}
+    {"DTR",                  serial_DTR},
+    {"baud",                 serial_baud},
+    {"getAttributes",        serial_getAttributes},
+    {"setAttributes",        serial_setAttributes},
+    {"open",                 serial_open},
+    {"close",                serial_close},
+    {"isOpen",               serial_isOpen},
+    {"bufferSize",           serial_bufferSize},
+    {"flushBuffer",          serial_flushBuffer},
+    {"readBuffer",           serial_readBuffer},
+    {"write",                serial_write},
+    {"enableCallback",       serial_enableCallback},
+    {"incomingDataCallback", serial_incomingDataCallback},
+    {"lostPortCallback",     serial_lostPortCallback},
+
+    {"__tostring",           userdata_tostring},
+    {"__eq",                 userdata_eq},
+    {"__gc",                 userdata_gc},
+    {NULL,                   NULL}
 };
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"listPorts", serial_listPorts},
-    {"port",      serial_new},
+    {"port",      serial_port},
     {NULL,        NULL}
 };
 
