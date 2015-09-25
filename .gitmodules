@@ -16,3 +16,6 @@
 [submodule "wip/console"]
 	path = wip/console
 	url = https://github.com/asmagill/hammerspoon_console.git
+[submodule "wip/serial"]
+	path = wip/serial
+	url = https://github.com/asmagill/hammerspoon_serial.git
