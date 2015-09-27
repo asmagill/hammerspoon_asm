@@ -46,28 +46,28 @@ static int extras_defaults(__unused lua_State* L) {
 // possible... with a crap load of work...  Also check out NSInvocation.  Will need a way to store
 // results and return userdata for most things...
 //
-static int extras_bridge(lua_State* L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TSTRING, LS_TBREAK] ;
-    NSString *className    = [[LuaSkin shared] toNSObjectAtIndex:1] ;
-    NSString *selectorName = [[LuaSkin shared] toNSObjectAtIndex:2] ;
-
-    if (NSClassFromString(className)) {
-        if ([NSClassFromString(className) respondsToSelector:NSSelectorFromString(selectorName)]) {
-            @try {
-                [[LuaSkin shared] pushNSObject:[NSClassFromString(className) performSelector:NSSelectorFromString(selectorName)]] ;
-            }
-            @catch ( NSException *theException ) {
-                [[LuaSkin shared] pushNSObject:theException] ;
-            }
-        } else {
-            lua_pushstring(L, (char *)[[NSString stringWithFormat:@"Class %@ does not respond to selector %@", className, selectorName] UTF8String]) ;
-        }
-    } else {
-        lua_pushstring(L, (char *)[[NSString stringWithFormat:@"Class %@ is not loaded or doesn't exist", className] UTF8String]) ;
-    }
-
-    return 1 ;
-}
+// static int extras_bridge(lua_State* L) {
+//     [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TSTRING, LS_TBREAK] ;
+//     NSString *className    = [[LuaSkin shared] toNSObjectAtIndex:1] ;
+//     NSString *selectorName = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+//
+//     if (NSClassFromString(className)) {
+//         if ([NSClassFromString(className) respondsToSelector:NSSelectorFromString(selectorName)]) {
+//             @try {
+//                 [[LuaSkin shared] pushNSObject:[NSClassFromString(className) performSelector:NSSelectorFromString(selectorName)]] ;
+//             }
+//             @catch ( NSException *theException ) {
+//                 [[LuaSkin shared] pushNSObject:theException] ;
+//             }
+//         } else {
+//             lua_pushstring(L, (char *)[[NSString stringWithFormat:@"Class %@ does not respond to selector %@", className, selectorName] UTF8String]) ;
+//         }
+//     } else {
+//         lua_pushstring(L, (char *)[[NSString stringWithFormat:@"Class %@ is not loaded or doesn't exist", className] UTF8String]) ;
+//     }
+//
+//     return 1 ;
+// }
 
 /// hs._asm.extras.userDataToString(userdata) -> string
 /// Function
@@ -351,23 +351,23 @@ static int threadInfo(lua_State *L) {
     return 1 ;
 }
 
-static int NSException_toLua(lua_State *L, id obj) {
-    NSException *theError = obj ;
-
-    lua_newtable(L) ;
-        [[LuaSkin shared] pushNSObject:[theError name]] ;                     lua_setfield(L, -2, "name") ;
-        [[LuaSkin shared] pushNSObject:[theError reason]] ;                   lua_setfield(L, -2, "reason") ;
-        [[LuaSkin shared] pushNSObject:[theError userInfo]] ;                 lua_setfield(L, -2, "userInfo") ;
-        [[LuaSkin shared] pushNSObject:[theError callStackReturnAddresses]] ; lua_setfield(L, -2, "callStackReturnAddresses") ;
-        [[LuaSkin shared] pushNSObject:[theError callStackSymbols]] ;         lua_setfield(L, -2, "callStackSymbols") ;
-    return 1 ;
-}
+// static int NSException_toLua(lua_State *L, id obj) {
+//     NSException *theError = obj ;
+//
+//     lua_newtable(L) ;
+//         [[LuaSkin shared] pushNSObject:[theError name]] ;                     lua_setfield(L, -2, "name") ;
+//         [[LuaSkin shared] pushNSObject:[theError reason]] ;                   lua_setfield(L, -2, "reason") ;
+//         [[LuaSkin shared] pushNSObject:[theError userInfo]] ;                 lua_setfield(L, -2, "userInfo") ;
+//         [[LuaSkin shared] pushNSObject:[theError callStackReturnAddresses]] ; lua_setfield(L, -2, "callStackReturnAddresses") ;
+//         [[LuaSkin shared] pushNSObject:[theError callStackSymbols]] ;         lua_setfield(L, -2, "callStackSymbols") ;
+//     return 1 ;
+// }
 
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults},
-    {"bridge",               extras_bridge},
+//     {"bridge",               extras_bridge},
     {"userDataToString",     ud_tostring},
     {"getMenuArray",         getMenuArray},
     {"doSpacesKey",          doSpacesKey},
@@ -383,7 +383,7 @@ static const luaL_Reg extrasLib[] = {
 int luaopen_hs__asm_extras_internal(lua_State* L) {
     luaL_newlib(L, extrasLib);
 
-    [[LuaSkin shared] registerPushNSHelper:NSException_toLua forClass:"NSException"] ;
+//     [[LuaSkin shared] registerPushNSHelper:NSException_toLua forClass:"NSException"] ;
 
     return 1;
 }
