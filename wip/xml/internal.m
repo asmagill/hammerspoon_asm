@@ -680,7 +680,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"documentContentKind",         xml_documentContentKind},
 
 // NSXMLElement Methods
-    {"attributes",                  xml_attributes},
+    {"rawAttributes",               xml_attributes},
     {"namespaces",                  xml_namespaces},
 
     {"__tostring",                  userdata_tostring},

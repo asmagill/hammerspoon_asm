@@ -4,7 +4,8 @@
 ---
 --- A description of module.
 
-local module      = require("hs._asm.xml.internal")
+local module   = require("hs._asm.xml.internal")
+local internal = hs.getObjectMetatable("hs._asm.xml")
 
 -- private variables and methods -----------------------------------------
 
@@ -51,6 +52,25 @@ end
 -- Public interface ------------------------------------------------------
 
 module.nodeOptions = _makeConstantsTable(module.nodeOptions)
+
+internal.attribute = function(self, attr)
+    if (type(attr) == "string") then
+        for i,v in ipairs(self:rawAttributes()) do
+            if v:name() == attr then return v:objectValue() end
+        end
+        return nil
+    else
+        return error("attributeName must be a string", 2)
+    end
+end
+
+internal.attributes = function(self)
+    local results = {}
+    for i,v in ipairs(self:rawAttributes()) do
+        results[v:name()] = v:objectValue()
+    end
+    return results
+end
 
 -- Return Module Object --------------------------------------------------
 

@@ -9,7 +9,7 @@
     if not hs.window   then hs.window   = require("hs.window")   end
 
 local module = require("hs._asm.extras.internal")
-local bridge = require("hs._asm.bridging")
+-- local bridge = require("hs._asm.bridging")
 
 -- private variables and methods -----------------------------------------
 

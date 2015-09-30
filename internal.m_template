@@ -20,8 +20,6 @@ int refTable ;
 // }
 
 // static int meta_gc(lua_State* __unused L) {
-//     [hsimageReferences removeAllIndexes];
-//     hsimageReferences = nil;
 //     return 0 ;
 // }
 

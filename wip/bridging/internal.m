@@ -2,6 +2,7 @@
 #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
+#import <objc/runtime.h>
 
 #define USERDATA_TAG        "hs._asm.bridging"
 #define get_objectFromUserdata(objType, L, idx) (objType)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -62,6 +63,16 @@ static int bridging_bridging(lua_State* L) {
     return 1 ;
 }
 
+// static void test(SEL sel) {
+//     Method method = class_getInstanceMethod([NSString class], sel);
+//
+//     const char* const type = method_copyReturnType(method);
+//
+//     printf("%s : %s\n", NSStringFromSelector(sel).UTF8String, type);
+//
+//     free((void*)type);
+// }
+
 static int bridging_methodSignature(lua_State *L) {
     NSString *className    = [[LuaSkin shared] toNSObjectAtIndex:1] ;
     NSString *selectorName = [[LuaSkin shared] toNSObjectAtIndex:2] ;
@@ -69,7 +80,11 @@ static int bridging_methodSignature(lua_State *L) {
     if (NSClassFromString(className)) {
         if ([NSClassFromString(className) respondsToSelector:NSSelectorFromString(selectorName)]) {
             @try {
+//                 const char *returnType = method_copyReturnType(class_getInstanceMethod(NSClassFromString(className), NSSelectorFromString(selectorName))) ;
+//                 lua_pushstring(L, returnType) ;
+//                 free((void *)returnType) ;
                 [[LuaSkin shared] pushNSObject:[NSClassFromString(className) methodSignatureForSelector:NSSelectorFromString(selectorName)]] ;
+//                 return 2 ;
             }
             @catch ( NSException *theException ) {
                 return errorOnException(L, theException) ;
@@ -84,25 +99,27 @@ static int bridging_methodSignature(lua_State *L) {
     return 1 ;
 }
 
-static int bridging_class(lua_State *L) {
-    @try {
+static int bridging_objectClass(lua_State *L) {
         id object = get_objectFromUserdata(__bridge id, L, 1) ;
-        lua_pushstring(L, [NSStringFromClass([object class]) UTF8String]) ;
-    }
-    @catch ( NSException *theException ) {
-        return errorOnException(L, theException) ;
-    }
+        lua_pushstring(L, class_getName(object_getClass(object))) ;
     return 1 ;
 }
 
-static int bridging_superclass(lua_State *L) {
-    @try {
+static int bridging_objectSuperclass(lua_State *L) {
         id object = get_objectFromUserdata(__bridge id, L, 1) ;
-        lua_pushstring(L, [NSStringFromClass([object superclass]) UTF8String]) ;
-    }
-    @catch ( NSException *theException ) {
-        return errorOnException(L, theException) ;
-    }
+        lua_pushstring(L, class_getName(class_getSuperclass(object_getClass(object)))) ;
+    return 1 ;
+}
+
+static int bridging_objectIsMetaClass(lua_State *L) {
+        id object = get_objectFromUserdata(__bridge id, L, 1) ;
+        lua_pushboolean(L, class_isMetaClass(object_getClass(object))) ;
+    return 1 ;
+}
+
+static int bridging_objectGetInstanceSize(lua_State *L) {
+        id object = get_objectFromUserdata(__bridge id, L, 1) ;
+        lua_pushinteger(L, class_getInstanceSize(object_getClass(object))) ;
     return 1 ;
 }
 
@@ -266,12 +283,14 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"class",            bridging_class},
+    {"class",            bridging_objectClass},
     {"value",            bridging_value},
-    {"superclass",       bridging_superclass},
+    {"superclass",       bridging_objectSuperclass},
     {"description",      bridging_description},
     {"debugDescription", bridging_debugDescription},
     {"hash",             bridging_hash},
+    {"isMetaClass",      bridging_objectIsMetaClass},
+    {"instanceSize",     bridging_objectGetInstanceSize},
 
     {"__tostring",       userdata_tostring},
     {"__eq",             userdata_eq},

@@ -1,0 +1,161 @@
++     id                              objc_lookUpClass(const char *name)
++     Class *                         objc_copyClassList(unsigned int *outCount)
++ -   Protocol *                      objc_getProtocol(const char *name)
++ -   Protocol **                     objc_copyProtocolList(unsigned int *outCount)
++     const char **                   objc_copyImageNames(unsigned int *outCount)
++     const char **                   objc_copyClassNamesForImage(const char *image, unsigned int *outCount)
+
++ -   const char *                    class_getName(Class cls)
++ -   Class                           class_getSuperclass(Class cls)
++ -   BOOL                            class_isMetaClass(Class cls)
++ -   size_t                          class_getInstanceSize(Class cls)
++ -   const char *                    class_getIvarLayout(Class cls)
++ -   const char *                    class_getWeakIvarLayout(Class cls)
++     const char *                    class_getImageName(Class cls)
++ -   int                             class_getVersion(Class theClass)
++ -   objc_property_t *               class_copyPropertyList(Class cls, unsigned int *outCount)
++ -   objc_property_t                 class_getProperty(Class cls, const char *name)
++ -   Ivar                            class_getInstanceVariable(Class cls, const char* name)
++ -   Ivar                            class_getClassVariable(Class cls, const char* name)
++ -   Ivar *                          class_copyIvarList(Class cls, unsigned int *outCount)
++     BOOL                            class_conformsToProtocol(Class cls, Protocol *protocol)
++ -   Protocol **                     class_copyProtocolList(Class cls, unsigned int *outCount)
++ -   Method                          class_getInstanceMethod(Class aClass, SEL aSelector)
++ -   Method                          class_getClassMethod(Class aClass, SEL aSelector)
++ -   Method *                        class_copyMethodList(Class cls, unsigned int *outCount)
++     BOOL                            class_respondsToSelector(Class cls, SEL sel)
+
++ -   const char *                    property_getName(objc_property_t property)
++ -   const char *                    property_getAttributes(objc_property_t property)
++     char *                          property_copyAttributeValue(objc_property_t property, const char *attributeName)
++     objc_property_attribute_t *     property_copyAttributeList(objc_property_t property, unsigned int *outCount)
+
++     const char *                    ivar_getName( Ivar ivar)
++     const char *                    ivar_getTypeEncoding( Ivar ivar)
++     ptrdiff_t                       ivar_getOffset( Ivar ivar)
+
++     BOOL                            protocol_isEqual(Protocol *proto, Protocol *other)
++ -   const char *                    protocol_getName(Protocol *p)
++ -   Protocol **                     protocol_copyProtocolList(Protocol *proto, unsigned int *outCount)
++ -   objc_property_t *               protocol_copyPropertyList(Protocol *protocol, unsigned int *outCount)
++ -   objc_property_t                 protocol_getProperty(Protocol *proto, const char *name, BOOL isRequiredProperty, BOOL isInstanceProperty)
++ -   BOOL                            protocol_conformsToProtocol(Protocol *proto, Protocol *other)
++ -   struct objc_method_description *protocol_copyMethodDescriptionList(Protocol *p, BOOL isRequiredMethod, BOOL isInstanceMethod, unsigned int *outCount)
++ -   struct objc_method_description  protocol_getMethodDescription(Protocol *p, SEL aSel, BOOL isRequiredMethod, BOOL isInstanceMethod)
+
++ -   SEL                             method_getName( Method method)
++ -   const char *                    method_getTypeEncoding( Method method)
++ -   char *                          method_copyReturnType( Method method)
++ -   char *                          method_copyArgumentType( Method method, unsigned int index)
++ -   unsigned                        method_getNumberOfArguments( Method method)
+-     struct objc_method_description *method_getDescription( Method m)
+
++ -   const char*                     sel_getName(SEL aSelector)
++     BOOL                            sel_isEqual(SEL lhs, SEL rhs)
+
+
+
+#   -   BOOL                            class_addMethod(Class cls, SEL name, IMP imp, const char *types)
+#       IMP                             class_getMethodImplementation(Class cls, SEL name)
+#       IMP                             class_getMethodImplementation_stret(Class cls, SEL name)
+#       IMP                             class_replaceMethod(Class cls, SEL name, IMP imp, const char *types)
+#   -   BOOL                            class_addProtocol(Class cls, Protocol *protocol)
+#       BOOL                            class_addProperty(Class cls, const char *name, const objc_property_attribute_t *attributes, unsigned int attributeCount)
+#       void                            class_replaceProperty(Class cls, const char *name, const objc_property_attribute_t *attributes, unsigned int attributeCount)
+#       id                              class_createInstance(Class cls, size_t extraBytes)
+#   -   BOOL                            class_addIvar(Class cls, const char *name, size_t size, uint8_t alignment, const char *types)
+#   -   void                            class_setIvarLayout(Class cls, const char *layout)
+#   -   void                            class_setWeakIvarLayout(Class cls, const char *layout)
+#   -   Class                           class_setSuperclass(Class cls, Class newSuper)
+#   -   void                            class_setVersion(Class theClass, int version)
+
+#   -   id                              objc_getClass(const char *name)
+#       id                              objc_getRequiredClass(const char *name)
+#       id                              objc_getMetaClass(const char *name)
+#   -   int                             objc_getClassList(Class *buffer, int bufferLen)
+#       Class                           objc_getFutureClass(const char *name)
+#       void                            objc_setFutureClass(Class cls, const char *name)
+#                                       objc_duplicateClass
+#   -   id                              objc_getAssociatedObject(id object, void *key)
+#       id                              objc_constructInstance(Class cls, void *bytes)
+#       void                            objc_destructInstance(id obj)
+#   -   void                            objc_setAssociatedObject(id object, void *key, id value, objc_AssociationPolicy policy)
+#   -   void                            objc_removeAssociatedObjects(id object)
+#   ?   id                              objc_msgSend(id self, SEL op, ...)
+#       double                          objc_msgSend_fpret(id self, SEL op, ...)
+#   ?   void                            objc_msgSend_stret(void * stretAddr, id theReceiver, SEL theSelector, ...)
+#   ?   id                              objc_msgSendSuper(struct objc_super *super, SEL op, ...)
+#   ?   void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
+#       Protocol *                      objc_allocateProtocol(const char *name)
+#       void                            objc_registerProtocol(Protocol *proto)
+#       void                            objc_enumerationMutation(id obj)
+#       void                            objc_setEnumerationMutationHandler(void (*handler)(id))
+#       id                              objc_loadWeak(id *location)
+#       id                              objc_storeWeak(id *location, id obj)
+#   -   Class                           objc_allocateClassPair(Class superclass, const char *name, size_t extraBytes)
+#       void                            objc_disposeClassPair(Class cls)
+#   -   void                            objc_registerClassPair(Class cls)
+
+#       id                              object_copy(id obj, size_t size)
+#       id                              object_dispose(id obj)
+#   -   Ivar                            object_setInstanceVariable(id obj, const char *name, void *value)
+#   -   void                            object_setIvar(id object, Ivar ivar, id value)
+#   -   Class                           object_setClass(id object, Class cls)
+#   -   Ivar                            object_getInstanceVariable(id obj, const char *name, void **outValue)
+#       OBJC_EXPORT void *              object_getIndexedIvars(id obj)
+#   -   id                              object_getIvar(id object, Ivar ivar)
+#   -   const char *                    object_getClassName(id obj)
+#   -   Class                           object_getClass(id object)
+
+#       void                            method_getReturnType( Method method, char *dst, size_t dst_len)
+#       void                            method_getArgumentType( Method method, unsigned int index, char *dst, size_t dst_len)
+#       id                              method_invoke(id receiver, Method m, ...)
+#       void                            method_invoke_stret(id receiver, Method m, ...)
+#   -   IMP                             method_getImplementation( Method method)
+#   -   IMP                             method_setImplementation( Method method, IMP imp)
+#   -   void                            method_exchangeImplementations( Method m1, Method m2)
+
+#   -   SEL                             sel_registerName(const char *str)
+#       SEL                             sel_getUid(const char *str)
+
+#       void                            protocol_addMethodDescription(Protocol *proto, SEL name, const char *types, BOOL isRequiredMethod, BOOL isInstanceMethod)
+#       void                            protocol_addProtocol(Protocol *proto, Protocol *addition)
+#       void                            protocol_addProperty(Protocol *proto, const char *name, const objc_property_attribute_t *attributes, unsigned int attributeCount, BOOL isRequiredProperty, BOOL isInstanceProperty)
+
+#       IMP                             imp_implementationWithBlock(id block)
+#       id                              imp_getBlock( IMP anImp)
+#       BOOL                            imp_removeBlock( IMP anImp)
+
+    typedef struct objc_class *Class;
+    typedef struct objc_method *Method;
+    typedef struct objc_ivar *Ivar;
+    typedef struct objc_category *Category;
+    typedef struct objc_property *objc_property_t;
+    id (*IMP)(id, SEL, ...)
+    typedef struct objc_selector *SEL;
+    struct objc_method_description { SEL name; char *types; };
+    struct objc_method_list { struct objc_method_list *obsolete; int method_count; struct objc_method method_list[1]; }
+    struct objc_cache { unsigned int mask; unsigned int occupied; Method buckets[1]; };
+    struct objc_protocol_list { struct objc_protocol_list *next; int count; Protocol *list[1]; };
+    typedef struct { const char *name; const char *value; } objc_property_attribute_t;
+    typedef struct objc_object *id;
+    struct objc_object { Class isa; };
+    struct objc_super { id receiver; Class class; };
+    typedef signed char BOOL;
+    typedef uintptr_t objc_AssociationPolicy;
+
+    #define YES (BOOL)1
+    #define NO  (BOOL)0
+    #define nil __DARWIN_NULL
+    #define Nil __DARWIN_NULL
+    #define OBJC_OLD_DISPATCH_PROTOTYPES 1
+    #define OBJC_ROOT_CLASS
+    #define NS_VALID_UNTIL_END_OF_SCOPE
+
+    enum {
+       OBJC_ASSOCIATION_ASSIGN = 0,
+       OBJC_ASSOCIATION_RETAIN_NONATOMIC = 1,
+       OBJC_ASSOCIATION_COPY_NONATOMIC = 3,
+       OBJC_ASSOCIATION_RETAIN = 01401,
+       OBJC_ASSOCIATION_COPY = 01403
+    };
