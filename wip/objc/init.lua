@@ -6,15 +6,9 @@
 ---
 --- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
 
-local module    = require("hs._asm.objc.internal")
-
-module.class    = require("hs._asm.objc.class")
-module.ivar     = require("hs._asm.objc.ivar")
-module.method   = require("hs._asm.objc.method")
-module.property = require("hs._asm.objc.property")
-module.protocol = require("hs._asm.objc.protocol")
-module.object   = require("hs._asm.objc.object")
-module.selector = require("hs._asm.objc.selector")
+local module       = require("hs._asm.objc.internal")
+local log          = require("hs.logger").new("objc","warning")
+module.setLogLevel = log.setLogLevel
 
 -- private variables and methods -----------------------------------------
 
@@ -70,19 +64,73 @@ local protocol      = hs.getObjectMetatable("hs._asm.objc.protocol")
 
 -- Public interface ------------------------------------------------------
 
-class.selector = function(self, sel)
-    return self:methodList()[sel]
+class.selector = function(self, sel, alreadychecked)
+    alreadychecked = alreadychecked or {}
+    if alreadychecked[self] then
+        log.vf("class selector search already checked: %s", self:name())
+        return nil
+    end
+    alreadychecked[self] = true
+
+    -- check the class itself
+    log.vf("class selector search in class: %s", self:name())
+    local result = self:methodList()[sel]
+    if result then result = result:selector() end
+
+    -- check its adopted protocols
+    if not result then
+        for k,v in pairs(self:adoptedProtocols()) do
+            log.vf("class selector search in adopted protocol: %s", k)
+            result = protocol.selector(v, sel, alreadychecked)
+            if result then break end
+        end
+    end
+
+    -- if we're not the classes metaClass, check the metaClass
+    if not result and self:metaClass() then
+        log.vf("class selector search in metaClass for: %s", self:name())
+        result = class.selector(self:metaClass(), sel, alreadychecked)
+    end
+
+    -- check our superclass
+    if not result and self:superclass() then
+        log.vf("class selector search in superclass for: %s", self:name())
+        result = class.selector(self:superclass(), sel, alreadychecked)
+    end
+
+    -- either we have it or we don't by now...
+    return result
 end
 
 object.selector = function(self, sel)
     return class.selector(self:class(), sel)
 end
 
-protocol.selector = function(self, sel)
+protocol.selector = function(self, sel, alreadychecked)
+    alreadychecked = alreadychecked or {}
+    if alreadychecked[self] then
+        log.vf("protocol selector search already checked: %s", self:name())
+        return nil
+    end
+    alreadychecked[self] = true
+
+    -- check the protocol itself
+    log.vf("protocol selector search in protocol: %s", self:name())
     local entry = self:methodDescriptionList(true,true)[sel]  or -- check required and instance methods
                   self:methodDescriptionList(false,true)[sel] or -- check not-required and instance methods
                   self:methodDescriptionList(true,false)[sel] or -- check required and class methods
                   self:methodDescriptionList(false,false)[sel]   -- check not-required and class methods
+
+    -- check its adopted protocols
+    if not entry then
+        for k,v in pairs(self:adoptedProtocols()) do
+            log.vf("protocol selector search in adopted protocol: %s", k)
+            local result = protocol.selector(v, sel, alreadychecked)
+            if result then return result end
+        end
+    end
+
+    -- either we have it or we don't by now...
     if entry then
         return entry.selector
     else

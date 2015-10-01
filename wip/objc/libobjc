@@ -104,8 +104,8 @@
 #   -   Ivar                            object_getInstanceVariable(id obj, const char *name, void **outValue)
 #       OBJC_EXPORT void *              object_getIndexedIvars(id obj)
 #   -   id                              object_getIvar(id object, Ivar ivar)
-#   -   const char *                    object_getClassName(id obj)
-#   -   Class                           object_getClass(id object)
+- -   const char *                    object_getClassName(id obj)
+- -   Class                           object_getClass(id object)
 
 #       void                            method_getReturnType( Method method, char *dst, size_t dst_len)
 #       void                            method_getArgumentType( Method method, unsigned int index, char *dst, size_t dst_len)
