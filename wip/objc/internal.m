@@ -1,8 +1,38 @@
+#define DEBUG_msgSend
+
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 #import "objc.h"
+#import <stdlib.h>
+
+#pragma mark - ===== SAMPLE CLASS ====================================================
+
+@interface OBJCTest : NSObject
+@property BOOL    lastBool ;
+@property NSArray *wordList ;
+@end
+
+@implementation OBJCTest
+- (id)init {
+    self = [super init] ;
+    if (self) {
+        NSString *string = [NSString stringWithContentsOfFile:@"/usr/share/dict/words"
+                                                     encoding:NSASCIIStringEncoding
+                                                        error:NULL] ;
+        _wordList = [string componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]] ;
+    }
+    return self ;
+}
+
+- (BOOL)returnBool           { _lastBool = !_lastBool ; return _lastBool ; }
+- (int) returnInt            { return arc4random() ; }
+- (char *)returnCString      { return [[_wordList objectAtIndex:arc4random()%[_wordList count]] UTF8String]; }
+- (NSString *)returnNSString { return  [_wordList objectAtIndex:arc4random()%[_wordList count]]; }
+- (SEL)returnSelector        { return @selector(returnInt) ; }
+
+@end
 
 #pragma mark - ===== CLASS ===========================================================
 
@@ -615,6 +645,24 @@ int luaopen_hs__asm_objc_method(lua_State* __unused L) {
 static int        objectRefTable ;
 static NSMapTable *objectUD ;
 
+static int push_object(lua_State *L, id obj) {
+    if (obj) {
+        if (![objectUD objectForKey:obj]) {
+            void** thePtr = lua_newuserdata(L, sizeof(id)) ;
+    // Don't alter retain count for Class objects
+            *thePtr = (__bridge_retained void *)obj ;
+            luaL_getmetatable(L, ID_USERDATA_TAG) ;
+            lua_setmetatable(L, -2) ;
+            [objectUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:objectRefTable]]
+                        forKey:obj] ;
+        }
+        [[LuaSkin shared] pushLuaRef:objectRefTable ref:[[objectUD objectForKey:obj] intValue]] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Functions
 
 #pragma mark - Module Methods
@@ -630,6 +678,18 @@ static int objc_object_getClass(lua_State *L) {
     [[LuaSkin shared] checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     push_class(L, object_getClass(obj)) ;
+    return 1 ;
+}
+
+static int object_value(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
+    @try {
+        id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
+        [[LuaSkin shared] pushNSObject:obj] ;
+    }
+    @catch ( NSException *theException ) {
+        return errorOnException(L, ID_USERDATA_TAG, theException) ;
+    }
     return 1 ;
 }
 
@@ -678,6 +738,7 @@ static int object_meta_gc(lua_State* __unused L) {
 static const luaL_Reg object_userdata_metaLib[] = {
     {"class",       objc_object_getClass},
     {"className",   objc_object_getClassName},
+    {"value",       object_value},
 
     {"__tostring", object_userdata_tostring},
     {"__eq",       object_userdata_eq},
@@ -1254,6 +1315,7 @@ static int lua_msgSend(lua_State *L) {
     int selPos = rcvPos + 1 ;
 
     BOOL  callSuper = NO ;
+    BOOL  rcvIsClass = NO ;
     int   argCount = lua_gettop(L) - selPos ;
     Class cls ;
     id    rcv ;
@@ -1263,18 +1325,153 @@ static int lua_msgSend(lua_State *L) {
     if (luaL_testudata(L, rcvPos, CLASS_USERDATA_TAG)) {
         cls = get_objectFromUserdata(__bridge Class, L, rcvPos, CLASS_USERDATA_TAG) ;
         rcv = (id)cls ;
+        rcvIsClass = YES ;
     } else if(luaL_testudata(L, rcvPos, ID_USERDATA_TAG)) {
         rcv = get_objectFromUserdata(__bridge id, L, rcvPos, ID_USERDATA_TAG) ;
         cls = object_getClass(rcv) ;
+        rcvIsClass = NO ;
     } else {
         luaL_checkudata(L, rcvPos, ID_USERDATA_TAG) ; // use the ID type for the error message
     }
     SEL sel = get_objectFromUserdata(SEL, L, selPos, SEL_USERDATA_TAG) ;
 
-    lua_pushfstring(L, "Class: %s Selector: %s with %d arguments.",
+    char *returnType  = method_copyReturnType((rcvIsClass ? class_getClassMethod(cls, sel) :
+                                                            class_getInstanceMethod(cls, sel))) ;
+
+    if (!returnType)
+        return luaL_error(L, "%s is not a%s method for %s", sel_getName(sel),
+                            (rcvIsClass ? " class" : "n instance"), class_getName(cls)) ;
+
+#ifdef DEBUG_msgSend
+    lua_getglobal(L, "print") ;
+    lua_pushfstring(L, "Class: %s Selector: %s with %d arguments, return type:%s.",
             (callSuper ? class_getName(class_getSuperclass(cls)) : class_getName(cls)),
             sel_getName(sel),
-            argCount) ;
+            argCount,
+            returnType) ;
+    lua_pcall(L, 1, 0, 0) ;
+#endif
+
+    @try { // not sure if objc_msgSend used this way supports exceptions, but worth a try...
+        switch(returnType[0]) {
+            case 'c': {    // char
+                char result = (char)objc_msgSend(rcv, sel) ;
+                if (result == 0 || result == 1)
+                    lua_pushboolean(L, result) ;
+                else
+                    lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'C': {    // unsigned char
+                unsigned char result = (unsigned char)objc_msgSend(rcv, sel) ;
+                if (result == 0 || result == 1)
+                    lua_pushboolean(L, result) ;
+                else
+                    lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'i': {    // int
+                int result = (int)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 's': {    // short
+                short result = (short)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'l': {    // long
+                long result = (long)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'q':      // long long
+            case 'Q': {    // unsigned long long (lua can't do unsigned long long; choose bits over magnitude)
+                long long result = (long long)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'I': {    // unsigned int
+                unsigned int result = (unsigned int)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'S': {    // unsigned short
+                unsigned short result = (unsigned short)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, result) ;
+                break ;
+            }
+            case 'L': {    // unsigned long
+                unsigned long result = (unsigned long)objc_msgSend(rcv, sel) ;
+                lua_pushinteger(L, (lua_Integer)result) ;
+                break ;
+            }
+
+            case 'f': {    // float
+                float result = (float)objc_msgSend_fpret(rcv, sel) ;
+                lua_pushnumber(L, result) ;
+                break ;
+            }
+            case 'd': {    // double
+                double result = (double)objc_msgSend_fpret(rcv, sel) ;
+                lua_pushnumber(L, result) ;
+                break ;
+            }
+
+            case 'B': {    // C++ bool or a C99 _Bool
+                char result = (char)objc_msgSend(rcv, sel) ;
+                lua_pushboolean(L, result) ;
+                break ;
+            }
+
+            case 'v': {    // void
+                (void)objc_msgSend(rcv, sel) ;
+                lua_pushnil(L) ;
+                break ;
+            }
+
+            case '*': {    // char * -- ARC needs to be tricked into this...
+                char *result = (char *)((__bridge void *)objc_msgSend(rcv, sel)) ;
+                lua_pushstring(L, result) ;
+                break ;
+            }
+
+            case '@': {    // id
+                id result = objc_msgSend(rcv, sel) ;
+                push_object(L, result) ;
+                break ;
+            }
+
+            case '#': {    // Class
+                Class result = (Class)objc_msgSend(rcv, sel) ;
+                push_class(L, result) ;
+                break ;
+            }
+
+            case ':': {    // SEL -- ARC needs to be tricked into this...
+                SEL result = (SEL)((__bridge void *)objc_msgSend(rcv, sel)) ;
+                push_selector(L, result) ;
+                break ;
+            }
+
+//     [array type]    An array
+//     {name=type...}  A structure
+//     (name=type...)  A union
+//     bnum            A bit field of num bits
+//     ^type           A pointer to type
+//     ?               An unknown type (among other things, this code is used for function pointers)
+
+            default:
+                return luaL_error(L, "return type %s not supported yet", returnType) ;
+                break ;
+        }
+    }
+    @catch ( NSException *theException ) {
+        return errorOnException(L, "objc_msgSend", theException) ;
+    }
+
+    free(returnType) ;
+
     return 1 ;
 }
 static int lua_msgSendSuper(lua_State *L) {
