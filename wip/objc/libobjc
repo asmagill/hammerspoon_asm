@@ -4,6 +4,10 @@
 + -   Protocol **                     objc_copyProtocolList(unsigned int *outCount)
 +     const char **                   objc_copyImageNames(unsigned int *outCount)
 +     const char **                   objc_copyClassNamesForImage(const char *image, unsigned int *outCount)
++ ?   id                              objc_msgSend(id self, SEL op, ...)
+  ?   void                            objc_msgSend_stret(void * stretAddr, id theReceiver, SEL theSelector, ...)
++ ?   id                              objc_msgSendSuper(struct objc_super *super, SEL op, ...)
+  ?   void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
 
 + -   const char *                    class_getName(Class cls)
 + -   Class                           class_getSuperclass(Class cls)
@@ -52,7 +56,20 @@
 
 + -   const char*                     sel_getName(SEL aSelector)
 +     BOOL                            sel_isEqual(SEL lhs, SEL rhs)
++ -   SEL                             sel_registerName(const char *str)
 
++ -   const char *                    object_getClassName(id obj)
++ -   Class                           object_getClass(id object)
+#       id                              object_copy(id obj, size_t size)
+#   -   Ivar                            object_setInstanceVariable(id obj, const char *name, void *value)
+#   -   void                            object_setIvar(id object, Ivar ivar, id value)
+#   -   Ivar                            object_getInstanceVariable(id obj, const char *name, void **outValue)
+#   -   id                              object_getIvar(id object, Ivar ivar)
+/usr/include/objc/runtime.h:151:       OBJC_EXPORT BOOL object_isClass(id obj)
+
+#   -   Class                           object_setClass(id object, Class cls)
+#       id                              object_dispose(id obj)
+#       OBJC_EXPORT void *              object_getIndexedIvars(id obj)
 
 
 #   -   BOOL                            class_addMethod(Class cls, SEL name, IMP imp, const char *types)
@@ -69,23 +86,11 @@
 #   -   Class                           class_setSuperclass(Class cls, Class newSuper)
 #   -   void                            class_setVersion(Class theClass, int version)
 
-#   -   id                              objc_getClass(const char *name)
-#       id                              objc_getRequiredClass(const char *name)
-#       id                              objc_getMetaClass(const char *name)
-#   -   int                             objc_getClassList(Class *buffer, int bufferLen)
-#       Class                           objc_getFutureClass(const char *name)
-#       void                            objc_setFutureClass(Class cls, const char *name)
-#                                       objc_duplicateClass
 #   -   id                              objc_getAssociatedObject(id object, void *key)
-#       id                              objc_constructInstance(Class cls, void *bytes)
-#       void                            objc_destructInstance(id obj)
 #   -   void                            objc_setAssociatedObject(id object, void *key, id value, objc_AssociationPolicy policy)
 #   -   void                            objc_removeAssociatedObjects(id object)
-#   ?   id                              objc_msgSend(id self, SEL op, ...)
-#       double                          objc_msgSend_fpret(id self, SEL op, ...)
-#   ?   void                            objc_msgSend_stret(void * stretAddr, id theReceiver, SEL theSelector, ...)
-#   ?   id                              objc_msgSendSuper(struct objc_super *super, SEL op, ...)
-#   ?   void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
+#       id                              objc_constructInstance(Class cls, void *bytes)
+#       void                            objc_destructInstance(id obj)
 #       Protocol *                      objc_allocateProtocol(const char *name)
 #       void                            objc_registerProtocol(Protocol *proto)
 #       void                            objc_enumerationMutation(id obj)
@@ -95,17 +100,13 @@
 #   -   Class                           objc_allocateClassPair(Class superclass, const char *name, size_t extraBytes)
 #       void                            objc_disposeClassPair(Class cls)
 #   -   void                            objc_registerClassPair(Class cls)
-
-#       id                              object_copy(id obj, size_t size)
-#       id                              object_dispose(id obj)
-#   -   Ivar                            object_setInstanceVariable(id obj, const char *name, void *value)
-#   -   void                            object_setIvar(id object, Ivar ivar, id value)
-#   -   Class                           object_setClass(id object, Class cls)
-#   -   Ivar                            object_getInstanceVariable(id obj, const char *name, void **outValue)
-#       OBJC_EXPORT void *              object_getIndexedIvars(id obj)
-#   -   id                              object_getIvar(id object, Ivar ivar)
-- -   const char *                    object_getClassName(id obj)
-- -   Class                           object_getClass(id object)
+#   -   id                              objc_getClass(const char *name)
+#       id                              objc_getRequiredClass(const char *name)
+#       id                              objc_getMetaClass(const char *name)
+#   -   int                             objc_getClassList(Class *buffer, int bufferLen)
+#       Class                           objc_getFutureClass(const char *name)
+#       void                            objc_setFutureClass(Class cls, const char *name)
+#                                       objc_duplicateClass
 
 #       void                            method_getReturnType( Method method, char *dst, size_t dst_len)
 #       void                            method_getArgumentType( Method method, unsigned int index, char *dst, size_t dst_len)
@@ -115,7 +116,6 @@
 #   -   IMP                             method_setImplementation( Method method, IMP imp)
 #   -   void                            method_exchangeImplementations( Method m1, Method m2)
 
-#   -   SEL                             sel_registerName(const char *str)
 #       SEL                             sel_getUid(const char *str)
 
 #       void                            protocol_addMethodDescription(Protocol *proto, SEL name, const char *types, BOOL isRequiredMethod, BOOL isInstanceMethod)
@@ -126,32 +126,6 @@
 #       id                              imp_getBlock( IMP anImp)
 #       BOOL                            imp_removeBlock( IMP anImp)
 
-    typedef struct objc_class *Class;
-    typedef struct objc_method *Method;
-    typedef struct objc_ivar *Ivar;
-    typedef struct objc_category *Category;
-    typedef struct objc_property *objc_property_t;
-    id (*IMP)(id, SEL, ...)
-    typedef struct objc_selector *SEL;
-    struct objc_method_description { SEL name; char *types; };
-    struct objc_method_list { struct objc_method_list *obsolete; int method_count; struct objc_method method_list[1]; }
-    struct objc_cache { unsigned int mask; unsigned int occupied; Method buckets[1]; };
-    struct objc_protocol_list { struct objc_protocol_list *next; int count; Protocol *list[1]; };
-    typedef struct { const char *name; const char *value; } objc_property_attribute_t;
-    typedef struct objc_object *id;
-    struct objc_object { Class isa; };
-    struct objc_super { id receiver; Class class; };
-    typedef signed char BOOL;
-    typedef uintptr_t objc_AssociationPolicy;
-
-    #define YES (BOOL)1
-    #define NO  (BOOL)0
-    #define nil __DARWIN_NULL
-    #define Nil __DARWIN_NULL
-    #define OBJC_OLD_DISPATCH_PROTOTYPES 1
-    #define OBJC_ROOT_CLASS
-    #define NS_VALID_UNTIL_END_OF_SCOPE
-
     enum {
        OBJC_ASSOCIATION_ASSIGN = 0,
        OBJC_ASSOCIATION_RETAIN_NONATOMIC = 1,
@@ -159,3 +133,16 @@
        OBJC_ASSOCIATION_RETAIN = 01401,
        OBJC_ASSOCIATION_COPY = 01403
     };
+
+
+/usr/include/objc/message.h:262:       OBJC_EXPORT void _objc_msgForward(void /* id receiver, SEL sel, ... */ )
+/usr/include/objc/message.h:264:       OBJC_EXPORT void _objc_msgForward_stret(void /* id receiver, SEL sel, ... */ )
+/usr/include/objc/message.h:268:       OBJC_EXPORT id _objc_msgForward(id receiver, SEL sel, ...)
+/usr/include/objc/message.h:270:       OBJC_EXPORT void _objc_msgForward_stret(id receiver, SEL sel, ...)
+/usr/include/objc/message.h:291:       OBJC_EXPORT id objc_msgSendv(id self, SEL op, size_t arg_size, marg_list arg_frame) OBJC2_UNAVAILABLE;
+/usr/include/objc/message.h:292:       OBJC_EXPORT void objc_msgSendv_stret(void *stretAddr, id self, SEL op, size_t arg_size, marg_list arg_frame) OBJC2_UNAVAILABLE;
+/usr/include/objc/message.h:298:       OBJC_EXPORT double objc_msgSendv_fpret(id self, SEL op, unsigned arg_size, marg_list arg_frame) OBJC2_UNAVAILABLE;
+
+/usr/include/objc/objc.h:168:          OBJC_EXPORT BOOL sel_isMapped(SEL sel)
+
+/usr/include/objc/runtime.h:1426:      OBJC_EXPORT void objc_setForwardHandler(void *fwd, void *fwd_stret)

@@ -1,22 +1,22 @@
 Objective-C type encodings
-    c               A char
-    i               An int
-    s               A short
-    l               A long    l is treated as a 32-bit quantity on 64-bit programs.
-    q               A long long
-    C               An unsigned char
-    I               An unsigned int
-    S               An unsigned short
-    L               An unsigned long
-    Q               An unsigned long long
-    f               A float
-    d               A double
-    B               A C++ bool or a C99 _Bool
-    v               A void
-    *               A character string (char *)
-    @               An object (whether statically typed or typed id)
-    #               A class object (Class)
-    :               A method selector (SEL)
+#     c               A char
+#     i               An int
+#     s               A short
+#     l               A long    l is treated as a 32-bit quantity on 64-bit programs.
+#     q               A long long
+#     C               An unsigned char
+#     I               An unsigned int
+#     S               An unsigned short
+#     L               An unsigned long
+#     Q               An unsigned long long
+#     f               A float
+#     d               A double
+#     B               A C++ bool or a C99 _Bool
+#     v               A void
+#     *               A character string (char *)
+#     @               An object (whether statically typed or typed id)
+#     #               A class object (Class)
+#     :               A method selector (SEL)
     [array type]    An array
     {name=type...}  A structure
     (name=type...)  A union
@@ -59,6 +59,11 @@ Objective-C method encodings
     O               bycopy
     R               byref
     V               oneway
+
+Property encodings
+You can use the property_getAttributes function to discover the name, the @encode type string of a property, and other attributes of the property.
+
+The string starts with a T followed by the @encode type and a comma, and finishes with a V followed by the name of the backing instance variable. Between these, the attributes are specified by the following descriptors, separated by commas:
 
 Declared property type encodings
     R               The property is read-only (readonly).

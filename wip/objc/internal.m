@@ -1,4 +1,5 @@
 #define DEBUG_msgSend
+// #define DEBUG_GC
 
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
@@ -6,11 +7,13 @@
 #import "../hammerspoon.h"
 #import "objc.h"
 #import <stdlib.h>
+#import <math.h>
 
 #pragma mark - ===== SAMPLE CLASS ====================================================
 
 @interface OBJCTest : NSObject
 @property BOOL    lastBool ;
+@property int     lastInt ;
 @property NSArray *wordList ;
 @end
 
@@ -22,35 +25,81 @@
                                                      encoding:NSASCIIStringEncoding
                                                         error:NULL] ;
         _wordList = [string componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]] ;
+        _lastBool = NO ;
+        _lastInt  = 1 ;
     }
     return self ;
 }
 
 - (BOOL)returnBool           { _lastBool = !_lastBool ; return _lastBool ; }
-- (int) returnInt            { return arc4random() ; }
-- (char *)returnCString      { return [[_wordList objectAtIndex:arc4random()%[_wordList count]] UTF8String]; }
+- (int) returnRandomInt      { return (int)arc4random() ; }
+- (int) returnInt            { _lastInt++ ; return _lastInt ; }
+- (char *)returnCString      { return (char *)[[_wordList objectAtIndex:arc4random()%[_wordList count]] UTF8String]; }
 - (NSString *)returnNSString { return  [_wordList objectAtIndex:arc4random()%[_wordList count]]; }
 - (SEL)returnSelector        { return @selector(returnInt) ; }
-
+- (float)returnFloat         { return (float)(atan(1)*4) ; }
+- (double)returnDouble       { return (double)(atan(1)*4) ; }
 @end
+
+@interface OBJCTest2 : OBJCTest
+@end
+
+@implementation OBJCTest2
+- (id)init {
+    self = [super init] ;
+    return self ;
+}
+
+- (char *)returnCString { return "This is a test" ; }
+@end
+
+static int refTable ;
+static int logFnRef ;
+
+static int __unused warn_to_console(lua_State *L) {
+    if (logFnRef != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        lua_getfield(L, -1, "wf") ; lua_remove(L, -2) ;
+        lua_insert(L, 1) ;
+        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+    }
+    return 0 ;
+}
+
+static int __unused info_to_console(lua_State *L) {
+    if (logFnRef != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        lua_getfield(L, -1, "f") ; lua_remove(L, -2) ;
+        lua_insert(L, 1) ;
+        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+    }
+    return 0 ;
+}
+
+static int __unused debug_to_console(lua_State *L) {
+    if (logFnRef != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        lua_getfield(L, -1, "df") ; lua_remove(L, -2) ;
+        lua_insert(L, 1) ;
+        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+    }
+    return 0 ;
+}
 
 #pragma mark - ===== CLASS ===========================================================
 
 static int        classRefTable ;
-static NSMapTable *classUD ;
 
 static int push_class(lua_State *L, Class cls) {
+#ifdef DEBUG_GC
+    NSLog(@"class: create %p", cls) ;
+#endif
     if (cls) {
-        if (![classUD objectForKey:cls]) {
-            void** thePtr = lua_newuserdata(L, sizeof(Class)) ;
-    // Don't alter retain count for Class objects
-            *thePtr = (__bridge void *)cls ;
-            luaL_getmetatable(L, CLASS_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [classUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:classRefTable]]
-                        forKey:cls] ;
-        }
-        [[LuaSkin shared] pushLuaRef:classRefTable ref:[[classUD objectForKey:cls] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(Class)) ;
+// Don't alter retain count for Class objects
+        *thePtr = (__bridge void *)cls ;
+        luaL_getmetatable(L, CLASS_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -288,13 +337,11 @@ static int class_userdata_eq(lua_State* L) {
 }
 
 static int class_userdata_gc(lua_State* L) {
-// since we don't retain, we don't need to transfer, but this does check to make sure we're
-// not called with the wrong type for some reason...
-    Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
-    if ([classUD objectForKey:cls]) {
-        [[LuaSkin shared] luaUnref:classRefTable ref:[[classUD objectForKey:cls] intValue]] ;
-        [classUD removeObjectForKey:cls] ;
-    }
+// check to make sure we're not called with the wrong type for some reason...
+    Class __unused cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"class: remove %p", cls) ;
+#endif
 
 // Clear the pointer so it's no longer dangling
     void** thePtr = lua_touserdata(L, 1);
@@ -307,11 +354,9 @@ static int class_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int class_meta_gc(lua_State* __unused L) {
-    if (classUD) [classUD removeAllObjects] ;
-    classUD = nil ;
-    return 0 ;
-}
+// static int class_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg class_userdata_metaLib[] = {
@@ -351,16 +396,15 @@ static luaL_Reg class_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg class_module_metaLib[] = {
-    {"__gc", class_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg class_module_metaLib[] = {
+//     {"__gc", class_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_class(lua_State* __unused L) {
-    classUD = [[NSMapTable alloc] init] ;
     classRefTable = [[LuaSkin shared] registerLibraryWithObject:CLASS_USERDATA_TAG
                                                  functions:class_moduleLib
-                                             metaFunctions:class_module_metaLib
+                                             metaFunctions:nil // class_module_metaLib
                                            objectFunctions:class_userdata_metaLib];
     return 1;
 }
@@ -368,19 +412,16 @@ int luaopen_hs__asm_objc_class(lua_State* __unused L) {
 #pragma mark - ===== IVAR ============================================================
 
 static int        ivarRefTable ;
-static NSMapTable *ivarUD ;
 
 static int push_ivar(lua_State *L, Ivar iv) {
+#ifdef DEBUG_GC
+    NSLog(@"ivar: create %p", iv) ;
+#endif
     if (iv) {
-        if (![ivarUD objectForKey:[NSValue valueWithPointer:(void *)iv]]) {
-            void** thePtr = lua_newuserdata(L, sizeof(Ivar)) ;
-            *thePtr = (void *)iv ;
-            luaL_getmetatable(L, IVAR_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [ivarUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:ivarRefTable]]
-                       forKey:[NSValue valueWithPointer:(void *)iv]] ;
-        }
-        [[LuaSkin shared] pushLuaRef:ivarRefTable ref:[[ivarUD objectForKey:[NSValue valueWithPointer:(void *)iv]] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(Ivar)) ;
+        *thePtr = (void *)iv ;
+        luaL_getmetatable(L, IVAR_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -429,11 +470,10 @@ static int ivar_userdata_eq(lua_State* L) {
 
 static int ivar_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
-    Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
-    if ([ivarUD objectForKey:[NSValue valueWithPointer:(void *)iv]]) {
-        [[LuaSkin shared] luaUnref:ivarRefTable ref:[[ivarUD objectForKey:[NSValue valueWithPointer:(void *)iv]] intValue]] ;
-        [ivarUD removeObjectForKey:[NSValue valueWithPointer:(void *)iv]] ;
-    }
+    Ivar __unused iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"ivar: remove %p", iv) ;
+#endif
 
 // Clear the pointer so it's no longer dangling
     void** thePtr = lua_touserdata(L, 1);
@@ -446,11 +486,9 @@ static int ivar_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int ivar_meta_gc(lua_State* __unused L) {
-    if (ivarUD) [ivarUD removeAllObjects] ;
-    ivarUD = nil ;
-    return 0 ;
-}
+// static int ivar_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg ivar_userdata_metaLib[] = {
@@ -470,16 +508,15 @@ static luaL_Reg ivar_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg ivar_module_metaLib[] = {
-    {"__gc", ivar_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg ivar_module_metaLib[] = {
+//     {"__gc", ivar_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_ivar(lua_State* __unused L) {
-    ivarUD = [[NSMapTable alloc] init] ;
     ivarRefTable = [[LuaSkin shared] registerLibraryWithObject:IVAR_USERDATA_TAG
                                                  functions:ivar_moduleLib
-                                             metaFunctions:ivar_module_metaLib
+                                             metaFunctions:nil // ivar_module_metaLib
                                            objectFunctions:ivar_userdata_metaLib];
 
     return 1;
@@ -488,20 +525,16 @@ int luaopen_hs__asm_objc_ivar(lua_State* __unused L) {
 #pragma mark - ===== METHOD ==========================================================
 
 static int        methodRefTable ;
-static NSMapTable *methodUD ;
 
 static int push_method(lua_State *L, Method meth) {
+#ifdef DEBUG_GC
+    NSLog(@"method: create %p", meth) ;
+#endif
     if (meth) {
-        if (![methodUD objectForKey:[NSValue valueWithPointer:(void *)meth]]) {
-            void** thePtr = lua_newuserdata(L, sizeof(Method)) ;
-            *thePtr = (void *)meth ;
-            luaL_getmetatable(L, METHOD_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            int hold = [[LuaSkin shared] luaRef:methodRefTable] ;
-            [methodUD setObject:[NSNumber numberWithInt:hold]
-                         forKey:[NSValue valueWithPointer:(void *)meth]] ;
-        }
-        [[LuaSkin shared] pushLuaRef:methodRefTable ref:[[methodUD objectForKey:[NSValue valueWithPointer:(void *)meth]] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(Method)) ;
+        *thePtr = (void *)meth ;
+        luaL_getmetatable(L, METHOD_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -581,11 +614,10 @@ static int method_userdata_eq(lua_State* L) {
 
 static int method_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
-    Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
-    if ([methodUD objectForKey:[NSValue valueWithPointer:(void *)meth]]) {
-        [[LuaSkin shared] luaUnref:methodRefTable ref:[[methodUD objectForKey:[NSValue valueWithPointer:(void *)meth]] intValue]] ;
-        [methodUD removeObjectForKey:[NSValue valueWithPointer:(void *)meth]] ;
-    }
+    Method __unused meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"method: remove %p", meth) ;
+#endif
 
 // Clear the pointer so it's no longer dangling
     void** thePtr = lua_touserdata(L, 1);
@@ -598,11 +630,9 @@ static int method_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int method_meta_gc(lua_State* __unused L) {
-    if (methodUD) [methodUD removeAllObjects] ;
-    methodUD = nil ;
-    return 0 ;
-}
+// static int method_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg method_userdata_metaLib[] = {
@@ -625,16 +655,15 @@ static luaL_Reg method_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg method_module_metaLib[] = {
-    {"__gc", method_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg method_module_metaLib[] = {
+//     {"__gc", method_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_method(lua_State* __unused L) {
-    methodUD = [[NSMapTable alloc] init] ;
     methodRefTable = [[LuaSkin shared] registerLibraryWithObject:METHOD_USERDATA_TAG
                                                  functions:method_moduleLib
-                                             metaFunctions:method_module_metaLib
+                                             metaFunctions:nil // method_module_metaLib
                                            objectFunctions:method_userdata_metaLib];
 
     return 1;
@@ -643,20 +672,17 @@ int luaopen_hs__asm_objc_method(lua_State* __unused L) {
 #pragma mark - ===== OBJECT ==========================================================
 
 static int        objectRefTable ;
-static NSMapTable *objectUD ;
 
 static int push_object(lua_State *L, id obj) {
+#ifdef DEBUG_GC
+    NSLog(@"object: create %p", obj) ;
+#endif
     if (obj) {
-        if (![objectUD objectForKey:obj]) {
-            void** thePtr = lua_newuserdata(L, sizeof(id)) ;
-    // Don't alter retain count for Class objects
-            *thePtr = (__bridge_retained void *)obj ;
-            luaL_getmetatable(L, ID_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [objectUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:objectRefTable]]
-                        forKey:obj] ;
-        }
-        [[LuaSkin shared] pushLuaRef:objectRefTable ref:[[objectUD objectForKey:obj] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(id)) ;
+// Do alter retain count on objects... we don't want ARC to remove them until lua does first
+        *thePtr = (__bridge_retained void *)obj ;
+        luaL_getmetatable(L, ID_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -711,10 +737,9 @@ static int object_userdata_eq(lua_State* L) {
 static int object_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     id obj = get_objectFromUserdata(__bridge_transfer id, L, 1, ID_USERDATA_TAG) ;
-    if ([objectUD objectForKey:obj]) {
-        [[LuaSkin shared] luaUnref:objectRefTable ref:[[objectUD objectForKey:obj] intValue]] ;
-        [objectUD removeObjectForKey:obj] ;
-    }
+#ifdef DEBUG_GC
+    NSLog(@"object: remove %p", obj) ;
+#endif
     obj = nil ;
 
 // Clear the pointer so it's no longer dangling
@@ -728,11 +753,9 @@ static int object_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int object_meta_gc(lua_State* __unused L) {
-    if (objectUD) [objectUD removeAllObjects] ;
-    objectUD = nil ;
-    return 0 ;
-}
+// static int object_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg object_userdata_metaLib[] = {
@@ -752,16 +775,15 @@ static luaL_Reg object_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg object_module_metaLib[] = {
-    {"__gc", object_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg object_module_metaLib[] = {
+//     {"__gc", object_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_object(lua_State* __unused L) {
-    objectUD = [[NSMapTable alloc] init] ;
     objectRefTable = [[LuaSkin shared] registerLibraryWithObject:ID_USERDATA_TAG
                                                  functions:object_moduleLib
-                                             metaFunctions:object_module_metaLib
+                                             metaFunctions:nil // object_module_metaLib
                                            objectFunctions:object_userdata_metaLib];
 
     return 1;
@@ -770,19 +792,16 @@ int luaopen_hs__asm_objc_object(lua_State* __unused L) {
 #pragma mark - ===== PROPERTY ========================================================
 
 static int        propertyRefTable ;
-static NSMapTable *propertyUD ;
 
 static int push_property(lua_State *L, objc_property_t prop) {
+#ifdef DEBUG_GC
+    NSLog(@"property: create %p", prop) ;
+#endif
     if (prop) {
-        if (![propertyUD objectForKey:[NSValue valueWithPointer:(void *)prop]]) {
-            void** thePtr = lua_newuserdata(L, sizeof(objc_property_t)) ;
-            *thePtr = (void *)prop ;
-            luaL_getmetatable(L, PROPERTY_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [propertyUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:propertyRefTable]]
-                           forKey:[NSValue valueWithPointer:(void *)prop]] ;
-        }
-        [[LuaSkin shared] pushLuaRef:propertyRefTable ref:[[propertyUD objectForKey:[NSValue valueWithPointer:(void *)prop]] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(objc_property_t)) ;
+        *thePtr = (void *)prop ;
+        luaL_getmetatable(L, PROPERTY_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -852,11 +871,10 @@ static int property_userdata_eq(lua_State* L) {
 
 static int property_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
-    objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
-    if ([propertyUD objectForKey:[NSValue valueWithPointer:(void *)prop]]) {
-        [[LuaSkin shared] luaUnref:propertyRefTable ref:[[propertyUD objectForKey:[NSValue valueWithPointer:(void *)prop]] intValue]] ;
-        [propertyUD removeObjectForKey:[NSValue valueWithPointer:(void *)prop]] ;
-    }
+    objc_property_t __unused prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"property: remove %p", prop) ;
+#endif
 
 // Clear the pointer so its not pointing at anything
     void** thePtr = lua_touserdata(L, 1);
@@ -869,11 +887,9 @@ static int property_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int property_meta_gc(lua_State* __unused L) {
-    if (propertyUD) [propertyUD removeAllObjects] ;
-    propertyUD = nil ;
-    return 0 ;
-}
+// static int property_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg property_userdata_metaLib[] = {
@@ -894,16 +910,15 @@ static luaL_Reg property_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg property_module_metaLib[] = {
-    {"__gc", property_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg property_module_metaLib[] = {
+//     {"__gc", property_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_property(lua_State* __unused L) {
-    propertyUD = [[NSMapTable alloc] init] ;
     propertyRefTable = [[LuaSkin shared] registerLibraryWithObject:PROPERTY_USERDATA_TAG
                                                  functions:property_moduleLib
-                                             metaFunctions:property_module_metaLib
+                                             metaFunctions:nil // property_module_metaLib
                                            objectFunctions:property_userdata_metaLib];
 
     return 1;
@@ -912,20 +927,17 @@ int luaopen_hs__asm_objc_property(lua_State* __unused L) {
 #pragma mark - ===== PROTOCOL ========================================================
 
 static int        protocolRefTable ;
-static NSMapTable *protocolUD ;
 
 static int push_protocol(lua_State *L, Protocol *prot) {
+#ifdef DEBUG_GC
+    NSLog(@"protocol: create %p", prot) ;
+#endif
     if (prot) {
-        if (![protocolUD objectForKey:prot]) {
-            void** thePtr = lua_newuserdata(L, sizeof(Protocol *)) ;
-    // Don't alter retain count for Protocol objects
-            *thePtr = (__bridge void *)prot ;
-            luaL_getmetatable(L, PROTOCOL_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [protocolUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:protocolRefTable]]
-                           forKey:prot] ;
-        }
-        [[LuaSkin shared] pushLuaRef:protocolRefTable ref:[[protocolUD objectForKey:prot] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(Protocol *)) ;
+// Don't alter retain count for Protocol objects
+        *thePtr = (__bridge void *)prot ;
+        luaL_getmetatable(L, PROTOCOL_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -1076,13 +1088,11 @@ static int protocol_userdata_eq(lua_State* L) {
 }
 
 static int protocol_userdata_gc(lua_State* L) {
-// since we don't retain, we don't need to transfer, but this does check to make sure we're
-// not called with the wrong type for some reason...
-    Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
-    if ([protocolUD objectForKey:prot]) {
-        [[LuaSkin shared] luaUnref:protocolRefTable ref:[[protocolUD objectForKey:prot] intValue]] ;
-        [protocolUD removeObjectForKey:prot] ;
-    }
+// check to make sure we're not called with the wrong type for some reason...
+    Protocol * __unused prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"protocol: remove %p", prot) ;
+#endif
 
 // Clear the pointer so it's no longer dangling
     void** thePtr = lua_touserdata(L, 1);
@@ -1095,11 +1105,9 @@ static int protocol_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int protocol_meta_gc(lua_State* __unused L) {
-    if (protocolUD) [protocolUD removeAllObjects] ;
-    protocolUD = nil ;
-    return 0 ;
-}
+// static int protocol_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg protocol_userdata_metaLib[] = {
@@ -1126,16 +1134,15 @@ static luaL_Reg protocol_moduleLib[] = {
 };
 
 // Metatable for module, if needed
-static const luaL_Reg protocol_module_metaLib[] = {
-    {"__gc", protocol_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg protocol_module_metaLib[] = {
+//     {"__gc", protocol_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_protocol(lua_State* __unused L) {
-    protocolUD = [[NSMapTable alloc] init] ;
     protocolRefTable = [[LuaSkin shared] registerLibraryWithObject:PROTOCOL_USERDATA_TAG
                                                  functions:protocol_moduleLib
-                                             metaFunctions:protocol_module_metaLib
+                                             metaFunctions:nil // protocol_module_metaLib
                                            objectFunctions:protocol_userdata_metaLib];
 
     return 1;
@@ -1144,19 +1151,16 @@ int luaopen_hs__asm_objc_protocol(lua_State* __unused L) {
 #pragma mark - ===== SELECTOR ========================================================
 
 static int        selectorRefTable ;
-static NSMapTable *selectorUD ;
 
 static int push_selector(lua_State *L, SEL sel) {
+#ifdef DEBUG_GC
+    NSLog(@"selector: create %p", sel) ;
+#endif
     if (sel) {
-        if (![selectorUD objectForKey:[NSValue valueWithPointer:(void *)sel]]) {
-            void** thePtr = lua_newuserdata(L, sizeof(SEL)) ;
-            *thePtr = (void *)sel ;
-            luaL_getmetatable(L, SEL_USERDATA_TAG) ;
-            lua_setmetatable(L, -2) ;
-            [selectorUD setObject:[NSNumber numberWithInt:[[LuaSkin shared] luaRef:selectorRefTable]]
-                           forKey:[NSValue valueWithPointer:(void *)sel]] ;
-        }
-        [[LuaSkin shared] pushLuaRef:selectorRefTable ref:[[selectorUD objectForKey:[NSValue valueWithPointer:(void *)sel]] intValue]] ;
+        void** thePtr = lua_newuserdata(L, sizeof(SEL)) ;
+        *thePtr = (void *)sel ;
+        luaL_getmetatable(L, SEL_USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
     } else {
         lua_pushnil(L) ;
     }
@@ -1165,10 +1169,12 @@ static int push_selector(lua_State *L, SEL sel) {
 
 #pragma mark - Module Functions
 
-// sel_registerName (which is what NSSelectorFromString uses) creates the selector, even if it doesn't
-// exist yet... so, no fromString function here.  See init.lua which adds selector methods to class,
-// protocol, and object which check for the selector string in the "current" context without creating
-// anything that doesn't already exist yet.
+// sel_registerName/sel_getUid (which is what NSSelectorFromString uses) creates the selector, even if it doesn't exist yet, so it can't be used to verify that a selector is a valid message for any, much less a specific, class. See init.lua which adds selector methods to class, protocol, and object which check for the selector string in the "current" context without creating anything that doesn't already exist yet.
+static int objc_sel_selectorFromName(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    push_selector(L, sel_getUid(luaL_checkstring(L, 1))) ;
+    return 1 ;
+}
 
 #pragma mark - Module Methods
 
@@ -1196,11 +1202,10 @@ static int selector_userdata_eq(lua_State* L) {
 
 static int selector_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
-    SEL sel = get_objectFromUserdata(SEL, L, 1, SEL_USERDATA_TAG) ;
-    if ([selectorUD objectForKey:[NSValue valueWithPointer:(void *)sel]]) {
-        [[LuaSkin shared] luaUnref:selectorRefTable ref:[[selectorUD objectForKey:[NSValue valueWithPointer:(void *)sel]] intValue]] ;
-        [selectorUD removeObjectForKey:[NSValue valueWithPointer:(void *)sel]] ;
-    }
+    SEL __unused sel = get_objectFromUserdata(SEL, L, 1, SEL_USERDATA_TAG) ;
+#ifdef DEBUG_GC
+    NSLog(@"selector: remove %p", sel) ;
+#endif
 
 // Clear the pointer so it's no longer dangling
     void** thePtr = lua_touserdata(L, 1);
@@ -1213,11 +1218,9 @@ static int selector_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int selector_meta_gc(lua_State* __unused L) {
-    if (selectorUD) [selectorUD removeAllObjects] ;
-    selectorUD = nil ;
-    return 0 ;
-}
+// static int selector_meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg selector_userdata_metaLib[] = {
@@ -1231,28 +1234,27 @@ static const luaL_Reg selector_userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg selector_moduleLib[] = {
-    {NULL, NULL}
+    {"fromString", objc_sel_selectorFromName},
+
+    {NULL,         NULL}
 };
 
 // Metatable for module, if needed
-static const luaL_Reg selector_module_metaLib[] = {
-    {"__gc", selector_meta_gc},
-    {NULL,   NULL}
-};
+// static const luaL_Reg selector_module_metaLib[] = {
+//     {"__gc", selector_meta_gc},
+//     {NULL,   NULL}
+// };
 
 int luaopen_hs__asm_objc_selector(lua_State* __unused L) {
-    selectorUD = [[NSMapTable alloc] init] ;
     selectorRefTable = [[LuaSkin shared] registerLibraryWithObject:SEL_USERDATA_TAG
                                                  functions:selector_moduleLib
-                                             metaFunctions:selector_module_metaLib
+                                             metaFunctions:nil // selector_module_metaLib
                                            objectFunctions:selector_userdata_metaLib];
 
     return 1;
 }
 
 #pragma mark - ===== MODULE CORE =====================================================
-
-static int refTable ;
 
 #pragma mark - Module Functions
 
@@ -1311,51 +1313,88 @@ static int objc_classNamesForImage(lua_State *L) {
 // void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
 
 static int lua_msgSend(lua_State *L) {
-    int rcvPos = (lua_type(L, 1) == LUA_TUSERDATA) ? 1 : 2 ;
+    int rcvPos = (lua_type(L, 1) == LUA_TNUMBER) ? 2 : 1 ;
     int selPos = rcvPos + 1 ;
 
-    BOOL  callSuper = NO ;
-    BOOL  rcvIsClass = NO ;
-    int   argCount = lua_gettop(L) - selPos ;
+    BOOL  callSuper      = NO ;
+    BOOL  callAllocFirst = NO ;
+    BOOL  rcvIsClass     = NO ;
+    int   argCount       = lua_gettop(L) - selPos ;
+    int   callType       = 0 ;
+
+    if (rcvPos == 2) callType = (int) luaL_checkinteger(L, 1) ;
+    if ((callType & 0x01) != 0) { callSuper = YES ; }
+    if ((callType & 0x02) != 0) { callAllocFirst = YES ; }
+
     Class cls ;
     id    rcv ;
-
-    if (rcvPos == 2) callSuper = (BOOL)lua_toboolean(L, 1) ;
 
     if (luaL_testudata(L, rcvPos, CLASS_USERDATA_TAG)) {
         cls = get_objectFromUserdata(__bridge Class, L, rcvPos, CLASS_USERDATA_TAG) ;
         rcv = (id)cls ;
         rcvIsClass = YES ;
-    } else if(luaL_testudata(L, rcvPos, ID_USERDATA_TAG)) {
+    } else if(luaL_testudata(L, rcvPos, ID_USERDATA_TAG) && !callAllocFirst) {
         rcv = get_objectFromUserdata(__bridge id, L, rcvPos, ID_USERDATA_TAG) ;
         cls = object_getClass(rcv) ;
         rcvIsClass = NO ;
     } else {
-        luaL_checkudata(L, rcvPos, ID_USERDATA_TAG) ; // use the ID type for the error message
+        luaL_checkudata(L, rcvPos, (callAllocFirst ? CLASS_USERDATA_TAG : ID_USERDATA_TAG)) ;
     }
     SEL sel = get_objectFromUserdata(SEL, L, selPos, SEL_USERDATA_TAG) ;
 
+
     char *returnType  = method_copyReturnType((rcvIsClass ? class_getClassMethod(cls, sel) :
                                                             class_getInstanceMethod(cls, sel))) ;
+
+//     if (!returnType) returnType  = method_copyReturnType((rcvIsClass ? class_getInstanceMethod(cls, sel) :
+//                                                                        class_getClassMethod(cls, sel))) ;
 
     if (!returnType)
         return luaL_error(L, "%s is not a%s method for %s", sel_getName(sel),
                             (rcvIsClass ? " class" : "n instance"), class_getName(cls)) ;
 
+    char *messageHolder ;
+    int jic = asprintf(&messageHolder, "[%s%s%s %s]",
+                      (rcvIsClass ? "" : "<"),
+                      (callSuper ? class_getName(class_getSuperclass(cls)) : class_getName(cls)),
+                      (rcvIsClass ? "" : ">"),
+                      sel_getName(sel)) ;
+    if (jic == -1) messageHolder = "{error creating label}" ;
+
 #ifdef DEBUG_msgSend
-    lua_getglobal(L, "print") ;
-    lua_pushfstring(L, "Class: %s Selector: %s with %d arguments, return type:%s.",
-            (callSuper ? class_getName(class_getSuperclass(cls)) : class_getName(cls)),
-            sel_getName(sel),
-            argCount,
-            returnType) ;
+    lua_pushcfunction(L, info_to_console) ;
+    lua_pushfstring(L, "%s = %s with %d arguments", returnType, messageHolder, argCount) ;
     lua_pcall(L, 1, 0, 0) ;
 #endif
 
-    @try { // not sure if objc_msgSend used this way supports exceptions, but worth a try...
-        switch(returnType[0]) {
+    if (callAllocFirst) { rcv = objc_msgSend(cls, @selector(alloc)) ; }
+
+    UInt typePos ;
+    switch(returnType[0]) {
+        case 'r':   // const
+        case 'n':   // in
+        case 'N':   // inout
+        case 'o':   // out
+        case 'O':   // bycopy
+        case 'R':   // byref
+        case 'V':   // oneway
+            typePos = 1 ; break ;
+        default:
+            typePos = 0 ; break ;
+    }
+    @try {
+        struct objc_super superInfo ;
+
+        if (callSuper) {
+            superInfo.receiver    = rcv ;
+            superInfo.super_class = class_getSuperclass(cls) ;
+        }
+
+        switch(returnType[typePos]) {
             case 'c': {    // char
-                char result = (char)objc_msgSend(rcv, sel) ;
+                char result = callSuper ?
+                              ((char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 if (result == 0 || result == 1)
                     lua_pushboolean(L, result) ;
                 else
@@ -1363,93 +1402,123 @@ static int lua_msgSend(lua_State *L) {
                 break ;
             }
             case 'C': {    // unsigned char
-                unsigned char result = (unsigned char)objc_msgSend(rcv, sel) ;
-                if (result == 0 || result == 1)
-                    lua_pushboolean(L, result) ;
-                else
-                    lua_pushinteger(L, result) ;
+                unsigned char result = callSuper ?
+                              ((unsigned char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((unsigned char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                lua_pushinteger(L, result) ;
                 break ;
             }
             case 'i': {    // int
-                int result = (int)objc_msgSend(rcv, sel) ;
+                int result = callSuper ?
+                              ((int (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((int (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 's': {    // short
-                short result = (short)objc_msgSend(rcv, sel) ;
+                short result = callSuper ?
+                              ((short (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((short (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'l': {    // long
-                long result = (long)objc_msgSend(rcv, sel) ;
+                long result = callSuper ?
+                              ((long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'q':      // long long
             case 'Q': {    // unsigned long long (lua can't do unsigned long long; choose bits over magnitude)
-                long long result = (long long)objc_msgSend(rcv, sel) ;
+                long long result = callSuper ?
+                              ((long long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((long long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'I': {    // unsigned int
-                unsigned int result = (unsigned int)objc_msgSend(rcv, sel) ;
+                unsigned int result = callSuper ?
+                              ((unsigned int (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((unsigned int (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'S': {    // unsigned short
-                unsigned short result = (unsigned short)objc_msgSend(rcv, sel) ;
+                unsigned short result = callSuper ?
+                              ((unsigned short (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((unsigned short (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'L': {    // unsigned long
-                unsigned long result = (unsigned long)objc_msgSend(rcv, sel) ;
+                unsigned long result = callSuper ?
+                              ((unsigned long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((unsigned long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushinteger(L, (lua_Integer)result) ;
                 break ;
             }
 
             case 'f': {    // float
-                float result = (float)objc_msgSend_fpret(rcv, sel) ;
+                float result = callSuper ?
+                              ((float (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((float (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushnumber(L, result) ;
                 break ;
             }
             case 'd': {    // double
-                double result = (double)objc_msgSend_fpret(rcv, sel) ;
+                double result = callSuper ?
+                              ((double (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((double (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushnumber(L, result) ;
                 break ;
             }
 
             case 'B': {    // C++ bool or a C99 _Bool
-                char result = (char)objc_msgSend(rcv, sel) ;
+                char result = callSuper ?
+                              ((char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushboolean(L, result) ;
                 break ;
             }
 
             case 'v': {    // void
-                (void)objc_msgSend(rcv, sel) ;
+                if (callSuper)
+                    ((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) ;
+                else
+                    ((void (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushnil(L) ;
                 break ;
             }
 
             case '*': {    // char * -- ARC needs to be tricked into this...
-                char *result = (char *)((__bridge void *)objc_msgSend(rcv, sel)) ;
+                char *result = callSuper ?
+                              ((char * (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((char * (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 lua_pushstring(L, result) ;
                 break ;
             }
 
             case '@': {    // id
-                id result = objc_msgSend(rcv, sel) ;
+                id result = callSuper ?
+                              ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((id (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 push_object(L, result) ;
                 break ;
             }
 
             case '#': {    // Class
-                Class result = (Class)objc_msgSend(rcv, sel) ;
+                Class result = callSuper ?
+                              ((Class (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((Class (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 push_class(L, result) ;
                 break ;
             }
 
             case ':': {    // SEL -- ARC needs to be tricked into this...
-                SEL result = (SEL)((__bridge void *)objc_msgSend(rcv, sel)) ;
+                SEL result = callSuper ?
+                              ((SEL (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
+                              ((SEL (*)(id, SEL))objc_msgSend)(rcv, sel) ;
                 push_selector(L, result) ;
                 break ;
             }
@@ -1462,23 +1531,49 @@ static int lua_msgSend(lua_State *L) {
 //     ?               An unknown type (among other things, this code is used for function pointers)
 
             default:
-                return luaL_error(L, "return type %s not supported yet", returnType) ;
+                lua_pushcfunction(L, warn_to_console) ;
+                lua_pushfstring(L, "%s: %s return type not supported yet", messageHolder, returnType) ;
+                lua_pcall(L, 1, 0, 0) ;
+                lua_pushnil(L) ;
                 break ;
         }
     }
     @catch ( NSException *theException ) {
-        return errorOnException(L, "objc_msgSend", theException) ;
+        return errorOnException(L, messageHolder, theException) ;
     }
-
-    free(returnType) ;
+    @finally { // yeah, the lual_error in errorOnException means these might not be freed until the lua state is reset, but they will be freed eventually.
+        free(returnType) ;
+        free(messageHolder) ;
+    }
 
     return 1 ;
 }
+
 static int lua_msgSendSuper(lua_State *L) {
-    lua_pushboolean(L, YES) ;
+    lua_pushinteger(L, 1) ;
     lua_insert(L, 1) ;
     lua_msgSend(L) ;
     return 1 ;
+}
+
+static int lua_allocAndMsgSend(lua_State *L) {
+    lua_pushinteger(L, 2) ;
+    lua_insert(L, 1) ;
+    lua_msgSend(L) ;
+    return 1 ;
+}
+
+static int lua_allocAndMsgSendSuper(lua_State *L) {
+    lua_pushinteger(L, 3) ;
+    lua_insert(L, 1) ;
+    lua_msgSend(L) ;
+    return 1 ;
+}
+
+static int lua_registerLogForC(__unused lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK] ;
+    logFnRef = [[LuaSkin shared] luaRef:refTable] ;
+    return 0 ;
 }
 
 #pragma mark - LuaSkin conversion functions
@@ -1520,16 +1615,21 @@ static int tryToRegisterHandlers(__unused lua_State *L) {
 #pragma mark - Lua Framework Stuff
 
 static luaL_Reg moduleLib[] = {
-    {"objc_msgSend",       lua_msgSend},
-    {"objc_msgSendSuper",  lua_msgSendSuper},
-    {"imageNames",         objc_getImageNames},
-    {"classNamesForImage", objc_classNamesForImage},
+    {"objc_msgSend",              lua_msgSend},
+    {"objc_msgSendSuper",         lua_msgSendSuper},
+    {"objc_allocAndMsgSend",      lua_allocAndMsgSend},
+    {"objc_allocAndMsgSendSuper", lua_allocAndMsgSendSuper},
+    {"imageNames",                objc_getImageNames},
+    {"classNamesForImage",        objc_classNamesForImage},
 
-    {NULL,                 NULL}
+    {"registerLogForC",           lua_registerLogForC},
+    {NULL,                        NULL}
 };
 
 int luaopen_hs__asm_objc_internal(lua_State* L) {
-   refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ;
+    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ;
+
+    logFnRef = LUA_NOREF ;
 
     lua_pushcfunction(L, tryToRegisterHandlers) ;
     if (lua_pcall(L, 0, 0, 0) != LUA_OK) {

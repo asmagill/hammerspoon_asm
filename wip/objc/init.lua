@@ -9,6 +9,8 @@
 local module       = require("hs._asm.objc.internal")
 local log          = require("hs.logger").new("objc","warning")
 module.setLogLevel = log.setLogLevel
+module.registerLogForC(log)
+module.registerLogForC = nil
 
 -- private variables and methods -----------------------------------------
 
@@ -52,99 +54,196 @@ local _makeConstantsTable = function(theTable)
     return results
 end
 
--- shortcuts for class and object message sending
 local class         = hs.getObjectMetatable("hs._asm.objc.class")
 local object        = hs.getObjectMetatable("hs._asm.objc.id")
-class.msgSend       = module.objc_msgSend
-class.msgSendSuper  = module.objc_msgSendSuper
-object.msgSend      = module.objc_msgSend
-object.msgSendSuper = module.objc_msgSendSuper
-
 local protocol      = hs.getObjectMetatable("hs._asm.objc.protocol")
+local selector      = hs.getObjectMetatable("hs._asm.objc.selector")
+
+local msgSendWrapper = function(fn)
+    return function(self, selector, ...)
+        local sel = selector
+        if type(selector) == "string" then
+            sel = self:selector(selector)
+            if not sel then error(selector.." is not a"..(self.class and "n instance" or " class").." method for "..self:className(), 2) end
+        end
+        return fn(self, sel, ...)
+    end
+end
 
 -- Public interface ------------------------------------------------------
 
-class.selector = function(self, sel, alreadychecked)
-    alreadychecked = alreadychecked or {}
-    if alreadychecked[self] then
-        log.vf("class selector search already checked: %s", self:name())
-        return nil
-    end
-    alreadychecked[self] = true
+-- shortcuts for class and object message sending
+class.msgSend              = msgSendWrapper(module.objc_msgSend)
+class.msgSendSuper         = msgSendWrapper(module.objc_msgSendSuper)
+object.msgSend             = msgSendWrapper(module.objc_msgSend)
+object.msgSendSuper        = msgSendWrapper(module.objc_msgSendSuper)
+class.allocAndMsgSend      = msgSendWrapper(module.objc_allocAndMsgSend)
+class.allocAndMsgSendSuper = msgSendWrapper(module.objc_allocAndMsgSendSuper)
 
-    -- check the class itself
-    log.vf("class selector search in class: %s", self:name())
-    local result = self:methodList()[sel]
-    if result then result = result:selector() end
+class.className = class.name
 
-    -- check its adopted protocols
-    if not result then
-        for k,v in pairs(self:adoptedProtocols()) do
-            log.vf("class selector search in adopted protocol: %s", k)
-            result = protocol.selector(v, sel, alreadychecked)
-            if result then break end
+class.selector = function(self, sel)
+    local alreadySeen = {}
+
+    local myClass = self
+
+    while(myClass) do
+
+    -- search class
+        if myClass:methodList()[sel] then return myClass:methodList()[sel]:selector() end
+
+    -- search adopted protocols
+        for k,v in pairs(myClass:adoptedProtocols()) do
+            if not alreadySeen[v] then
+                local result = protocol.selector(v, sel, alreadySeen)
+                if result then return result end
+                alreadySeen[v] = true
+            end
         end
+
+    -- search metaClass
+        if myClass:metaClass():methodList()[sel] then return myClass:metaClass():methodList()[sel]:selector() end
+
+    -- loop and try superclass
+        myClass = myClass:superclass()
+    end
+    return nil
+end
+
+protocol.selector = function(self, sel, alreadySeen)
+    local alreadySeen = alreadySeen or {}
+    if alreadySeen[self] then return nil end
+
+    -- build initial protocol search list with ourself
+    local protocolList = { self }
+
+    local topProtocol = table.remove(protocolList, 1)
+    while (topProtocol) do
+        if not alreadySeen[topProtocol] then
+            alreadySeen[topProtocol] = true
+
+    -- check to see if selector defined for this protocol
+            local entry = topProtocol:methodDescriptionList(true,true)[sel]  or -- check required and instance methods
+                          topProtocol:methodDescriptionList(false,true)[sel] or -- check not-required and instance methods
+                          topProtocol:methodDescriptionList(true,false)[sel] or -- check required and class methods
+                          topProtocol:methodDescriptionList(false,false)[sel]   -- check not-required and class methods
+            if entry then return entry.selector end
+
+    -- add current protocols adoptees to the list
+            for _, v in pairs(topProtocol:adoptedProtocols()) do
+                if not alreadySeen[v] then table.insert(protocolList, v) end
+            end
+        end
+
+    -- loop through unchecked protocols in the list
+        topProtocol = table.remove(protocolList, 1)
     end
 
-    -- if we're not the classes metaClass, check the metaClass
-    if not result and self:metaClass() then
-        log.vf("class selector search in metaClass for: %s", self:name())
-        result = class.selector(self:metaClass(), sel, alreadychecked)
-    end
-
-    -- check our superclass
-    if not result and self:superclass() then
-        log.vf("class selector search in superclass for: %s", self:name())
-        result = class.selector(self:superclass(), sel, alreadychecked)
-    end
-
-    -- either we have it or we don't by now...
-    return result
+    return nil
 end
 
 object.selector = function(self, sel)
     return class.selector(self:class(), sel)
 end
 
-protocol.selector = function(self, sel, alreadychecked)
-    alreadychecked = alreadychecked or {}
-    if alreadychecked[self] then
-        log.vf("protocol selector search already checked: %s", self:name())
-        return nil
-    end
-    alreadychecked[self] = true
+object.propertyList = function(self, includeNSObject)
+    -- defaults to false, self *is* NSObject
+    includeNSObject = includeNSObject or (self:className() == "NSObject") or false
 
-    -- check the protocol itself
-    log.vf("protocol selector search in protocol: %s", self:name())
-    local entry = self:methodDescriptionList(true,true)[sel]  or -- check required and instance methods
-                  self:methodDescriptionList(false,true)[sel] or -- check not-required and instance methods
-                  self:methodDescriptionList(true,false)[sel] or -- check required and class methods
-                  self:methodDescriptionList(false,false)[sel]   -- check not-required and class methods
+    local properties, alreadySeen = {}, {}
 
-    -- check its adopted protocols
-    if not entry then
-        for k,v in pairs(self:adoptedProtocols()) do
-            log.vf("protocol selector search in adopted protocol: %s", k)
-            local result = protocol.selector(v, sel, alreadychecked)
-            if result then return result end
+    local myClass = self:class()
+
+    while(myClass) do
+    -- search class
+        for k, v in pairs(myClass:propertyList()) do
+            if not properties[k] then
+                properties[k] = v
+                log.vf("property: adding %s from class %s", k, myClass:name())
+            end
         end
+
+    -- search protocols we adopt
+        local protocolList = {}
+        for _, v in pairs(myClass:adoptedProtocols()) do
+            if not alreadySeen[v] then table.insert(protocolList, v) end
+        end
+        local topProtocol = table.remove(protocolList, 1)
+        while (topProtocol) do
+            if not alreadySeen[topProtocol] then
+                alreadySeen[topProtocol] = true
+                for k, v in pairs(topProtocol:propertyList()) do
+                    if not properties[k] then
+                        properties[k] = v
+                        log.vf("property: adding %s from class %s", k, topProtocol:name())
+                    end
+                end
+                for _, v in pairs(topProtocol:adoptedProtocols()) do
+                    if not alreadySeen[v] then table.insert(protocolList, v) end
+                end
+            end
+            topProtocol = table.remove(protocolList, 1)
+        end
+
+    -- search metaClass
+        for k,v in pairs(myClass:metaClass():propertyList()) do
+            if not properties[k] then
+                properties[k] = v
+                log.vf("property: adding %s from metaclass %s", k, myClass:metaClass():name())
+            end
+        end
+
+    -- loop and try superclass
+        myClass = myClass:superclass()
+        if myClass and myClass:name() == "NSObject" and not includeNSObject then myClass = myClass:superclass() end
     end
 
-    -- either we have it or we don't by now...
-    if entry then
-        return entry.selector
+    return properties
+end
+
+object.propertyValues = function(self, includeNSObject)
+    local properties, values = object.propertyList(self, includeNSObject), {}
+
+    for k,v in pairs(properties) do
+        local getter = v:attributeList().G or k
+        values[k] = self:msgSend(self:selector(getter))
+    end
+    return values
+end
+
+object.property = function(self, name)
+    local properties = object.propertyList(self)
+
+    if properties[name] then
+        return self:msgSend(self:selector(properties[name]:attributeList().G or name))
     else
+        log.wf("%s is not a property for class %s", name, self:className())
         return nil
     end
 end
 
-module.class = setmetatable(module.class, {
-                  __call = function(_, ...) return module.class.fromString(...) end
-})
 
-module.protocol = setmetatable(module.protocol, {
-                  __call = function(_, ...) return module.protocol.fromString(...) end
-})
+-- probably overkill, but the Lua Manual section 2.4 (help.lua._man._2_4) suggests that adding to a metatable that already has a __gc method is "a bad thing"(TM)... so we remove the table first and add to it before applying the changed table as the brand new metatable.
+-- definitely overkill since module metatables have been removed, but they may need to come back at some point, and its good practice for when I need it in the future, so...
+
+local tempMetatable
+
+tempMetatable = getmetatable(module.class) or {}
+module.class = setmetatable(module.class, nil)
+tempMetatable["__call"] = function(_, ...) return module.class.fromString(...) end
+module.class = setmetatable(module.class, tempMetatable)
+
+tempMetatable = getmetatable(module.protocol) or {}
+module.protocol = setmetatable(module.protocol, nil)
+tempMetatable["__call"] = function(_, ...) return module.protocol.fromString(...) end
+module.protocol = setmetatable(module.protocol, tempMetatable)
+
+tempMetatable = getmetatable(module.selector) or {}
+module.selector = setmetatable(module.selector, nil)
+tempMetatable["__call"] = function(_, ...) return module.selector.fromString(...) end
+module.selector = setmetatable(module.selector, tempMetatable)
+
+tempMetatable = nil
 
 -- Return Module Object --------------------------------------------------
 
