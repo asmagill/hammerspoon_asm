@@ -6,9 +6,11 @@
 ---
 --- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
 
+package.loadlib("/usr/lib/libffi.dylib", "*")
+
 local module       = require("hs._asm.objc.internal")
 local log          = require("hs.logger").new("objc","warning")
-module.setLogLevel = log.setLogLevel
+module.log = log
 module.registerLogForC(log)
 module.registerLogForC = nil
 
@@ -59,26 +61,40 @@ local object        = hs.getObjectMetatable("hs._asm.objc.id")
 local protocol      = hs.getObjectMetatable("hs._asm.objc.protocol")
 local selector      = hs.getObjectMetatable("hs._asm.objc.selector")
 
-local msgSendWrapper = function(fn)
+local sendToSuper   = 1
+local allocFirst    = 2
+
+local msgSendWrapper = function(fn, flags)
     return function(self, selector, ...)
         local sel = selector
         if type(selector) == "string" then
             sel = self:selector(selector)
             if not sel then error(selector.." is not a"..(self.class and "n instance" or " class").." method for "..self:className(), 2) end
         end
-        return fn(self, sel, ...)
+        if flags then
+            return fn(flags, self, sel, ...)
+        else
+            return fn(self, sel, ...)
+        end
     end
 end
 
 -- Public interface ------------------------------------------------------
 
 -- shortcuts for class and object message sending
+-- class.msgSend              = msgSendWrapper(module.objc_msgSend)
+-- class.msgSendSuper         = msgSendWrapper(module.objc_msgSendSuper)
+-- object.msgSend             = msgSendWrapper(module.objc_msgSend)
+-- object.msgSendSuper        = msgSendWrapper(module.objc_msgSendSuper)
+-- class.allocAndMsgSend      = msgSendWrapper(module.objc_allocAndMsgSend)
+-- class.allocAndMsgSendSuper = msgSendWrapper(module.objc_allocAndMsgSendSuper)
+
 class.msgSend              = msgSendWrapper(module.objc_msgSend)
-class.msgSendSuper         = msgSendWrapper(module.objc_msgSendSuper)
+class.msgSendSuper         = msgSendWrapper(module.objc_msgSend, sendToSuper)
 object.msgSend             = msgSendWrapper(module.objc_msgSend)
-object.msgSendSuper        = msgSendWrapper(module.objc_msgSendSuper)
-class.allocAndMsgSend      = msgSendWrapper(module.objc_allocAndMsgSend)
-class.allocAndMsgSendSuper = msgSendWrapper(module.objc_allocAndMsgSendSuper)
+object.msgSendSuper        = msgSendWrapper(module.objc_msgSend, sendToSuper)
+class.allocAndMsgSend      = msgSendWrapper(module.objc_msgSend, allocFirst)
+class.allocAndMsgSendSuper = msgSendWrapper(module.objc_msgSend, sendToSuper | allocFirst)
 
 class.className = class.name
 

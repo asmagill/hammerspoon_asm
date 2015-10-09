@@ -6,8 +6,15 @@
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 #import "objc.h"
+
 #import <stdlib.h>
 #import <math.h>
+
+#ifndef MACOSX
+#define MACOSX
+#endif
+
+#import <ffi/ffi.h>
 
 #pragma mark - ===== SAMPLE CLASS ====================================================
 
@@ -1312,7 +1319,7 @@ static int objc_classNamesForImage(lua_State *L) {
 // id                              objc_msgSendSuper(struct objc_super *super, SEL op, ...)
 // void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
 
-static int lua_msgSend(lua_State *L) {
+static int lua_FFISend(lua_State *L) {
     int rcvPos = (lua_type(L, 1) == LUA_TNUMBER) ? 2 : 1 ;
     int selPos = rcvPos + 1 ;
 
@@ -1342,12 +1349,10 @@ static int lua_msgSend(lua_State *L) {
     }
     SEL sel = get_objectFromUserdata(SEL, L, selPos, SEL_USERDATA_TAG) ;
 
-
-    char *returnType  = method_copyReturnType((rcvIsClass ? class_getClassMethod(cls, sel) :
-                                                            class_getInstanceMethod(cls, sel))) ;
-
-//     if (!returnType) returnType  = method_copyReturnType((rcvIsClass ? class_getInstanceMethod(cls, sel) :
-//                                                                        class_getClassMethod(cls, sel))) ;
+// TODO TEST: can you call msgSendSuper when receiver is a class?
+    char *returnType  = method_copyReturnType((rcvIsClass ?
+                                class_getClassMethod((callSuper ? class_getSuperclass(cls) : cls), sel) :
+                                class_getInstanceMethod((callSuper ? class_getSuperclass(cls) : cls), sel))) ;
 
     if (!returnType)
         return luaL_error(L, "%s is not a%s method for %s", sel_getName(sel),
@@ -1382,19 +1387,88 @@ static int lua_msgSend(lua_State *L) {
         default:
             typePos = 0 ; break ;
     }
+
+    ffi_cif cif ;
+    ffi_type **argTypes ;
+    ffi_type *retType ;
+
+// FIXME: This needs to change, but to prevent crashes related to missing args for now...
+    argCount = 0 ;
+
+    argTypes = malloc(sizeof(ffi_type *) * ((unsigned long)argCount + 2)) ;
+    argTypes[0] = &ffi_type_pointer ;
+    argTypes[1] = &ffi_type_pointer ;
+
+    // do something to get the others, but for now lets assume we're sticking with no args
+
+    switch(returnType[typePos]) {
+        case 'c':
+        case 'B': // C++ bool or a C99 _Bool
+                  retType = &ffi_type_uchar ;   break ;
+        case 'C': retType = &ffi_type_schar ;   break ;
+        case 'i': retType = &ffi_type_uint ;    break ;
+        case 'I': retType = &ffi_type_sint ;    break ;
+        case 's': retType = &ffi_type_ushort ;  break ;
+        case 'S': retType = &ffi_type_sshort ;  break ;
+        case 'l': retType = &ffi_type_ulong ;   break ;
+        case 'L': retType = &ffi_type_slong ;   break ;
+        case 'q': retType = &ffi_type_uint64 ;  break ;
+        case 'Q': retType = &ffi_type_sint64 ;  break ;
+        case 'f': retType = &ffi_type_float ;   break ;
+        case 'd': retType = &ffi_type_double ;  break ;
+        case 'v': retType = &ffi_type_void ;    break ;
+        case '*':     // char *
+        case '@':     // id
+        case '#':     // Class
+        case ':':     // SEL
+                  retType = &ffi_type_pointer ; break ;
+
+    //  [array type]    An array
+    //  {name=type...}  A structure
+    //  (name=type...)  A union
+    //  bnum            A bit field of num bits
+    //  ^type           A pointer to type
+    //  ?               An unknown type (among other things, this is used for function ptrs)
+        default:
+                  free(argTypes) ;
+                  lua_pushcfunction(L, warn_to_console) ;
+                  lua_pushfstring(L, "%s: %s return type not supported yet", messageHolder, returnType) ;
+                  lua_pcall(L, 1, 0, 0) ;
+                  lua_pushnil(L) ;
+                  return 1 ;
+                  break ;
+    }
+
+    ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, (unsigned int)argCount + 2, retType, argTypes) ;
+    switch(status) {
+        case FFI_OK:
+            break ;
+        case FFI_BAD_TYPEDEF:
+            return luaL_error(L, "ffi_prep_cif: bad type definition") ;
+            break ;
+        case FFI_BAD_ABI:
+            return luaL_error(L, "ffi_prep_cif: bad ABI specification") ;
+            break ;
+        default:
+            return luaL_error(L, "ffi_prep_cif: unknown error %d", status) ;
+            break ;
+    }
+
+    struct objc_super superInfo ;
+    struct objc_super *superPtr = &superInfo ;
+    superInfo.receiver    = rcv ;
+    superInfo.super_class = class_getSuperclass(cls) ;
+
+    void **values ;
+    values = malloc(sizeof(void *) * ((unsigned long)argCount + 2)) ;
+    values[0] = callSuper ? (void *)&superPtr : (void *)&rcv ;
+    values[1] = &sel ;
+
     @try {
-        struct objc_super superInfo ;
-
-        if (callSuper) {
-            superInfo.receiver    = rcv ;
-            superInfo.super_class = class_getSuperclass(cls) ;
-        }
-
         switch(returnType[typePos]) {
             case 'c': {    // char
-                char result = callSuper ?
-                              ((char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                char result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 if (result == 0 || result == 1)
                     lua_pushboolean(L, result) ;
                 else
@@ -1402,123 +1476,105 @@ static int lua_msgSend(lua_State *L) {
                 break ;
             }
             case 'C': {    // unsigned char
-                unsigned char result = callSuper ?
-                              ((unsigned char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((unsigned char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                unsigned char result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'i': {    // int
-                int result = callSuper ?
-                              ((int (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((int (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                int result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 's': {    // short
-                short result = callSuper ?
-                              ((short (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((short (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                short result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'l': {    // long
-                long result = callSuper ?
-                              ((long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                long result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'q':      // long long
             case 'Q': {    // unsigned long long (lua can't do unsigned long long; choose bits over magnitude)
-                long long result = callSuper ?
-                              ((long long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((long long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                long long result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'I': {    // unsigned int
-                unsigned int result = callSuper ?
-                              ((unsigned int (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((unsigned int (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                unsigned int result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'S': {    // unsigned short
-                unsigned short result = callSuper ?
-                              ((unsigned short (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((unsigned short (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                unsigned short result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, result) ;
                 break ;
             }
             case 'L': {    // unsigned long
-                unsigned long result = callSuper ?
-                              ((unsigned long (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((unsigned long (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                unsigned long result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushinteger(L, (lua_Integer)result) ;
                 break ;
             }
 
             case 'f': {    // float
-                float result = callSuper ?
-                              ((float (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((float (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                float result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushnumber(L, result) ;
                 break ;
             }
             case 'd': {    // double
-                double result = callSuper ?
-                              ((double (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((double (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                double result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushnumber(L, result) ;
                 break ;
             }
 
             case 'B': {    // C++ bool or a C99 _Bool
-                char result = callSuper ?
-                              ((char (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((char (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                char result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushboolean(L, result) ;
                 break ;
             }
 
             case 'v': {    // void
-                if (callSuper)
-                    ((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) ;
-                else
-                    ((void (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), NULL, values);
                 lua_pushnil(L) ;
                 break ;
             }
 
-            case '*': {    // char * -- ARC needs to be tricked into this...
-                char *result = callSuper ?
-                              ((char * (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((char * (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+            case '*': {    // char *
+                char *result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 lua_pushstring(L, result) ;
                 break ;
             }
 
             case '@': {    // id
-                id result = callSuper ?
-                              ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((id (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                id result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 push_object(L, result) ;
                 break ;
             }
 
             case '#': {    // Class
-                Class result = callSuper ?
-                              ((Class (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((Class (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+                Class result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 push_class(L, result) ;
                 break ;
             }
 
-            case ':': {    // SEL -- ARC needs to be tricked into this...
-                SEL result = callSuper ?
-                              ((SEL (*)(struct objc_super *, SEL))objc_msgSendSuper)(&superInfo, sel) :
-                              ((SEL (*)(id, SEL))objc_msgSend)(rcv, sel) ;
+            case ':': {    // SEL
+                SEL result ;
+                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
                 push_selector(L, result) ;
                 break ;
             }
@@ -1544,31 +1600,35 @@ static int lua_msgSend(lua_State *L) {
     @finally { // yeah, the lual_error in errorOnException means these might not be freed until the lua state is reset, but they will be freed eventually.
         free(returnType) ;
         free(messageHolder) ;
+        free(argTypes) ;
+        free(values) ;
     }
 
     return 1 ;
 }
 
-static int lua_msgSendSuper(lua_State *L) {
-    lua_pushinteger(L, 1) ;
-    lua_insert(L, 1) ;
-    lua_msgSend(L) ;
-    return 1 ;
-}
-
-static int lua_allocAndMsgSend(lua_State *L) {
-    lua_pushinteger(L, 2) ;
-    lua_insert(L, 1) ;
-    lua_msgSend(L) ;
-    return 1 ;
-}
-
-static int lua_allocAndMsgSendSuper(lua_State *L) {
-    lua_pushinteger(L, 3) ;
-    lua_insert(L, 1) ;
-    lua_msgSend(L) ;
-    return 1 ;
-}
+// static int lua_FFISendSuper(lua_State *L) {
+//     return luaL_error(L, "not implemented yet") ;
+//     lua_pushinteger(L, 1) ;
+//     lua_insert(L, 1) ;
+//     lua_FFISend(L) ;
+//     return 1 ;
+// }
+//
+// static int lua_allocAndFFISend(lua_State *L) {
+//     lua_pushinteger(L, 2) ;
+//     lua_insert(L, 1) ;
+//     lua_FFISend(L) ;
+//     return 1 ;
+// }
+//
+// static int lua_allocAndFFISendSuper(lua_State *L) {
+//     return luaL_error(L, "not implemented yet") ;
+//     lua_pushinteger(L, 3) ;
+//     lua_insert(L, 1) ;
+//     lua_FFISend(L) ;
+//     return 1 ;
+// }
 
 static int lua_registerLogForC(__unused lua_State *L) {
     [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK] ;
@@ -1615,10 +1675,10 @@ static int tryToRegisterHandlers(__unused lua_State *L) {
 #pragma mark - Lua Framework Stuff
 
 static luaL_Reg moduleLib[] = {
-    {"objc_msgSend",              lua_msgSend},
-    {"objc_msgSendSuper",         lua_msgSendSuper},
-    {"objc_allocAndMsgSend",      lua_allocAndMsgSend},
-    {"objc_allocAndMsgSendSuper", lua_allocAndMsgSendSuper},
+    {"objc_msgSend",              lua_FFISend},
+//     {"objc_FFISendSuper",         lua_FFISendSuper},
+//     {"objc_allocAndFFISend",      lua_allocAndFFISend},
+//     {"objc_allocAndFFISendSuper", lua_allocAndFFISendSuper},
     {"imageNames",                objc_getImageNames},
     {"classNamesForImage",        objc_classNamesForImage},
 
