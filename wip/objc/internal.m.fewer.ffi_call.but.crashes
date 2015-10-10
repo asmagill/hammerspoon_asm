@@ -43,7 +43,9 @@
 - (int) returnRandomInt      { return (int)arc4random() ; }
 - (int) returnInt            { _lastInt++ ; return _lastInt ; }
 - (char *)returnCString      { return (char *)[[_wordList objectAtIndex:arc4random()%[_wordList count]] UTF8String]; }
-- (NSString *)returnNSString { return  [_wordList objectAtIndex:arc4random()%[_wordList count]]; }
+// returning *the* NSString from the NSArray causes problems with dealloc (gc) because of the uncertain order of collection... can we flag/adjust/account for this outside of the class itself?  Am trying a return by copy to see if that is more "proper", but since the module can't count on that, whats the better "wrapper"?
+// - (NSString *)returnNSString { return  [_wordList objectAtIndex:arc4random()%[_wordList count]]; }
+- (NSString *)returnNSString { return  [[_wordList objectAtIndex:arc4random()%[_wordList count]] copy]; }
 - (SEL)returnSelector        { return @selector(returnInt) ; }
 - (float)returnFloat         { return (float)(atan(1)*4) ; }
 - (double)returnDouble       { return (double)(atan(1)*4) ; }
@@ -731,23 +733,20 @@ static int object_userdata_eq(lua_State* L) {
 }
 
 static int object_userdata_gc(lua_State* L) {
-// NSLog(@"in object gc") ;
-//     if (luaL_testudata(L, 1, ID_USERDATA_TAG)) {
 // check to make sure we're not called with the wrong type for some reason...
-        id __unused obj = get_objectFromUserdata(__bridge_transfer id, L, 1, ID_USERDATA_TAG) ;
-//         id __unused obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
-    #if defined(DEBUG_GC) || defined(DEBUG_GC_OBJONLY)
-        NSLog(@"object: remove %p", obj) ;
-    #endif
+    id __unused obj = get_objectFromUserdata(__bridge_transfer id, L, 1, ID_USERDATA_TAG) ;
+#if defined(DEBUG_GC) || defined(DEBUG_GC_OBJONLY)
+    NSLog(@"object: remove %p", obj) ;
+#endif
 
-    // We may not be the only one holding on to this object, so just decrement our claim to it and
-    // let ARC handle the rest...
-    //    obj = nil ;
+// We may not be the only one holding on to this object, so just decrement our claim to it and
+// let ARC handle the rest...
+//    obj = nil ;
 
-    // Remove the Metatable so future use of the variable in Lua won't think its valid
-        lua_pushnil(L) ;
-        lua_setmetatable(L, 1) ;
-//     }
+// Remove the Metatable so future use of the variable in Lua won't think its valid
+    lua_pushnil(L) ;
+    lua_setmetatable(L, 1) ;
+
     return 0 ;
 }
 
@@ -1450,171 +1449,130 @@ static int lua_FFISend(lua_State *L) {
     values[0] = callSuper ? (void *)&superPtr : (void *)&rcv ;
     values[1] = &sel ;
 
-    @try {
-        switch(returnType[typePos]) {
-            case 'c': {    // char
-                char result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                if (result == 0 || result == 1)
-                    lua_pushboolean(L, result) ;
-                else
+    @try { // probably only useful for exceptions thrown withen an actual message, but anything which reduces crashes is a net positive...
+
+        if (returnType[typePos] == '@') {
+        // TODO: for some reason sticking an ID in the switch/case below pisses off ARC... I'll be a better programmer when I know why, but for now, handle ID returns separately.
+            id result ;
+            ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
+            push_object(L, result) ;
+        } else {
+            void **resultPtr ;
+            ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), resultPtr, values);
+
+            switch(returnType[typePos]) {
+                case 'c': {    // char
+                    char result = (char)*resultPtr ;
+                    if (result == 0 || result == 1)
+                        lua_pushboolean(L, result) ;
+                    else
+                        lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'C': {    // unsigned char
+                    unsigned char result = (unsigned char)*resultPtr ;
                     lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'C': {    // unsigned char
-                unsigned char result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'i': {    // int
-                int result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 's': {    // short
-                short result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'l': {    // long
-                long result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'q':      // long long
-            case 'Q': {    // unsigned long long (lua can't do unsigned long long; choose bits over magnitude)
-                long long result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'I': {    // unsigned int
-                unsigned int result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'S': {    // unsigned short
-                unsigned short result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, result) ;
-                break ;
-            }
-            case 'L': {    // unsigned long
-                unsigned long result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushinteger(L, (lua_Integer)result) ;
-                break ;
-            }
+                    break ;
+                }
+                case 'i': {    // int
+                    int result = (int)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 's': {    // short
+                    short result = (short)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'l': {    // long
+                    long result = (long)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'q':      // long long
+                case 'Q': {    // unsigned long long (lua can't do unsigned long long; choose bits over magnitude)
+                    long long result = (long long)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'I': {    // unsigned int
+                    unsigned int result = (unsigned int)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'S': {    // unsigned short
+                    unsigned short result = (unsigned short)*resultPtr ;
+                    lua_pushinteger(L, result) ;
+                    break ;
+                }
+                case 'L': {    // unsigned long
+                    unsigned long result = (unsigned long)*resultPtr ;
+                    lua_pushinteger(L, (lua_Integer)result) ;
+                    break ;
+                }
 
-            case 'f': {    // float
-                float result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushnumber(L, result) ;
-                break ;
-            }
-            case 'd': {    // double
-                double result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushnumber(L, result) ;
-                break ;
-            }
+                case 'f': {    // float
+                    float result ;
+                    memcpy(&result, resultPtr, sizeof(float)) ;
+                    lua_pushnumber(L, result) ;
+                    break ;
+                }
+                case 'd': {    // double
+                    double result ;
+                    memcpy(&result, resultPtr, sizeof(double)) ;
+                    lua_pushnumber(L, result) ;
+                    break ;
+                }
 
-            case 'B': {    // C++ bool or a C99 _Bool
-                char result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushboolean(L, result) ;
-                break ;
+                case 'B': {    // C++ bool or a C99 _Bool
+                    char result = (char)*resultPtr ;
+                    lua_pushboolean(L, result) ;
+                    break ;
+                }
+
+                case 'v': {    // void
+                    lua_pushnil(L) ;
+                    break ;
+                }
+
+                case '*': {    // char *
+                    char *result = (char *)*resultPtr ;
+                    lua_pushstring(L, result) ;
+                    break ;
+                }
+
+//                 case '@': {    // id
+//                     id result = (__bridge id)(*resultPtr) ;
+//                     push_object(L, result) ;
+//                     break ;
+//                 }
+
+                case '#': {    // Class
+                    Class result  = (__bridge Class)(*resultPtr) ;
+                    push_class(L, result) ;
+                    break ;
+                }
+
+                case ':': {    // SEL
+                    SEL result = (SEL)(*resultPtr) ;
+                    push_selector(L, result) ;
+                    break ;
+                }
+
+    //     [array type]    An array
+    //     {name=type...}  A structure
+    //     (name=type...)  A union
+    //     bnum            A bit field of num bits
+    //     ^type           A pointer to type
+    //     ?               An unknown type (among other things, this code is used for function pointers)
+
+                default:
+                    lua_pushcfunction(L, warn_to_console) ;
+                    lua_pushfstring(L, "%s: %s return type not supported yet", messageHolder, returnType) ;
+                    lua_pcall(L, 1, 0, 0) ;
+                    lua_pushnil(L) ;
+                    break ;
             }
-
-            case 'v': {    // void
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), NULL, values);
-                lua_pushnil(L) ;
-                break ;
-            }
-
-            case '*': {    // char *
-                char *result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                lua_pushstring(L, result) ;
-                break ;
-            }
-
-            case '@': {    // id
-// 982	o = require("hs._asm.objc")
-// 983	a = o.class("OBJCTest"):allocAndMsgSend("init")
-// 984	a:returnFloat()
-// 985	a:returnDouble()
-// 986	a:returnNSString()
-// 987	a:returnNSString()
-// 988	a:returnNSString():_value()
-// 989	inspect(a:propertyList())
-// 990	inspect(a:_propertyList())
-// 991	inspect(a:_propertyList(true))
-// 992	inspect(a:_propertyValues(true))
-// 993	collectgarbage()
-// 994	o = require("hs._asm.objc")
-// 995	a = o.class("OBJCTest"):allocAndMsgSend("init")
-// 996	a:returnFloat()
-// 997	a:returnDouble()
-// 998	a:returnNSString()
-// 999	a:returnNSString():_value()
-// 1000	inspect(a:_propertyValues(true))
-// 1001	collectgarbage()
-//
-// All crash at some point during this sequence or upon restart after this sequence.  Most promising lead
-// was (from Console):
-// Application Specific Information:
-// objc[97603]: _NSTrackingRegionData object 0x7fdf458a9450 overreleased while already deallocating; break on objc_overrelease_during_dealloc_error to debug
-// objc[97603]: __NSDictionaryM object 0x7fdf45ab3d40 overreleased while already deallocating; break on objc_overrelease_during_dealloc_error to debug
-// Performing @selector(reloadConfig:) from sender NSMenuItem 0x7fdf437261f0
-//
-// 0x7fdf45ab3d40 was the wordlist property of OBJCTest, wasn't able to conclusively identify the others...
-//                 id result ;
-//                 ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-//                 id result2 = result ;
-//                 push_object(L, result2) ;
-//                 id __autoreleasing *result ;
-//                 ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), result, values);
-//                 push_object(L, *result) ;
-                void **result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), result, values);
-                id result2 = (__bridge id)*result ;
-                push_object(L, result2) ;
-                break ;
-            }
-
-            case '#': {    // Class
-                Class result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                push_class(L, result) ;
-                break ;
-            }
-
-            case ':': {    // SEL
-                SEL result ;
-                ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
-                push_selector(L, result) ;
-                break ;
-            }
-
-//     [array type]    An array
-//     {name=type...}  A structure
-//     (name=type...)  A union
-//     bnum            A bit field of num bits
-//     ^type           A pointer to type
-//     ?               An unknown type (among other things, this code is used for function pointers)
-
-            default:
-                lua_pushcfunction(L, warn_to_console) ;
-                lua_pushfstring(L, "%s: %s return type not supported yet", messageHolder, returnType) ;
-                lua_pcall(L, 1, 0, 0) ;
-                lua_pushnil(L) ;
-                break ;
         }
     }
     @catch ( NSException *theException ) {

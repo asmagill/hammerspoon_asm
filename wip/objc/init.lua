@@ -68,8 +68,12 @@ local msgSendWrapper = function(fn, flags)
     return function(self, selector, ...)
         local sel = selector
         if type(selector) == "string" then
-            sel = self:selector(selector)
-            if not sel then error(selector.." is not a"..(self.class and "n instance" or " class").." method for "..self:className(), 2) end
+            if self._class then
+                sel = self:_selector(selector)
+            else
+                sel = self:selector(selector)
+            end
+            if not sel then error(selector.." is not a"..(self._class and "n instance" or " class").." method for "..self:_className(), 2) end
         end
         if flags then
             return fn(flags, self, sel, ...)
@@ -91,8 +95,8 @@ end
 
 class.msgSend              = msgSendWrapper(module.objc_msgSend)
 class.msgSendSuper         = msgSendWrapper(module.objc_msgSend, sendToSuper)
-object.msgSend             = msgSendWrapper(module.objc_msgSend)
-object.msgSendSuper        = msgSendWrapper(module.objc_msgSend, sendToSuper)
+object._msgSend            = msgSendWrapper(module.objc_msgSend)
+object._msgSendSuper       = msgSendWrapper(module.objc_msgSend, sendToSuper)
 class.allocAndMsgSend      = msgSendWrapper(module.objc_msgSend, allocFirst)
 class.allocAndMsgSendSuper = msgSendWrapper(module.objc_msgSend, sendToSuper | allocFirst)
 
@@ -158,17 +162,17 @@ protocol.selector = function(self, sel, alreadySeen)
     return nil
 end
 
-object.selector = function(self, sel)
-    return class.selector(self:class(), sel)
+object._selector = function(self, sel)
+    return class.selector(self:_class(), sel)
 end
 
-object.propertyList = function(self, includeNSObject)
+object._propertyList = function(self, includeNSObject)
     -- defaults to false, self *is* NSObject
-    includeNSObject = includeNSObject or (self:className() == "NSObject") or false
+    includeNSObject = includeNSObject or (self:_className() == "NSObject") or false
 
     local properties, alreadySeen = {}, {}
 
-    local myClass = self:class()
+    local myClass = self:_class()
 
     while(myClass) do
     -- search class
@@ -217,27 +221,37 @@ object.propertyList = function(self, includeNSObject)
     return properties
 end
 
-object.propertyValues = function(self, includeNSObject)
-    local properties, values = object.propertyList(self, includeNSObject), {}
+object._propertyValues = function(self, includeNSObject)
+    local properties, values = object._propertyList(self, includeNSObject), {}
 
     for k,v in pairs(properties) do
         local getter = v:attributeList().G or k
-        values[k] = self:msgSend(self:selector(getter))
+        values[k] = self:_msgSend(self:_selector(getter))
     end
     return values
 end
 
-object.property = function(self, name)
-    local properties = object.propertyList(self)
+object._property = function(self, name)
+    local properties = object._propertyList(self, true)
 
     if properties[name] then
-        return self:msgSend(self:selector(properties[name]:attributeList().G or name))
+        return self:_msgSend(self:_selector(properties[name]:attributeList().G or name))
     else
-        log.wf("%s is not a property for class %s", name, self:className())
+        log.wf("%s is not a property for class %s", name, self:_className())
         return nil
     end
 end
 
+
+-- allow unrecognized method calls to be translated into object-c messages for objects
+object.__index = function(obj, key)
+--     module.nslog("object call to "..tostring(key))
+    if object[key] then
+        return object[key]
+    else
+        return function(_, ...) return object._msgSend(_, key, ...) end
+    end
+end
 
 -- probably overkill, but the Lua Manual section 2.4 (help.lua._man._2_4) suggests that adding to a metatable that already has a __gc method is "a bad thing"(TM)... so we remove the table first and add to it before applying the changed table as the brand new metatable.
 -- definitely overkill since module metatables have been removed, but they may need to come back at some point, and its good practice for when I need it in the future, so...
