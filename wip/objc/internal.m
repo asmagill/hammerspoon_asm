@@ -1574,6 +1574,15 @@ static int lua_FFISend(lua_State *L) {
 // Performing @selector(reloadConfig:) from sender NSMenuItem 0x7fdf437261f0
 //
 // 0x7fdf45ab3d40 was the wordlist property of OBJCTest, wasn't able to conclusively identify the others...
+
+//
+// Try without ARC... [object retain] before storing in udata, [object release]
+// during gc... no other use means we should be balanced no matter what
+// ffi_call or objc_msgSend does?  will need to update internal class as well?
+//
+// No ARC, same crash... I think the release of the ID object is actually releasing the memory allocated by Lua for the userdata, so when Lua's gc issues a free, its on already freed memory... this would suggest needing another level of indirection, but I just barely understand it now... need to mull.  It's definately the object that's crashing bc of its release, though... all other types (class, method, property, etc.) are balanced in their creation and destruction... it's *always* after an object, sometimes during a random gc, but always during the lua destroyState sweep.
+
+
 //                 id result ;
 //                 ffi_call(&cif, (callSuper ? FFI_FN(objc_msgSendSuper) : FFI_FN(objc_msgSend)), &result, values);
 //                 id result2 = result ;

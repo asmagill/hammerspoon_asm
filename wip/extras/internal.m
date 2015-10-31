@@ -363,6 +363,48 @@ static int threadInfo(lua_State *L) {
 //     return 1 ;
 // }
 
+static int NSCharacterSet_tolua(lua_State __unused *L, id obj) {
+// tweaked from http://stackoverflow.com/questions/26610931/list-of-characters-in-an-nscharacterset
+    NSCharacterSet *charset = obj ;
+    NSMutableArray *array = [NSMutableArray array];
+    for (unsigned int plane = 0; plane <= 16; plane++) {
+        if ([charset hasMemberInPlane:(uint8_t)plane]) {
+            UTF32Char c;
+            for (c = plane << 16; c < (plane+1) << 16; c++) {
+                if ([charset longCharacterIsMember:c]) {
+                    UTF32Char c1 = OSSwapHostToLittleInt32(c); // To make it byte-order safe
+                    NSString *s = [[NSString alloc] initWithBytes:&c1 length:4 encoding:NSUTF32LittleEndianStringEncoding];
+                    [array addObject:s];
+                }
+            }
+        }
+    }
+    [[LuaSkin shared] pushNSObject:array] ;
+    return 1 ;
+}
+
+// controlCharacterSet
+// whitespaceCharacterSet
+// whitespaceAndNewlineCharacterSet
+// decimalDigitCharacterSet
+// letterCharacterSet
+// lowercaseLetterCharacterSet
+// uppercaseLetterCharacterSet
+// nonBaseCharacterSet
+// alphanumericCharacterSet
+// decomposableCharacterSet
+// illegalCharacterSet
+// punctuationCharacterSet
+// capitalizedLetterCharacterSet
+// symbolCharacterSet
+// newlineCharacterSet
+// URLUserAllowedCharacterSet
+// URLPasswordAllowedCharacterSet
+// URLHostAllowedCharacterSet
+// URLPathAllowedCharacterSet
+// URLQueryAllowedCharacterSet
+// URLFragmentAllowedCharacterSet
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
