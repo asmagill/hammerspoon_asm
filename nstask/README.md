@@ -1,30 +1,4 @@
-_asm.nstask
------------
-
-This module provides access to NSTask.
-
-### Local Install
-~~~bash
-$ [PREFIX=/usr/local/share/lua/5.2/] make install
-~~~
-
-Note that if you do not provide `PREFIX`, then it defaults to your Hammerspoon home directory (~/.hammerspoon)
-
-### Require
-
-~~~lua
-nstask = require("hs._asm.nstask")
-~~~
-
-### Functions
-
-~~~lua
-~~~
-
-### Variables
-
-~~~lua
-~~~
+Hammerspoon now provides `hs.task` which contains most of what I hoped to eventually put into here.  This folder will likely go away in the future.
 
 ### License
 
