@@ -1,10 +1,12 @@
 //
-// Add support for other keys which can be sent to the Maps application (directions, center, etc.)
-// Add ReverseGeocode lookup as well
+// + Add support for other keys which can be sent to the Maps application (directions, center, etc.)
+// + Add ReverseGeocode lookup as well
 //
 // Docs will follow... if you want to tryout:
 //   g = require("hs._asm.geocoder")
 //   l = g.searchForAddress("some-address", function(s, e) print(g.openPlacesInMaps(e)) end)
+//   hs.location.start()
+//   l = g.lookupLocation(hs.location.get(), function(s, e) print(g.openPlacesInMaps(e)) end)
 
 #import <Cocoa/Cocoa.h>
 #import <MapKit/MapKit.h>
@@ -20,7 +22,41 @@ int refTable   = LUA_NOREF ;
 
 #pragma mark - Module Functions
 
-static int lookupString(lua_State *L) {
+static int lookupLocation(lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TFUNCTION, LS_TBREAK] ;
+    CLLocationDegrees   longitude = 0.0, latitude = 0.0 ;
+
+    if (lua_getfield(L, 1, "longitude") == LUA_TNUMBER) longitude = lua_tonumber(L, -1) ;
+    lua_pop(L, 1) ;
+    if (lua_getfield(L, 1, "latitude") == LUA_TNUMBER)  latitude = lua_tonumber(L, -1) ;
+    lua_pop(L, 1) ;
+
+    CLLocation          *theLocation = [[CLLocation alloc] initWithLatitude:latitude longitude:longitude] ;
+    lua_pushvalue(L, 2) ;
+    int fnRef = [[LuaSkin shared] luaRef:refTable] ;
+
+    CLGeocoder *geoItem = [[CLGeocoder alloc] init] ;
+    [geoItem reverseGeocodeLocation:theLocation completionHandler:^(NSArray *placemark, NSError *error) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:fnRef] ;
+        lua_pushboolean(L, (error == NULL)) ;
+        if (error)
+            [[LuaSkin shared] pushNSObject:error] ;
+        else
+            [[LuaSkin shared] pushNSObject:placemark] ;
+
+        if (![[LuaSkin shared] protectedCallAndTraceback:2 nresults:0]) {
+            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
+            showError([[LuaSkin shared] L], (char *)errorMsg);
+            lua_pop([[LuaSkin shared] L], 1) ;
+        }
+
+        [[LuaSkin shared] luaUnref:refTable ref:fnRef] ;
+    }] ;
+    [[LuaSkin shared] pushNSObject:geoItem] ;
+    return 1 ;
+}
+
+static int lookupAddress(lua_State *L) {
     [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TFUNCTION, LS_TBREAK] ;
     NSString *searchString = [NSString stringWithUTF8String:lua_tostring(L, 1)] ;
     lua_pushvalue(L, 2) ;
@@ -52,7 +88,7 @@ static int lookupString(lua_State *L) {
 // leave it ... it may help with very similar addresses, though I haven't discovered any in
 // my (admittedly limited) testing so far...
 
-static int lookupStringNearby(lua_State *L) {
+static int lookupAddressNear(lua_State *L) {
     [[LuaSkin shared] checkArgs:LS_TSTRING,
                                 LS_TTABLE | LS_TFUNCTION | LS_TOPTIONAL,
                                 LS_TFUNCTION | LS_TOPTIONAL,
@@ -101,7 +137,7 @@ static int openPlacesInMaps(lua_State *L) {
 
     NSMutableDictionary *theOptions = [[NSMutableDictionary alloc] init] ;
     if (lua_type(L, 2) == LUA_TTABLE) {
-        if (lua_getfield(L, 2, "mapType") == LUA_TSTRING) {
+        if (lua_getfield(L, 2, "type") == LUA_TSTRING) {
             NSString *theType = [[LuaSkin shared] toNSObjectAtIndex:-1] ;
             if ([theType isEqualToString:@"standard"]) {
                 [theOptions setObject:[NSNumber numberWithInt:MKMapTypeStandard]
@@ -112,14 +148,56 @@ static int openPlacesInMaps(lua_State *L) {
             } else if ([theType isEqualToString:@"hybrid"]) {
                 [theOptions setObject:[NSNumber numberWithInt:MKMapTypeHybrid]
                                forKey:MKLaunchOptionsMapTypeKey] ;
+            } else if ([theType isEqualToString:@"satelliteFlyover"]) {
+                [theOptions setObject:[NSNumber numberWithInt:MKMapTypeSatelliteFlyover]
+                               forKey:MKLaunchOptionsMapTypeKey] ;
+            } else if ([theType isEqualToString:@"hybridFlyover"]) {
+                [theOptions setObject:[NSNumber numberWithInt:MKMapTypeHybridFlyover]
+                               forKey:MKLaunchOptionsMapTypeKey] ;
             } else {
                 return luaL_error(L, "openPlacesInMaps:invalid map type specified: %s", [theType UTF8String]) ;
             }
         }
         lua_pop(L, 1) ;
+
         if (lua_getfield(L, 2, "traffic") == LUA_TBOOLEAN) {
             [theOptions setObject:[NSNumber numberWithBool:(BOOL)lua_toboolean(L, -1)]
                            forKey:MKLaunchOptionsShowsTrafficKey] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, 2, "directions") == LUA_TSTRING) {
+            NSString *theString = [NSString stringWithUTF8String:lua_tostring(L, -1)] ;
+            if ([theString isEqualToString:@"walking"]) {
+                [theOptions setObject:MKLaunchOptionsDirectionsModeWalking
+                               forKey:MKLaunchOptionsDirectionsModeKey] ;
+            }
+            if ([theString isEqualToString:@"driving"]) {
+                [theOptions setObject:MKLaunchOptionsDirectionsModeDriving
+                               forKey:MKLaunchOptionsDirectionsModeKey] ;
+            }
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, 2, "center") == LUA_TTABLE) {
+            CLLocationCoordinate2D theCenter  = { 0.0, 0.0 } ;
+            if (lua_getfield(L, -1, "longitude") == LUA_TNUMBER) theCenter.longitude = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+            if (lua_getfield(L, -1, "latitude") == LUA_TNUMBER)  theCenter.latitude = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+            [theOptions setObject:[NSValue valueWithMKCoordinate:theCenter]
+                           forKey:MKLaunchOptionsMapCenterKey] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, 2, "span") == LUA_TTABLE) {
+            MKCoordinateSpan theSpan  = { 0.0, 0.0 } ;
+            if (lua_getfield(L, -1, "longitudeDelta") == LUA_TNUMBER) theSpan.longitudeDelta = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+            if (lua_getfield(L, -1, "latitudeDelta") == LUA_TNUMBER)  theSpan.latitudeDelta = lua_tonumber(L, -1) ;
+            lua_pop(L, 1) ;
+            [theOptions setObject:[NSValue valueWithMKCoordinateSpan:theSpan]
+                           forKey:MKLaunchOptionsMapSpanKey] ;
         }
         lua_pop(L, 1) ;
     }
@@ -190,14 +268,14 @@ static id lua_toMKPlacemark(lua_State *L, int idx) {
 static int CLLocation_tolua(lua_State *L, id obj) {
     CLLocation *location = obj ;
     lua_newtable(L) ;
-      lua_pushnumber(L, [location coordinate].latitude) ;  lua_setfield(L, -2, "latitude") ;
-      lua_pushnumber(L, [location coordinate].longitude) ; lua_setfield(L, -2, "longitude") ;
-      lua_pushnumber(L, [location altitude]) ;                 lua_setfield(L, -2, "altitude") ;
+      lua_pushnumber(L, [location coordinate].latitude) ;               lua_setfield(L, -2, "latitude") ;
+      lua_pushnumber(L, [location coordinate].longitude) ;              lua_setfield(L, -2, "longitude") ;
+      lua_pushnumber(L, [location altitude]) ;                          lua_setfield(L, -2, "altitude") ;
 // Not sure how useful these are, but in case someone wants them...
-//       lua_pushnumber(L, [location horizontalAccuracy]) ;       lua_setfield(L, -2, "horizontalAccuracy") ;
-//       lua_pushnumber(L, [location verticalAccuracy]) ;         lua_setfield(L, -2, "verticalAccuracy") ;
-//       [[LuaSkin shared] pushNSObject:[location timestamp]] ;   lua_setfield(L, -2, "timestamp") ;
-//       [[LuaSkin shared] pushNSObject:[location description]] ; lua_setfield(L, -2, "description") ;
+      lua_pushnumber(L, [location horizontalAccuracy]) ;                lua_setfield(L, -2, "horizontalAccuracy") ;
+      lua_pushnumber(L, [location verticalAccuracy]) ;                  lua_setfield(L, -2, "verticalAccuracy") ;
+      lua_pushnumber(L, [[location timestamp] timeIntervalSince1970]) ; lua_setfield(L, -2, "timestamp") ;
+      [[LuaSkin shared] pushNSObject:[location description]] ;          lua_setfield(L, -2, "description") ;
     return 1 ;
 }
 
@@ -205,10 +283,8 @@ static int CLCircularRegion_tolua(lua_State *L, id obj) {
     CLCircularRegion *theRegion = obj ;
     lua_newtable(L) ;
       [[LuaSkin shared] pushNSObject:[theRegion identifier]] ; lua_setfield(L, -2, "identifier") ;
-      lua_newtable(L) ;
-        lua_pushnumber(L, [theRegion center].latitude) ;  lua_setfield(L, -2, "latitude") ;
-        lua_pushnumber(L, [theRegion center].longitude) ; lua_setfield(L, -2, "longitude") ;
-      lua_setfield(L, -2, "center") ;
+      lua_pushnumber(L, [theRegion center].latitude) ;         lua_setfield(L, -2, "latitude") ;
+      lua_pushnumber(L, [theRegion center].longitude) ;        lua_setfield(L, -2, "longitude") ;
       lua_pushnumber(L, [theRegion radius]) ;                  lua_setfield(L, -2, "radius") ;
     return 1 ;
 }
@@ -219,14 +295,6 @@ static id lua_toCLCircularRegion(lua_State *L, int idx) {
     CLLocationDistance     theRadius = 0.0 ;
     NSString               *theIdentifier = [[NSUUID UUID] UUIDString] ;
 
-    if (lua_getfield(L, idx, "center") == LUA_TTABLE) {
-        if (lua_getfield(L, -1, "longitude") == LUA_TNUMBER) theCenter.longitude = lua_tonumber(L, -1) ;
-        lua_pop(L, 1) ;
-        if (lua_getfield(L, -1, "latitude") == LUA_TNUMBER)  theCenter.latitude = lua_tonumber(L, -1) ;
-        lua_pop(L, 1) ;
-    }
-    lua_pop(L, 1) ;
-// allow lua coders to be lazy and put all three into the same table
     if (lua_getfield(L, idx, "longitude") == LUA_TNUMBER) theCenter.longitude = lua_tonumber(L, -1) ;
     lua_pop(L, 1) ;
     if (lua_getfield(L, idx, "latitude") == LUA_TNUMBER)  theCenter.latitude = lua_tonumber(L, -1) ;
@@ -291,8 +359,9 @@ static const luaL_Reg object_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"searchForAddress",   lookupString},
-    {"searchNearLocation", lookupStringNearby},
+    {"lookupAddress",      lookupAddress},
+    {"lookupLocation",     lookupLocation},
+    {"lookupAddressNear",  lookupAddressNear},
     {"openPlacesInMaps",   openPlacesInMaps},
     {NULL, NULL}
 };
