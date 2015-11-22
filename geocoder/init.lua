@@ -5,7 +5,7 @@
 --- A description of module.
 
 package.loadlib("/System/Library/Frameworks/MapKit.framework/Resources/BridgeSupport/MapKit.dylib","*")
-local module      = require("hs._asm.map.internal")
+local module      = require("hs._asm.geocoder.internal")
 
 -- private variables and methods -----------------------------------------
 
