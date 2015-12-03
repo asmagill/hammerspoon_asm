@@ -1,0 +1,1120 @@
+#import <Cocoa/Cocoa.h>
+// #import <Carbon/Carbon.h>
+#import <LuaSkin/LuaSkin.h>
+#import "../hammerspoon.h"
+
+// WIP methods which should not be included in production but are useful in deciding what wrappers to write.
+// #define _INCLUDE_RAW_PROPERTIES
+
+#define USERDATA_TAG        "hs.speech"
+static int refTable = LUA_NOREF;
+static int logFnRef = LUA_NOREF;
+
+#define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
+// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
+
+#pragma mark - Testing out better logging with hs.logger
+
+#define _cERROR   "ef"
+#define _cWARN    "wf"
+#define _cINFO    "f"
+#define _cDEBUG   "df"
+#define _cVERBOSE "vf"
+
+// allow this to be potentially unused in the module
+static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
+    lua_Debug functionDebugObject, callerDebugObject;
+    lua_getstack(L, 0, &functionDebugObject);
+    lua_getstack(L, 1, &callerDebugObject);
+    lua_getinfo(L, "n", &functionDebugObject);
+    lua_getinfo(L, "Sl", &callerDebugObject);
+    NSString *fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
+                                                                           theMessage,
+                                                                           callerDebugObject.currentline,
+                                                                           callerDebugObject.short_src];
+    // Put it into the system logs, may help with troubleshooting
+    CLS_NSLOG(@"%s: %@", USERDATA_TAG, fullMessage);
+
+    // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
+    // otherwise we print to the console for everything, just in case we forget to register.
+    if (logFnRef != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
+        lua_getfield(L, -1, level); lua_remove(L, -2);
+    } else {
+        lua_getglobal(L, "print");
+    }
+
+    lua_pushstring(L, [fullMessage UTF8String]);
+    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
+    return 0;
+}
+
+static int lua_registerLogForC(__unused lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
+    logFnRef = [[LuaSkin shared] luaRef:refTable];
+    return 0;
+}
+
+// allow this to be potentially unused in the module
+static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
+    lua_Debug functionDebugObject;
+    lua_getstack(L, 0, &functionDebugObject);
+    lua_getinfo(L, "n", &functionDebugObject);
+    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
+}
+
+#pragma mark - Support Functions
+
+NSString *validateString(lua_State *L, int idx) {
+    NSString *theString = [[LuaSkin shared] toNSObjectAtIndex:idx];
+    if (![theString isKindOfClass:[NSString class]]) {
+        log_to_console(L, _cWARN, @"string not valid UTF8");
+        theString = nil;
+    }
+    return theString;
+}
+
+// Lua treats strings (and therefore indexs within strings) as a sequence of bytes.  Objective-C's
+// NSString and NSAttributedString treat them as a sequence of characters.  This works fine until
+// Unicode characters are involved.
+//
+// This function creates a dictionary mapping of this where the keys are the byte positions in the
+// Lua string and the values are the corresponding character positions in the NSString.
+NSDictionary *luaByteToObjCharMap(NSString *theString) {
+    NSMutableDictionary *luaByteToObjChar = [[NSMutableDictionary alloc] init];
+    NSData *rawString                     = [theString dataUsingEncoding:NSUTF8StringEncoding];
+
+    if (rawString) {
+        NSUInteger luaPos  = 1; // for testing purposes, match what the lua equiv generates
+        NSUInteger objCPos = 0; // may switch back to 0 if ends up easier when using for real...
+
+        while ((luaPos - 1) < [rawString length]) {
+            Byte thisByte;
+            [rawString getBytes:&thisByte range:NSMakeRange(luaPos - 1, 1)];
+            // we're taking some liberties and making assumptions here because the above conversion
+            // to NSData should make sure that what we have is valid UTF8, i.e. one of:
+            //    00..7F
+            //    C2..DF 80..BF
+            //    E0     A0..BF 80..BF
+            //    E1..EC 80..BF 80..BF
+            //    ED     80..9F 80..BF
+            //    EE..EF 80..BF 80..BF
+            //    F0     90..BF 80..BF 80..BF
+            //    F1..F3 80..BF 80..BF 80..BF
+            //    F4     80..8F 80..BF 80..BF
+            [luaByteToObjChar setObject:[NSNumber numberWithUnsignedInteger:objCPos]
+                                 forKey:[NSNumber numberWithUnsignedInteger:luaPos]];
+            if ((thisByte >= 0x00 && thisByte <= 0x7F) || (thisByte >= 0xC0)) {
+                objCPos++;
+            }
+            luaPos++;
+        }
+    }
+    return luaByteToObjChar;
+}
+
+// All (that I've seen) voices start with "com.apple.speech.synthesis.voice."... this is annoying to type,
+// so this allows us to leave it off and will add it if necessary.
+static NSString * const appleVoicePrefix = @"com.apple.speech.synthesis.voice.";
+
+static NSString *correctForVoiceShortCut(NSString *theVoice) {
+    if (theVoice && ![theVoice hasPrefix:appleVoicePrefix])
+        return [appleVoicePrefix stringByAppendingString:theVoice];
+    else
+        return theVoice;
+}
+static NSString *getVoiceShortCut(NSString *theVoice) {
+    if (theVoice && [theVoice hasPrefix:appleVoicePrefix])
+        return [theVoice substringFromIndex:NSMaxRange([theVoice rangeOfString:appleVoicePrefix])];
+    else
+        return theVoice;
+}
+
+#pragma mark - HSSpeechSynthesizer Definition
+
+@interface HSSpeechSynthesizer : NSSpeechSynthesizer <NSSpeechSynthesizerDelegate>
+@property int callbackRef;
+// We're trying something new... if we register a ref for the userdata object so that we can easily include the
+// exact same userdata object as a parameter to callback functions, we create a new reference to the userdata -
+// it will never _gc when the user sets the value to nil in Lua land unless we add an explicit delete method like
+// hs.drawing does, and this assumes the user remembers to use it.  This is fine for drawing and webview because
+// a case can be made that they can/should persist even when Lua stops referencing them and only disappear on a
+// true restart/reload or explicit removal via delete.
+//
+// By creating a new userdata object as needed (i.e. for each callback), the objects will gc as they go out of
+// scope, but we need some way to know when the absolutely last one goes out of scope so we can release the
+// callback function reference then *and only then*.
+@property int UDreferenceCount;
+@end
+
+@implementation HSSpeechSynthesizer
+- (id)initWithVoice:(NSString *)theVoice {
+    self = [super initWithVoice:theVoice];
+    if (self) {
+        self.callbackRef = LUA_NOREF;
+        self.UDreferenceCount = 0;
+        self.delegate = self;
+    }
+    return self;
+}
+
+#pragma mark - HSSpeechSynthesizer Delegate Methods
+
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender willSpeakWord:(NSRange)wordToSpeak
+                                                             ofString:(NSString *)text {
+    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+        LuaSkin      *skin    = [LuaSkin shared];
+        lua_State    *_L      = [skin L];
+        NSDictionary *charMap = luaByteToObjCharMap(text);
+
+        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        lua_pushstring(_L, "willSpeakWord");
+
+        NSArray *luaStart = [[charMap allKeysForObject:[NSNumber numberWithUnsignedInteger:wordToSpeak.location]]
+                            sortedArrayUsingSelector: @selector(compare:)];
+        NSArray *luaEnd   = [[charMap allKeysForObject:[NSNumber numberWithUnsignedInteger:NSMaxRange(wordToSpeak)]]
+                            sortedArrayUsingSelector: @selector(compare:)];
+        lua_pushinteger(_L, (lua_Integer)[[luaStart lastObject] unsignedIntegerValue]);
+        lua_pushinteger(_L, (lua_Integer)[[luaEnd lastObject] unsignedIntegerValue] - 1);
+
+        [skin pushNSObject:text];
+        if (![skin protectedCallAndTraceback:5 nresults:0]) {
+            NSString *theError = [skin toNSObjectAtIndex:-1];
+            lua_pop(_L, 1);
+            showError(_L, (char *)[[NSString stringWithFormat:@"%s:willSpeakWord callback: %@", USERDATA_TAG, theError] UTF8String]);
+        }
+    }
+}
+
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender willSpeakPhoneme:(short)phonemeOpcode {
+    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+        LuaSkin      *skin    = [LuaSkin shared];
+        lua_State    *_L      = [skin L];
+
+        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        lua_pushstring(_L, "willSpeakPhoneme");
+        lua_pushinteger(_L, phonemeOpcode);
+        if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            NSString *theError = [skin toNSObjectAtIndex:-1];
+            lua_pop(_L, 1);
+            showError(_L, (char *)[[NSString stringWithFormat:@"%s:willSpeakPhoneme callback: %@", USERDATA_TAG, theError] UTF8String]);
+        }
+    }
+}
+
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didEncounterErrorAtIndex:(NSUInteger)characterIndex
+                                                                        ofString:(NSString *)text
+                                                                         message:(NSString *)errorMessage {
+    NSLog(@"In error delegate");
+    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+        LuaSkin      *skin    = [LuaSkin shared];
+        lua_State    *_L      = [skin L];
+        NSDictionary *charMap = luaByteToObjCharMap(text);
+
+        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        lua_pushstring(_L, "didEncounterError");
+
+        NSArray *index = [[charMap allKeysForObject:[NSNumber numberWithUnsignedInteger:characterIndex]]
+                         sortedArrayUsingSelector: @selector(compare:)];
+        lua_pushinteger(_L, (lua_Integer)[[index lastObject] unsignedIntegerValue]);
+
+        [skin pushNSObject:text];
+        [skin pushNSObject:errorMessage];
+        if (![skin protectedCallAndTraceback:5 nresults:0]) {
+            NSString *theError = [skin toNSObjectAtIndex:-1];
+            lua_pop(_L, 1);
+            showError(_L, (char *)[[NSString stringWithFormat:@"%s:didEncounterError callback: %@", USERDATA_TAG, theError] UTF8String]);
+        }
+    }
+}
+
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didEncounterSyncMessage:(NSString *)errorMessage {
+    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+        LuaSkin      *skin    = [LuaSkin shared];
+        lua_State    *_L      = [skin L];
+
+        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        lua_pushstring(_L, "didEncounterSync");
+        [skin pushNSObject:errorMessage];
+        if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            NSString *theError = [skin toNSObjectAtIndex:-1];
+            lua_pop(_L, 1);
+            showError(_L, (char *)[[NSString stringWithFormat:@"%s:didEncounterSync callback: %@", USERDATA_TAG, theError] UTF8String]);
+        }
+    }
+}
+
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didFinishSpeaking:(BOOL)success {
+    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+        LuaSkin      *skin    = [LuaSkin shared];
+        lua_State    *_L      = [skin L];
+
+        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        lua_pushstring(_L, "didFinish");
+        lua_pushboolean(_L, success);
+        if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            NSString *theError = [skin toNSObjectAtIndex:-1];
+            lua_pop(_L, 1);
+            showError(_L, (char *)[[NSString stringWithFormat:@"%s:didFinish callback: %@", USERDATA_TAG, theError] UTF8String]);
+        }
+    }
+}
+
+@end
+
+#pragma mark - Module Functions
+
+// static int test(__unused lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared];
+//     [skin checkArgs:LS_TSTRING, LS_TBREAK];
+//     [skin pushNSObject:luaByteToObjCharMap([skin toNSObjectAtIndex:1])];
+//     return 1;
+// }
+
+/// hs.speech.availableVoices([full]) -> array
+/// Function
+/// Returns a list of the currently installed voices for speech synthesis.
+///
+/// Parameters:
+///  * full - an optional boolean flag indicating whether or not the full internal names should be returned, or if the shorter versions should be returned.  Defaults to false.
+///
+/// Returns:
+///  * an array of the available voice names.
+///
+/// Notes:
+///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  This prefix is normally suppressed unless you pass in true.
+static int availableVoices(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK];
+
+    BOOL displayFullName = NO;
+    if (lua_isboolean(L, 1)) displayFullName = (BOOL)lua_toboolean(L, 1);
+
+    lua_newtable(L);
+    for(NSString *aVoice in [NSSpeechSynthesizer availableVoices]) {
+        if (displayFullName)
+            [skin pushNSObject:aVoice];
+        else
+            [skin pushNSObject:getVoiceShortCut(aVoice)];
+        lua_rawseti(L, -2, luaL_len(L, -2) + 1);
+    }
+    return 1;
+}
+
+/// hs.speech.attributesForVoice(voice) -> table
+/// Function
+/// Returns a table containing a variety of properties describing and defining the specified voice.
+///
+/// Parameters:
+///  * voice - the name of the voice to look up attributes for
+///
+/// Returns:
+///  * a table containing key-value pairs which describe the voice specified.  These attributes may include (but is not limited to) information about specific characters recognized, sample text, gender, etc.
+///
+/// Notes:
+///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  You can provide this suffix or not as you prefer when specifying a voice name.
+static int attributesForVoice(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER | LS_TNIL, LS_TBREAK];
+
+    if (lua_type(L, 1) != LUA_TNIL) luaL_checkstring(L, 1); // force number to be a string
+    [skin pushNSObject:[NSSpeechSynthesizer attributesForVoice:correctForVoiceShortCut(validateString(L, 1))]];
+    return 1;
+}
+
+/// hs.speech.defaultVoice([full]) -> string
+/// Function
+/// Returns the name of the currently selected default voice for the user.  This voice is the voice selected in the System Preferences for Dictation & Speech as the System Voice.
+///
+/// Parameters:
+///  * full - an optional boolean flag indicating whether or not the full internal name should be returned, or if the shorter version should be returned.  Defaults to false.
+///
+/// Returns:
+///  * the name of the system voice.
+///
+/// Notes:
+///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  This prefix is normally suppressed unless you pass in true.
+static int defaultVoice(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK];
+    BOOL displayFullName = NO;
+
+    if (lua_isboolean(L, 1)) displayFullName = (BOOL)lua_toboolean(L, 1);
+    if (displayFullName)
+        [skin pushNSObject:[NSSpeechSynthesizer defaultVoice]];
+    else
+        [skin pushNSObject:getVoiceShortCut([NSSpeechSynthesizer defaultVoice])];
+    return 1;
+}
+
+/// hs.speech.isAnyApplicationSpeaking() -> boolean
+/// Function
+/// Returns whether or not the system is currently using a speech synthesizer in any application to generate speech.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean value indicating whether or not any application is currently generating speech with a synthesizer.
+///
+/// Notes:
+///  * See also `hs.speech:speaking`.
+static int isAnyApplicationSpeaking(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TBREAK];
+
+    lua_pushboolean(L, [NSSpeechSynthesizer isAnyApplicationSpeaking]);
+    return 1;
+}
+
+/// hs.speech.new([voice]) -> synthesizerObject
+/// Constructor
+/// Creates a new speech synthesizer object for use by Hammerspoon.
+///
+/// Parameters:
+///  * voice - an optional string specifying the voice the synthesizer should use for generating speech.  Defaults to the system voice.
+///
+/// Returns:
+///  * a speech synthesizer object or nil, if the system was unable to create a new synthesizer.
+///
+/// Notes:
+///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  You can provide this suffix or not as you prefer when specifying a voice name.
+///  * You can change the voice later with the `hs.speech:voice` method.
+static int newSpeechSynthesizer(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+
+    NSString *theVoice = nil;
+    if (lua_gettop(L) == 1) {
+        luaL_checkstring(L, 1); // force number to be a string
+        theVoice = correctForVoiceShortCut(validateString(L, 1));
+        if (!theVoice) log_to_console(L, _cWARN, @"unable to identify voice from string, defaulting to system voice");
+    }
+
+    HSSpeechSynthesizer *synth = [[HSSpeechSynthesizer alloc] initWithVoice:theVoice];
+    if (synth) {
+        [skin pushNSObject:synth];
+    } else {
+        log_to_console(L, _cDEBUG, @"unable to create synthesizer, returning nil");
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+#pragma mark - Module Object Methods
+
+/// hs.speech:usesFeedbackWindow([flag]) -> synthesizerObject | boolean
+/// Method
+/// Gets or sets whether or not the synthesizer uses the speech feedback window.
+///
+/// Parameters:
+///  * flag - an optional boolean indicating whether or not the synthesizer should user the speech feedback window or not.  Defaults to false.
+///
+/// Returns:
+///  * If no parameter is provided, returns the current value; otherwise returns the synthesizer object.
+///
+/// Notes:
+///  * *Special Note:* I am not sure where the visual feedback actually occurs -- I have not been able to locate a feedback window for synthesis in 10.11; however the method is defined and not marked deprecated, so I include it in the module.  If anyone has more information, please file an issue and the documentation will be updated.
+static int usesFeedbackWindow(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    if (lua_gettop(L) == 2) {
+        synth.usesFeedbackWindow = (BOOL)lua_toboolean(L, 2);
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushboolean(L, synth.usesFeedbackWindow);
+    }
+    return 1;
+}
+
+/// hs.speech:voice([full] | [voice]) -> synthesizerObject | voice
+/// Method
+/// Gets or sets the active voice for a synthesizer.
+///
+/// Parameters:
+///  * full  - an optional boolean indicating whether or not you wish the full internal voice name to be returned, or if you want the shorter version.  Defaults to false.
+///  * voice - an optional string indicating the name of the voice to change the synthesizer to.
+///
+/// Returns:
+///  * If no parameter is provided (or the parameter is a boolean value), returns the current value; otherwise returns the synthesizer object or nil if the voice could not be changed for some reason.
+///
+/// Notes:
+///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  You can provide this suffix or not as you prefer when specifying a voice name.
+///  * The voice cannot be changed while the synthesizer is currently producing output.
+///  * If you change the voice while a synthesizer is paused, the current synthesis will be terminated and the voice will be changed.
+static int voice(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TSTRING | LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    if (lua_gettop(L) == 2 && lua_type(L, 2) != LUA_TBOOLEAN) {
+        NSString *theVoice = nil;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            luaL_checkstring(L, 2); // force number to be a string
+            theVoice = correctForVoiceShortCut(validateString(L, 2));
+            if (!theVoice) log_to_console(L, _cWARN, @"unable to identify voice from string, defaulting to system voice");
+        }
+        if([synth setVoice:theVoice]) {
+            lua_pushvalue(L, 1);
+        } else {
+            lua_pushnil(L);
+        }
+    } else {
+        BOOL displayFullName = NO;
+        if (lua_isboolean(L, 2)) displayFullName = (BOOL)lua_toboolean(L, 2);
+        if (displayFullName)
+            [skin pushNSObject:[synth voice]];
+        else
+            [skin pushNSObject:getVoiceShortCut([synth voice])];
+    }
+    return 1;
+}
+
+/// hs.speech:rate([rate]) -> synthesizerObject | rate
+/// Method
+/// Gets or sets the synthesizers speaking rate (words per minute).
+///
+/// Parameters:
+///  * rate - an optional number indicating the speaking rate for the synthesizer.
+///
+/// Returns:
+///  * If no parameter is provided, returns the current value; otherwise returns the synthesizer object.
+///
+/// Notes:
+///  * The range of supported rates is not predefined by the Speech Synthesis framework; but the synthesizer may only respond to a limited range of speech rates. Average human speech occurs at a rate of 180.0 to 220.0 words per minute.
+static int rate(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    if (lua_gettop(L) == 2) {
+        synth.rate = (float)lua_tonumber(L, 2);
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushnumber(L, synth.rate);
+    }
+    return 1;
+}
+
+/// hs.speech:volume([volume]) -> synthesizerObject | volume
+/// Method
+/// Gets or sets the synthesizers speaking volume.
+///
+/// Parameters:
+///  * volume - an optional number between 0.0 and 1.0 indicating the speaking volume for the synthesizer.
+///
+/// Returns:
+///  * If no parameter is provided, returns the current value; otherwise returns the synthesizer object.
+///
+/// Notes:
+///  * Volume units lie on a scale that is linear with amplitude or voltage. A doubling of perceived loudness corresponds to a doubling of the volume.
+static int volume(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    if (lua_gettop(L) == 2) {
+        float vol = (float)lua_tonumber(L, 2);
+        if (vol < 0.0 || vol > 1.0) {
+            return luaL_argerror(L, 2, "must be between 0.0 and 1.0 inclusive");
+        } else {
+            synth.volume = vol;
+        }
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushnumber(L, synth.volume);
+    }
+    return 1;
+}
+
+/// hs.speech:speaking() -> boolean
+/// Method
+/// Returns whether or not this synthesizer is currently generating speech.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * A boolean value indicating whether or not this synthesizer is currently generating speech.
+///
+/// Notes:
+///  * See also `hs.speech.isAnyApplicationSpeaking`.
+static int speaking(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    lua_pushboolean(L, synth.speaking);
+    return 1;
+}
+
+/// hs.speech:setCallback(fn | nil) -> synthesizerObject
+/// Method
+/// Sets or removes a callback function for the synthesizer.
+///
+/// Parameters:
+///  * fn - a function to set as the callback for this speech synthesizer.  If the value provided is nil, any currently existing callback function is removed.
+///
+/// Returns:
+///  * the synthesizer object
+///
+/// Notes:
+///  * The callback function should expect between 3 and 5 arguments and should not return anything.  The first two arguments will always be the synthesizer object itself and a string indicating the activity which has caused the callback.  The value of this string also dictates the remaining arguments as follows:
+///
+///    * "willSpeakWord"     - Sent just before a synthesized word is spoken through the sound output device.
+///      * provides 3 additional arguments: startIndex, endIndex, and the full text being spoken.
+///      * startIndex and endIndex can be used as `string.sub(text, startIndex, endIndex)` to get the specific word being spoken.
+///
+///    * "willSpeakPhoneme"  - Sent just before a synthesized phoneme is spoken through the sound output device.
+///      * provides 1 additional argument: the opcode of the phoneme about to be spoken.
+///      * this callback message will only occur when using Macintalk voices; modern higher quality voices are not phonetically based and will not generate this message.
+///      * the opcode can be tied to a specific phoneme by looking it up in the table returned by `hs.speech:getProperty(hs.speech.properties.phonemeSymbols)`.
+///
+///    * "didEncounterError" - Sent when the speech synthesizer encounters an error in text being synthesized.
+///      * provides 3 additional arguments: the index in the original text where the error occurred, the text being spoken, and an error message.
+///      * *Special Note:* I have never been able to trigger this callback,even with malformed embedded command sequences, so... looking for validation of the code or fixes.  File an issue if you have suggestions.
+///
+///    * "didEncounterSync"  - Sent when the speech synthesizer encounters an embedded synchronization command.
+///      * provides 1 additional argument: a string representation of the synchronization number provided in the text
+///      * *Special Note:* The string representation appears to be a malformed packed version of the synchronization number and may be replaced or removed in a future update.  Use `hs.speech:getProperty(hs.speech.properties.recentSync)` to get the proper value.
+///      * A synchronization number can be embedded in text to be spoken by including `[[sync 0x########]]` in the text where you wish a callback to occur.
+///
+///    * "didFinish"         - Sent when the speech synthesizer finishes speaking through the sound output device.
+///      * provides 1 additional argument: a boolean flag indicating whether or not the synthesizer finished because synthesis is complete (true) or was stopped early with `hs.speech:stop` (false).
+static int setCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    // in either case, we need to remove an existing callback, so...
+    synth.callbackRef = [skin luaUnref:refTable ref:synth.callbackRef];
+    if (lua_type(L, 2) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 2);
+        synth.callbackRef = [skin luaRef:refTable];
+    }
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+/// hs.speech:speak(textToSpeak) -> synthesizerObject
+/// Method
+/// Starts speaking the provided text through the system's current audio device.
+///
+/// Parameters:
+///  * textToSpeak - the text to speak with the synthesizer.
+///
+/// Returns:
+///  * the synthesizer object
+static int startSpeakingString(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    luaL_checkstring(L, 2); // force number to be a string
+    NSString *theText = validateString(L, 2);
+    if (!theText) return my_lua_error(L, @"invalid speech text, evaluates to nil");
+
+    if ([synth startSpeakingString:theText]) {
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+/// hs.speech:speakToFile(textToSpeak, destination) -> synthesizerObject
+/// Method
+/// Starts speaking the provided text and saves the audio as an AIFF file.
+///
+/// Parameters:
+///  * textToSpeak - the text to speak with the synthesizer.
+///  * destination - the path to the file to create and store the audio data in.
+///
+/// Returns:
+///  * the synthesizer object
+static int startSpeakingStringToURL(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    luaL_checkstring(L, 2); // force number to be a string
+    luaL_checkstring(L, 3); // force number to be a string
+    NSString *theText = validateString(L, 2);
+    NSString *theFile = validateString(L, 3);
+    if (!theText) return my_lua_error(L, @"invalid speech text, evaluates to nil");
+    if (!theFile) return my_lua_error(L, @"invalid file name, evaluates to nil");
+
+    if ([synth startSpeakingString:theText
+                             toURL:[NSURL fileURLWithPath:[theFile stringByExpandingTildeInPath]
+                                              isDirectory:NO]]) {
+        lua_pushvalue(L, 1);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+/// hs.speech:pause([where]) -> synthesizerObject
+/// Method
+/// Pauses the output of the speech synthesizer.
+///
+/// Parameters:
+///  * where - an optional string indicating when to pause the audio output (defaults to "immediate").  The string can be one of the following:
+///    * "immediate" - pauses output immediately.  If in the middle of a word, when speech is resumed, the word will be repeated.
+///    * "word"      - pauses at the end of the current word.
+///    * "sentence"  - pauses at the end of the current sentence.
+///
+/// Returns:
+///  * the synthesizer object
+static int pauseSpeakingAtBoundary(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSSpeechBoundary stopWhere = NSSpeechImmediateBoundary;
+    if (lua_gettop(L) == 2) {
+        luaL_checkstring(L, 2); // force number to be a string
+        NSString *where = validateString(L, 2);
+        if ([where isEqualToString:@"immediate"]) {
+            stopWhere = NSSpeechImmediateBoundary;
+        } else if ([where isEqualToString:@"word"]) {
+            stopWhere = NSSpeechWordBoundary;
+        } else if ([where isEqualToString:@"sentence"]) {
+            stopWhere = NSSpeechSentenceBoundary;
+        } else {
+            log_to_console(L, _cWARN, @"invalid boundary; pausing immediately");
+        }
+    }
+    [synth pauseSpeakingAtBoundary:stopWhere];
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+/// hs.speech:stop([where]) -> synthesizerObject
+/// Method
+/// Stops the output of the speech synthesizer.
+///
+/// Parameters:
+///  * where - an optional string indicating when to stop the audio output (defaults to "immediate").  The string can be one of the following:
+///    * "immediate" - stops output immediately.
+///    * "word"      - stops at the end of the current word.
+///    * "sentence"  - stops at the end of the current sentence.
+///
+/// Returns:
+///  * the synthesizer object
+static int stopSpeakingAtBoundary(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSSpeechBoundary stopWhere = NSSpeechImmediateBoundary;
+    if (lua_gettop(L) == 2) {
+        luaL_checkstring(L, 2); // force number to be a string
+        NSString *where = validateString(L, 2);
+        if ([where isEqualToString:@"immediate"]) {
+            stopWhere = NSSpeechImmediateBoundary;
+        } else if ([where isEqualToString:@"word"]) {
+            stopWhere = NSSpeechWordBoundary;
+        } else if ([where isEqualToString:@"sentence"]) {
+            stopWhere = NSSpeechSentenceBoundary;
+        } else {
+            log_to_console(L, _cWARN, @"invalid boundary; stopping immediately");
+        }
+    }
+    [synth stopSpeakingAtBoundary:stopWhere];
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+/// hs.speech:continue() -> synthesizerObject
+/// Method
+/// Resumes a paused speech synthesizer.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the synthesizer object
+static int continueSpeaking(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    [synth continueSpeaking];
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+// Really just stopAt with immediateBoundary set -- even gives same delegate results
+//
+// static int stopSpeaking(lua_State *L) {
+//     HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+//     LuaSkin *skin = [LuaSkin shared];
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+//     [synth stopSpeaking];
+//     lua_pushvalue(L, 1);
+//     return 1;
+// }
+
+/// hs.speech:phonemes(text) -> string
+/// Method
+/// Returns the phonemes which would be spoken if the text were to be synthesized.
+///
+/// Parameters:
+///  * text - the text to tokenize into phonemes.
+///
+/// Returns:
+///  * the text converted into the series of phonemes the synthesizer would use for the provided text if it were to be synthesized.
+///
+/// Notes:
+///  * This method only returns a phonetic representation of the text if a Macintalk voice has been selected.  The more modern higher quality voices do not use a phonetic representation and an empty string will be returned if this method is used.
+///  * You can modify the phonetic representation and feed it into `hs.speech:speak` if you find that the default interpretation is not correct.  You will need to set the input mode to Phonetic by either prefixing the text with "[[inpt PHON]]" or using `hs.speech:setProperty(hs.speech.properties.inputMode, hs.speech.speakingModes.phoneme)`.
+///  * The specific phonetic symbols recognized by a given voice can be queried by examining the table returned by `hs.speech:getProperty(hs.speech.properties.phonemeSymbols)` after setting an appropriate voice.
+static int phonemesFromText(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    luaL_checkstring(L, 2); // force number to be a string
+    NSString *theText = validateString(L, 2);
+    if (!theText) return my_lua_error(L, @"invalid speech text, evaluates to nil");
+    [skin pushNSObject:[synth phonemesFromText:theText]];
+    return 1;
+}
+
+#ifdef _INCLUDE_RAW_PROPERTIES
+
+// What follows will probably not be included in the final module... I may just comment it out for the gutsy to play with
+// I'm strongly leaning towards some wrappers for the few combinations that seem to work reliably, rather than trying to make
+// this safe or make sense.
+
+#pragma mark - Optional Module Constants
+
+// / hs.speech.properties[]
+// / Constant
+// / Property names which can be used to query or modify a speech synthesizer with `hs.speech:getProperty` and `hs.speech:setProperty`.  Only some properties can be set by Hammerspoon.
+// /
+// / Read-Only Property Names:  Usable only with `hs.speech:getProperty`
+// /  * status           - Returns a table that contains speech-status information for the synthesizer.
+// /  * recentSync       - Returns the message code for the most recently encountered synchronization command as a number.
+// /  * phonemeSymbols   - Returns a table that contains the list of phoneme symbols and example words defined for the synthesizer.  This is only defined for MacinTalk voices, not for more modern voices.
+// /
+// / Read-Write Property Names: Usable with both `hs.speech:getProperty` and `hs.speech:setProperty`
+// /  - inputMode        - Get or set whether the synthesizer is currently in text input mode or phoneme input mode.  See `hs.speech.speakingModes`.
+// /  - characterMode    - Get or set whether the synthesizer pronounces character sequences as individual letters (literal or as words (normal).  Defaults to normal.  See `hs.speech.characterModes`.
+// /  - numberMode       - Get or set whether the synthesizer pronounces numbers as individual digits (literal) or as numbers (normal).  Defaults to normal.  See  `hs.speech.characterModes`.
+// /  - rate             - Get or set the synthesizer’s speech rate as a number.  See also `hs.speech:rate`.
+// /  - pitchBase        - Get or set the synthesizer’s baseline speech pitch as a number.
+// /  - pitchMod         - Get or set the synthesizer’s pitch modulation as a number between 0.0 and 127.0.
+// /  - volume           - Get or set the speech volume for a synthesizer as a number between 0.0 and 1.0.
+// /
+// / Write-Only Property Names: Usable only with `hs.speech:setProperty`
+// /    currentVoice     - Set the current voice on the synthesizer to the specified voice.  See also `hs.speech:voice`.
+// /    commandDelimiter - Set the embedded speech command delimiter characters to be used for the synthesizer.
+// /    reset            - Set a synthesizer back to its default state.
+// /    outputToFileURL  - Set the speech output destination to a file or to the computer’s speakers. See also `hs.speech:speak` and `hs.speech:speakToFile`
+// /
+// / Unknown: *Special Note:* These are poorly understood or potentially broken.  Maybe holdovers from an earlier OS.  If you have insight or suggestions, please submit them through the Hammerspoon github site.
+// /  * errors           - Appears to be broken as described at https://openradar.appspot.com/6524554.  From the docs: Returns a table that contains speech-error information.  This property lets you get information about various run-time errors that occur during speaking.  You can use this property within a callback for the "didEncounterError" message to get more information about the error.
+// /  * synthesizerInfo  - Always returns an error when queried.  From the docs:  Returns a table that contains information about the speech synthesizer being used.
+
+static int pushSpeechPropertiesTable(lua_State *L) {
+    lua_newtable(L);
+    lua_pushstring(L, [NSSpeechStatusProperty UTF8String]);           lua_setfield(L, -2, "status");
+    lua_pushstring(L, [NSSpeechErrorsProperty UTF8String]);           lua_setfield(L, -2, "errors");
+    lua_pushstring(L, [NSSpeechInputModeProperty UTF8String]);        lua_setfield(L, -2, "inputMode");
+    lua_pushstring(L, [NSSpeechCharacterModeProperty UTF8String]);    lua_setfield(L, -2, "characterMode");
+    lua_pushstring(L, [NSSpeechNumberModeProperty UTF8String]);       lua_setfield(L, -2, "numberMode");
+    lua_pushstring(L, [NSSpeechRateProperty UTF8String]);             lua_setfield(L, -2, "rate");
+    lua_pushstring(L, [NSSpeechPitchBaseProperty UTF8String]);        lua_setfield(L, -2, "pitchBase");
+    lua_pushstring(L, [NSSpeechPitchModProperty UTF8String]);         lua_setfield(L, -2, "pitchMod");
+    lua_pushstring(L, [NSSpeechVolumeProperty UTF8String]);           lua_setfield(L, -2, "volume");
+    lua_pushstring(L, [NSSpeechSynthesizerInfoProperty UTF8String]);  lua_setfield(L, -2, "synthesizerInfo");
+    lua_pushstring(L, [NSSpeechRecentSyncProperty UTF8String]);       lua_setfield(L, -2, "recentSync");
+    lua_pushstring(L, [NSSpeechPhonemeSymbolsProperty UTF8String]);   lua_setfield(L, -2, "phonemeSymbols");
+    lua_pushstring(L, [NSSpeechCurrentVoiceProperty UTF8String]);     lua_setfield(L, -2, "currentVoice");
+    lua_pushstring(L, [NSSpeechCommandDelimiterProperty UTF8String]); lua_setfield(L, -2, "commandDelimiter");
+    lua_pushstring(L, [NSSpeechResetProperty UTF8String]);            lua_setfield(L, -2, "reset");
+    lua_pushstring(L, [NSSpeechOutputToFileURLProperty UTF8String]);  lua_setfield(L, -2, "outputToFileURL");
+    return 1;
+}
+
+// / hs.speech.speakingModes[]
+// / Constants
+// / Valid values for the `inputMode` property which can be set with `hs.speech:setProperty`.
+// /
+// /  * text    - indicates that the synthesizer should treat the input text as text.
+// /  * phoneme - indicates that the synthesizer should treat the input text as phonemes (this will only work with MacinTalk voices, not the more modern voices)
+static int pushSpeechInputModePropertyTable(lua_State *L) {
+    lua_newtable(L);
+    lua_pushstring(L, [NSSpeechModeText UTF8String]);    lua_setfield(L, -2, "text");
+    lua_pushstring(L, [NSSpeechModePhoneme UTF8String]); lua_setfield(L, -2, "phoneme");
+    return 1;
+}
+
+// / hs.speech.characterModes[]
+// / Constants
+// / Valid values for the `characterMode` and `numberMode` properties which can be set with `hs.speech:setProperty`.
+// /
+// /  * normal  - indicates that the synthesizer should speak character or numeric sequences as words were possible.
+// /  * literal - indicates that the synthesizer should speak characters or numbers as separate letters and digits.
+static int pushSpeechCharacterModePropertyTable(lua_State *L) {
+    lua_newtable(L);
+    lua_pushstring(L, [NSSpeechModeNormal UTF8String]);  lua_setfield(L, -2, "normal");
+    lua_pushstring(L, [NSSpeechModeLiteral UTF8String]); lua_setfield(L, -2, "literal");
+    return 1;
+}
+
+// / hs.speech.commandDelimiters[]
+// / Constants
+// / Key names for the table to pass when using `hs.speech:setProperty` to change the command delimiters.
+// /
+// /  * prefix - the sequence of characters which begins an embedded command sequence.
+// /  * suffix - the sequence of characters which ends an embedded command sequence.
+static int pushSpeechCommandDelimiterPropertyTable(lua_State *L) {
+    lua_newtable(L);
+    lua_pushstring(L, [NSSpeechCommandPrefix UTF8String]); lua_setfield(L, -2, "prefix");
+    lua_pushstring(L, [NSSpeechCommandSuffix UTF8String]); lua_setfield(L, -2, "suffix");
+    return 1;
+}
+
+#pragma mark - Optional Module Methods
+
+// TODO: Probably not fix/safetify these, but instead add wrappers to the few combinations
+//       that actually do something useful
+//
+//    addSpeechDictionary:
+//  * getObjectForProperty:  -- just returns nil for errors or bogus property names
+//  * setObject:forProperty: -- but with practically no validation of the new value to set at present,
+//                              so supplying a number when a string is expected can cause a crash of either
+//                              Hammerspoon or the speech synthesizer process
+
+// / hs.speech:getProperty(propertyName) -> value
+// / Method
+// / Returns the current value of the property specified for the speech synthesizer.
+// /
+// / Parameters:
+// /  * propertyName - the name of the property to retrieve the value of.  See `hs.speech.properties` for a description of valid properties.
+// /
+// / Returns:
+// /  * the value of the property specified.  The type of value returned depends upon the property requested.  See `hs.speech.properties` for a description of properties and their expected return types.
+// /
+// / Notes:
+// /  * this method will return nil for invalid or non-readable properties.
+static int objectForProperty(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    luaL_checkstring(L, 2); // force number to be a string
+    NSString *propertyName = validateString(L, 2);
+    NSError  *theError = nil;
+
+    pushSpeechPropertiesTable(L);
+    if (lua_getfield(L, -1, lua_tostring(L, 2)) == LUA_TSTRING) {
+        propertyName = [skin toNSObjectAtIndex:-1];
+    }
+
+    lua_pop(L, 2);
+
+    if (!propertyName) return my_lua_error(L, @"invalid property name");
+
+    [skin pushNSObject:[synth objectForProperty:propertyName error:&theError]];
+    if (theError) {
+        log_to_console(L, _cINFO, [NSString stringWithFormat:@"\"%@\" -> %@",
+                                                             propertyName,
+                                                             [theError localizedDescription]]);
+//         lua_pop(L, 1);
+//         lua_pushnil(L);
+    }
+    return 1;
+}
+
+// / hs.speech:setProperty(propertyName, value) -> synthesizerObject | false | nil
+// / Method
+// / Sets the specified value for the specified property of the speech synthesizer.
+// /
+// / Parameters:
+// /  * propertyName - the name of the property to set the value for.  See `hs.speech.properties` for a description of valid properties.
+// /  * value        - the value to assign to the specified property.
+// /
+// / Returns:
+// /  * if the property could be set to the value, the synthesizer object is returned.  If the value could not be set, but no specific error was reported, then false is returned.  If an error occurred, then nil is returned and the error is logged to the Hammerspoon console.
+// /
+// / Notes:
+// /  * In its current state, this method does absolutely no type checking of the value to set the property to.  If you provide an incorrect type to the property (e.g. it expects a string and you provide a number), it is likely that either Hammerspoon or the speech synthesizer process will crash.  I am currently including this to determine what combinations are actually useful because NSSpeechSynthesizer appears to be a whacked out munging of two or more different technologies that Apple seems to have only partially merged together... see the Disclaimer in init.lua.  It is almost certain that this section will be removed or commented out and wrappers provided for what is known to work.
+static int setObjectForProperty(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TANY, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    luaL_checkstring(L, 2); // force number to be a string
+    NSString *propertyName = validateString(L, 2);
+    NSError  *theError = nil;
+
+    pushSpeechPropertiesTable(L);
+    if (lua_getfield(L, -1, lua_tostring(L, 2)) == LUA_TSTRING) {
+        propertyName = [skin toNSObjectAtIndex:-1];
+    }
+
+    lua_pop(L, 2);
+
+    if (!propertyName) return my_lua_error(L, @"invalid property name");
+
+// This is where validating the value type against the property specified should go
+
+    // NSData isn't NSString, and trying string methods on it will crash
+    id value = [skin toNSObjectAtIndex:3];
+    if ([value isKindOfClass:[NSData class]]) {
+        log_to_console(L, _cWARN, @"string value not valid UTF8, using nil");
+        value = nil;
+    }
+
+    // opaf is the only one we can't "fake" with strictly lua types...
+    if ([propertyName isEqualToString:@"opaf"])
+        value = [NSURL fileURLWithPath:[value stringByExpandingTildeInPath] isDirectory:NO] ;
+
+    BOOL result = [synth setObject:value forProperty:propertyName error:&theError];
+    if (theError) {
+        log_to_console(L, _cWARN, [NSString stringWithFormat:@"\"%@\" -> %@",
+                                                             propertyName,
+                                                             [theError localizedDescription]]);
+        lua_pushnil(L);
+    } else {
+        if (result) {
+            lua_pushvalue(L, 1);
+        } else {
+            lua_pushboolean(L, NO);
+        }
+    }
+    return 1;
+}
+
+#endif
+
+#pragma mark - Lua<->NSObject Conversion Functions
+
+static int pushHSSpeechSynthesizer(lua_State *L, id obj) {
+    HSSpeechSynthesizer *synth = obj;
+    synth.UDreferenceCount++;
+    void** synthPtr = lua_newuserdata(L, sizeof(HSSpeechSynthesizer *));
+    *synthPtr = (__bridge_retained void *)synth;
+    luaL_getmetatable(L, USERDATA_TAG);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+#pragma mark - Hammerspoon Infrastructure
+
+static int userdata_tostring(lua_State* L) {
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    LuaSkin *skin = [LuaSkin shared];
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, [synth voice], synth]];
+    return 1;
+}
+
+static int userdata_eq(lua_State* L) {
+    if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
+        HSSpeechSynthesizer *synth1 = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+        HSSpeechSynthesizer *synth2 = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 2);
+        lua_pushboolean(L, [synth1 isEqualTo:synth2]);
+    } else {
+        lua_pushboolean(L, NO);
+    }
+    return 1;
+}
+
+static int userdata_gc(lua_State* L) {
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge_transfer HSSpeechSynthesizer, L, 1);
+    LuaSkin *skin = [LuaSkin shared];
+    synth.UDreferenceCount--;
+
+    if (synth.UDreferenceCount == 0) {
+        synth.callbackRef = [skin luaUnref:refTable ref:synth.callbackRef];
+        // If I'm reading the docs correctly, delegate isn't a weak assignment, so we'd better
+        // clear it to make sure we don't create a self-retaining object...
+        synth.delegate = nil;
+    }
+
+// Remove the Metatable so future use of the variable in Lua won't think its valid
+    lua_pushnil(L);
+    lua_setmetatable(L, 1);
+
+    return 0;
+}
+
+// static int meta_gc(lua_State* __unused L) {
+//     return 0;
+// }
+
+// Metatable for userdata objects
+static const luaL_Reg userdata_metaLib[] = {
+    {"usesFeedbackWindow", usesFeedbackWindow},
+    {"voice", voice},
+    {"rate", rate},
+    {"volume", volume},
+    {"speaking", speaking},
+    {"setCallback", setCallback},
+    {"speak", startSpeakingString},
+    {"speakToFile", startSpeakingStringToURL},
+    {"pause", pauseSpeakingAtBoundary},
+    {"continue", continueSpeaking},
+    {"stop", stopSpeakingAtBoundary},
+    {"phonemes", phonemesFromText},
+
+#ifdef _INCLUDE_RAW_PROPERTIES
+    {"getProperty", objectForProperty},
+    {"setProperty", setObjectForProperty},
+#endif
+
+    {"__tostring", userdata_tostring},
+    {"__eq", userdata_eq},
+    {"__gc", userdata_gc},
+    {NULL, NULL}
+};
+
+// Functions for returned object when module loads
+static luaL_Reg moduleLib[] = {
+    {"availableVoices", availableVoices},
+    {"attributesForVoice", attributesForVoice},
+    {"defaultVoice", defaultVoice},
+    {"isAnyApplicationSpeaking", isAnyApplicationSpeaking},
+    {"new", newSpeechSynthesizer},
+
+    {"_registerLogForC", lua_registerLogForC},
+    {NULL, NULL}
+};
+
+// // Metatable for module, if needed
+// static const luaL_Reg module_metaLib[] = {
+//     {"__gc", meta_gc},
+//     {NULL,   NULL}
+// };
+
+int luaopen_hs_speech_internal(lua_State* __unused L) {
+    LuaSkin *skin = [LuaSkin shared];
+    refTable = [skin registerLibraryWithObject:USERDATA_TAG
+                                     functions:moduleLib
+                                 metaFunctions:nil    // or module_metaLib
+                               objectFunctions:userdata_metaLib];
+
+    logFnRef = LUA_NOREF;
+
+#ifdef _INCLUDE_RAW_PROPERTIES
+    pushSpeechPropertiesTable(L); lua_setfield(L, -2, "properties");
+    pushSpeechInputModePropertyTable(L); lua_setfield(L, -2, "speakingModes");
+    pushSpeechCharacterModePropertyTable(L); lua_setfield(L, -2, "characterModes");
+    pushSpeechCommandDelimiterPropertyTable(L); lua_setfield(L, -2, "commandDelimiters");
+#endif
+
+    [skin registerPushNSHelper:pushHSSpeechSynthesizer forClass:"HSSpeechSynthesizer"];
+
+    return 1;
+}

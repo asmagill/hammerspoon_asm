@@ -1,0 +1,60 @@
+Notes about the property methods - what works, what doesn't.  Hopefully this will lead to wrapped functions/methods in the
+final module that are safe enough for usage in core.
+
+/// Read-Write Property Names: Usable with both `hs.speech:getProperty` and `hs.speech:setProperty`
+///  - inputMode        - Get or set whether the synthesizer is currently in text input mode or phoneme input mode.  See `hs.speech.speakingModes`.
+///  - characterMode    - Get or set whether the synthesizer pronounces character and number sequences as individual letters (literal or as words (normal).  Defaults to normal.  See `hs.speech.characterModes`.
+///  - numberMode       - Get or set whether the synthesizer pronounces numbers as individual digits (literal) or as numbers (normal).  Defaults to normal.  See  `hs.speech.characterModes`.
+///  - rate             - Get or set the synthesizer’s speech rate as a number.  See also `hs.speech:rate`.
+///  - pitchBase        - Get or set the synthesizer’s baseline speech pitch as a number.
+///  - pitchMod         - Get or set the synthesizer’s pitch modulation as a number between 0.0 and 127.0. (actually seems to have an effect on Macintalk voices up to 255.0; higher doesn't seem to do anything else)
+///  - volume           - Get or set the speech volume for a synthesizer as a number between 0.0 and 1.0.
+///
+/// Write-Only Property Names: Usable only with `hs.speech:setProperty`
+///    currentVoice     - Set the current voice on the synthesizer to the specified voice.  See also `hs.speech:voice`.
+///    commandDelimiter - Set the embedded speech command delimiter characters to be used for the synthesizer.
+///    reset            - Set a synthesizer back to its default state.
+///    outputToFileURL  - Set the speech output destination to a file or to the computer’s speakers. See also `hs.speech:speak` and `hs.speech:speakToFile`
+///
+/// Unknown: *Special Note:* These are poorly understood or potentially broken.  Maybe holdovers from an earlier OS.  If you have insight or suggestions, please submit them through the Hammerspoon github site.
+///  * errors           - Appears to be broken as described at https://openradar.appspot.com/6524554.  From the docs: Returns a table that contains speech-error information.  This property lets you get information about various run-time errors that occur during speaking.  You can use this property within a callback for the "didEncounterError" message to get more information about the error.
+///  * synthesizerInfo  - Always returns an error when queried.  From the docs:  Returns a table that contains information about the speech synthesizer being used.
+
+
+status - read
+{
+  NumberOfCharactersLeft = 0, -- MacinTalk: number of characters remaining to be spoken, isn't reset to 0 after final word.
+  OutputBusy = 0,             -- synthesizer is currently outputting something
+  OutputPaused = 1,           -- synthesizer is currently paused
+  PhonemeCode = 0             -- Macintalk: phoneme code being spoken
+}
+
+recentSync - read
+  most recently seen sync number
+
+phonemeSymbols - read
+  Macintalk - table of phoneme definitions, otherwise nil
+
+characterMode, numberMode - read/write
+  Macintalk, works as expected
+  Modern, get always shows NORM, but set either and everything (letters and numbers) are spoken individually
+
+inputMode - read/write
+  Macintalk, works as expected
+  Modern, can read, but can't set to PHON
+
+rate, pitchBase, pitchMod, volume - read/write
+  More or less work as expected, but I can't tell the difference with pitchMod in modern voices
+
+currentVoice - write
+  error if current voice is a modern one
+  can change to a macintalk voice if currently a macintalkvoice, but doesn't change results of :voice() method
+
+commandDelimiter - write
+  works as expected
+
+reset - write
+  works as expected, use nil as value - note, does not reset commandDelimiters, though
+
+outputToFileURL - write
+  works? creates file, but it was empty... I'm not sure when it needs to be created... during actual speech?
