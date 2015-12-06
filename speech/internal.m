@@ -575,7 +575,7 @@ static int speaking(lua_State *L) {
 ///    * "willSpeakPhoneme"  - Sent just before a synthesized phoneme is spoken through the sound output device.
 ///      * provides 1 additional argument: the opcode of the phoneme about to be spoken.
 ///      * this callback message will only occur when using Macintalk voices; modern higher quality voices are not phonetically based and will not generate this message.
-///      * the opcode can be tied to a specific phoneme by looking it up in the table returned by `hs.speech:getProperty(hs.speech.properties.phonemeSymbols)`.
+///      * the opcode can be tied to a specific phoneme by looking it up in the table returned by `hs.speech:phoneticSymbols`.
 ///
 ///    * "didEncounterError" - Sent when the speech synthesizer encounters an error in text being synthesized.
 ///      * provides 3 additional arguments: the index in the original text where the error occurred, the text being spoken, and an error message.
@@ -583,7 +583,7 @@ static int speaking(lua_State *L) {
 ///
 ///    * "didEncounterSync"  - Sent when the speech synthesizer encounters an embedded synchronization command.
 ///      * provides 1 additional argument: a string representation of the synchronization number provided in the text
-///      * *Special Note:* The string representation appears to be a malformed packed version of the synchronization number and may be replaced or removed in a future update.  Use `hs.speech:getProperty(hs.speech.properties.recentSync)` to get the proper value.
+///      * *Special Note:* The string representation appears to be a malformed packed version of the synchronization number and may be replaced or removed in a future update.  Use `hs.speech:latestSync` to get the proper value.
 ///      * A synchronization number can be embedded in text to be spoken by including `[[sync 0x########]]` in the text where you wish a callback to occur.
 ///
 ///    * "didFinish"         - Sent when the speech synthesizer finishes speaking through the sound output device.
@@ -775,8 +775,8 @@ static int continueSpeaking(lua_State *L) {
 ///
 /// Notes:
 ///  * This method only returns a phonetic representation of the text if a Macintalk voice has been selected.  The more modern higher quality voices do not use a phonetic representation and an empty string will be returned if this method is used.
-///  * You can modify the phonetic representation and feed it into `hs.speech:speak` if you find that the default interpretation is not correct.  You will need to set the input mode to Phonetic by either prefixing the text with "[[inpt PHON]]" or using `hs.speech:setProperty(hs.speech.properties.inputMode, hs.speech.speakingModes.phoneme)`.
-///  * The specific phonetic symbols recognized by a given voice can be queried by examining the table returned by `hs.speech:getProperty(hs.speech.properties.phonemeSymbols)` after setting an appropriate voice.
+///  * You can modify the phonetic representation and feed it into `hs.speech:speak` if you find that the default interpretation is not correct.  You will need to set the input mode to Phonetic by prefixing the text with "[[inpt PHON]]".
+///  * The specific phonetic symbols recognized by a given voice can be queried by examining the array returned by `hs.speech:phoneticSymbols` after setting an appropriate voice.
 static int phonemesFromText(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
@@ -789,11 +789,254 @@ static int phonemesFromText(lua_State *L) {
     return 1;
 }
 
-#ifdef _INCLUDE_RAW_PROPERTIES
+/// hs.speech:isSpeaking() -> boolean | nil
+/// Method
+/// Returns whether or not the synthesizer is currently speaking, either to an audio device or to a file.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * True or false indicating whether or not the synthesizer is currently producing speech.  If there is an error, returns nil.
+///
+/// Notes:
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int isSpeaking(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
 
-// What follows will probably not be included in the final module... I may just comment it out for the gutsy to play with
-// I'm strongly leaning towards some wrappers for the few combinations that seem to work reliably, rather than trying to make
-// this safe or make sense.
+    NSError *theError = nil ;
+    NSDictionary *status = [synth objectForProperty:NSSpeechStatusProperty error:&theError] ;
+    if (theError) {
+        log_to_console(L, _cINFO, [NSString stringWithFormat:@"Unable to query synthesizer status -> %@",
+                                                             [theError localizedDescription]]);
+        lua_pushnil(L) ;
+    } else {
+        NSNumber *result = [status objectForKey:NSSpeechStatusOutputBusy] ;
+        if (result) {
+            lua_pushboolean(L, [result boolValue]) ;
+        } else {
+            log_to_console(L, _cINFO, [NSString stringWithFormat:@"Key \"%@\" missing from synthesizer status",
+                                                                 NSSpeechStatusOutputBusy]);
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
+
+/// hs.speech:isPaused() -> boolean | nil
+/// Method
+/// Returns whether or not the synthesizer is currently paused.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * True or false indicating whether or not the synthesizer is currently paused.  If there is an error, returns nil.
+///
+/// Notes:
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int isPaused(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSError *theError = nil ;
+    NSDictionary *status = [synth objectForProperty:NSSpeechStatusProperty error:&theError] ;
+    if (theError) {
+        log_to_console(L, _cINFO, [NSString stringWithFormat:@"Unable to query synthesizer status -> %@",
+                                                             [theError localizedDescription]]);
+        lua_pushnil(L) ;
+    } else {
+        NSNumber *result = [status objectForKey:NSSpeechStatusOutputPaused] ;
+        if (result) {
+            lua_pushboolean(L, [result boolValue]) ;
+        } else {
+            log_to_console(L, _cINFO, [NSString stringWithFormat:@"Key \"%@\" missing from synthesizer status",
+                                                                 NSSpeechStatusOutputPaused]);
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
+
+/// hs.speech:phoneticSymbols() -> array | nil
+/// Method
+/// Returns an array of the phonetic symbols recognized by the synthesizer for the current voice.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * For MacinTalk voices, this method will return an array of the recognized symbols for the currently selected voice.  For the modern higher quality voices, or if an error occurs, returns nil.
+///
+/// Notes:
+///  * Each entry in the array of phonemes returned will contain the following keys:
+///    * Symbol      - The textual representation of this phoneme when returned by `hs.speech:phonemes` or that you should use for this sound when crafting a phonetic string yourself.
+///    * Opcode      - The numeric opcode passed to the callback for the "willSpeakPhoneme" message corresponding to this phoneme.
+///    * Example     - An example word which contains the sound the phoneme represents
+///    * HiliteEnd   - The character position in the Example where this phoneme's sound begins
+///    * HiliteStart - The character position in the Example where this phoneme's sound ends
+///
+///  * Only the older, MacinTalk style voices support phonetic text.  The more modern, higher quality voices are not rendered phonetically and will return nil for this method.
+///
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int phoneticSymbols(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSError *theError = nil ;
+    NSArray *phoneticList = [synth objectForProperty:NSSpeechPhonemeSymbolsProperty error:&theError] ;
+    if (theError) {
+        log_to_console(L, _cINFO, [NSString stringWithFormat:@"Unable to query synthesizer for phonetic symbols -> %@",
+                                                             [theError localizedDescription]]);
+        lua_pushnil(L) ;
+    } else {
+        [skin pushNSObject:phoneticList] ;
+    }
+    return 1 ;
+}
+
+/// hs.speech:pitch([pitch]) -> synthsizerObject | pitch | nil
+/// Method
+/// Gets or sets the base pitch for the synthesizer's voice.
+///
+/// Paramters:
+///  * pitch - an optional number indicating the pitch base for the synthesizer.
+///
+/// Returns:
+///  * If no parameter is provided, returns the current value; otherwise returns the synthesizer object.  Returns nil if an error occurs.
+///
+/// Notes:
+///  * Typical voice frequencies range from around 90 hertz for a low-pitched male voice to perhaps 300 hertz for a high-pitched child’s voice. These frequencies correspond to approximate pitch values in the ranges of 30.000 to 40.000 and 55.000 to 65.000, respectively.
+///
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int pitchBase(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSError *theError = nil ;
+    if (lua_gettop(L) == 2) {
+        BOOL result = [synth setObject:[NSNumber numberWithDouble:lua_tonumber(L, 2)]
+                           forProperty:NSSpeechPitchBaseProperty error:&theError];
+        if (theError) {
+            log_to_console(L, _cWARN, [NSString stringWithFormat:@"Error setting pitchBase -> %@",
+                                                                 [theError localizedDescription]]);
+            lua_pushnil(L);
+        } else {
+            if (result) {
+                lua_pushvalue(L, 1);
+            } else {
+                lua_pushnil(L);
+            }
+        }
+    } else {
+        [skin pushNSObject:[synth objectForProperty:NSSpeechPitchBaseProperty error:&theError]];
+        if (theError) {
+            log_to_console(L, _cINFO, [NSString stringWithFormat:@"Error getting pitchBase -> %@",
+                                                                 [theError localizedDescription]]);
+        }
+    }
+    return 1;
+}
+
+/// hs.speech:modulation([modulation]) -> synthsizerObject | modulation | nil
+/// Method
+/// Gets or sets the pitch modulation for the synthesizer's voice.
+///
+/// Paramters:
+///  * modulation - an optional number indicating the pitch modulation for the synthesizer.
+///
+/// Returns:
+///  * If no parameter is provided, returns the current value; otherwise returns the synthesizer object.  Returns nil if an error occurs.
+///
+/// Notes:
+///  * Pitch modulation is expressed as a floating-point value in the range of 0.000 to 127.000. These values correspond to MIDI note values, where 60.000 is equal to middle C on a piano scale. The most useful speech pitches fall in the range of 40.000 to 55.000. A pitch modulation value of 0.000 corresponds to a monotone in which all speech is generated at the frequency corresponding to the speech pitch. Given a speech pitch value of 46.000, a pitch modulation of 2.000 would mean that the widest possible range of pitches corresponding to the actual frequency of generated text would be 44.000 to 48.000.
+///
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int pitchMod(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSError *theError = nil ;
+    if (lua_gettop(L) == 2) {
+        BOOL result = [synth setObject:[NSNumber numberWithDouble:lua_tonumber(L, 2)]
+                           forProperty:NSSpeechPitchModProperty error:&theError];
+        if (theError) {
+            log_to_console(L, _cWARN, [NSString stringWithFormat:@"Error setting pitchMod -> %@",
+                                                                 [theError localizedDescription]]);
+            lua_pushnil(L);
+        } else {
+            if (result) {
+                lua_pushvalue(L, 1);
+            } else {
+                lua_pushnil(L);
+            }
+        }
+    } else {
+        [skin pushNSObject:[synth objectForProperty:NSSpeechPitchModProperty error:&theError]];
+        if (theError) {
+            log_to_console(L, _cINFO, [NSString stringWithFormat:@"Error getting pitchMod -> %@",
+                                                                 [theError localizedDescription]]);
+        }
+    }
+    return 1;
+}
+
+/// hs.speech:reset() -> synthsizerObject | nil
+/// Method
+/// Reset a synthesizer back to its default state.
+///
+/// Paramters:
+///  * None
+///
+/// Returns:
+///  * Returns the synthesizer object.  Returns nil if an error occurs.
+///
+/// Notes:
+///  * This method will reset a synthesizer to its default state, including pitch, modulation, volume, rate, etc.
+///
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+static int reset(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
+    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+
+    NSError *theError = nil ;
+    BOOL result = [synth setObject:nil forProperty:NSSpeechResetProperty error:&theError];
+    if (theError) {
+        log_to_console(L, _cWARN, [NSString stringWithFormat:@"Error resetting synthesizer -> %@",
+                                                             [theError localizedDescription]]);
+        lua_pushnil(L);
+    } else {
+        if (result) {
+            lua_pushvalue(L, 1);
+        } else {
+            lua_pushnil(L);
+        }
+    }
+    return 1;
+}
+
+// ===========================================================================================================
+//
+//     The following is code that I used for experimentation and determining what helper
+//      functions beyond the obvious ones included in NSSpeechSynthesizer to add.
+//
+// It is not necessary for the proper functioning of this module, but I hesitate to delete it,
+// at least for one round of GitHub revisions, so that it is available to the curious or to
+// anyone who might know more and/or want to tackle what I leave out.
+//
+// What follows is not necessary for use of this module, until you see the closing of the following
+// #ifdef.
+//
+// ===========================================================================================================
+
+#ifdef _INCLUDE_RAW_PROPERTIES
 
 #pragma mark - Optional Module Constants
 
@@ -999,6 +1242,12 @@ static int setObjectForProperty(lua_State *L) {
 
 #endif
 
+// ===========================================================================================================
+//
+// Resume necessary code for module
+//
+// ===========================================================================================================
+
 #pragma mark - Lua<->NSObject Conversion Functions
 
 static int pushHSSpeechSynthesizer(lua_State *L, id obj) {
@@ -1068,6 +1317,12 @@ static const luaL_Reg userdata_metaLib[] = {
     {"continue", continueSpeaking},
     {"stop", stopSpeakingAtBoundary},
     {"phonemes", phonemesFromText},
+    {"isSpeaking", isSpeaking},
+    {"isPaused", isPaused},
+    {"phoneticSymbols", phoneticSymbols},
+    {"pitch", pitchBase},
+    {"modulation", pitchMod},
+    {"reset", reset},
 
 #ifdef _INCLUDE_RAW_PROPERTIES
     {"getProperty", objectForProperty},

@@ -58,3 +58,42 @@ reset - write
 
 outputToFileURL - write
   works? creates file, but it was empty... I'm not sure when it needs to be created... during actual speech?
+
+
+add wrappers and hide direct property access... leave commented out for the curious or future fixes:
+
+*     isSpeaking
+        check OutputBusy of status property
+        check value when multiple synthesizers created
+
+*     add isPaused
+        check OutputPaused of status property
+
+*     add phonemeSymbolDictionary
+        check phonemeSymbols property
+
+?     characterMode (numberMode?) toggle, but set field for query
+          can be done via embedded commands
+
+?     inputMode
+          can be done via embedded commands
+
+*     pitchBase and pitchMod
+
+*     reset
+
+      commandDelimeter - set field for query
+
+      Figure out what to do re sync in callback
+
+      Phoneme in callback
+
+      fix documentation that refers to property methods
+
+      look at addSpeechDictionary... worth it?
+
+      document basic embedded commands
+      test toggles against embedded commands
+      do embedded commands persist across multiple calls to the same synthesizer?
+      better url for description?
+      add URLs for Carbon and Cocoa API for the curious
