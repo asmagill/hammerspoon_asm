@@ -231,15 +231,23 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
     }
 }
 
-- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didEncounterSyncMessage:(NSString *)errorMessage {
+- (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didEncounterSyncMessage:(__unused NSString *)errorMessage {
     if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
-
+        NSError      *getError = nil ;
         [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
         [skin pushNSObject:(HSSpeechSynthesizer *)sender];
         lua_pushstring(_L, "didEncounterSync");
-        [skin pushNSObject:errorMessage];
+// "errorMessage" as a string seems to be broken or at least odd since at least as far back as 10.5:
+//      see https://openradar.appspot.com/6524554
+// We'll use "recentSync" property instead, though it does introduce the possibility of an error being generated.
+//         [skin pushNSObject:errorMessage];
+        [skin pushNSObject:[sender objectForProperty:NSSpeechRecentSyncProperty error:&getError]] ;
+        if (getError) {
+             log_to_console(_L, _cWARN, [NSString stringWithFormat:@"Error getting sync # for callback -> %@",
+                                                                  [getError localizedDescription]]);
+       }
         if (![skin protectedCallAndTraceback:3 nresults:0]) {
             NSString *theError = [skin toNSObjectAtIndex:-1];
             lua_pop(_L, 1);
@@ -579,12 +587,11 @@ static int speaking(lua_State *L) {
 ///
 ///    * "didEncounterError" - Sent when the speech synthesizer encounters an error in text being synthesized.
 ///      * provides 3 additional arguments: the index in the original text where the error occurred, the text being spoken, and an error message.
-///      * *Special Note:* I have never been able to trigger this callback,even with malformed embedded command sequences, so... looking for validation of the code or fixes.  File an issue if you have suggestions.
+///      * *Special Note:* I have never been able to trigger this callback message, even with malformed embedded command sequences, so... looking for validation of the code or fixes.  File an issue if you have suggestions.
 ///
 ///    * "didEncounterSync"  - Sent when the speech synthesizer encounters an embedded synchronization command.
-///      * provides 1 additional argument: a string representation of the synchronization number provided in the text
-///      * *Special Note:* The string representation appears to be a malformed packed version of the synchronization number and may be replaced or removed in a future update.  Use `hs.speech:latestSync` to get the proper value.
-///      * A synchronization number can be embedded in text to be spoken by including `[[sync 0x########]]` in the text where you wish a callback to occur.
+///      * provides 1 additional argument: the synchronization number provided in the text.
+///      * A synchronization number can be embedded in text to be spoken by including `[[sync #]]` in the text where you wish the callback to occur.  The number is limited to 32 bits and can be presented as a base 10 or base 16 number (prefix with 0x).
 ///
 ///    * "didFinish"         - Sent when the speech synthesizer finishes speaking through the sound output device.
 ///      * provides 1 additional argument: a boolean flag indicating whether or not the synthesizer finished because synthesis is complete (true) or was stopped early with `hs.speech:stop` (false).
@@ -999,6 +1006,7 @@ static int pitchMod(lua_State *L) {
 ///
 /// Notes:
 ///  * This method will reset a synthesizer to its default state, including pitch, modulation, volume, rate, etc.
+///  * The changes go into effect immediately, if queried, but will not affect a synthesis in progress.
 ///
 ///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
 static int reset(lua_State *L) {
