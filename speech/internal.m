@@ -4,9 +4,9 @@
 #import "../hammerspoon.h"
 
 // WIP methods which should not be included in production but are useful in deciding what wrappers to write.
-// #define _INCLUDE_RAW_PROPERTIES
+#define _INCLUDE_RAW_PROPERTIES
 
-#define USERDATA_TAG        "hs.speech"
+#define USERDATA_TAG        "hs._asm.speech"
 static int refTable = LUA_NOREF;
 static int logFnRef = LUA_NOREF;
 
@@ -130,9 +130,9 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
         return theVoice;
 }
 
-#pragma mark - HSSpeechSynthesizer Definition
+#pragma mark - HS_asmSpeechSynthesizer Definition
 
-@interface HSSpeechSynthesizer : NSSpeechSynthesizer <NSSpeechSynthesizerDelegate>
+@interface HS_asmSpeechSynthesizer : NSSpeechSynthesizer <NSSpeechSynthesizerDelegate>
 @property int callbackRef;
 // We're trying something new... if we register a ref for the userdata object so that we can easily include the
 // exact same userdata object as a parameter to callback functions, we create a new reference to the userdata -
@@ -147,7 +147,7 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
 @property int UDreferenceCount;
 @end
 
-@implementation HSSpeechSynthesizer
+@implementation HS_asmSpeechSynthesizer
 - (id)initWithVoice:(NSString *)theVoice {
     self = [super initWithVoice:theVoice];
     if (self) {
@@ -158,17 +158,17 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
     return self;
 }
 
-#pragma mark - HSSpeechSynthesizer Delegate Methods
+#pragma mark - HS_asmSpeechSynthesizer Delegate Methods
 
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender willSpeakWord:(NSRange)wordToSpeak
                                                              ofString:(NSString *)text {
-    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
         NSDictionary *charMap = luaByteToObjCharMap(text);
 
-        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
-        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HS_asmSpeechSynthesizer *)sender];
         lua_pushstring(_L, "willSpeakWord");
 
         NSArray *luaStart = [[charMap allKeysForObject:[NSNumber numberWithUnsignedInteger:wordToSpeak.location]]
@@ -188,12 +188,12 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
 }
 
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender willSpeakPhoneme:(short)phonemeOpcode {
-    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
 
-        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
-        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HS_asmSpeechSynthesizer *)sender];
         lua_pushstring(_L, "willSpeakPhoneme");
         lua_pushinteger(_L, phonemeOpcode);
         if (![skin protectedCallAndTraceback:3 nresults:0]) {
@@ -208,13 +208,13 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
                                                                         ofString:(NSString *)text
                                                                          message:(NSString *)errorMessage {
     NSLog(@"In error delegate");
-    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
         NSDictionary *charMap = luaByteToObjCharMap(text);
 
-        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
-        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HS_asmSpeechSynthesizer *)sender];
         lua_pushstring(_L, "didEncounterError");
 
         NSArray *index = [[charMap allKeysForObject:[NSNumber numberWithUnsignedInteger:characterIndex]]
@@ -232,12 +232,12 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
 }
 
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didEncounterSyncMessage:(__unused NSString *)errorMessage {
-    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
         NSError      *getError = nil ;
-        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
-        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HS_asmSpeechSynthesizer *)sender];
         lua_pushstring(_L, "didEncounterSync");
 // "errorMessage" as a string seems to be broken or at least odd since at least as far back as 10.5:
 //      see https://openradar.appspot.com/6524554
@@ -257,12 +257,12 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
 }
 
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender didFinishSpeaking:(BOOL)success {
-    if (((HSSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechSynthesizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared];
         lua_State    *_L      = [skin L];
 
-        [skin pushLuaRef:refTable ref:((HSSpeechSynthesizer *)sender).callbackRef];
-        [skin pushNSObject:(HSSpeechSynthesizer *)sender];
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechSynthesizer *)sender).callbackRef];
+        [skin pushNSObject:(HS_asmSpeechSynthesizer *)sender];
         lua_pushstring(_L, "didFinish");
         lua_pushboolean(_L, success);
         if (![skin protectedCallAndTraceback:3 nresults:0]) {
@@ -284,7 +284,7 @@ static NSString *getVoiceShortCut(NSString *theVoice) {
 //     return 1;
 // }
 
-/// hs.speech.availableVoices([full]) -> array
+/// hs._asm.speech.availableVoices([full]) -> array
 /// Function
 /// Returns a list of the currently installed voices for speech synthesis.
 ///
@@ -314,7 +314,7 @@ static int availableVoices(lua_State *L) {
     return 1;
 }
 
-/// hs.speech.attributesForVoice(voice) -> table
+/// hs._asm.speech.attributesForVoice(voice) -> table
 /// Function
 /// Returns a table containing a variety of properties describing and defining the specified voice.
 ///
@@ -335,7 +335,7 @@ static int attributesForVoice(__unused lua_State *L) {
     return 1;
 }
 
-/// hs.speech.defaultVoice([full]) -> string
+/// hs._asm.speech.defaultVoice([full]) -> string
 /// Function
 /// Returns the name of the currently selected default voice for the user.  This voice is the voice selected in the System Preferences for Dictation & Speech as the System Voice.
 ///
@@ -360,7 +360,7 @@ static int defaultVoice(__unused lua_State *L) {
     return 1;
 }
 
-/// hs.speech.isAnyApplicationSpeaking() -> boolean
+/// hs._asm.speech.isAnyApplicationSpeaking() -> boolean
 /// Function
 /// Returns whether or not the system is currently using a speech synthesizer in any application to generate speech.
 ///
@@ -371,7 +371,7 @@ static int defaultVoice(__unused lua_State *L) {
 ///  * a boolean value indicating whether or not any application is currently generating speech with a synthesizer.
 ///
 /// Notes:
-///  * See also `hs.speech:speaking`.
+///  * See also `hs._asm.speech:speaking`.
 static int isAnyApplicationSpeaking(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TBREAK];
@@ -380,7 +380,7 @@ static int isAnyApplicationSpeaking(lua_State *L) {
     return 1;
 }
 
-/// hs.speech.new([voice]) -> synthesizerObject
+/// hs._asm.speech.new([voice]) -> synthesizerObject
 /// Constructor
 /// Creates a new speech synthesizer object for use by Hammerspoon.
 ///
@@ -392,7 +392,7 @@ static int isAnyApplicationSpeaking(lua_State *L) {
 ///
 /// Notes:
 ///  * All of the names that have been encountered thus far follow this pattern for their full name:  `com.apple.speech.synthesis.voice.*name*`.  You can provide this suffix or not as you prefer when specifying a voice name.
-///  * You can change the voice later with the `hs.speech:voice` method.
+///  * You can change the voice later with the `hs._asm.speech:voice` method.
 static int newSpeechSynthesizer(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
@@ -404,7 +404,7 @@ static int newSpeechSynthesizer(lua_State *L) {
         if (!theVoice) log_to_console(L, _cWARN, @"unable to identify voice from string, defaulting to system voice");
     }
 
-    HSSpeechSynthesizer *synth = [[HSSpeechSynthesizer alloc] initWithVoice:theVoice];
+    HS_asmSpeechSynthesizer *synth = [[HS_asmSpeechSynthesizer alloc] initWithVoice:theVoice];
     if (synth) {
         [skin pushNSObject:synth];
     } else {
@@ -416,7 +416,7 @@ static int newSpeechSynthesizer(lua_State *L) {
 
 #pragma mark - Module Object Methods
 
-/// hs.speech:usesFeedbackWindow([flag]) -> synthesizerObject | boolean
+/// hs._asm.speech:usesFeedbackWindow([flag]) -> synthesizerObject | boolean
 /// Method
 /// Gets or sets whether or not the synthesizer uses the speech feedback window.
 ///
@@ -431,7 +431,7 @@ static int newSpeechSynthesizer(lua_State *L) {
 static int usesFeedbackWindow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     if (lua_gettop(L) == 2) {
         synth.usesFeedbackWindow = (BOOL)lua_toboolean(L, 2);
@@ -442,7 +442,7 @@ static int usesFeedbackWindow(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:voice([full] | [voice]) -> synthesizerObject | voice
+/// hs._asm.speech:voice([full] | [voice]) -> synthesizerObject | voice
 /// Method
 /// Gets or sets the active voice for a synthesizer.
 ///
@@ -460,7 +460,7 @@ static int usesFeedbackWindow(lua_State *L) {
 static int voice(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TSTRING | LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     if (lua_gettop(L) == 2 && lua_type(L, 2) != LUA_TBOOLEAN) {
         NSString *theVoice = nil;
@@ -485,7 +485,7 @@ static int voice(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:rate([rate]) -> synthesizerObject | rate
+/// hs._asm.speech:rate([rate]) -> synthesizerObject | rate
 /// Method
 /// Gets or sets the synthesizers speaking rate (words per minute).
 ///
@@ -500,7 +500,7 @@ static int voice(lua_State *L) {
 static int rate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     if (lua_gettop(L) == 2) {
         synth.rate = (float)lua_tonumber(L, 2);
@@ -511,7 +511,7 @@ static int rate(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:volume([volume]) -> synthesizerObject | volume
+/// hs._asm.speech:volume([volume]) -> synthesizerObject | volume
 /// Method
 /// Gets or sets the synthesizers speaking volume.
 ///
@@ -526,7 +526,7 @@ static int rate(lua_State *L) {
 static int volume(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     if (lua_gettop(L) == 2) {
         float vol = (float)lua_tonumber(L, 2);
@@ -542,7 +542,7 @@ static int volume(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:speaking() -> boolean
+/// hs._asm.speech:speaking() -> boolean
 /// Method
 /// Returns whether or not this synthesizer is currently generating speech.
 ///
@@ -553,17 +553,17 @@ static int volume(lua_State *L) {
 ///  * A boolean value indicating whether or not this synthesizer is currently generating speech.
 ///
 /// Notes:
-///  * See also `hs.speech.isAnyApplicationSpeaking`.
+///  * See also `hs._asm.speech.isAnyApplicationSpeaking`.
 static int speaking(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     lua_pushboolean(L, synth.speaking);
     return 1;
 }
 
-/// hs.speech:setCallback(fn | nil) -> synthesizerObject
+/// hs._asm.speech:setCallback(fn | nil) -> synthesizerObject
 /// Method
 /// Sets or removes a callback function for the synthesizer.
 ///
@@ -583,7 +583,7 @@ static int speaking(lua_State *L) {
 ///    * "willSpeakPhoneme"  - Sent just before a synthesized phoneme is spoken through the sound output device.
 ///      * provides 1 additional argument: the opcode of the phoneme about to be spoken.
 ///      * this callback message will only occur when using Macintalk voices; modern higher quality voices are not phonetically based and will not generate this message.
-///      * the opcode can be tied to a specific phoneme by looking it up in the table returned by `hs.speech:phoneticSymbols`.
+///      * the opcode can be tied to a specific phoneme by looking it up in the table returned by `hs._asm.speech:phoneticSymbols`.
 ///
 ///    * "didEncounterError" - Sent when the speech synthesizer encounters an error in text being synthesized.
 ///      * provides 3 additional arguments: the index in the original text where the error occurred, the text being spoken, and an error message.
@@ -594,11 +594,11 @@ static int speaking(lua_State *L) {
 ///      * A synchronization number can be embedded in text to be spoken by including `[[sync #]]` in the text where you wish the callback to occur.  The number is limited to 32 bits and can be presented as a base 10 or base 16 number (prefix with 0x).
 ///
 ///    * "didFinish"         - Sent when the speech synthesizer finishes speaking through the sound output device.
-///      * provides 1 additional argument: a boolean flag indicating whether or not the synthesizer finished because synthesis is complete (true) or was stopped early with `hs.speech:stop` (false).
+///      * provides 1 additional argument: a boolean flag indicating whether or not the synthesizer finished because synthesis is complete (true) or was stopped early with `hs._asm.speech:stop` (false).
 static int setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     // in either case, we need to remove an existing callback, so...
     synth.callbackRef = [skin luaUnref:refTable ref:synth.callbackRef];
@@ -610,7 +610,7 @@ static int setCallback(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:speak(textToSpeak) -> synthesizerObject
+/// hs._asm.speech:speak(textToSpeak) -> synthesizerObject
 /// Method
 /// Starts speaking the provided text through the system's current audio device.
 ///
@@ -622,7 +622,7 @@ static int setCallback(lua_State *L) {
 static int startSpeakingString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     luaL_checkstring(L, 2); // force number to be a string
     NSString *theText = validateString(L, 2);
@@ -636,7 +636,7 @@ static int startSpeakingString(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:speakToFile(textToSpeak, destination) -> synthesizerObject
+/// hs._asm.speech:speakToFile(textToSpeak, destination) -> synthesizerObject
 /// Method
 /// Starts speaking the provided text and saves the audio as an AIFF file.
 ///
@@ -649,7 +649,7 @@ static int startSpeakingString(lua_State *L) {
 static int startSpeakingStringToURL(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     luaL_checkstring(L, 2); // force number to be a string
     luaL_checkstring(L, 3); // force number to be a string
@@ -668,7 +668,7 @@ static int startSpeakingStringToURL(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:pause([where]) -> synthesizerObject
+/// hs._asm.speech:pause([where]) -> synthesizerObject
 /// Method
 /// Pauses the output of the speech synthesizer.
 ///
@@ -683,7 +683,7 @@ static int startSpeakingStringToURL(lua_State *L) {
 static int pauseSpeakingAtBoundary(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSSpeechBoundary stopWhere = NSSpeechImmediateBoundary;
     if (lua_gettop(L) == 2) {
@@ -704,7 +704,7 @@ static int pauseSpeakingAtBoundary(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:stop([where]) -> synthesizerObject
+/// hs._asm.speech:stop([where]) -> synthesizerObject
 /// Method
 /// Stops the output of the speech synthesizer.
 ///
@@ -719,7 +719,7 @@ static int pauseSpeakingAtBoundary(lua_State *L) {
 static int stopSpeakingAtBoundary(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSSpeechBoundary stopWhere = NSSpeechImmediateBoundary;
     if (lua_gettop(L) == 2) {
@@ -740,7 +740,7 @@ static int stopSpeakingAtBoundary(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:continue() -> synthesizerObject
+/// hs._asm.speech:continue() -> synthesizerObject
 /// Method
 /// Resumes a paused speech synthesizer.
 ///
@@ -752,7 +752,7 @@ static int stopSpeakingAtBoundary(lua_State *L) {
 static int continueSpeaking(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     [synth continueSpeaking];
     lua_pushvalue(L, 1);
@@ -762,7 +762,7 @@ static int continueSpeaking(lua_State *L) {
 // Really just stopAt with immediateBoundary set -- even gives same delegate results
 //
 // static int stopSpeaking(lua_State *L) {
-//     HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+//     HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 //     LuaSkin *skin = [LuaSkin shared];
 //     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
 //     [synth stopSpeaking];
@@ -770,7 +770,7 @@ static int continueSpeaking(lua_State *L) {
 //     return 1;
 // }
 
-/// hs.speech:phonemes(text) -> string
+/// hs._asm.speech:phonemes(text) -> string
 /// Method
 /// Returns the phonemes which would be spoken if the text were to be synthesized.
 ///
@@ -782,12 +782,12 @@ static int continueSpeaking(lua_State *L) {
 ///
 /// Notes:
 ///  * This method only returns a phonetic representation of the text if a Macintalk voice has been selected.  The more modern higher quality voices do not use a phonetic representation and an empty string will be returned if this method is used.
-///  * You can modify the phonetic representation and feed it into `hs.speech:speak` if you find that the default interpretation is not correct.  You will need to set the input mode to Phonetic by prefixing the text with "[[inpt PHON]]".
-///  * The specific phonetic symbols recognized by a given voice can be queried by examining the array returned by `hs.speech:phoneticSymbols` after setting an appropriate voice.
+///  * You can modify the phonetic representation and feed it into `hs._asm.speech:speak` if you find that the default interpretation is not correct.  You will need to set the input mode to Phonetic by prefixing the text with "[[inpt PHON]]".
+///  * The specific phonetic symbols recognized by a given voice can be queried by examining the array returned by `hs._asm.speech:phoneticSymbols` after setting an appropriate voice.
 static int phonemesFromText(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     luaL_checkstring(L, 2); // force number to be a string
     NSString *theText = validateString(L, 2);
@@ -796,7 +796,7 @@ static int phonemesFromText(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:isSpeaking() -> boolean | nil
+/// hs._asm.speech:isSpeaking() -> boolean | nil
 /// Method
 /// Returns whether or not the synthesizer is currently speaking, either to an audio device or to a file.
 ///
@@ -807,11 +807,11 @@ static int phonemesFromText(lua_State *L) {
 ///  * True or false indicating whether or not the synthesizer is currently producing speech.  If there is an error, returns nil.
 ///
 /// Notes:
-///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int isSpeaking(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     NSDictionary *status = [synth objectForProperty:NSSpeechStatusProperty error:&theError] ;
@@ -832,7 +832,7 @@ static int isSpeaking(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech:isPaused() -> boolean | nil
+/// hs._asm.speech:isPaused() -> boolean | nil
 /// Method
 /// Returns whether or not the synthesizer is currently paused.
 ///
@@ -843,11 +843,11 @@ static int isSpeaking(lua_State *L) {
 ///  * True or false indicating whether or not the synthesizer is currently paused.  If there is an error, returns nil.
 ///
 /// Notes:
-///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int isPaused(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     NSDictionary *status = [synth objectForProperty:NSSpeechStatusProperty error:&theError] ;
@@ -868,7 +868,7 @@ static int isPaused(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech:phoneticSymbols() -> array | nil
+/// hs._asm.speech:phoneticSymbols() -> array | nil
 /// Method
 /// Returns an array of the phonetic symbols recognized by the synthesizer for the current voice.
 ///
@@ -880,7 +880,7 @@ static int isPaused(lua_State *L) {
 ///
 /// Notes:
 ///  * Each entry in the array of phonemes returned will contain the following keys:
-///    * Symbol      - The textual representation of this phoneme when returned by `hs.speech:phonemes` or that you should use for this sound when crafting a phonetic string yourself.
+///    * Symbol      - The textual representation of this phoneme when returned by `hs._asm.speech:phonemes` or that you should use for this sound when crafting a phonetic string yourself.
 ///    * Opcode      - The numeric opcode passed to the callback for the "willSpeakPhoneme" message corresponding to this phoneme.
 ///    * Example     - An example word which contains the sound the phoneme represents
 ///    * HiliteEnd   - The character position in the Example where this phoneme's sound begins
@@ -888,11 +888,11 @@ static int isPaused(lua_State *L) {
 ///
 ///  * Only the older, MacinTalk style voices support phonetic text.  The more modern, higher quality voices are not rendered phonetically and will return nil for this method.
 ///
-///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int phoneticSymbols(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     NSArray *phoneticList = [synth objectForProperty:NSSpeechPhonemeSymbolsProperty error:&theError] ;
@@ -906,7 +906,7 @@ static int phoneticSymbols(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech:pitch([pitch]) -> synthsizerObject | pitch | nil
+/// hs._asm.speech:pitch([pitch]) -> synthsizerObject | pitch | nil
 /// Method
 /// Gets or sets the base pitch for the synthesizer's voice.
 ///
@@ -919,11 +919,11 @@ static int phoneticSymbols(lua_State *L) {
 /// Notes:
 ///  * Typical voice frequencies range from around 90 hertz for a low-pitched male voice to perhaps 300 hertz for a high-pitched child’s voice. These frequencies correspond to approximate pitch values in the ranges of 30.000 to 40.000 and 55.000 to 65.000, respectively.
 ///
-///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int pitchBase(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     if (lua_gettop(L) == 2) {
@@ -950,7 +950,7 @@ static int pitchBase(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:modulation([modulation]) -> synthsizerObject | modulation | nil
+/// hs._asm.speech:modulation([modulation]) -> synthsizerObject | modulation | nil
 /// Method
 /// Gets or sets the pitch modulation for the synthesizer's voice.
 ///
@@ -963,11 +963,11 @@ static int pitchBase(lua_State *L) {
 /// Notes:
 ///  * Pitch modulation is expressed as a floating-point value in the range of 0.000 to 127.000. These values correspond to MIDI note values, where 60.000 is equal to middle C on a piano scale. The most useful speech pitches fall in the range of 40.000 to 55.000. A pitch modulation value of 0.000 corresponds to a monotone in which all speech is generated at the frequency corresponding to the speech pitch. Given a speech pitch value of 46.000, a pitch modulation of 2.000 would mean that the widest possible range of pitches corresponding to the actual frequency of generated text would be 44.000 to 48.000.
 ///
-///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int pitchMod(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     if (lua_gettop(L) == 2) {
@@ -994,7 +994,7 @@ static int pitchMod(lua_State *L) {
     return 1;
 }
 
-/// hs.speech:reset() -> synthsizerObject | nil
+/// hs._asm.speech:reset() -> synthsizerObject | nil
 /// Method
 /// Reset a synthesizer back to its default state.
 ///
@@ -1008,11 +1008,11 @@ static int pitchMod(lua_State *L) {
 ///  * This method will reset a synthesizer to its default state, including pitch, modulation, volume, rate, etc.
 ///  * The changes go into effect immediately, if queried, but will not affect a synthesis in progress.
 ///
-///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs.speech.log.level = 3`.  See `hs.logger` for more information)
+///  * If an error occurs retrieving or setting this value, the details will be logged in the system logs which can be viewed with the Console application.  You can also have such messages logged to the Hammerspoon console by setting the module's log level to at least Information (This can be done with the following, or similar, command: `hs._asm.speech.log.level = 3`.  See `hs.logger` for more information)
 static int reset(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     NSError *theError = nil ;
     BOOL result = [synth setObject:nil forProperty:NSSpeechResetProperty error:&theError];
@@ -1048,29 +1048,29 @@ static int reset(lua_State *L) {
 
 #pragma mark - Optional Module Constants
 
-// / hs.speech.properties[]
+// / hs._asm.speech.properties[]
 // / Constant
-// / Property names which can be used to query or modify a speech synthesizer with `hs.speech:getProperty` and `hs.speech:setProperty`.  Only some properties can be set by Hammerspoon.
+// / Property names which can be used to query or modify a speech synthesizer with `hs._asm.speech:getProperty` and `hs._asm.speech:setProperty`.  Only some properties can be set by Hammerspoon.
 // /
-// / Read-Only Property Names:  Usable only with `hs.speech:getProperty`
+// / Read-Only Property Names:  Usable only with `hs._asm.speech:getProperty`
 // /  * status           - Returns a table that contains speech-status information for the synthesizer.
 // /  * recentSync       - Returns the message code for the most recently encountered synchronization command as a number.
 // /  * phonemeSymbols   - Returns a table that contains the list of phoneme symbols and example words defined for the synthesizer.  This is only defined for MacinTalk voices, not for more modern voices.
 // /
-// / Read-Write Property Names: Usable with both `hs.speech:getProperty` and `hs.speech:setProperty`
-// /  - inputMode        - Get or set whether the synthesizer is currently in text input mode or phoneme input mode.  See `hs.speech.speakingModes`.
-// /  - characterMode    - Get or set whether the synthesizer pronounces character sequences as individual letters (literal or as words (normal).  Defaults to normal.  See `hs.speech.characterModes`.
-// /  - numberMode       - Get or set whether the synthesizer pronounces numbers as individual digits (literal) or as numbers (normal).  Defaults to normal.  See  `hs.speech.characterModes`.
-// /  - rate             - Get or set the synthesizer’s speech rate as a number.  See also `hs.speech:rate`.
+// / Read-Write Property Names: Usable with both `hs._asm.speech:getProperty` and `hs._asm.speech:setProperty`
+// /  - inputMode        - Get or set whether the synthesizer is currently in text input mode or phoneme input mode.  See `hs._asm.speech.speakingModes`.
+// /  - characterMode    - Get or set whether the synthesizer pronounces character sequences as individual letters (literal or as words (normal).  Defaults to normal.  See `hs._asm.speech.characterModes`.
+// /  - numberMode       - Get or set whether the synthesizer pronounces numbers as individual digits (literal) or as numbers (normal).  Defaults to normal.  See  `hs._asm.speech.characterModes`.
+// /  - rate             - Get or set the synthesizer’s speech rate as a number.  See also `hs._asm.speech:rate`.
 // /  - pitchBase        - Get or set the synthesizer’s baseline speech pitch as a number.
 // /  - pitchMod         - Get or set the synthesizer’s pitch modulation as a number between 0.0 and 127.0.
 // /  - volume           - Get or set the speech volume for a synthesizer as a number between 0.0 and 1.0.
 // /
-// / Write-Only Property Names: Usable only with `hs.speech:setProperty`
-// /    currentVoice     - Set the current voice on the synthesizer to the specified voice.  See also `hs.speech:voice`.
+// / Write-Only Property Names: Usable only with `hs._asm.speech:setProperty`
+// /    currentVoice     - Set the current voice on the synthesizer to the specified voice.  See also `hs._asm.speech:voice`.
 // /    commandDelimiter - Set the embedded speech command delimiter characters to be used for the synthesizer.
 // /    reset            - Set a synthesizer back to its default state.
-// /    outputToFileURL  - Set the speech output destination to a file or to the computer’s speakers. See also `hs.speech:speak` and `hs.speech:speakToFile`
+// /    outputToFileURL  - Set the speech output destination to a file or to the computer’s speakers. See also `hs._asm.speech:speak` and `hs._asm.speech:speakToFile`
 // /
 // / Unknown: *Special Note:* These are poorly understood or potentially broken.  Maybe holdovers from an earlier OS.  If you have insight or suggestions, please submit them through the Hammerspoon github site.
 // /  * errors           - Appears to be broken as described at https://openradar.appspot.com/6524554.  From the docs: Returns a table that contains speech-error information.  This property lets you get information about various run-time errors that occur during speaking.  You can use this property within a callback for the "didEncounterError" message to get more information about the error.
@@ -1097,9 +1097,9 @@ static int pushSpeechPropertiesTable(lua_State *L) {
     return 1;
 }
 
-// / hs.speech.speakingModes[]
+// / hs._asm.speech.speakingModes[]
 // / Constants
-// / Valid values for the `inputMode` property which can be set with `hs.speech:setProperty`.
+// / Valid values for the `inputMode` property which can be set with `hs._asm.speech:setProperty`.
 // /
 // /  * text    - indicates that the synthesizer should treat the input text as text.
 // /  * phoneme - indicates that the synthesizer should treat the input text as phonemes (this will only work with MacinTalk voices, not the more modern voices)
@@ -1110,9 +1110,9 @@ static int pushSpeechInputModePropertyTable(lua_State *L) {
     return 1;
 }
 
-// / hs.speech.characterModes[]
+// / hs._asm.speech.characterModes[]
 // / Constants
-// / Valid values for the `characterMode` and `numberMode` properties which can be set with `hs.speech:setProperty`.
+// / Valid values for the `characterMode` and `numberMode` properties which can be set with `hs._asm.speech:setProperty`.
 // /
 // /  * normal  - indicates that the synthesizer should speak character or numeric sequences as words were possible.
 // /  * literal - indicates that the synthesizer should speak characters or numbers as separate letters and digits.
@@ -1123,9 +1123,9 @@ static int pushSpeechCharacterModePropertyTable(lua_State *L) {
     return 1;
 }
 
-// / hs.speech.commandDelimiters[]
+// / hs._asm.speech.commandDelimiters[]
 // / Constants
-// / Key names for the table to pass when using `hs.speech:setProperty` to change the command delimiters.
+// / Key names for the table to pass when using `hs._asm.speech:setProperty` to change the command delimiters.
 // /
 // /  * prefix - the sequence of characters which begins an embedded command sequence.
 // /  * suffix - the sequence of characters which ends an embedded command sequence.
@@ -1147,22 +1147,22 @@ static int pushSpeechCommandDelimiterPropertyTable(lua_State *L) {
 //                              so supplying a number when a string is expected can cause a crash of either
 //                              Hammerspoon or the speech synthesizer process
 
-// / hs.speech:getProperty(propertyName) -> value
+// / hs._asm.speech:getProperty(propertyName) -> value
 // / Method
 // / Returns the current value of the property specified for the speech synthesizer.
 // /
 // / Parameters:
-// /  * propertyName - the name of the property to retrieve the value of.  See `hs.speech.properties` for a description of valid properties.
+// /  * propertyName - the name of the property to retrieve the value of.  See `hs._asm.speech.properties` for a description of valid properties.
 // /
 // / Returns:
-// /  * the value of the property specified.  The type of value returned depends upon the property requested.  See `hs.speech.properties` for a description of properties and their expected return types.
+// /  * the value of the property specified.  The type of value returned depends upon the property requested.  See `hs._asm.speech.properties` for a description of properties and their expected return types.
 // /
 // / Notes:
 // /  * this method will return nil for invalid or non-readable properties.
 static int objectForProperty(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     luaL_checkstring(L, 2); // force number to be a string
     NSString *propertyName = validateString(L, 2);
@@ -1188,12 +1188,12 @@ static int objectForProperty(lua_State *L) {
     return 1;
 }
 
-// / hs.speech:setProperty(propertyName, value) -> synthesizerObject | false | nil
+// / hs._asm.speech:setProperty(propertyName, value) -> synthesizerObject | false | nil
 // / Method
 // / Sets the specified value for the specified property of the speech synthesizer.
 // /
 // / Parameters:
-// /  * propertyName - the name of the property to set the value for.  See `hs.speech.properties` for a description of valid properties.
+// /  * propertyName - the name of the property to set the value for.  See `hs._asm.speech.properties` for a description of valid properties.
 // /  * value        - the value to assign to the specified property.
 // /
 // / Returns:
@@ -1204,7 +1204,7 @@ static int objectForProperty(lua_State *L) {
 static int setObjectForProperty(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TANY, LS_TBREAK];
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
 
     luaL_checkstring(L, 2); // force number to be a string
     NSString *propertyName = validateString(L, 2);
@@ -1258,10 +1258,10 @@ static int setObjectForProperty(lua_State *L) {
 
 #pragma mark - Lua<->NSObject Conversion Functions
 
-static int pushHSSpeechSynthesizer(lua_State *L, id obj) {
-    HSSpeechSynthesizer *synth = obj;
+static int pushHS_asmSpeechSynthesizer(lua_State *L, id obj) {
+    HS_asmSpeechSynthesizer *synth = obj;
     synth.UDreferenceCount++;
-    void** synthPtr = lua_newuserdata(L, sizeof(HSSpeechSynthesizer *));
+    void** synthPtr = lua_newuserdata(L, sizeof(HS_asmSpeechSynthesizer *));
     *synthPtr = (__bridge_retained void *)synth;
     luaL_getmetatable(L, USERDATA_TAG);
     lua_setmetatable(L, -2);
@@ -1271,7 +1271,7 @@ static int pushHSSpeechSynthesizer(lua_State *L, id obj) {
 #pragma mark - Hammerspoon Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
     LuaSkin *skin = [LuaSkin shared];
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, [synth voice], synth]];
     return 1;
@@ -1279,8 +1279,8 @@ static int userdata_tostring(lua_State* L) {
 
 static int userdata_eq(lua_State* L) {
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        HSSpeechSynthesizer *synth1 = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 1);
-        HSSpeechSynthesizer *synth2 = get_objectFromUserdata(__bridge HSSpeechSynthesizer, L, 2);
+        HS_asmSpeechSynthesizer *synth1 = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 1);
+        HS_asmSpeechSynthesizer *synth2 = get_objectFromUserdata(__bridge HS_asmSpeechSynthesizer, L, 2);
         lua_pushboolean(L, [synth1 isEqualTo:synth2]);
     } else {
         lua_pushboolean(L, NO);
@@ -1289,7 +1289,7 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
-    HSSpeechSynthesizer *synth = get_objectFromUserdata(__bridge_transfer HSSpeechSynthesizer, L, 1);
+    HS_asmSpeechSynthesizer *synth = get_objectFromUserdata(__bridge_transfer HS_asmSpeechSynthesizer, L, 1);
     LuaSkin *skin = [LuaSkin shared];
     synth.UDreferenceCount--;
 
@@ -1361,7 +1361,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs_speech_internal(lua_State* __unused L) {
+int luaopen_hs__asm_speech_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared];
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -1377,7 +1377,7 @@ int luaopen_hs_speech_internal(lua_State* __unused L) {
     pushSpeechCommandDelimiterPropertyTable(L); lua_setfield(L, -2, "commandDelimiters");
 #endif
 
-    [skin registerPushNSHelper:pushHSSpeechSynthesizer forClass:"HSSpeechSynthesizer"];
+    [skin registerPushNSHelper:pushHS_asmSpeechSynthesizer forClass:"HS_asmSpeechSynthesizer"];
 
     return 1;
 }

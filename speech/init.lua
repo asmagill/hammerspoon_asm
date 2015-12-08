@@ -1,4 +1,4 @@
---- === hs.speech ===
+--- === hs._asm.speech ===
 ---
 --- This module provides access to the Speech Synthesizer component of OS X.
 ---
@@ -6,19 +6,19 @@
 ---
 --- A discussion concerning the embedding of commands into the text to be spoken can be found at https://developer.apple.com/library/mac/documentation/UserExperience/Conceptual/SpeechSynthesisProgrammingGuide/FineTuning/FineTuning.html#//apple_ref/doc/uid/TP40004365-CH5-SW6.  It is somewhat dated and specific to the older MacinTalk style voices, but still contains some information relevant to the more modern higer quality voices as well in its discussion about embedded commands.
 
---- === hs.speech.listener ===
+--- === hs._asm.speech.listener ===
 ---
 --- This module provides access to the Speech Recognizer component of OS X.
 ---
 --- The speech recognizer functions and methods provide a way to add commands which may be issued to Hammerspoon through spoken words and phrases to trigger a callback.
 
-local module = require("hs.speech.internal")
-local log    = require("hs.logger").new("hs.speech","warning")
+local module = require("hs._asm.speech.internal")
+local log    = require("hs.logger").new("hs._asm.speech","warning")
 module.log = log
 module._registerLogForC(log)
 module._registerLogForC = nil
 
-module.listener = require("hs.speech.listener")
+module.listener = require("hs._asm.speech.listener")
 module.listener._registerLogForC(log)
 module.listener._registerLogForC = nil
 

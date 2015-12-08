@@ -3,7 +3,7 @@
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 
-#define USERDATA_TAG        "hs.speech.listener"
+#define USERDATA_TAG        "hs._asm.speech.listener"
 static int refTable = LUA_NOREF ;
 static int logFnRef = LUA_NOREF ;
 
@@ -71,9 +71,9 @@ NSString *validateString(lua_State *L, int idx) {
     return theString ;
 }
 
-#pragma mark - HSSpeechRecognizer Definition
+#pragma mark - HS_asmSpeechRecognizer Definition
 
-@interface HSSpeechRecognizer : NSSpeechRecognizer <NSSpeechRecognizerDelegate>
+@interface HS_asmSpeechRecognizer : NSSpeechRecognizer <NSSpeechRecognizerDelegate>
 @property int callbackRef ;
 // We don't use the same trick as we do for synthesizer because a recognizer also exists in
 // the dictation scope (it's visual components) and, if we opened it because we're the only
@@ -89,7 +89,7 @@ NSString *validateString(lua_State *L, int idx) {
 @property int selfRef ;
 @end
 
-@implementation HSSpeechRecognizer
+@implementation HS_asmSpeechRecognizer
 - (id)init {
     self = [super init] ;
     if (self) {
@@ -100,15 +100,15 @@ NSString *validateString(lua_State *L, int idx) {
     return self ;
 }
 
-#pragma mark - HSSpeechRecognizer Delegate Methods
+#pragma mark - HS_asmSpeechRecognizer Delegate Methods
 
 - (void)speechRecognizer:(NSSpeechRecognizer *)sender didRecognizeCommand:(NSString *)command {
-    if (((HSSpeechRecognizer *)sender).callbackRef != LUA_NOREF) {
+    if (((HS_asmSpeechRecognizer *)sender).callbackRef != LUA_NOREF) {
         LuaSkin      *skin    = [LuaSkin shared] ;
         lua_State    *_L      = [skin L] ;
 
-        [skin pushLuaRef:refTable ref:((HSSpeechRecognizer *)sender).callbackRef] ;
-        [skin pushNSObject:(HSSpeechRecognizer *)sender] ;
+        [skin pushLuaRef:refTable ref:((HS_asmSpeechRecognizer *)sender).callbackRef] ;
+        [skin pushNSObject:(HS_asmSpeechRecognizer *)sender] ;
         [skin pushNSObject:command] ;
         if (![skin protectedCallAndTraceback:2 nresults:0]) {
             NSString *theError = [skin toNSObjectAtIndex:-1] ;
@@ -122,7 +122,7 @@ NSString *validateString(lua_State *L, int idx) {
 
 #pragma mark - Module Functions
 
-/// hs.speech.listener.new([title]) -> recognizerObject
+/// hs._asm.speech.listener.new([title]) -> recognizerObject
 /// Constructor
 /// Creates a new speech recognizer object for use by Hammerspoon.
 ///
@@ -133,7 +133,7 @@ NSString *validateString(lua_State *L, int idx) {
 ///  * a speech recognizer object or nil, if the system was unable to create a new recognizer.
 ///
 /// Notes:
-///  * You can change the title later with the `hs.speech.listener:title` method.
+///  * You can change the title later with the `hs._asm.speech.listener:title` method.
 static int newSpeechRecognizer(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -144,7 +144,7 @@ static int newSpeechRecognizer(lua_State *L) {
         if (!theTitle) log_to_console(L, _cWARN, @"unable to identify title from string, defaulting to \"Hammerspoon\"") ;
     }
 
-    HSSpeechRecognizer *recognizer = [[HSSpeechRecognizer alloc] init] ;
+    HS_asmSpeechRecognizer *recognizer = [[HS_asmSpeechRecognizer alloc] init] ;
     if (recognizer) {
         if (theTitle) recognizer.displayedCommandsTitle = theTitle ;
         [skin pushNSObject:recognizer] ;
@@ -157,7 +157,7 @@ static int newSpeechRecognizer(lua_State *L) {
 
 #pragma mark - Module Object Methods
 
-/// hs.speech.listener:commands([commandsArray]) -> recognizerObject | current value
+/// hs._asm.speech.listener:commands([commandsArray]) -> recognizerObject | current value
 /// Method
 /// Get or set the commands this speech recognizer will listen for.
 ///
@@ -169,9 +169,9 @@ static int newSpeechRecognizer(lua_State *L) {
 ///
 /// Notes:
 ///  * The list of commands will appear in the Dictation Commands window, if it is visible, under the title of this speech recognizer.  The text of each command is a possible value which may be sent as the second argument to a callback function for this speech recognizer, if one is defined.
-///  * Setting this to an empty list does not disable the speech recognizer, but it does make it of limited use, other than to provide a title in the Dictation Commands window.  To disable the recognizer, use the `hs.speech.listener:stop` or `hs.speech.listener:delete` methods.
+///  * Setting this to an empty list does not disable the speech recognizer, but it does make it of limited use, other than to provide a title in the Dictation Commands window.  To disable the recognizer, use the `hs._asm.speech.listener:stop` or `hs._asm.speech.listener:delete` methods.
 static int commands(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     if (lua_gettop(L) == 2) {
@@ -198,7 +198,7 @@ static int commands(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:title([title]) -> recognizerObject | current value
+/// hs._asm.speech.listener:title([title]) -> recognizerObject | current value
 /// Method
 /// Get or set the title for a speech recognizer.
 ///
@@ -208,7 +208,7 @@ static int commands(lua_State *L) {
 /// Returns:
 ///  * If no parameter is provided, returns the current value; otherwise returns the recognizer object.
 static int displayedCommandsTitle(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     if (lua_gettop(L) == 2) {
@@ -225,7 +225,7 @@ static int displayedCommandsTitle(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:foregroundOnly([flag]) -> recognizerObject | current value
+/// hs._asm.speech.listener:foregroundOnly([flag]) -> recognizerObject | current value
 /// Method
 /// Get or set whether or not the speech recognizer is active only when the Hammerspoon application is active.
 ///
@@ -235,7 +235,7 @@ static int displayedCommandsTitle(lua_State *L) {
 /// Returns:
 ///  * If no parameter is provided, returns the current value; otherwise returns the recognizer object.
 static int listensInForegroundOnly(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     if (lua_gettop(L) == 2) {
@@ -247,7 +247,7 @@ static int listensInForegroundOnly(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:blocksOtherRecognizers([flag]) -> recognizerObject | current value
+/// hs._asm.speech.listener:blocksOtherRecognizers([flag]) -> recognizerObject | current value
 /// Method
 /// Get or set whether or not the speech recognizer should block other recognizers when it is active.
 ///
@@ -257,7 +257,7 @@ static int listensInForegroundOnly(lua_State *L) {
 /// Returns:
 ///  * If no parameter is provided, returns the current value; otherwise returns the recognizer object.
 static int blocksOtherRecognizers(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     if (lua_gettop(L) == 2) {
@@ -269,7 +269,7 @@ static int blocksOtherRecognizers(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:start() -> recognizerObject
+/// hs._asm.speech.listener:start() -> recognizerObject
 /// Method
 /// Make the speech recognizer active.
 ///
@@ -279,7 +279,7 @@ static int blocksOtherRecognizers(lua_State *L) {
 /// Returns:
 ///  * returns the recognizer object.
 static int startListening(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     [recognizer startListening] ;
@@ -287,7 +287,7 @@ static int startListening(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:stop() -> recognizerObject
+/// hs._asm.speech.listener:stop() -> recognizerObject
 /// Method
 /// Disables the speech recognizer.
 ///
@@ -298,9 +298,9 @@ static int startListening(lua_State *L) {
 ///  * returns the recognizer object.
 ///
 /// Notes:
-///  * this only disables the speech recognizer.  To completely remove it from the list in the Dictation Commands window, use `hs.speech.listener:delete`.
+///  * this only disables the speech recognizer.  To completely remove it from the list in the Dictation Commands window, use `hs._asm.speech.listener:delete`.
 static int stopListening(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     [recognizer stopListening] ;
@@ -308,7 +308,7 @@ static int stopListening(lua_State *L) {
     return 1 ;
 }
 
-/// hs.speech.listener:setCallback(fn | nil) -> recognizerObject
+/// hs._asm.speech.listener:setCallback(fn | nil) -> recognizerObject
 /// Method
 /// Sets or removes a callback function for the speech recognizer.
 ///
@@ -319,10 +319,10 @@ static int stopListening(lua_State *L) {
 ///  * the recognizer object
 ///
 /// Notes:
-///  * Possible string values for the command spoken are set with the `hs.speech.listener:commands` method.
-///  * Removing the callback does not disable the speech recognizer, but it does make it of limited use, other than to provide a list in the Dictation Commands window.  To disable the recognizer, use the `hs.speech.listener:stop` or `hs.speech.listener:delete` methods.
+///  * Possible string values for the command spoken are set with the `hs._asm.speech.listener:commands` method.
+///  * Removing the callback does not disable the speech recognizer, but it does make it of limited use, other than to provide a list in the Dictation Commands window.  To disable the recognizer, use the `hs._asm.speech.listener:stop` or `hs._asm.speech.listener:delete` methods.
 static int setCallback(lua_State *L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
     // in either case, we need to remove an existing callback, so...
@@ -337,11 +337,11 @@ static int setCallback(lua_State *L) {
 
 #pragma mark - Lua<->NSObject Conversion Functions
 
-static int pushHSSpeechRecognizer(lua_State *L, id obj) {
-    HSSpeechRecognizer *recognizer = obj ;
+static int pushHS_asmSpeechRecognizer(lua_State *L, id obj) {
+    HS_asmSpeechRecognizer *recognizer = obj ;
 
     if (recognizer.selfRef == LUA_NOREF) {
-        void** recognizerPtr = lua_newuserdata(L, sizeof(HSSpeechRecognizer *)) ;
+        void** recognizerPtr = lua_newuserdata(L, sizeof(HS_asmSpeechRecognizer *)) ;
         *recognizerPtr = (__bridge_retained void *)recognizer ;
         luaL_getmetatable(L, USERDATA_TAG) ;
         lua_setmetatable(L, -2) ;
@@ -355,7 +355,7 @@ static int pushHSSpeechRecognizer(lua_State *L, id obj) {
 #pragma mark - Hammerspoon Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, recognizer.displayedCommandsTitle, recognizer]] ;
     return 1 ;
@@ -365,12 +365,12 @@ static int userdata_eq(lua_State* L) {
 // Actually not necessary for this specific module, as the creation function for the userdata object this module uses
 // ensures that the userdata object returned for a specific recognizer is always the same and Lua can use pointer
 // comparisons for this specific module.  However, it is good practice, since not all modules do this (specifically, the
-// companion module, hs.speech, does not make this assurance for speech synthesizers).
+// companion module, hs._asm.speech, does not make this assurance for speech synthesizers).
 //
 // And anyways, this makes sure that only the same userdata types are compared.
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        HSSpeechRecognizer *recognizer1 = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 1) ;
-        HSSpeechRecognizer *recognizer2 = get_objectFromUserdata(__bridge HSSpeechRecognizer, L, 2) ;
+        HS_asmSpeechRecognizer *recognizer1 = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
+        HS_asmSpeechRecognizer *recognizer2 = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 2) ;
         lua_pushboolean(L, [recognizer1 isEqualTo:recognizer2]) ;
     } else {
         lua_pushboolean(L, NO) ;
@@ -378,7 +378,7 @@ static int userdata_eq(lua_State* L) {
     return 1 ;
 }
 
-/// hs.speech.listener:delete() -> recognizerObject
+/// hs._asm.speech.listener:delete() -> recognizerObject
 /// Method
 /// Disables the speech recognizer and removes it from the possible available speech recognizers.
 ///
@@ -389,11 +389,11 @@ static int userdata_eq(lua_State* L) {
 ///  * None
 ///
 /// Notes:
-///  * this disables the speech recognizer and removes it from the list in the Dictation Commands window.  The object is effectively destroyed, so you will need to create a new one with `hs.speech.listener.new` if you want to bring it back.
+///  * this disables the speech recognizer and removes it from the list in the Dictation Commands window.  The object is effectively destroyed, so you will need to create a new one with `hs._asm.speech.listener.new` if you want to bring it back.
 ///  * if this was the only speech recognizer currently available, the Dictation Commands window and feedback display will be removed from the users display.
 ///  * this method is automatically called during a reload or restart of Hammerspoon.
 static int userdata_gc(lua_State* L) {
-    HSSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge_transfer HSSpeechRecognizer, L, 1) ;
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge_transfer HS_asmSpeechRecognizer, L, 1) ;
     LuaSkin *skin = [LuaSkin shared] ;
 
     if (recognizer) {
@@ -447,7 +447,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs_speech_listener(lua_State* __unused L) {
+int luaopen_hs__asm_speech_listener(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -456,7 +456,7 @@ int luaopen_hs_speech_listener(lua_State* __unused L) {
 
     logFnRef = LUA_NOREF ;
 
-    [skin registerPushNSHelper:pushHSSpeechRecognizer forClass:"HSSpeechRecognizer"] ;
+    [skin registerPushNSHelper:pushHS_asmSpeechRecognizer forClass:"HS_asmSpeechRecognizer"] ;
 
     return 1;
 }
