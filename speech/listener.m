@@ -75,6 +75,7 @@ NSString *validateString(lua_State *L, int idx) {
 
 @interface HS_asmSpeechRecognizer : NSSpeechRecognizer <NSSpeechRecognizerDelegate>
 @property int callbackRef ;
+@property BOOL isListening ;
 // We don't use the same trick as we do for synthesizer because a recognizer also exists in
 // the dictation scope (it's visual components) and, if we opened it because we're the only
 // listener, it will only go away when we explicitly remove *all* of our references to it.
@@ -95,6 +96,7 @@ NSString *validateString(lua_State *L, int idx) {
     if (self) {
         self.callbackRef = LUA_NOREF ;
         self.selfRef = LUA_NOREF ;
+        self.isListening = NO ;
         self.delegate = self ;
     }
     return self ;
@@ -283,6 +285,7 @@ static int startListening(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     [recognizer startListening] ;
+    recognizer.isListening = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -304,7 +307,25 @@ static int stopListening(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     [recognizer stopListening] ;
+    recognizer.isListening = NO ;
     lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+/// hs._asm.speech.listener:isListening() -> boolean
+/// Method
+/// Returns a boolean value indicating whether or not the recognizer is currently enabled (started).
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * true if the listener is listening (has been started) or false if it is not.
+static int isListening(lua_State *L) {
+    HS_asmSpeechRecognizer *recognizer = get_objectFromUserdata(__bridge HS_asmSpeechRecognizer, L, 1) ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    lua_pushboolean(L, recognizer.isListening) ;
     return 1 ;
 }
 
@@ -425,6 +446,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"blocksOtherRecognizers", blocksOtherRecognizers},
     {"start", startListening},
     {"stop", stopListening},
+    {"isListening", isListening},
     {"setCallback", setCallback},
     {"delete", userdata_gc},
     {"__tostring", userdata_tostring},
