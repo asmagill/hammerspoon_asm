@@ -1,6 +1,8 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
+#import <AddressBook/AddressBook.h>
+
 #import "../hammerspoon.h"
 
 /// hs._asm.extras.NSLog(luavalue)
@@ -383,6 +385,11 @@ static int NSCharacterSet_tolua(lua_State __unused *L, id obj) {
     return 1 ;
 }
 
+static int addressbookGroups(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups]] ;
+    return 1 ;
+}
 // controlCharacterSet
 // whitespaceCharacterSet
 // whitespaceAndNewlineCharacterSet
@@ -419,6 +426,8 @@ static const luaL_Reg extrasLib[] = {
     {"fontCharacterPalette", fontCharacterPalette},
     {"colorPanel",           colorPanel},
     {"threadInfo",           threadInfo},
+    {"addressbookGroups",    addressbookGroups},
+
     {NULL,                   NULL}
 };
 
