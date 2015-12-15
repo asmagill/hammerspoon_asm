@@ -1,21 +1,120 @@
 #import <Cocoa/Cocoa.h>
-// #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
+// #import "../hammerspoon.h"
 
-// #define USERDATA_TAG        "hs.module"
-int refTable ;
+// #define USERDATA_TAG "hs._asm.module"
+static int refTable = LUA_NOREF;
 
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
 
+// #pragma mark - Errors and Logging and with hs.logger
+//
+// static int logFnRef = LUA_NOREF;
+//
+// #define _cERROR   "ef"
+// #define _cWARN    "wf"
+// #define _cINFO    "f"
+// #define _cDEBUG   "df"
+// #define _cVERBOSE "vf"
+//
+// // allow this to be potentially unused in the module
+// static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
+//     lua_Debug functionDebugObject, callerDebugObject;
+//     int status = lua_getstack(L, 0, &functionDebugObject);
+//     status = status + lua_getstack(L, 1, &callerDebugObject);
+//     NSString *fullMessage = nil ;
+//     if (status == 2) {
+//         lua_getinfo(L, "n", &functionDebugObject);
+//         lua_getinfo(L, "Sl", &callerDebugObject);
+//         fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
+//                                                                      theMessage,
+//                                                                      callerDebugObject.currentline,
+//                                                                      callerDebugObject.short_src];
+//     } else {
+//         fullMessage = [NSString stringWithFormat:@"%s callback - %@", USERDATA_TAG,
+//                                                                       theMessage];
+//     }
+//     // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
+//     if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage);
+//
+//     // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
+//     // otherwise we print to the console for everything, just in case we forget to register.
+//     if (logFnRef != LUA_NOREF) {
+//         [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
+//         lua_getfield(L, -1, level); lua_remove(L, -2);
+//     } else {
+//         lua_getglobal(L, "print");
+//     }
+//
+//     lua_pushstring(L, [fullMessage UTF8String]);
+//     if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
+//     return 0;
+// }
+//
+// static int lua_registerLogForC(__unused lua_State *L) {
+//     [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
+//     logFnRef = [[LuaSkin shared] luaRef:refTable];
+//     return 0;
+// }
+//
+// // allow this to be potentially unused in the module
+// static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
+//     lua_Debug functionDebugObject;
+//     lua_getstack(L, 0, &functionDebugObject);
+//     lua_getinfo(L, "n", &functionDebugObject);
+//     return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
+// }
+//
+// NSString *validateString(lua_State *L, int idx) {
+//     luaL_checkstring(L, idx) ; // convert numbers to a string, since that's what we want
+//     NSString *theString = [[LuaSkin shared] toNSObjectAtIndex:idx];
+//     if (![theString isKindOfClass:[NSString class]]) {
+//         log_to_console(L, _cWARN, @"string not valid UTF8");
+//         theString = nil;
+//     }
+//     return theString;
+// }
+
+#pragma mark - Support Functions and Classes
+
+#pragma mark - Module Functions
+
+#pragma mark - Module Methods
+
+#pragma mark - Module Constants
+
+#pragma mark - Lua<->NSObject Conversion Functions
+
+#pragma mark - Hammerspoon/Lua Infrastructure
+
 // static int userdata_tostring(lua_State* L) {
+//     moduletype *obj = get_objectFromUserdata(__bridge moduletype, L, 1) ;
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     NSString *title = ... ;
+//     [skin pushNSObject:[[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)] ;
+//     return 1 ;
 // }
 
 // static int userdata_eq(lua_State* L) {
+// // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
+// // so use luaL_testudata before the macro causes a lua error
+//     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
+//         moduletype *obj1 = get_objectFromUserdata(__bridge moduletype, L, 1) ;
+//         moduletype *obj2 = get_objectFromUserdata(__bridge moduletype, L, 2) ;
+//         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
+//     } else {
+//         lua_pushboolean(L, NO) ;
+//     }
+//     return 1 ;
 // }
 
 // static int userdata_gc(lua_State* L) {
+//     moduletype *obj = get_objectFromUserdata(__bridge_transfer moduletype, L, 1) ;
+//     if (obj) obj = nil ;
+//     // Remove the Metatable so future use of the variable in Lua won't think its valid
+//     lua_pushnil(L) ;
+//     lua_setmetatable(L, 1) ;
 //     return 0 ;
 // }
 
@@ -23,7 +122,7 @@ int refTable ;
 //     return 0 ;
 // }
 
-// Metatable for userdata objects
+// // Metatable for userdata objects
 // static const luaL_Reg userdata_metaLib[] = {
 //     {"__tostring", userdata_tostring},
 //     {"__eq",       userdata_eq},
@@ -33,6 +132,7 @@ int refTable ;
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
+//     {"_registerLogForC", lua_registerLogForC},
     {NULL, NULL}
 };
 
@@ -43,14 +143,14 @@ static luaL_Reg moduleLib[] = {
 // };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs_module_internal(lua_State* __unused L) {
+int luaopen_hs__asm_module_internal(lua_State* __unused L) {
 // Use this if your module doesn't have a module specific object that it returns.
-//    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+   refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 // Use this some of your functions return or act on a specific object unique to this module
-    refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
-                                                 functions:moduleLib
-                                             metaFunctions:nil    // or module_metaLib
-                                           objectFunctions:userdata_metaLib];
+//     refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
+//                                                  functions:moduleLib
+//                                              metaFunctions:nil    // or module_metaLib
+//                                            objectFunctions:userdata_metaLib];
 
     return 1;
 }
