@@ -579,7 +579,7 @@ static int progressViewIncrement(lua_State *L) {
 
 /// hs._asm.progress:tint([tint]) -> progressObject | current value
 /// Method
-/// Get or set the indicator's size/
+/// Get or set the indicator's tint.
 ///
 /// Parameters:
 ///  * tint - an optional integer matching one of the values in [hs._asm.progress.controlTint](#controlTint), which indicates the tint of the progress indicator.
@@ -606,7 +606,7 @@ static int progressViewControlTint(lua_State *L) {
 
 /// hs._asm.progress:indicatorSize([size]) -> progressObject | current value
 /// Method
-/// Get or set the indicator's size/
+/// Get or set the indicator's size.
 ///
 /// Parameters:
 ///  * size - an optional integer matching one of the values in [hs._asm.progress.controlSize](#controlSize), which indicates the desired size of the indicator.
