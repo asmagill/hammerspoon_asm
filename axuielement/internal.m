@@ -3,6 +3,15 @@
 #import <LuaSkin/LuaSkin.h>
 #import "../hammerspoon.h"
 
+#import <CoreMedia/CoreMedia.h>
+#import <DiscRecording/DiscRecording.h>
+#import <GLKit/GLKit.h>
+#import <IOKit/hid/IOHIDLib.h>
+#import <LatentSemanticMapping/LatentSemanticMapping.h>
+#import <MediaToolbox/MediaToolbox.h>
+#import <OpenDirectory/OpenDirectory.h>
+#import <VideoToolbox/VideoToolbox.h>
+
 #define USERDATA_TAG        "hs._asm.axuielement"
 int refTable ;
 
@@ -381,12 +390,12 @@ static int definedTypes(lua_State *L) {
       lua_pushinteger(L, (lua_Integer)CGPDFPageGetTypeID()) ; lua_setfield(L, -2, "CGPDFPage") ;
       lua_pushinteger(L, (lua_Integer)CGPSConverterGetTypeID()) ; lua_setfield(L, -2, "CGPSConverter") ;
       lua_pushinteger(L, (lua_Integer)CGShadingGetTypeID()) ; lua_setfield(L, -2, "CGShading") ;
-//       lua_pushinteger(L, (lua_Integer)CMBlockBufferGetTypeID()) ; lua_setfield(L, -2, "CMBlockBuffer") ;
-//       lua_pushinteger(L, (lua_Integer)CMBufferQueueGetTypeID()) ; lua_setfield(L, -2, "CMBufferQueue") ;
-//       lua_pushinteger(L, (lua_Integer)CMFormatDescriptionGetTypeID()) ; lua_setfield(L, -2, "CMFormatDescription") ;
-//       lua_pushinteger(L, (lua_Integer)CMMemoryPoolGetTypeID()) ; lua_setfield(L, -2, "CMMemoryPool") ;
-//       lua_pushinteger(L, (lua_Integer)CMSampleBufferGetTypeID()) ; lua_setfield(L, -2, "CMSampleBuffer") ;
-//       lua_pushinteger(L, (lua_Integer)CMSimpleQueueGetTypeID()) ; lua_setfield(L, -2, "CMSimpleQueue") ;
+      lua_pushinteger(L, (lua_Integer)CMBlockBufferGetTypeID()) ; lua_setfield(L, -2, "CMBlockBuffer") ;
+      lua_pushinteger(L, (lua_Integer)CMBufferQueueGetTypeID()) ; lua_setfield(L, -2, "CMBufferQueue") ;
+      lua_pushinteger(L, (lua_Integer)CMFormatDescriptionGetTypeID()) ; lua_setfield(L, -2, "CMFormatDescription") ;
+      lua_pushinteger(L, (lua_Integer)CMMemoryPoolGetTypeID()) ; lua_setfield(L, -2, "CMMemoryPool") ;
+      lua_pushinteger(L, (lua_Integer)CMSampleBufferGetTypeID()) ; lua_setfield(L, -2, "CMSampleBuffer") ;
+      lua_pushinteger(L, (lua_Integer)CMSimpleQueueGetTypeID()) ; lua_setfield(L, -2, "CMSimpleQueue") ;
       lua_pushinteger(L, (lua_Integer)FSFileOperationGetTypeID()) ; lua_setfield(L, -2, "FSFileOperation") ;
       lua_pushinteger(L, (lua_Integer)FSFileSecurityGetTypeID()) ; lua_setfield(L, -2, "FSFileSecurity") ;
       lua_pushinteger(L, (lua_Integer)MDItemGetTypeID()) ; lua_setfield(L, -2, "MDItem") ;
@@ -401,39 +410,39 @@ static int definedTypes(lua_State *L) {
       lua_pushinteger(L, (lua_Integer)CVOpenGLTextureCacheGetTypeID()) ; lua_setfield(L, -2, "CVOpenGLTextureCache") ;
       lua_pushinteger(L, (lua_Integer)CVPixelBufferGetTypeID()) ; lua_setfield(L, -2, "CVPixelBuffer") ;
       lua_pushinteger(L, (lua_Integer)CVPixelBufferPoolGetTypeID()) ; lua_setfield(L, -2, "CVPixelBufferPool") ;
-//       lua_pushinteger(L, (lua_Integer)DRFileGetTypeID()) ; lua_setfield(L, -2, "DRFile") ;
-//       lua_pushinteger(L, (lua_Integer)DRFolderGetTypeID()) ; lua_setfield(L, -2, "DRFolder") ;
-//       lua_pushinteger(L, (lua_Integer)DRBurnGetTypeID()) ; lua_setfield(L, -2, "DRBurn") ;
-//       lua_pushinteger(L, (lua_Integer)DRDeviceGetTypeID()) ; lua_setfield(L, -2, "DRDevice") ;
-//       lua_pushinteger(L, (lua_Integer)DREraseGetTypeID()) ; lua_setfield(L, -2, "DRErase") ;
-//       lua_pushinteger(L, (lua_Integer)DRNotificationCenterGetTypeID()) ; lua_setfield(L, -2, "DRNotificationCenter") ;
-//       lua_pushinteger(L, (lua_Integer)DRTrackGetTypeID()) ; lua_setfield(L, -2, "DRTrack") ;
-//       lua_pushinteger(L, (lua_Integer)GLKMatrixStackGetTypeID()) ; lua_setfield(L, -2, "GLKMatrixStack") ;
+      lua_pushinteger(L, (lua_Integer)DRFileGetTypeID()) ; lua_setfield(L, -2, "DRFile") ;
+      lua_pushinteger(L, (lua_Integer)DRFolderGetTypeID()) ; lua_setfield(L, -2, "DRFolder") ;
+      lua_pushinteger(L, (lua_Integer)DRBurnGetTypeID()) ; lua_setfield(L, -2, "DRBurn") ;
+      lua_pushinteger(L, (lua_Integer)DRDeviceGetTypeID()) ; lua_setfield(L, -2, "DRDevice") ;
+      lua_pushinteger(L, (lua_Integer)DREraseGetTypeID()) ; lua_setfield(L, -2, "DRErase") ;
+      lua_pushinteger(L, (lua_Integer)DRNotificationCenterGetTypeID()) ; lua_setfield(L, -2, "DRNotificationCenter") ;
+      lua_pushinteger(L, (lua_Integer)DRTrackGetTypeID()) ; lua_setfield(L, -2, "DRTrack") ;
+      lua_pushinteger(L, (lua_Integer)GLKMatrixStackGetTypeID()) ; lua_setfield(L, -2, "GLKMatrixStack") ;
       lua_pushinteger(L, (lua_Integer)CGImageDestinationGetTypeID()) ; lua_setfield(L, -2, "CGImageDestination") ;
       lua_pushinteger(L, (lua_Integer)CGImageMetadataGetTypeID()) ; lua_setfield(L, -2, "CGImageMetadata") ;
       lua_pushinteger(L, (lua_Integer)CGImageMetadataTagGetTypeID()) ; lua_setfield(L, -2, "CGImageMetadataTag") ;
       lua_pushinteger(L, (lua_Integer)CGImageSourceGetTypeID()) ; lua_setfield(L, -2, "CGImageSource") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDDeviceGetTypeID()) ; lua_setfield(L, -2, "IOHIDDevice") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDElementGetTypeID()) ; lua_setfield(L, -2, "IOHIDElement") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDManagerGetTypeID()) ; lua_setfield(L, -2, "IOHIDManager") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDQueueGetTypeID()) ; lua_setfield(L, -2, "IOHIDQueue") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDTransactionGetTypeID()) ; lua_setfield(L, -2, "IOHIDTransaction") ;
-//       lua_pushinteger(L, (lua_Integer)IOHIDValueGetTypeID()) ; lua_setfield(L, -2, "IOHIDValue") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDDeviceGetTypeID()) ; lua_setfield(L, -2, "IOHIDDevice") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDElementGetTypeID()) ; lua_setfield(L, -2, "IOHIDElement") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDManagerGetTypeID()) ; lua_setfield(L, -2, "IOHIDManager") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDQueueGetTypeID()) ; lua_setfield(L, -2, "IOHIDQueue") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDTransactionGetTypeID()) ; lua_setfield(L, -2, "IOHIDTransaction") ;
+      lua_pushinteger(L, (lua_Integer)IOHIDValueGetTypeID()) ; lua_setfield(L, -2, "IOHIDValue") ;
       lua_pushinteger(L, (lua_Integer)IOSurfaceGetTypeID()) ; lua_setfield(L, -2, "IOSurface") ;
-//       lua_pushinteger(L, (lua_Integer)LSMMapGetTypeID()) ; lua_setfield(L, -2, "LSMMap") ;
-//       lua_pushinteger(L, (lua_Integer)LSMTextGetTypeID()) ; lua_setfield(L, -2, "LSMText") ;
-//       lua_pushinteger(L, (lua_Integer)LSMResultGetTypeID()) ; lua_setfield(L, -2, "LSMResult") ;
-//       lua_pushinteger(L, (lua_Integer)MTAudioProcessingTapGetTypeID()) ; lua_setfield(L, -2, "MTAudioProcessingTap") ;
-//       lua_pushinteger(L, (lua_Integer)ODContextGetTypeID()) ; lua_setfield(L, -2, "ODContext") ;
-//       lua_pushinteger(L, (lua_Integer)ODNodeGetTypeID()) ; lua_setfield(L, -2, "ODNode") ;
-//       lua_pushinteger(L, (lua_Integer)ODQueryGetTypeID()) ; lua_setfield(L, -2, "ODQuery") ;
-//       lua_pushinteger(L, (lua_Integer)ODRecordGetTypeID()) ; lua_setfield(L, -2, "ODRecord") ;
-//       lua_pushinteger(L, (lua_Integer)ODSessionGetTypeID()) ; lua_setfield(L, -2, "ODSession") ;
+      lua_pushinteger(L, (lua_Integer)LSMMapGetTypeID()) ; lua_setfield(L, -2, "LSMMap") ;
+      lua_pushinteger(L, (lua_Integer)LSMTextGetTypeID()) ; lua_setfield(L, -2, "LSMText") ;
+      lua_pushinteger(L, (lua_Integer)LSMResultGetTypeID()) ; lua_setfield(L, -2, "LSMResult") ;
+      lua_pushinteger(L, (lua_Integer)MTAudioProcessingTapGetTypeID()) ; lua_setfield(L, -2, "MTAudioProcessingTap") ;
+      lua_pushinteger(L, (lua_Integer)ODContextGetTypeID()) ; lua_setfield(L, -2, "ODContext") ;
+      lua_pushinteger(L, (lua_Integer)ODNodeGetTypeID()) ; lua_setfield(L, -2, "ODNode") ;
+      lua_pushinteger(L, (lua_Integer)ODQueryGetTypeID()) ; lua_setfield(L, -2, "ODQuery") ;
+      lua_pushinteger(L, (lua_Integer)ODRecordGetTypeID()) ; lua_setfield(L, -2, "ODRecord") ;
+      lua_pushinteger(L, (lua_Integer)ODSessionGetTypeID()) ; lua_setfield(L, -2, "ODSession") ;
       lua_pushinteger(L, (lua_Integer)CMSDecoderGetTypeID()) ; lua_setfield(L, -2, "CMSDecoder") ;
       lua_pushinteger(L, (lua_Integer)CMSEncoderGetTypeID()) ; lua_setfield(L, -2, "CMSEncoder") ;
       lua_pushinteger(L, (lua_Integer)SecAccessGetTypeID()) ; lua_setfield(L, -2, "SecAccess") ;
       lua_pushinteger(L, (lua_Integer)SecAccessControlGetTypeID()) ; lua_setfield(L, -2, "SecAccessControl") ;
-//       lua_pushinteger(L, (lua_Integer)CFTypeIDSecACLGetTypeID()) ; lua_setfield(L, -2, "CFTypeIDSecACL") ;
+      lua_pushinteger(L, (lua_Integer)SecACLGetTypeID()) ; lua_setfield(L, -2, "SecACL") ;
       lua_pushinteger(L, (lua_Integer)SecCertificateGetTypeID()) ; lua_setfield(L, -2, "SecCertificate") ;
       lua_pushinteger(L, (lua_Integer)SecCodeGetTypeID()) ; lua_setfield(L, -2, "SecCode") ;
       lua_pushinteger(L, (lua_Integer)SecIdentityGetTypeID()) ; lua_setfield(L, -2, "SecIdentity") ;
@@ -447,12 +456,14 @@ static int definedTypes(lua_State *L) {
       lua_pushinteger(L, (lua_Integer)SecRequirementGetTypeID()) ; lua_setfield(L, -2, "SecRequirement") ;
       lua_pushinteger(L, (lua_Integer)SecStaticCodeGetTypeID()) ; lua_setfield(L, -2, "SecStaticCode") ;
       lua_pushinteger(L, (lua_Integer)SecTaskGetTypeID()) ; lua_setfield(L, -2, "SecTask") ;
+
 //       lua_pushinteger(L, (lua_Integer)SecTransformGetTypeID()) ; lua_setfield(L, -2, "SecTransform") ;
 //       lua_pushinteger(L, (lua_Integer)SecGroupTransformGetTypeID()) ; lua_setfield(L, -2, "SecGroupTransform") ;
+
       lua_pushinteger(L, (lua_Integer)SecTrustGetTypeID()) ; lua_setfield(L, -2, "SecTrust") ;
       lua_pushinteger(L, (lua_Integer)SecTrustedApplicationGetTypeID()) ; lua_setfield(L, -2, "SecTrustedApplication") ;
-//       lua_pushinteger(L, (lua_Integer)VTFrameSiloGetTypeID()) ; lua_setfield(L, -2, "VTFrameSilo") ;
-//       lua_pushinteger(L, (lua_Integer)VTMultiPassStorageGetTypeID()) ; lua_setfield(L, -2, "VTMultiPassStorage") ;
+      lua_pushinteger(L, (lua_Integer)VTFrameSiloGetTypeID()) ; lua_setfield(L, -2, "VTFrameSilo") ;
+      lua_pushinteger(L, (lua_Integer)VTMultiPassStorageGetTypeID()) ; lua_setfield(L, -2, "VTMultiPassStorage") ;
 #pragma clang diagnostic pop
     return 1 ;
 }
