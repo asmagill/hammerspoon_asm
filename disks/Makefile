@@ -1,17 +1,14 @@
-#
-# If you haven't already, perform the following before
-# typing 'make':
-#
-# sudo ln -s /Applications/Hammerspoon.app/Contents/Frameworks/LuaSkin.framework /Library/Frameworks/LuaSkin.framework
-#
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 MODULE := $(current_dir)
-PREFIX ?= ~/.hammerspoon/hs/_asm
+PREFIX ?= ~/.hammerspoon
+HS_APPLICATION ?= /Applications
 
 OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
+HEADERS  = ${wildcard *.h}
+
 SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
 DOC_FILE = hs._asm.$(MODULE).json
@@ -27,7 +24,7 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=clang
-EXTRA_CFLAGS ?= -Wconversion -Wdeprecated
+EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
@@ -35,22 +32,22 @@ DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 
 all: verify $(SOFILE)
 
-.m.so:
+.m.so: $(HEADERS)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	luac-5.3 -p $(LUAFILE) && echo "Passed" || echo "Failed"
+	luac-5.3 -p $(LUAFILE) && echo "Passed"
 
 install-objc: $(SOFILE)
-	mkdir -p $(PREFIX)/$(MODULE)
-	install -m 0644 $(SOFILE) $(PREFIX)/$(MODULE)
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/$(MODULE)
+	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
+	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
+	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)
-	mkdir -p $(PREFIX)/$(MODULE)
-	install -m 0644 $(LUAFILE) $(PREFIX)/$(MODULE)
+	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
+	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
 
 docs: $(DOC_FILE)
 
@@ -58,16 +55,16 @@ $(DOC_FILE): $(DOC_SOURCES)
 	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | __doc_tools/gencomments | __doc_tools/genjson > $@
 
 install-docs: docs
-	mkdir -p $(PREFIX)/$(MODULE)
-	install -m 0644 $(DOC_FILE) $(PREFIX)/$(MODULE)
+	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
+	install -m 0644 $(DOC_FILE) $(PREFIX)/hs/_asm/$(MODULE)
 
 clean:
 	rm -v -rf $(SOFILE) *.dSYM $(DOC_FILE)
 
 uninstall:
-	rm -v -f $(PREFIX)/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	(pushd $(PREFIX)/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
-	rm -v -f $(PREFIX)/$(MODULE)/$(DOC_FILE)
-	rmdir -p $(PREFIX)/$(MODULE) ; exit 0
+	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
+	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/$(DOC_FILE)
+	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify docs install install-objc install-lua install-docs

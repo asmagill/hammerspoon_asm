@@ -248,39 +248,6 @@ static int progressViewShow(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.progress:level([level]) -> progressObject | current value
-/// Method
-/// Get or set the window level of the progress indicator.
-///
-/// Parameters:
-///  * level - an optional integer representing the window level, as defined in `hs.drawing.windowLevels`, you wish the progress indicator to be moved to.
-///
-/// Returns:
-///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
-///
-/// Notes:
-///  * the default level is defined as `hs.drawing.windowLevels.screenSaver`
-static int progressViewLevel(lua_State *L) {
-    HS_asmProgressWindow *theWindow = get_objectFromUserdata(__bridge HS_asmProgressWindow, L, 1) ;
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-
-    if (lua_gettop(L) == 2) {
-        lua_Integer targetLevel = luaL_checkinteger(L, 2) ;
-        if (targetLevel >= CGWindowLevelForKey(kCGMinimumWindowLevelKey) &&
-            targetLevel <= CGWindowLevelForKey(kCGMaximumWindowLevelKey)) {
-            [theWindow setLevel:targetLevel] ;
-        } else {
-            return my_lua_error(L, [NSString stringWithFormat:@"level must be between %d and %d inclusive",
-                                            CGWindowLevelForKey(kCGMinimumWindowLevelKey),
-                                            CGWindowLevelForKey(kCGMaximumWindowLevelKey)]) ;
-        }
-        lua_pushvalue(L, 1) ;
-    } else {
-        lua_pushinteger(L, theWindow.level) ;
-    }
-    return 1 ;
-}
-
 /// hs._asm.progress:hide() -> progressObject
 /// Method
 /// Hides the progress indicator and its background.
@@ -692,7 +659,7 @@ static int progressViewSetSize(lua_State *L) {
 /// Get or set the frame of the the progress indicator and its background.
 ///
 /// Parameters:
-///  * rect - an optional table containing the rectangular coordinates of the progress indicator and its background.
+///  * rect - an optional table containing the rectangular coordinates for the progress indicator and its background.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -701,7 +668,7 @@ static int progressViewFrame(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
 
-    if (lua_gettop(L) == 1) {
+    if (lua_gettop(L) == 2) {
         lua_pushcfunction(L, progressViewSetSize) ;
         lua_pushvalue(L, 1) ;
         lua_pushvalue(L, 2) ;
@@ -814,6 +781,30 @@ static int pushControlTintTable(lua_State *L) {
 
 #pragma mark - Hammerspoon/Lua Infrastructure
 
+// bridge to hs.drawing... allows us to use some of its methods as our own.
+// unlike other modules, we're not going to advertise this (in fact I may remove it from the others
+// when I get a chance) because a closer look suggests that we can cause a crash, even with the
+// type checks in many of hs.drawings methods.
+typedef struct _drawing_t {
+    void *window;
+    BOOL skipClose ;
+} drawing_t;
+
+static int progressViewAsHSDrawing(lua_State *L) {
+    HS_asmProgressWindow *theWindow = get_objectFromUserdata(__bridge HS_asmProgressWindow, L, 1) ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+
+    drawing_t *drawingObject = lua_newuserdata(L, sizeof(drawing_t));
+    memset(drawingObject, 0, sizeof(drawing_t));
+    drawingObject->window = (__bridge_retained void*)theWindow;
+    // skip the side affects of hs.drawing __gc
+    drawingObject->skipClose = YES ;
+    luaL_getmetatable(L, "hs.drawing");
+    lua_setmetatable(L, -2);
+    return 1 ;
+}
+
 static int userdata_tostring(lua_State* L) {
     HS_asmProgressWindow *obj = get_objectFromUserdata(__bridge HS_asmProgressWindow, L, 1) ;
     HS_asmProgressView   *theView = (HS_asmProgressView *)obj.contentView ;
@@ -890,14 +881,14 @@ static const luaL_Reg userdata_metaLib[] = {
     {"increment",          progressViewIncrement},
     {"indicatorSize",      progressViewControlSize},
     {"tint",               progressViewControlTint},
-    {"level",              progressViewLevel},
-    {"frame",              progressViewFrame},
     {"backgroundColor",    progressViewBackgroundColor},
 
+    {"frame",              progressViewFrame},
     {"setTopLeft",         progressViewSetTopLeft},
     {"setSize",            progressViewSetSize},
     {"setFillColor",       progressViewSetCustomColor},
 
+    {"_asHSDrawing",       progressViewAsHSDrawing},
     {"__tostring",         userdata_tostring},
     {"__eq",               userdata_eq},
     {"__gc",               userdata_gc},

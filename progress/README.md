@@ -56,6 +56,22 @@ Notes:
 ### Module Methods
 
 ~~~lua
+progress:alpha() -> number
+~~~
+Get the alpha level of the window containing the progress indicator object.
+
+Parameters:
+ * None
+
+Returns:
+ * The current alpha level for the progress indicator object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
 progress:backgroundColor([color]) -> progressObject
 ~~~
 Get or set the color of the progress indicator's background.
@@ -65,6 +81,39 @@ Parameters:
 
 Returns:
  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
+
+_ _ _
+
+~~~lua
+progress:behavior() -> number
+~~~
+Returns the current behavior of the progress indicator object with respect to Spaces and Exposé for the object.
+
+Parameters:
+ * None
+
+Returns:
+ * The numeric representation of the current behaviors for the progress indicator object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:behaviorAsLabels() -> table
+~~~
+Returns a table of the labels for the current behaviors of the object.
+
+Parameters:
+ * None
+
+Returns:
+ * Returns a table of the labels for the current behaviors with respect to Spaces and Exposé for the object.
+object.behaviorAsLabels    = function(self, ...) return hsdWrapper(self, drawingMT.behaviorAsLabels, ...) end
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
 
 _ _ _
 
@@ -82,6 +131,22 @@ Returns:
 Notes:
  * The default setting for this is true.
  * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).
+
+_ _ _
+
+~~~lua
+progress:bringToFront([aboveEverything]) -> drawingObject
+~~~
+Places the drawing object on top of normal windows
+
+Parameters:
+ * aboveEverything - An optional boolean value that controls how far to the front the drawing should be placed. True to place the drawing on top of all windows (including the dock and menubar and fullscreen windows), false to place the drawing above normal windows, but below the dock, menubar and fullscreen windows. Defaults to false.
+
+Returns:
+ * The drawing object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
 
 _ _ _
 
@@ -144,7 +209,7 @@ progress:frame([rect]) -> progressObject
 Get or set the frame of the the progress indicator and its background.
 
 Parameters:
- * rect - an optional table containing the rectangular coordinates of the progress indicator and its background.
+ * rect - an optional table containing the rectangular coordinates for the progress indicator and its background.
 
 Returns:
  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -216,22 +281,6 @@ Notes:
 _ _ _
 
 ~~~lua
-progress:level([level]) -> progressObject | current value
-~~~
-Get or set the window level of the progress indicator.
-
-Parameters:
- * level - an optional integer representing the window level, as defined in `hs.drawing.windowLevels`, you wish the progress indicator to be moved to.
-
-Returns:
- * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
-
-Notes:
- * the default level is defined as `hs.drawing.windowLevels.screenSaver`
-
-_ _ _
-
-~~~lua
 progress:max([value]) -> progressObject | current value
 ~~~
 Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.
@@ -268,6 +317,104 @@ Notes:
 _ _ _
 
 ~~~lua
+progress:orderAbove([object2]) -> object
+~~~
+Moves drawing object above drawing object2, or all drawing objects in the same presentation level, if object2 is not provided.
+
+Parameters:
+ * Optional drawing object to place the drawing object above.
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:orderBelow([object2]) -> object1
+~~~
+Moves drawing object below drawing object2, or all drawing objects in the same presentation level, if object2 is not provided.
+
+Parameters:
+ * Optional drawing object to place the drawing object below.
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:sendToBack() -> drawingObject
+~~~
+Places the drawing object behind normal windows, between the desktop wallpaper and desktop icons
+
+Parameters:
+ * None
+
+Returns:
+ * The drawing object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:setAlpha(level) -> object
+~~~
+Sets the alpha level of the window containing the progress indicator object.
+
+Parameters:
+ * level - the alpha level (0.0 - 1.0) to set the object to
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:setBehavior(behavior) -> object
+~~~
+Sets the window behaviors represented by the number provided for the window containing the progress indicator object.
+
+Parameters:
+ * behavior - the numeric representation of the behaviors to set for the window of the object
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * see the notes for `hs.drawing.windowBehaviors`
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:setBehaviorByLabels(table) -> object
+~~~
+Sets the window behaviors based upon the labels specified in the table provided.
+
+Parameters:
+ * a table of label strings or numbers.  Recognized values can be found in `hs.drawing.windowBehaviors`.
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * see the notes for `hs.drawing.windowBehaviors`
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
 progress:setFillColor(color) -> progressObject
 ~~~
 Sets the fill color for a progress indicator.
@@ -282,6 +429,39 @@ Notes:
  * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http://stackoverflow.com/a/32396595 utilizing a CIFilter object to adjust the view's output.
  * For circular and determinate bar progress indicators, this method works as expected.
  * For indeterminate bar progress indicators, this method will set the entire bar to the color specified and no animation effect is apparent.  Hopefully this is a temporary limitation.
+
+_ _ _
+
+~~~lua
+progress:setFrame(rect) -> progressObject
+~~~
+Set the frame of the progress indicator and its background to the specified frame.
+
+Parameters:
+ * rect - a table containing the rectangular coordinates for the progress indicator and its background.
+
+Returns:
+ * the progress indicator object
+
+Notes:
+ * this is actually a wrapper to [hs._asm.progress:frame](#frame) for compatibility with tools which wish to treat this object like an `hs.drawing` object.
+
+_ _ _
+
+~~~lua
+progress:setLevel(theLevel) -> drawingObject
+~~~
+Sets the window level more precisely than sendToBack and bringToFront.
+
+Parameters:
+ * theLevel - the level specified as a number or as a string where this object should be drawn.  If it is a string, it must match one of the keys in `hs.drawing.windowLevels`.
+
+Returns:
+ * the drawing object
+
+Notes:
+ * see the notes for `hs.drawing.windowLevels`
+ * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
 
 _ _ _
 
