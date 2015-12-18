@@ -13,7 +13,65 @@
 #import <VideoToolbox/VideoToolbox.h>
 
 #define USERDATA_TAG        "hs._asm.axuielement"
-int refTable ;
+static int refTable = LUA_NOREF;
+
+#pragma mark - Errors and Logging and with hs.logger
+
+static int logFnRef = LUA_NOREF;
+
+#define _cERROR   "ef"
+#define _cWARN    "wf"
+#define _cINFO    "f"
+#define _cDEBUG   "df"
+#define _cVERBOSE "vf"
+
+// allow this to be potentially unused in the module
+static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
+    lua_Debug functionDebugObject, callerDebugObject;
+    int status = lua_getstack(L, 0, &functionDebugObject);
+    status = status + lua_getstack(L, 1, &callerDebugObject);
+    NSString *fullMessage = nil ;
+    if (status == 2) {
+        lua_getinfo(L, "n", &functionDebugObject);
+        lua_getinfo(L, "Sl", &callerDebugObject);
+        fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
+                                                                     theMessage,
+                                                                     callerDebugObject.currentline,
+                                                                     callerDebugObject.short_src];
+    } else {
+        fullMessage = [NSString stringWithFormat:@"%s callback - %@", USERDATA_TAG,
+                                                                      theMessage];
+    }
+    // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
+    if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage);
+
+    // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
+    // otherwise we print to the console for everything, just in case we forget to register.
+    if (logFnRef != LUA_NOREF) {
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
+        lua_getfield(L, -1, level); lua_remove(L, -2);
+    } else {
+        lua_getglobal(L, "print");
+    }
+
+    lua_pushstring(L, [fullMessage UTF8String]);
+    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
+    return 0;
+}
+
+static int lua_registerLogForC(__unused lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
+    logFnRef = [[LuaSkin shared] luaRef:refTable];
+    return 0;
+}
+
+// allow this to be potentially unused in the module
+static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
+    lua_Debug functionDebugObject;
+    lua_getstack(L, 0, &functionDebugObject);
+    lua_getinfo(L, "n", &functionDebugObject);
+    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
+}
 
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -53,67 +111,91 @@ const char *AXErrorAsString(AXError theError) {
     return ans ;
 }
 
+static int errorWrapper(lua_State *L, AXError err) {
+    if (err == kAXErrorInvalidUIElement ||
+        err == kAXErrorNoValue ||
+        err == kAXErrorAttributeUnsupported ||
+        err == kAXErrorParameterizedAttributeUnsupported) {
+        // relatively minor, so don't even put it in the system log
+        log_to_console(L, _cDEBUG, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+    } else {
+        // still deciding which is best...
+//         return my_lua_error(L, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+        log_to_console(L, _cERROR, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+//         [[LuaSkin shared] pushNSObject:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
+//         return 1 ;
+    }
+
+    lua_pushnil(L) ;
+    return 1 ;
+}
+
 static int getWindowElement(lua_State *L)      { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.window")) ; }
 static int getApplicationElement(lua_State *L) { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.application")) ; }
 
 static int getAttributeNames(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     CFArrayRef attributeNames ;
     AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
     if (errorState == kAXErrorSuccess) {
         lua_newtable(L) ;
         for (id value in (__bridge NSArray *)attributeNames) {
-            [[LuaSkin shared] pushNSObject:value] ;
+            [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
         CFRelease(attributeNames) ;
     } else {
         if (attributeNames) CFRelease(attributeNames) ;
-        return luaL_error(L, "attributeNames:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int getActionNames(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     CFArrayRef attributeNames ;
     AXError errorState = AXUIElementCopyActionNames(theRef, &attributeNames) ;
     if (errorState == kAXErrorSuccess) {
         lua_newtable(L) ;
         for (id value in (__bridge NSArray *)attributeNames) {
-            [[LuaSkin shared] pushNSObject:value] ;
+            [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
         CFRelease(attributeNames) ;
     } else {
         if (attributeNames) CFRelease(attributeNames) ;
-        return luaL_error(L, "actionNames:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int getActionDescription(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *action = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+    NSString *action = [skin toNSObjectAtIndex:2] ;
     CFStringRef description ;
     AXError errorState = AXUIElementCopyActionDescription(theRef, (__bridge CFStringRef)action, &description) ;
     if (errorState == kAXErrorSuccess) {
-        [[LuaSkin shared] pushNSObject:(__bridge NSString *)description] ;
+        [skin pushNSObject:(__bridge NSString *)description] ;
         CFRelease(description) ;
     } else {
         if (description) CFRelease(description) ;
-        return luaL_error(L, "actionDescription:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
+static int definedTypes(lua_State *L) ;
 // Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've
 // found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether
 // or not to delve deeper, either, so...
 static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
+    LuaSkin *skin = [LuaSkin shared] ;
     if ([alreadySeen objectForKey:(__bridge id)theItem]) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ;
         return 1 ;
@@ -146,7 +228,7 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
                 AXValueGetValue((AXValueRef)theItem, kAXValueCGPointType, &thePoint);
                 lua_newtable(L) ;
                   lua_pushnumber(L, thePoint.x) ; lua_setfield(L, -2, "x") ;
-                  lua_pushnumber(L, thePoint.x) ; lua_setfield(L, -2, "y") ;
+                  lua_pushnumber(L, thePoint.y) ; lua_setfield(L, -2, "y") ;
                 break ;
             }
             case kAXValueCGSizeType: {
@@ -162,7 +244,7 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
                 AXValueGetValue((AXValueRef)theItem, kAXValueCGRectType, &theRect);
                 lua_newtable(L) ;
                   lua_pushnumber(L, theRect.origin.x) ;    lua_setfield(L, -2, "x") ;
-                  lua_pushnumber(L, theRect.origin.x) ;    lua_setfield(L, -2, "y") ;
+                  lua_pushnumber(L, theRect.origin.y) ;    lua_setfield(L, -2, "y") ;
                   lua_pushnumber(L, theRect.size.height) ; lua_setfield(L, -2, "h") ;
                   lua_pushnumber(L, theRect.size.width) ;  lua_setfield(L, -2, "w") ;
                 break ;
@@ -188,16 +270,29 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
                 lua_pushfstring(L, "unrecognized value type (%p)", theItem) ;
                 break ;
         }
-    } else if (theType == CFAttributedStringGetTypeID()) [[LuaSkin shared] pushNSObject:(__bridge NSAttributedString *)theItem] ;
-      else if (theType == CFNullGetTypeID())             [[LuaSkin shared] pushNSObject:(__bridge NSNull *)theItem] ;
+    } else if (theType == CFAttributedStringGetTypeID()) [skin pushNSObject:(__bridge NSAttributedString *)theItem] ;
+      else if (theType == CFNullGetTypeID())             [skin pushNSObject:(__bridge NSNull *)theItem] ;
       else if (theType == CFBooleanGetTypeID() || theType == CFNumberGetTypeID())
-                                                         [[LuaSkin shared] pushNSObject:(__bridge NSNumber *)theItem] ;
-      else if (theType == CFDataGetTypeID())             [[LuaSkin shared] pushNSObject:(__bridge NSData *)theItem] ;
-      else if (theType == CFDateGetTypeID())             [[LuaSkin shared] pushNSObject:(__bridge NSDate *)theItem] ;
-      else if (theType == CFStringGetTypeID())           [[LuaSkin shared] pushNSObject:(__bridge NSString *)theItem] ;
-      else if (theType == CFURLGetTypeID())              [[LuaSkin shared] pushNSObject:(__bridge_transfer NSString *)CFRetain(CFURLGetString(theItem))] ;
+                                                         [skin pushNSObject:(__bridge NSNumber *)theItem] ;
+      else if (theType == CFDataGetTypeID())             [skin pushNSObject:(__bridge NSData *)theItem] ;
+      else if (theType == CFDateGetTypeID())             [skin pushNSObject:(__bridge NSDate *)theItem] ;
+      else if (theType == CFStringGetTypeID())           [skin pushNSObject:(__bridge NSString *)theItem] ;
+      else if (theType == CFURLGetTypeID())              [skin pushNSObject:(__bridge_transfer NSString *)CFRetain(CFURLGetString(theItem))] ;
       else if (theType == AXUIElementGetTypeID())        pushAXUIElement(L, theItem) ;
-      else                                               lua_pushfstring(L, "unrecognized type %d", CFGetTypeID(theItem)) ;
+      else {
+//           lua_pushfstring(L, "unrecognized type %d", CFGetTypeID(theItem)) ;
+          definedTypes(L) ;
+          lua_pushinteger(L, (lua_Integer)CFGetTypeID(theItem)) ;
+          lua_rawget(L, -2) ;
+          NSString *typeLabel ;
+          if (lua_type(L, -1) == LUA_TSTRING) {
+              typeLabel = [NSString stringWithFormat:@"unrecognized type: %@", [skin toNSObjectAtIndex:-1]] ;
+          } else {
+              typeLabel = [NSString stringWithFormat:@"unrecognized type: %lu", CFGetTypeID(theItem)] ;
+          }
+          lua_pop(L, 2) ; // the table and the result of lua_rawget
+          lua_pushstring(L, [typeLabel UTF8String]) ;
+      }
     return 1 ;
 }
 
@@ -211,9 +306,10 @@ static int pushCFTypeToLua(lua_State *L, CFTypeRef theItem) {
 }
 
 static int getAttributeValue(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *attribute = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
     CFTypeRef value ;
     AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)attribute, &value) ;
     if (errorState == kAXErrorSuccess) {
@@ -221,97 +317,139 @@ static int getAttributeValue(lua_State *L) {
         CFRelease(value) ;
     } else {
         if (value) CFRelease(value) ;
-        return luaL_error(L, "attributeValue:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int getSystemWideElement(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
-    return pushAXUIElement(L, AXUIElementCreateSystemWide()) ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+//     return pushAXUIElement(L, AXUIElementCreateSystemWide()) ;
+    AXUIElementRef value = AXUIElementCreateSystemWide() ;
+    pushAXUIElement(L, value) ;
+    CFRelease(value) ;
+    return 1 ;
 }
 
 static int getAttributeValueCount(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *attribute = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
     CFIndex count ;
     AXError errorState = AXUIElementGetAttributeValueCount(theRef, (__bridge CFStringRef)attribute, &count) ;
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, count) ;
     } else {
-        return luaL_error(L, "attributeValueCount:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int getParameterizedAttributeNames(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     CFArrayRef attributeNames ;
     AXError errorState = AXUIElementCopyParameterizedAttributeNames(theRef, &attributeNames) ;
     if (errorState == kAXErrorSuccess) {
         lua_newtable(L) ;
         for (id value in (__bridge NSArray *)attributeNames) {
-            [[LuaSkin shared] pushNSObject:value] ;
+            [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
         CFRelease(attributeNames) ;
     } else {
         if (attributeNames) CFRelease(attributeNames) ;
-        return luaL_error(L, "parameterizedAttributeNames:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int isAttributeSettable(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *attribute = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
     Boolean settable ;
     AXError errorState = AXUIElementIsAttributeSettable(theRef, (__bridge CFStringRef)attribute, &settable) ;
     if (errorState == kAXErrorSuccess) {
         lua_pushboolean(L, settable) ;
     } else {
-        return luaL_error(L, "isAttributeSettable:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int getPid(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     pid_t thePid ;
     AXError errorState = AXUIElementGetPid(theRef, &thePid) ;
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, (lua_Integer)thePid) ;
     } else {
-        return luaL_error(L, "pid:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
 static int performAction(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *action = [[LuaSkin shared] toNSObjectAtIndex:2] ;
+    NSString *action = [skin toNSObjectAtIndex:2] ;
     AXError errorState = AXUIElementPerformAction(theRef, (__bridge CFStringRef)action) ;
     if (errorState == kAXErrorSuccess) {
         lua_pushboolean(L, YES) ;
     } else if (errorState == kAXErrorCannotComplete) {
         lua_pushboolean(L, NO) ;
     } else {
-        return luaL_error(L, "performAction:AXError %d: %s", errorState, AXErrorAsString(errorState)) ;
+        return errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
 
-// AXError AXUIElementCopyElementAtPosition ( AXUIElementRef application, float x, float y, AXUIElementRef *element);
+static int getElementAtPosition(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    float x = (float)lua_tonumber(L, 2) ;
+    float y = (float)lua_tonumber(L, 3) ;
+    AXUIElementRef value ;
+    AXError errorState = AXUIElementCopyElementAtPosition(theRef, x, y, &value) ;
+    if (errorState == kAXErrorSuccess) {
+        pushAXUIElement(L, value) ;
+        CFRelease(value) ;
+    } else {
+        if (value) CFRelease(value) ;
+        return errorWrapper(L, errorState) ;
+    }
+    return 1 ;
+}
 
-// AXError AXUIElementCopyParameterizedAttributeValue ( AXUIElementRef element, CFStringRef parameterizedAttribute, CFTypeRef parameter, CFTypeRef *result) ;
+static int getParameterizedAttributeValue(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TSTRING, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
+    NSString *parameter = [skin toNSObjectAtIndex:3] ;
+    CFTypeRef value ;
+    AXError errorState = AXUIElementCopyParameterizedAttributeValue(theRef, (__bridge CFStringRef)attribute, (__bridge CFStringRef)parameter, &value) ;
+    if (errorState == kAXErrorSuccess) {
+        pushCFTypeToLua(L, value) ;
+        CFRelease(value) ;
+    } else {
+        if (value) CFRelease(value) ;
+        return errorWrapper(L, errorState) ;
+    }
+    return 1 ;
+}
+
 // AXError AXUIElementSetAttributeValue ( AXUIElementRef element, CFStringRef attribute, CFTypeRef value);
 // AXError AXUIElementSetMessagingTimeout ( AXUIElementRef element, float timeoutInSeconds) ;
-
 
 // Because I may want to generalize this as a CFType converter someday, I should keep a list
 // of the types possible around.  If something comes up that doesn't have a clean converter,
@@ -457,6 +595,7 @@ static int definedTypes(lua_State *L) {
       lua_pushinteger(L, (lua_Integer)SecStaticCodeGetTypeID()) ; lua_setfield(L, -2, "SecStaticCode") ;
       lua_pushinteger(L, (lua_Integer)SecTaskGetTypeID()) ; lua_setfield(L, -2, "SecTask") ;
 
+// Even calling these to get the type id causes a crash, so ignoring until it matters
 //       lua_pushinteger(L, (lua_Integer)SecTransformGetTypeID()) ; lua_setfield(L, -2, "SecTransform") ;
 //       lua_pushinteger(L, (lua_Integer)SecGroupTransformGetTypeID()) ; lua_setfield(L, -2, "SecGroupTransform") ;
 
@@ -470,7 +609,8 @@ static int definedTypes(lua_State *L) {
 
 static int userdata_tostring(lua_State* L) {
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    [[LuaSkin shared] pushNSObject:[NSString stringWithFormat:@"%s: %p", USERDATA_TAG, theRef]] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %p", USERDATA_TAG, theRef]] ;
     return 1 ;
 }
 
@@ -498,10 +638,12 @@ static const luaL_Reg userdata_metaLib[] = {
     {"actionNames",                 getActionNames},
     {"actionDescription",           getActionDescription},
     {"attributeValue",              getAttributeValue},
+    {"parameterizedAttributeValue", getParameterizedAttributeValue},
     {"attributeValueCount",         getAttributeValueCount},
     {"isAttributeSettable",         isAttributeSettable},
     {"pid",                         getPid},
     {"performAction",               performAction},
+    {"elementAtPosition",           getElementAtPosition},
 
     {"__tostring",                  userdata_tostring},
     {"__eq",                        userdata_eq},
@@ -515,6 +657,7 @@ static luaL_Reg moduleLib[] = {
     {"windowElement",      getWindowElement},
     {"applicationElement", getApplicationElement},
 
+    {"_registerLogForC",   lua_registerLogForC},
     {NULL,                 NULL}
 };
 
@@ -527,9 +670,10 @@ static luaL_Reg moduleLib[] = {
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
 // Use this if your module doesn't have a module specific object that it returns.
-//    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+//    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 // Use this some of your functions return or act on a specific object unique to this module
-    refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
                                              metaFunctions:nil    // or module_metaLib
                                            objectFunctions:userdata_metaLib];
