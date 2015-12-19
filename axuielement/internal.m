@@ -12,8 +12,12 @@
 #import <OpenDirectory/OpenDirectory.h>
 #import <VideoToolbox/VideoToolbox.h>
 
-#define USERDATA_TAG        "hs._asm.axuielement"
+#define USERDATA_TAG "hs._asm.axuielement"
 static int refTable = LUA_NOREF;
+
+// #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
+// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
+#define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Errors and Logging and with hs.logger
 
@@ -73,10 +77,7 @@ static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
     return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
 }
 
-// #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
-// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
-
-#define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
+#pragma mark - Support Functions
 
 static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
     AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef));
@@ -87,7 +88,7 @@ static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
     return 1 ;
 }
 
-const char *AXErrorAsString(AXError theError) {
+static const char *AXErrorAsString(AXError theError) {
     const char *ans ;
     switch(theError) {
         case kAXErrorSuccess:                           ans = "No error occurred" ; break ;
@@ -111,6 +112,21 @@ const char *AXErrorAsString(AXError theError) {
     return ans ;
 }
 
+static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
+    BOOL result = NO ;
+    CFTypeRef value ;
+    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)@"AXRole", &value) ;
+    if ((errorState == kAXErrorSuccess) &&
+        (CFGetTypeID(value) == CFStringGetTypeID()) &&
+        ([(__bridge NSString *)value isEqualToString:@"AXApplication"] ||
+         [(__bridge NSString *)value isEqualToString:@"AXSystemWide"])) {
+
+        result = YES ;
+    }
+    if (value) CFRelease(value) ;
+    return result ;
+}
+
 static int errorWrapper(lua_State *L, AXError err) {
     if (err == kAXErrorInvalidUIElement ||
         err == kAXErrorNoValue ||
@@ -130,67 +146,9 @@ static int errorWrapper(lua_State *L, AXError err) {
     return 1 ;
 }
 
-static int getWindowElement(lua_State *L)      { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.window")) ; }
-static int getApplicationElement(lua_State *L) { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.application")) ; }
-
-static int getAttributeNames(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    CFArrayRef attributeNames ;
-    AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
-    if (errorState == kAXErrorSuccess) {
-        lua_newtable(L) ;
-        for (id value in (__bridge NSArray *)attributeNames) {
-            [skin pushNSObject:value] ;
-            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        }
-        CFRelease(attributeNames) ;
-    } else {
-        if (attributeNames) CFRelease(attributeNames) ;
-        return errorWrapper(L, errorState) ;
-    }
-    return 1 ;
-}
-
-static int getActionNames(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    CFArrayRef attributeNames ;
-    AXError errorState = AXUIElementCopyActionNames(theRef, &attributeNames) ;
-    if (errorState == kAXErrorSuccess) {
-        lua_newtable(L) ;
-        for (id value in (__bridge NSArray *)attributeNames) {
-            [skin pushNSObject:value] ;
-            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        }
-        CFRelease(attributeNames) ;
-    } else {
-        if (attributeNames) CFRelease(attributeNames) ;
-        return errorWrapper(L, errorState) ;
-    }
-    return 1 ;
-}
-
-static int getActionDescription(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
-    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    NSString *action = [skin toNSObjectAtIndex:2] ;
-    CFStringRef description ;
-    AXError errorState = AXUIElementCopyActionDescription(theRef, (__bridge CFStringRef)action, &description) ;
-    if (errorState == kAXErrorSuccess) {
-        [skin pushNSObject:(__bridge NSString *)description] ;
-        CFRelease(description) ;
-    } else {
-        if (description) CFRelease(description) ;
-        return errorWrapper(L, errorState) ;
-    }
-    return 1 ;
-}
-
+// Forward declaration -- this is also used for the constants table
 static int definedTypes(lua_State *L) ;
+
 // Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've
 // found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether
 // or not to delve deeper, either, so...
@@ -305,6 +263,94 @@ static int pushCFTypeToLua(lua_State *L, CFTypeRef theItem) {
     return 1 ;
 }
 
+#pragma mark - Module Functions
+
+static int getWindowElement(lua_State *L)      { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.window")) ; }
+static int getApplicationElement(lua_State *L) { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.application")) ; }
+
+static int getSystemWideElement(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+//     return pushAXUIElement(L, AXUIElementCreateSystemWide()) ;
+    AXUIElementRef value = AXUIElementCreateSystemWide() ;
+    pushAXUIElement(L, value) ;
+    CFRelease(value) ;
+    return 1 ;
+}
+
+static int getApplicationElementForPID(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER, LS_TBREAK] ;
+    pid_t thePid = (pid_t)luaL_checkinteger(L, 1) ;
+    AXUIElementRef value = AXUIElementCreateApplication(thePid) ;
+    if (value && isApplicationOrSystem(value)) {
+        pushAXUIElement(L, value) ;
+        CFRelease(value) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+#pragma mark - Module Methods
+
+static int getAttributeNames(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFArrayRef attributeNames ;
+    AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
+    if (errorState == kAXErrorSuccess) {
+        lua_newtable(L) ;
+        for (id value in (__bridge NSArray *)attributeNames) {
+            [skin pushNSObject:value] ;
+            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+        CFRelease(attributeNames) ;
+    } else {
+        if (attributeNames) CFRelease(attributeNames) ;
+        return errorWrapper(L, errorState) ;
+    }
+    return 1 ;
+}
+
+static int getActionNames(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFArrayRef attributeNames ;
+    AXError errorState = AXUIElementCopyActionNames(theRef, &attributeNames) ;
+    if (errorState == kAXErrorSuccess) {
+        lua_newtable(L) ;
+        for (id value in (__bridge NSArray *)attributeNames) {
+            [skin pushNSObject:value] ;
+            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+        CFRelease(attributeNames) ;
+    } else {
+        if (attributeNames) CFRelease(attributeNames) ;
+        return errorWrapper(L, errorState) ;
+    }
+    return 1 ;
+}
+
+static int getActionDescription(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    NSString *action = [skin toNSObjectAtIndex:2] ;
+    CFStringRef description ;
+    AXError errorState = AXUIElementCopyActionDescription(theRef, (__bridge CFStringRef)action, &description) ;
+    if (errorState == kAXErrorSuccess) {
+        [skin pushNSObject:(__bridge NSString *)description] ;
+        CFRelease(description) ;
+    } else {
+        if (description) CFRelease(description) ;
+        return errorWrapper(L, errorState) ;
+    }
+    return 1 ;
+}
+
 static int getAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -319,16 +365,6 @@ static int getAttributeValue(lua_State *L) {
         if (value) CFRelease(value) ;
         return errorWrapper(L, errorState) ;
     }
-    return 1 ;
-}
-
-static int getSystemWideElement(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TBREAK] ;
-//     return pushAXUIElement(L, AXUIElementCreateSystemWide()) ;
-    AXUIElementRef value = AXUIElementCreateSystemWide() ;
-    pushAXUIElement(L, value) ;
-    CFRelease(value) ;
     return 1 ;
 }
 
@@ -416,16 +452,20 @@ static int getElementAtPosition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    float x = (float)lua_tonumber(L, 2) ;
-    float y = (float)lua_tonumber(L, 3) ;
-    AXUIElementRef value ;
-    AXError errorState = AXUIElementCopyElementAtPosition(theRef, x, y, &value) ;
-    if (errorState == kAXErrorSuccess) {
-        pushAXUIElement(L, value) ;
-        CFRelease(value) ;
+    if (isApplicationOrSystem(theRef)) {
+        float x = (float)lua_tonumber(L, 2) ;
+        float y = (float)lua_tonumber(L, 3) ;
+        AXUIElementRef value ;
+        AXError errorState = AXUIElementCopyElementAtPosition(theRef, x, y, &value) ;
+        if (errorState == kAXErrorSuccess) {
+            pushAXUIElement(L, value) ;
+            CFRelease(value) ;
+        } else {
+            if (value) CFRelease(value) ;
+            return errorWrapper(L, errorState) ;
+        }
     } else {
-        if (value) CFRelease(value) ;
-        return errorWrapper(L, errorState) ;
+        return my_lua_error(L, @"must be application or systemWide element") ;
     }
     return 1 ;
 }
@@ -450,6 +490,9 @@ static int getParameterizedAttributeValue(lua_State *L) {
 
 // AXError AXUIElementSetAttributeValue ( AXUIElementRef element, CFStringRef attribute, CFTypeRef value);
 // AXError AXUIElementSetMessagingTimeout ( AXUIElementRef element, float timeoutInSeconds) ;
+// AXError AXUIElementPostKeyboardEvent ( AXUIElementRef application, CGCharCode keyChar, CGKeyCode virtualKey, Boolean keyDown) ;
+
+#pragma mark - Module Constants
 
 // Because I may want to generalize this as a CFType converter someday, I should keep a list
 // of the types possible around.  If something comes up that doesn't have a clean converter,
@@ -607,10 +650,19 @@ static int definedTypes(lua_State *L) {
     return 1 ;
 }
 
+#pragma mark - Hammerspoon/Lua Infrastructure
+
 static int userdata_tostring(lua_State* L) {
-    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin pushNSObject:[NSString stringWithFormat:@"%s: %p", USERDATA_TAG, theRef]] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFTypeRef value ;
+    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)@"AXRole", &value) ;
+    NSString *title = @"*AXRole undefined*" ;
+    if (errorState == kAXErrorSuccess) {
+        title = (__bridge NSString *)value ;
+    }
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, theRef]] ;
+    if (value) CFRelease(value) ;
     return 1 ;
 }
 
@@ -653,12 +705,13 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"systemWideElement",  getSystemWideElement},
-    {"windowElement",      getWindowElement},
-    {"applicationElement", getApplicationElement},
+    {"systemWideElement",        getSystemWideElement},
+    {"windowElement",            getWindowElement},
+    {"applicationElement",       getApplicationElement},
+    {"applicationElementForPID", getApplicationElementForPID},
 
-    {"_registerLogForC",   lua_registerLogForC},
-    {NULL,                 NULL}
+    {"_registerLogForC",         lua_registerLogForC},
+    {NULL,                       NULL}
 };
 
 // // Metatable for module, if needed
@@ -667,7 +720,6 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-// NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
 // Use this if your module doesn't have a module specific object that it returns.
 //    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib

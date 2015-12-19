@@ -145,6 +145,10 @@ module.browse = function(xyzzy, depth)
     return examine_axuielement(theElement, depth, {})
 end
 
+module.systemElementAtPosition = function(...)
+    return module.systemWideElement():elementAtPosition(...)
+end
+
 -- Return Module Object --------------------------------------------------
 
 return module
