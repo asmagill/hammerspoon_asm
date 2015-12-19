@@ -31,18 +31,18 @@ _kMetaTable.__newindex = function(obj, key, value)
         return nil
     end
 _kMetaTable.__pairs = function(obj) return pairs(_kMetaTable._k[obj]) end
+_kMetaTable.__len = function(obj) return #_kMetaTable._k[obj] end
 _kMetaTable.__tostring = function(obj)
         local result = ""
         if _kMetaTable._k[obj] then
-            if _kMetaTable._t[obj] == "table" then
-                local width = 0
-                for k,v in pairs(_kMetaTable._k[obj]) do width = width < #k and #k or width end
-                for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
-                    result = result..string.format("%-"..tostring(width).."s %s\n", k, tostring(v))
-                end
-            else
-                for k,v in ipairs(_kMetaTable._k[obj]) do
-                    result = result..v.."\n"
+            local width = 0
+            for k,v in pairs(_kMetaTable._k[obj]) do width = width < #tostring(k) and #tostring(k) or width end
+            for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
+                if _kMetaTable._t[obj] == "table" then
+                    result = result..string.format("%-"..tostring(width).."s %s\n", tostring(k),
+                        ((type(v) == "table") and "{ table }" or tostring(v)))
+                else
+                    result = result..((type(v) == "table") and "{ table }" or tostring(v)).."\n"
                 end
             end
         else
@@ -52,24 +52,37 @@ _kMetaTable.__tostring = function(obj)
     end
 _kMetaTable.__metatable = _kMetaTable -- go ahead and look, but don't unset this
 
-local _makeConstantsTable = function(theTable)
+local _makeConstantsTable
+_makeConstantsTable = function(theTable)
+    for k,v in pairs(theTable) do
+        if type(v) == "table" then
+            local count = 0
+            for a,b in pairs(v) do count = count + 1 end
+            local results = _makeConstantsTable(v)
+            if #v > 0 and #v == count then
+                _kMetaTable._t[results] = "array"
+            else
+                _kMetaTable._t[results] = "table"
+            end
+            theTable[k] = results
+        end
+    end
     local results = setmetatable({}, _kMetaTable)
     _kMetaTable._k[results] = theTable
-    _kMetaTable._t[results] = "table"
-    return results
-end
-
-local _makeConstantsArray = function(theTable)
-    local results = setmetatable({}, _kMetaTable)
-    _kMetaTable._k[results] = theTable
-    _kMetaTable._t[results] = "array"
+    local count = 0
+    for a,b in pairs(theTable) do count = count + 1 end
+    if #theTable > 0 and #theTable == count then
+        _kMetaTable._t[results] = "array"
+    else
+        _kMetaTable._t[results] = "table"
+    end
     return results
 end
 
 -- Public interface ------------------------------------------------------
 
 module.options =        _makeConstantsTable(module.options)
-module.schemes =        _makeConstantsArray(module.schemes)
+module.schemes =        _makeConstantsTable(module.schemes)
 
 -- module.tokenTypes =     _makeConstantsArray(module.tokenTypes)
 -- module.lexicalClasses = _makeConstantsArray(module.lexicalClasses)
