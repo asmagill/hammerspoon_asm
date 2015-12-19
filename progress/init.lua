@@ -87,8 +87,8 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.size = _makeConstantsTable(module.size)
-module.tint = _makeConstantsTable(module.tint)
+module.controlSize = _makeConstantsTable(module.controlSize)
+module.controlTint = _makeConstantsTable(module.controlTint)
 
 --- hs._asm.progress:setFrame(rect) -> progressObject
 --- Method
