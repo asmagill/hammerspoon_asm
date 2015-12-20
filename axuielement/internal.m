@@ -19,7 +19,7 @@
 #import <VideoToolbox/VideoToolbox.h>
 
 #define USERDATA_TAG "hs._asm.axuielement"
-static int refTable = LUA_NOREF;
+static int refTable = LUA_NOREF ;
 
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -27,7 +27,7 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Errors and Logging and with hs.logger
 
-static int logFnRef = LUA_NOREF;
+static int logFnRef = LUA_NOREF ;
 
 #define _cERROR   "ef"
 #define _cWARN    "wf"
@@ -37,60 +37,60 @@ static int logFnRef = LUA_NOREF;
 
 // allow this to be potentially unused in the module
 static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
-    lua_Debug functionDebugObject, callerDebugObject;
-    int status = lua_getstack(L, 0, &functionDebugObject);
-    status = status + lua_getstack(L, 1, &callerDebugObject);
+    lua_Debug functionDebugObject, callerDebugObject ;
+    int status = lua_getstack(L, 0, &functionDebugObject) ;
+    status = status + lua_getstack(L, 1, &callerDebugObject) ;
     NSString *fullMessage = nil ;
     if (status == 2) {
-        lua_getinfo(L, "n", &functionDebugObject);
-        lua_getinfo(L, "Sl", &callerDebugObject);
+        lua_getinfo(L, "n", &functionDebugObject) ;
+        lua_getinfo(L, "Sl", &callerDebugObject) ;
         fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
                                                                      theMessage,
                                                                      callerDebugObject.currentline,
-                                                                     callerDebugObject.short_src];
+                                                                     callerDebugObject.short_src] ;
     } else {
         fullMessage = [NSString stringWithFormat:@"%s callback - %@", USERDATA_TAG,
-                                                                      theMessage];
+                                                                      theMessage] ;
     }
     // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
-    if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage);
+    if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage) ;
 
     // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
     // otherwise we print to the console for everything, just in case we forget to register.
     if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
-        lua_getfield(L, -1, level); lua_remove(L, -2);
+        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        lua_getfield(L, -1, level) ; lua_remove(L, -2) ;
     } else {
-        lua_getglobal(L, "print");
+        lua_getglobal(L, "print") ;
     }
 
-    lua_pushstring(L, [fullMessage UTF8String]);
-    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
-    return 0;
+    lua_pushstring(L, [fullMessage UTF8String]) ;
+    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+    return 0 ;
 }
 
 static int lua_registerLogForC(__unused lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
-    logFnRef = [[LuaSkin shared] luaRef:refTable];
-    return 0;
+    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK] ;
+    logFnRef = [[LuaSkin shared] luaRef:refTable] ;
+    return 0 ;
 }
 
 // allow this to be potentially unused in the module
 static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
-    lua_Debug functionDebugObject;
-    lua_getstack(L, 0, &functionDebugObject);
-    lua_getinfo(L, "n", &functionDebugObject);
-    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
+    lua_Debug functionDebugObject ;
+    lua_getstack(L, 0, &functionDebugObject) ;
+    lua_getinfo(L, "n", &functionDebugObject) ;
+    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]) ;
 }
 
 #pragma mark - Support Functions
 
 static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
-    AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef));
+    AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef)) ;
     *thePtr = CFRetain(theElement) ;
 
-    luaL_getmetatable(L, USERDATA_TAG);
-    lua_setmetatable(L, -2);
+    luaL_getmetatable(L, USERDATA_TAG) ;
+    lua_setmetatable(L, -2) ;
     return 1 ;
 }
 
@@ -134,19 +134,19 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
 }
 
 static int errorWrapper(lua_State *L, AXError err) {
-    if (err == kAXErrorInvalidUIElement ||
-        err == kAXErrorNoValue ||
-        err == kAXErrorAttributeUnsupported ||
-        err == kAXErrorParameterizedAttributeUnsupported) {
-        // relatively minor, so don't even put it in the system log
+//     if (err == kAXErrorInvalidUIElement ||
+//         err == kAXErrorNoValue ||
+//         err == kAXErrorAttributeUnsupported ||
+//         err == kAXErrorParameterizedAttributeUnsupported) {
+//         // relatively minor, so don't even put it in the system log
         log_to_console(L, _cDEBUG, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-    } else {
-        // still deciding which is best...
-//         return my_lua_error(L, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-        log_to_console(L, _cERROR, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-//         [[LuaSkin shared] pushNSObject:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
-//         return 1 ;
-    }
+//     } else {
+//         // still deciding which is best...
+// //         return my_lua_error(L, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+//         log_to_console(L, _cERROR, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+// //         [[LuaSkin shared] pushNSObject:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
+// //         return 1 ;
+//     }
 
     lua_pushnil(L) ;
     return 1 ;
@@ -311,7 +311,11 @@ static int definedTypes(lua_State *L) {
 // Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've
 // found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether
 // or not to delve deeper, either, so...
-static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
+
+// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
+// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
+// AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
+static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
     LuaSkin *skin = [LuaSkin shared] ;
     if ([alreadySeen objectForKey:(__bridge id)theItem]) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ;
@@ -320,29 +324,29 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
 
     CFTypeID theType = CFGetTypeID(theItem) ;
     if      (theType == CFArrayGetTypeID()) {
-        lua_newtable(L);
+        lua_newtable(L) ;
         [alreadySeen setObject:[NSNumber numberWithInt:luaL_ref(L, LUA_REGISTRYINDEX)] forKey:(__bridge id)theItem] ;
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ; // put it back on the stack
         for(id thing in (__bridge NSArray *)theItem) {
-            CFTypeMonkey(L, (__bridge CFTypeRef)thing, alreadySeen) ;
+            pushCFTypeHamster(L, (__bridge CFTypeRef)thing, alreadySeen) ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else if (theType == CFDictionaryGetTypeID()) {
-        lua_newtable(L);
+        lua_newtable(L) ;
         [alreadySeen setObject:[NSNumber numberWithInt:luaL_ref(L, LUA_REGISTRYINDEX)] forKey:(__bridge id)theItem] ;
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ; // put it back on the stack
-        NSArray *keys = [(__bridge NSDictionary *)theItem allKeys];
-        NSArray *values = [(__bridge NSDictionary *)theItem allValues];
-        for (unsigned long i = 0; i < [keys count]; i++) {
-            CFTypeMonkey(L, (__bridge CFTypeRef)[keys objectAtIndex:i], alreadySeen) ;
-            CFTypeMonkey(L, (__bridge CFTypeRef)[values objectAtIndex:i], alreadySeen) ;
-            lua_settable(L, -3);
+        NSArray *keys = [(__bridge NSDictionary *)theItem allKeys] ;
+        NSArray *values = [(__bridge NSDictionary *)theItem allValues] ;
+        for (unsigned long i = 0 ; i < [keys count] ; i++) {
+            pushCFTypeHamster(L, (__bridge CFTypeRef)[keys objectAtIndex:i], alreadySeen) ;
+            pushCFTypeHamster(L, (__bridge CFTypeRef)[values objectAtIndex:i], alreadySeen) ;
+            lua_settable(L, -3) ;
         }
     } else if (theType == AXValueGetTypeID()) {
         switch(AXValueGetType((AXValueRef)theItem)) {
             case kAXValueCGPointType: {
                 CGPoint thePoint ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGPointType, &thePoint);
+                AXValueGetValue((AXValueRef)theItem, kAXValueCGPointType, &thePoint) ;
                 lua_newtable(L) ;
                   lua_pushnumber(L, thePoint.x) ; lua_setfield(L, -2, "x") ;
                   lua_pushnumber(L, thePoint.y) ; lua_setfield(L, -2, "y") ;
@@ -350,7 +354,7 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
             }
             case kAXValueCGSizeType: {
                 CGSize theSize ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGSizeType, &theSize);
+                AXValueGetValue((AXValueRef)theItem, kAXValueCGSizeType, &theSize) ;
                 lua_newtable(L) ;
                   lua_pushnumber(L, theSize.height) ; lua_setfield(L, -2, "h") ;
                   lua_pushnumber(L, theSize.width) ;  lua_setfield(L, -2, "w") ;
@@ -358,7 +362,7 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
             }
             case kAXValueCGRectType: {
                 CGRect theRect ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGRectType, &theRect);
+                AXValueGetValue((AXValueRef)theItem, kAXValueCGRectType, &theRect) ;
                 lua_newtable(L) ;
                   lua_pushnumber(L, theRect.origin.x) ;    lua_setfield(L, -2, "x") ;
                   lua_pushnumber(L, theRect.origin.y) ;    lua_setfield(L, -2, "y") ;
@@ -368,17 +372,17 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
             }
             case kAXValueCFRangeType: {
                 CFRange theRange ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCFRangeType, &theRange);
+                AXValueGetValue((AXValueRef)theItem, kAXValueCFRangeType, &theRange) ;
                 lua_newtable(L) ;
-                  lua_pushinteger(L, theRange.location) ; lua_setfield(L, -2, "location") ;
-                  lua_pushinteger(L, theRange.length) ;   lua_setfield(L, -2, "length") ;
+                  lua_pushinteger(L, theRange.location) ; lua_setfield(L, -2, "loc") ;
+                  lua_pushinteger(L, theRange.length) ;   lua_setfield(L, -2, "len") ;
                 break ;
             }
             case kAXValueAXErrorType: {
                 AXError theError ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueAXErrorType, &theError);
+                AXValueGetValue((AXValueRef)theItem, kAXValueAXErrorType, &theError) ;
                 lua_newtable(L) ;
-                  lua_pushinteger(L, theError) ;                 lua_setfield(L, -2, "code") ;
+                  lua_pushinteger(L, theError) ;                 lua_setfield(L, -2, "_code") ;
                   lua_pushstring(L, AXErrorAsString(theError)) ; lua_setfield(L, -2, "error") ;
                 break ;
             }
@@ -415,11 +419,193 @@ static int CFTypeMonkey(lua_State *L, CFTypeRef theItem, NSMutableDictionary *al
 
 static int pushCFTypeToLua(lua_State *L, CFTypeRef theItem) {
     NSMutableDictionary *alreadySeen = [[NSMutableDictionary alloc] init] ;
-    CFTypeMonkey(L, theItem, alreadySeen) ;
+    pushCFTypeHamster(L, theItem, alreadySeen) ;
     for (id entry in alreadySeen) {
         luaL_unref(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:entry] intValue]) ;
     }
     return 1 ;
+}
+
+// gets the count of items in a table irrespective of whether they are keyed or indexed
+static lua_Integer countn (lua_State *L, int idx) {
+  lua_Integer max = 0;
+  luaL_checktype(L, idx, LUA_TTABLE);
+  lua_pushnil(L);  /* first key */
+  while (lua_next(L, idx)) {
+    lua_pop(L, 1);  /* remove value */
+    max++ ;
+  }
+  return max ;
+}
+
+// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
+// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
+// AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
+static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary *seen) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    int index = lua_absindex(L, idx) ;
+    NSLog(@"lua_toCFType: idx:%d abs:%d top:%d abstop:%d", idx, index, lua_gettop(L), lua_absindex(L, lua_gettop(L))) ;
+
+    CFTypeRef value = kCFNull ;
+
+    if ([seen objectForKey:[NSValue valueWithPointer:lua_topointer(L, index)]]) {
+        my_lua_error(L, @"multiple references to same table not currently supported for conversion") ;
+        // once I figure out (a) if we want to support this,
+        //                   (b) if we should add a flag like we do for LuaSkin's NS version,
+        //               and (c) the best way to store a CFTypeRef in an NSDictionary
+        // value = CFRetain(pull CFTypeRef from @{seen}) ;
+    } else if (lua_absindex(L, lua_gettop(L)) >= index) {
+        int theType = lua_type(L, index) ;
+        if (theType == LUA_TSTRING) {
+            id holder = [skin toNSObjectAtIndex:index] ;
+            if ([holder isKindOfClass:[NSString class]]) {
+                value = (__bridge_retained CFStringRef)holder ;
+            } else {
+                value = (__bridge_retained CFDataRef)holder ;
+            }
+        } else if (theType == LUA_TBOOLEAN) {
+            value = lua_toboolean(L, index) ? kCFBooleanTrue : kCFBooleanFalse ;
+        } else if (theType == LUA_TNUMBER) {
+            if (lua_isinteger(L, index)) {
+                lua_Integer holder = lua_tointeger(L, index) ;
+                value = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, &holder) ;
+            } else {
+                lua_Number holder = lua_tonumber(L, index) ;
+                value = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &holder) ;
+            }
+        } else if (theType == LUA_TTABLE) {
+        // rect, point, and size are regularly tables in Hammerspoon, differentiated by which of these
+        // keys are present.
+            BOOL hasX      = (lua_getfield(L, index, "x")        != LUA_TNIL) ; lua_pop(L, 1) ;
+            BOOL hasY      = (lua_getfield(L, index, "y")        != LUA_TNIL) ; lua_pop(L, 1) ;
+            BOOL hasH      = (lua_getfield(L, index, "h")        != LUA_TNIL) ; lua_pop(L, 1) ;
+            BOOL hasW      = (lua_getfield(L, index, "w")        != LUA_TNIL) ; lua_pop(L, 1) ;
+        // objc-style indexing for range
+            BOOL hasLoc    = (lua_getfield(L, index, "location") != LUA_TNIL) ; lua_pop(L, 1) ;
+            BOOL hasLen    = (lua_getfield(L, index, "length")   != LUA_TNIL) ; lua_pop(L, 1) ;
+        // lua-style indexing for range
+            BOOL hasStarts = (lua_getfield(L, index, "starts")   != LUA_TNIL) ; lua_pop(L, 1) ;
+            BOOL hasEnds   = (lua_getfield(L, index, "ends")     != LUA_TNIL) ; lua_pop(L, 1) ;
+        // AXError type
+            BOOL hasError  = (lua_getfield(L, index, "_code")    != LUA_TNIL) ; lua_pop(L, 1) ;
+        // since date is just a number or string, we'll have to make it a "psuedo" table so that it can
+        // be uniquely specified on the lua side
+            BOOL hasDate   = (lua_getfield(L, index, "_date")    != LUA_TNIL) ; lua_pop(L, 1) ;
+        // since url is just a string, we'll have to make it a "psuedo" table so that it can be uniquely
+        // specified on the lua side
+            BOOL hasURL    = (lua_getfield(L, index, "_URL")     != LUA_TNIL) ; lua_pop(L, 1) ;
+
+            if (hasX && hasY && hasH && hasW) { // CGRect
+                lua_getfield(L, index, "x") ;
+                lua_getfield(L, index, "y") ;
+                lua_getfield(L, index, "w") ;
+                lua_getfield(L, index, "h") ;
+                CGRect holder = CGRectMake(luaL_checknumber(L, -4), luaL_checknumber(L, -3), luaL_checknumber(L, -2), luaL_checknumber(L, -1)) ;
+                value = AXValueCreate(kAXValueCGRectType, &holder) ;
+                lua_pop(L, 4) ;
+            } else if (hasX && hasY) {          // CGPoint
+                lua_getfield(L, index, "x") ;
+                lua_getfield(L, index, "y") ;
+                CGPoint holder = CGPointMake(luaL_checknumber(L, -2), luaL_checknumber(L, -1)) ;
+                value = AXValueCreate(kAXValueCGPointType, &holder) ;
+                lua_pop(L, 2) ;
+            } else if (hasH && hasW) {          // CGSize
+                lua_getfield(L, index, "w") ;
+                lua_getfield(L, index, "h") ;
+                CGSize holder = CGSizeMake(luaL_checknumber(L, -2), luaL_checknumber(L, -1)) ;
+                value = AXValueCreate(kAXValueCGSizeType, &holder) ;
+                lua_pop(L, 2) ;
+            } else if (hasLoc && hasLen) {      // CFRange objc style
+                lua_getfield(L, index, "location") ;
+                lua_getfield(L, index, "length") ;
+                CFRange holder = CFRangeMake(luaL_checkinteger(L, -2), luaL_checkinteger(L, -1)) ;
+                value = AXValueCreate(kAXValueCFRangeType, &holder) ;
+                lua_pop(L, 2) ;
+            } else if (hasStarts && hasEnds) {  // CFRange lua style
+// NOTE: Negative indexes and UTF8 as bytes can't be handled here without context.
+//       Maybe on lua side in wrapper functions.
+                lua_getfield(L, index, "starts") ;
+                lua_getfield(L, index, "ends") ;
+                lua_Integer starts = luaL_checkinteger(L, -2) ;
+                lua_Integer ends   = luaL_checkinteger(L, -1) ;
+                CFRange holder = CFRangeMake(starts - 1, ends + 1 - starts) ;
+                value = AXValueCreate(kAXValueCFRangeType, &holder) ;
+                lua_pop(L, 2) ;
+            } else if (hasError) {              // AXError
+                lua_getfield(L, index, "_code") ;
+                AXError holder = (AXError)luaL_checkinteger(L, -1) ;
+                value = AXValueCreate(kAXValueAXErrorType, &holder) ;
+                lua_pop(L, 1) ;
+            } else if (hasURL) {                // CFURL
+                lua_getfield(L, index, "_url") ;
+                value = CFURLCreateWithString(kCFAllocatorDefault, (__bridge CFStringRef)[skin toNSObjectAtIndex:-1], NULL) ;
+                lua_pop(L, 1) ;
+            } else if (hasDate) {               // CFDate
+                int dateType = lua_getfield(L, index, "_date") ;
+                if (dateType == LUA_TNUMBER) {
+                    value = CFDateCreate(kCFAllocatorDefault, [[NSDate dateWithTimeIntervalSince1970:lua_tonumber(L, -1)] timeIntervalSinceReferenceDate]) ;
+                } else if (dateType == LUA_TSTRING) {
+                    // rfc3339 (Internet Date/Time) formated date.  More or less.
+                    NSDateFormatter *rfc3339DateFormatter = [[NSDateFormatter alloc] init] ;
+                    NSLocale *enUSPOSIXLocale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"] ;
+                    [rfc3339DateFormatter setLocale:enUSPOSIXLocale] ;
+                    [rfc3339DateFormatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"] ;
+                    [rfc3339DateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]] ;
+                    value = (__bridge_retained CFDateRef)[rfc3339DateFormatter dateFromString:[skin toNSObjectAtIndex:-1]] ;
+                } else {
+                    lua_pop(L, 1) ;
+                    my_lua_error(L, @"invalid date format specified for conversion") ;
+                    return kCFNull ;
+                }
+                lua_pop(L, 1) ;
+            } else {                            // real dictionary or array
+              [seen setObject:@(YES) forKey:[NSValue valueWithPointer:lua_topointer(L, index)]] ;
+              if (luaL_len(L, index) == countn(L, index)) { // array
+                  CFMutableArrayRef holder = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
+                  for (lua_Integer i = 0 ; i < luaL_len(L, index) ; i++ ) {
+                      lua_geti(L, index, i + 1) ;
+                      CFTypeRef theVal = lua_toCFTypeHamster(L, -1, seen) ;
+                      CFArrayAppendValue(holder, theVal) ;
+                      if (theVal) CFRelease(theVal) ;
+                      lua_pop(L, 1) ;
+                      value = holder ;
+                  }
+              } else {                                      // dictionary
+                  CFMutableDictionaryRef holder = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks) ;
+                  lua_pushnil(L) ;
+                  while (lua_next(L, index) != 0) {
+                      CFTypeRef theKey = lua_toCFTypeHamster(L, -2, seen) ;
+                      CFTypeRef theVal = lua_toCFTypeHamster(L, -1, seen) ;
+                      CFDictionarySetValue(holder, theKey, theVal) ;
+                      if (theKey) CFRelease(theKey) ;
+                      if (theVal) CFRelease(theVal) ;
+                      lua_pop(L, 1) ;
+                      value = holder ;
+                  }
+              }
+            }
+        } else if (theType == LUA_TUSERDATA) {
+            if (luaL_testudata(L, -1, "hs.styledtext")) {
+                value = (__bridge_retained CFAttributedStringRef)[skin toNSObjectAtIndex:-1] ;
+            } else if (luaL_testudata(L, -1, USERDATA_TAG)) {
+                value = CFRetain(get_axuielementref(L, 1, USERDATA_TAG)) ;
+            } else {
+                lua_pop(L, -1) ;
+                my_lua_error(L, @"unrecognized userdata is not supported for conversion") ;
+                return kCFNull ;
+            }
+        } else if (theType != LUA_TNIL) { // value already set to kCFNull, no specific match necessary
+            lua_pop(L, -1) ;
+            my_lua_error(L, [NSString stringWithFormat:@"type %s not supported for conversion", lua_typename(L, theType)]) ;
+            return kCFNull ;
+        }
+    }
+    return value ;
+}
+
+static CFTypeRef lua_toCFType(lua_State *L, int idx) {
+    NSMutableDictionary *seen = [[NSMutableDictionary alloc] init] ;
+    return lua_toCFTypeHamster(L, idx, seen) ;
 }
 
 #pragma mark - Module Functions
@@ -465,11 +651,10 @@ static int getAttributeNames(lua_State *L) {
             [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
-        CFRelease(attributeNames) ;
     } else {
-        if (attributeNames) CFRelease(attributeNames) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
 }
 
@@ -485,11 +670,10 @@ static int getActionNames(lua_State *L) {
             [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
-        CFRelease(attributeNames) ;
     } else {
-        if (attributeNames) CFRelease(attributeNames) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
 }
 
@@ -502,11 +686,10 @@ static int getActionDescription(lua_State *L) {
     AXError errorState = AXUIElementCopyActionDescription(theRef, (__bridge CFStringRef)action, &description) ;
     if (errorState == kAXErrorSuccess) {
         [skin pushNSObject:(__bridge NSString *)description] ;
-        CFRelease(description) ;
     } else {
-        if (description) CFRelease(description) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (description) CFRelease(description) ;
     return 1 ;
 }
 
@@ -519,11 +702,10 @@ static int getAttributeValue(lua_State *L) {
     AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)attribute, &value) ;
     if (errorState == kAXErrorSuccess) {
         pushCFTypeToLua(L, value) ;
-        CFRelease(value) ;
     } else {
-        if (value) CFRelease(value) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (value) CFRelease(value) ;
     return 1 ;
 }
 
@@ -537,7 +719,7 @@ static int getAttributeValueCount(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, count) ;
     } else {
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
@@ -554,11 +736,10 @@ static int getParameterizedAttributeNames(lua_State *L) {
             [skin pushNSObject:value] ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
-        CFRelease(attributeNames) ;
     } else {
-        if (attributeNames) CFRelease(attributeNames) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
 }
 
@@ -572,7 +753,7 @@ static int isAttributeSettable(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushboolean(L, settable) ;
     } else {
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
@@ -586,7 +767,7 @@ static int getPid(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, (lua_Integer)thePid) ;
     } else {
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
@@ -602,7 +783,7 @@ static int performAction(lua_State *L) {
     } else if (errorState == kAXErrorCannotComplete) {
         lua_pushboolean(L, NO) ;
     } else {
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
     return 1 ;
 }
@@ -627,11 +808,10 @@ static int getElementAtPosition(lua_State *L) {
         AXError errorState = AXUIElementCopyElementAtPosition(theRef, x, y, &value) ;
         if (errorState == kAXErrorSuccess) {
             pushAXUIElement(L, value) ;
-            CFRelease(value) ;
         } else {
-            if (value) CFRelease(value) ;
-            return errorWrapper(L, errorState) ;
+            errorWrapper(L, errorState) ;
         }
+        if (value) CFRelease(value) ;
     } else {
         return my_lua_error(L, @"must be application or systemWide element") ;
     }
@@ -640,19 +820,40 @@ static int getElementAtPosition(lua_State *L) {
 
 static int getParameterizedAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TSTRING, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TANY, LS_TBREAK] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     NSString *attribute = [skin toNSObjectAtIndex:2] ;
-    NSString *parameter = [skin toNSObjectAtIndex:3] ;
+    CFTypeRef parameter = lua_toCFType(L, 3) ;
     CFTypeRef value ;
-    AXError errorState = AXUIElementCopyParameterizedAttributeValue(theRef, (__bridge CFStringRef)attribute, (__bridge CFStringRef)parameter, &value) ;
+    AXError errorState = AXUIElementCopyParameterizedAttributeValue(theRef, (__bridge CFStringRef)attribute, parameter, &value) ;
     if (errorState == kAXErrorSuccess) {
         pushCFTypeToLua(L, value) ;
-        CFRelease(value) ;
     } else {
-        if (value) CFRelease(value) ;
-        return errorWrapper(L, errorState) ;
+        errorWrapper(L, errorState) ;
     }
+    if (value) CFRelease(value) ;
+    if (parameter) CFRelease(parameter) ;
+    return 1 ;
+}
+
+// AXError AXUIElementSetAttributeValue ( AXUIElementRef element, CFStringRef attribute, CFTypeRef value) ;
+//
+// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
+// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
+// AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
+static int setAttributeValue(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TANY, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
+    CFTypeRef value = lua_toCFType(L, 3) ;
+    AXError errorState = AXUIElementSetAttributeValue (theRef, (__bridge CFStringRef)attribute, value) ;
+    if (errorState == kAXErrorSuccess) {
+        lua_pushvalue(L, 1) ;
+    } else {
+        errorWrapper(L, errorState) ;
+    }
+    if (value) CFRelease(value) ;
     return 1 ;
 }
 
@@ -1012,12 +1213,13 @@ static const luaL_Reg userdata_metaLib[] = {
     {"pid",                         getPid},
     {"performAction",               performAction},
     {"elementAtPosition",           getElementAtPosition},
+    {"setAttributeValue",           setAttributeValue},
 
     {"__tostring",                  userdata_tostring},
     {"__eq",                        userdata_eq},
     {"__gc",                        userdata_gc},
     {NULL,                          NULL}
-};
+} ;
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
@@ -1028,20 +1230,20 @@ static luaL_Reg moduleLib[] = {
 
     {"_registerLogForC",         lua_registerLogForC},
     {NULL,                       NULL}
-};
+} ;
 
 // // Metatable for module, if needed
 // static const luaL_Reg module_metaLib[] = {
 //     {"__gc", meta_gc},
 //     {NULL,   NULL}
-// };
+// } ;
 
 int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
                                              metaFunctions:nil    // or module_metaLib
-                                           objectFunctions:userdata_metaLib];
+                                           objectFunctions:userdata_metaLib] ;
 
 // Now that the unhandled return type contains the type label, this table really doesn't "belong" to
 // this module specifically, and it may move if I find it useful enough to put the conversion tools
@@ -1057,5 +1259,5 @@ int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
     pushNotificationsTable(L) ;           lua_setfield(L, -2, "notifications") ;
     pushDirectionsTable(L) ;              lua_setfield(L, -2, "directions") ;
 
-    return 1;
+    return 1 ;
 }

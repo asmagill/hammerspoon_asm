@@ -10,6 +10,15 @@ module.log   = log
 module._registerLogForC(log)
 module._registerLogForC = nil
 
+require("hs.styledtext")
+
+local object = hs.getObjectMetatable("hs._asm.axuielement")
+
+-- use of direct inside the module will be a little more efficient, since it won't involve
+-- the overhead of the __init function
+local direct = {}
+for k, v in pairs(object) do direct[k] = v end
+
 -- private variables and methods -----------------------------------------
 
 local _kMetaTable = {}
@@ -105,24 +114,24 @@ examine_axuielement = function(element, depth, seen)
             actions = {},
             attributes = {},
             parameterizedAttributes = {},
-            pid = element:pid()
+            pid = direct.pid(element)
         }
         seen[element] = result
 
     -- actions
 
-        if element:actionNames() then
-            for i,v in ipairs(element:actionNames()) do
-                result.actions[v] = element:actionDescription(v)
+        if direct.actionNames(element) then
+            for i,v in ipairs(direct.actionNames(element)) do
+                result.actions[v] = direct.actionDescription(element, v)
             end
         end
 
     -- attributes
 
-        if element:attributeNames() then
-            for i,v in ipairs(element:attributeNames()) do
-                local value = examine_axuielement(element:attributeValue(v), depth - 1, seen)
-                if element:isAttributeSettable(v) == true then
+        if direct.attributeNames(element) then
+            for i,v in ipairs(direct.attributeNames(element)) do
+                local value = examine_axuielement(direct.attributeValue(element, v), depth - 1, seen)
+                if direct.isAttributeSettable(element, v) == true then
                     result.attributes[v] = {
                         settable = true,
                         value    = value
@@ -135,8 +144,8 @@ examine_axuielement = function(element, depth, seen)
 
     -- parameterizedAttributes
 
-        if element:parameterizedAttributeNames() then
-            for i,v in ipairs(element:parameterizedAttributeNames()) do
+        if direct.parameterizedAttributeNames(element) then
+            for i,v in ipairs(direct.parameterizedAttributeNames(element)) do
                 -- for now, stick in the name until I have a better idea about what to do with them,
                 -- since the AXUIElement.h Reference doesn't appear to offer a way to enumerate the
                 -- parameters
@@ -178,13 +187,13 @@ module.browse = function(xyzzy, depth)
     -- are protections against loops built in, so... maybe I'll remove it later
     depth = depth or 100
     if type(xyzzy) == "nil" then
-        theElement = axuielement.systemWideElement()
+        theElement = module.systemWideElement()
     elseif getmetatable(xyzzy) == hs.getObjectMetatable("hs._asm.axuielement") then
         theElement = xyzzy
     elseif getmetatable(xyzzy) == hs.getObjectMetatable("hs.window") then
-        theElement = axuielement.windowElement(xyzzy)
+        theElement = module.windowElement(xyzzy)
     elseif getmetatable(xyzzy) == hs.getObjectMetatable("hs.application") then
-        theElement = axuielement.applicationElement(xyzzy)
+        theElement = module.applicationElement(xyzzy)
     else
         error("nil, hs._asm.axuielement, hs.window, or hs.application object expected", 2)
     end
@@ -194,6 +203,35 @@ end
 
 module.systemElementAtPosition = function(...)
     return module.systemWideElement():elementAtPosition(...)
+end
+
+object.__index = function(self, _)
+    -- take care of the internally defined items
+    for k, v in pairs(object) do if _ == k then return v end end
+--     for k, v in pairs(object) do if _ == "_"..k then return v end end
+
+    -- check attributes
+    for k1, v1 in pairs(module.attributes) do
+        for k2, v2 in pairs(v1) do
+            if _ == k2 then return function(self, ...) return direct.attributeValue(self, v2, ...) end end
+            if _ == "set"..k2:sub(1,1):upper()..k2:sub(2) then
+                return function(self, ...) return direct.setAttributeValue(self, v2, ...) end
+            end
+        end
+    end
+
+    -- check paramaterizedAttributes
+    for k, v in pairs(module.parameterizedAttributes) do
+        if _ == k then return function(self, ...) return direct.parameterizedAttributeValue(self, v, ...) end end
+    end
+
+    -- check actions
+    for k, v in pairs(module.actions) do
+        if _ == k then return function(self, ...) return direct.performAction(self, v, ...) end end
+    end
+
+    -- guess it doesn't exist
+    return nil
 end
 
 -- Return Module Object --------------------------------------------------
