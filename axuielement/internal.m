@@ -1,8 +1,16 @@
-// TODO: Further examine "Carbon Accessibility Reference" and "AXUIElement.h Reference" in Dash for remaining functions
-//       Targeted queries
-//       Use tables for validating attribute/action methods?
-//       Flatten attributes table?
-//       Notifications/Observers?
+// TODO: Notifications/Observers?
+//     * in init.lua, __init should limit returned functions to actual names defined for element -- constants are suggestions/basics
+//     * in init.lua, add methods() to generate list of "psuedo functions" for element
+//     * in init.lua, add "do" prefix to actions
+//     * in init.lua, suffix for parameterizedAttributes
+//     * search for element of type/role/subrole for element?  what about lists/multiple?
+//
+//       clean up browse?
+//       document
+//       switch userdata to struct or nsobject so we can use udRef counter like in hs.speech to allow the
+//              same axuielement to return the same userdata each time to facilitate duplicate detection
+//              in lua by allowing table[userdata] to be used to test existence in a table rather than
+//              having to loop through and compare each time.
 
 #import <Cocoa/Cocoa.h>
 // #import <Carbon/Carbon.h>
@@ -134,20 +142,7 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
 }
 
 static int errorWrapper(lua_State *L, AXError err) {
-//     if (err == kAXErrorInvalidUIElement ||
-//         err == kAXErrorNoValue ||
-//         err == kAXErrorAttributeUnsupported ||
-//         err == kAXErrorParameterizedAttributeUnsupported) {
-//         // relatively minor, so don't even put it in the system log
-        log_to_console(L, _cDEBUG, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-//     } else {
-//         // still deciding which is best...
-// //         return my_lua_error(L, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-//         log_to_console(L, _cERROR, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
-// //         [[LuaSkin shared] pushNSObject:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
-// //         return 1 ;
-//     }
-
+    log_to_console(L, _cDEBUG, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
     lua_pushnil(L) ;
     return 1 ;
 }
@@ -411,6 +406,7 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
           } else {
               typeLabel = [NSString stringWithFormat:@"unrecognized type: %lu", CFGetTypeID(theItem)] ;
           }
+          log_to_console(L, _cWARN, typeLabel) ;
           lua_pop(L, 2) ; // the table and the result of lua_rawget
           lua_pushstring(L, [typeLabel UTF8String]) ;
       }
@@ -558,9 +554,9 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                     return kCFNull ;
                 }
                 lua_pop(L, 1) ;
-            } else {                            // real dictionary or array
+            } else {                            // real CFDictionary or CFArray
               [seen setObject:@(YES) forKey:[NSValue valueWithPointer:lua_topointer(L, index)]] ;
-              if (luaL_len(L, index) == countn(L, index)) { // array
+              if (luaL_len(L, index) == countn(L, index)) { // CFArray
                   CFMutableArrayRef holder = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
                   for (lua_Integer i = 0 ; i < luaL_len(L, index) ; i++ ) {
                       lua_geti(L, index, i + 1) ;
@@ -570,7 +566,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                       lua_pop(L, 1) ;
                       value = holder ;
                   }
-              } else {                                      // dictionary
+              } else {                                      // CFDictionary
                   CFMutableDictionaryRef holder = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks) ;
                   lua_pushnil(L) ;
                   while (lua_next(L, index) != 0) {
@@ -911,6 +907,15 @@ static int pushRolesTable(lua_State *L) {
     [skin pushNSObject:(__bridge NSString *)kAXHelpTagRole] ;            lua_setfield(L, -2, "helpTag") ;
     [skin pushNSObject:(__bridge NSString *)kAXMatteRole] ;              lua_setfield(L, -2, "matteRole") ;
     [skin pushNSObject:(__bridge NSString *)kAXDockItemRole] ;           lua_setfield(L, -2, "dockItem") ;
+    [skin pushNSObject:(__bridge NSString *)kAXCellRole] ;               lua_setfield(L, -2, "cell") ;
+    [skin pushNSObject:(__bridge NSString *)kAXGridRole] ;               lua_setfield(L, -2, "grid") ;
+    [skin pushNSObject:(__bridge NSString *)kAXHandleRole] ;             lua_setfield(L, -2, "handle") ;
+    [skin pushNSObject:(__bridge NSString *)kAXLayoutAreaRole] ;         lua_setfield(L, -2, "layoutArea") ;
+    [skin pushNSObject:(__bridge NSString *)kAXLayoutItemRole] ;         lua_setfield(L, -2, "layoutItem") ;
+    [skin pushNSObject:(__bridge NSString *)kAXLevelIndicatorRole] ;     lua_setfield(L, -2, "levelIndicator") ;
+    [skin pushNSObject:(__bridge NSString *)kAXPopoverRole] ;            lua_setfield(L, -2, "popover") ;
+    [skin pushNSObject:(__bridge NSString *)kAXRulerMarkerRole] ;        lua_setfield(L, -2, "rulerMarker") ;
+    [skin pushNSObject:(__bridge NSString *)kAXRulerRole] ;              lua_setfield(L, -2, "ruler") ;
     return 1 ;
 }
 
@@ -944,6 +949,14 @@ static int pushSubrolesTable(lua_State *L) {
     [skin pushNSObject:(__bridge NSString *)kAXDockExtraDockItemSubrole] ;       lua_setfield(L, -2, "dockExtraDockItem") ;
     [skin pushNSObject:(__bridge NSString *)kAXTrashDockItemSubrole] ;           lua_setfield(L, -2, "trashDockItem") ;
     [skin pushNSObject:(__bridge NSString *)kAXProcessSwitcherListSubrole] ;     lua_setfield(L, -2, "processSwitcherList") ;
+    [skin pushNSObject:(__bridge NSString *)kAXContentListSubrole] ;             lua_setfield(L, -2, "contentList") ;
+    [skin pushNSObject:(__bridge NSString *)kAXDescriptionListSubrole] ;         lua_setfield(L, -2, "descriptionList") ;
+    [skin pushNSObject:(__bridge NSString *)kAXFullScreenButtonSubrole] ;        lua_setfield(L, -2, "fullScreenButton") ;
+    [skin pushNSObject:(__bridge NSString *)kAXRatingIndicatorSubrole] ;         lua_setfield(L, -2, "ratingIndicator") ;
+    [skin pushNSObject:(__bridge NSString *)kAXSeparatorDockItemSubrole] ;       lua_setfield(L, -2, "separatorDockItem") ;
+    [skin pushNSObject:(__bridge NSString *)kAXSwitchSubrole] ;                  lua_setfield(L, -2, "switch") ;
+    [skin pushNSObject:(__bridge NSString *)kAXTimelineSubrole] ;                lua_setfield(L, -2, "timeline") ;
+    [skin pushNSObject:(__bridge NSString *)kAXToggleSubrole] ;                  lua_setfield(L, -2, "toggle") ;
     return 1 ;
 }
 
@@ -1103,13 +1116,16 @@ static int pushParamaterizedAttributesTable(lua_State *L) {
 static int pushActionsTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
-    [skin pushNSObject:(__bridge NSString *)kAXPressAction] ;     lua_setfield(L, -2, "press") ;
-    [skin pushNSObject:(__bridge NSString *)kAXIncrementAction] ; lua_setfield(L, -2, "increment") ;
-    [skin pushNSObject:(__bridge NSString *)kAXDecrementAction] ; lua_setfield(L, -2, "decrement") ;
-    [skin pushNSObject:(__bridge NSString *)kAXConfirmAction] ;   lua_setfield(L, -2, "confirm") ;
-    [skin pushNSObject:(__bridge NSString *)kAXCancelAction] ;    lua_setfield(L, -2, "cancel") ;
-    [skin pushNSObject:(__bridge NSString *)kAXRaiseAction] ;     lua_setfield(L, -2, "raise") ;
-    [skin pushNSObject:(__bridge NSString *)kAXShowMenuAction] ;  lua_setfield(L, -2, "showMenu") ;
+    [skin pushNSObject:(__bridge NSString *)kAXPressAction] ;           lua_setfield(L, -2, "press") ;
+    [skin pushNSObject:(__bridge NSString *)kAXIncrementAction] ;       lua_setfield(L, -2, "increment") ;
+    [skin pushNSObject:(__bridge NSString *)kAXDecrementAction] ;       lua_setfield(L, -2, "decrement") ;
+    [skin pushNSObject:(__bridge NSString *)kAXConfirmAction] ;         lua_setfield(L, -2, "confirm") ;
+    [skin pushNSObject:(__bridge NSString *)kAXCancelAction] ;          lua_setfield(L, -2, "cancel") ;
+    [skin pushNSObject:(__bridge NSString *)kAXRaiseAction] ;           lua_setfield(L, -2, "raise") ;
+    [skin pushNSObject:(__bridge NSString *)kAXShowMenuAction] ;        lua_setfield(L, -2, "showMenu") ;
+    [skin pushNSObject:(__bridge NSString *)kAXShowAlternateUIAction] ; lua_setfield(L, -2, "showAlternateUI") ;
+    [skin pushNSObject:(__bridge NSString *)kAXShowDefaultUIAction] ;   lua_setfield(L, -2, "showDefaultUI") ;
+    [skin pushNSObject:(__bridge NSString *)kAXPickAction] ;            lua_setfield(L, -2, "pick") ;
     return 1 ;
 }
 
@@ -1245,19 +1261,23 @@ int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
                                              metaFunctions:nil    // or module_metaLib
                                            objectFunctions:userdata_metaLib] ;
 
-// Now that the unhandled return type contains the type label, this table really doesn't "belong" to
-// this module specifically, and it may move if I find it useful enough to put the conversion tools
-// into LuaSkin at some point.
-//     definedTypes(L) ; lua_setfield(L, -2, "types") ;
-
-// not sure about all of these yet... we're not handling observers (yet?)
-    pushRolesTable(L) ;                   lua_setfield(L, -2, "roles") ;
-    pushSubrolesTable(L) ;                lua_setfield(L, -2, "subroles") ;
+// For reference, since the object __init wrapper in init.lua and the keys for elementSearch don't
+// actually use them in case the user wants to use an Application defined attribute or action not
+// defined in the OS X headers.
     pushAttributesTable(L) ;              lua_setfield(L, -2, "attributes") ;
     pushParamaterizedAttributesTable(L) ; lua_setfield(L, -2, "parameterizedAttributes") ;
     pushActionsTable(L) ;                 lua_setfield(L, -2, "actions") ;
-    pushNotificationsTable(L) ;           lua_setfield(L, -2, "notifications") ;
+
+// ditto on these, since they are are actually results, not query-able parameters or actionable
+// commands; however they can be used with elementSearch as values in the criteria to find such.
+    pushRolesTable(L) ;                   lua_setfield(L, -2, "roles") ;
+    pushSubrolesTable(L) ;                lua_setfield(L, -2, "subroles") ;
     pushDirectionsTable(L) ;              lua_setfield(L, -2, "directions") ;
+
+// not sure about this yet... we're not handling observers (yet? that gets into what I believe
+// hs.uielement is for (I really should check it out again), so the questions are does this offer
+// more and can/should we extend that instead?)
+    pushNotificationsTable(L) ;           lua_setfield(L, -2, "notifications") ;
 
     return 1 ;
 }

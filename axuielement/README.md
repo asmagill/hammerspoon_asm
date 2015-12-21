@@ -10,6 +10,21 @@ Some interesting things of note:
 ax = require("hs._asm.axuielement")
 ~~~
 
+### Latest Examples:
+
+~~~lua
+btn = ax.applicationElement(hs.appfinder.appFromName("Hammerspoon")):
+          elementSearch({role="AXWindow", subrole="AXStandardWindow"})[1]:
+          elementSearch({subrole="AXZoomButton"})[1]
+
+a = hs.drawing.rectangle(btn:frame()):setFill(false):setStroke(true):setStrokeColor{red=1}:show()
+
+btn:doPress() ; a:setFrame(btn:frame())
+~~~
+
+
+_ _ _
+
 Check out `inspect(ax.browse(ax.systemWideElement()))`... it's really quite interesting... and long.  Working on more targeted query wrappers/functions.
 
 Can perform actions: move mouse pointer over desktop background (i.e. the Finder background) and type:
