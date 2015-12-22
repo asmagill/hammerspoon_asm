@@ -442,10 +442,25 @@ object.elementSearch = function(self, searchParameters, isPattern, includeParent
         spHolder[function(self) return object.attributeValue(self, formalName) end] = v
     end
     searchParameters = spHolder
-    local results = elementSearchHamster(self, searchParameters, isPattern, includeParents)
-    return results
+    local results = {}
+    if type(self) == "userdata" then
+        results = elementSearchHamster(self, searchParameters, isPattern, includeParents)
+    else
+        for i,v in ipairs(self) do
+            if object.matches(v, searchParameters, isPattern) then
+                table.insert(results, v)
+            end
+        end
+    end
+
+    return setmetatable(results, {
+        __index = {
+            elementSearch = object.elementSearch
+        }
+    })
 end
 
 -- Return Module Object --------------------------------------------------
 
+if module.types then module.types = _makeConstantsTable(module.types) end
 return module
