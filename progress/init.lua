@@ -2,9 +2,10 @@
 ---
 --- A Hammerspoon module which allows the creation and manipulation of progress indicators.
 
-local module = require("hs._asm.progress.internal")
-local log    = require("hs.logger").new("progress","warning")
-module.log   = log
+local module  = require("hs._asm.progress.internal")
+local drawing = require("hs.drawing")
+local log     = require("hs.logger").new("progress","warning")
+module.log    = log
 module._registerLogForC(log)
 module._registerLogForC = nil
 
@@ -15,7 +16,6 @@ local _hsdrawing = object._asHSDrawing
 object._asHSDrawing = nil
 
 -- we require these for their helper functions and metatable, but we don't need to save them
-require("hs.drawing")
 require("hs.drawing.color")
 
 -- private variables and methods -----------------------------------------
@@ -102,7 +102,7 @@ module.controlTint = _makeConstantsTable(module.controlTint)
 ---
 --- Notes:
 ---  * this is actually a wrapper to [hs._asm.progress:frame](#frame) for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.setFrame            = function(self, rect, ...) return self:frame(rect, ...) end
+object.setFrame = function(self, rect, ...) return self:frame(rect, ...) end
 
 -- The following are wrapped to use hs.drawing -- saves us from duplicating code
 --    setFrame, frame, setTopLeft, and setSize do not use hs.drawing because we need to take
@@ -120,7 +120,7 @@ object.setFrame            = function(self, rect, ...) return self:frame(rect, .
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.alpha               = function(self, ...) return hsdWrapper(self, drawingMT.alpha, ...) end
+object.alpha = function(self, ...) return hsdWrapper(self, drawingMT.alpha, ...) end
 
 --- hs._asm.progress:setAlpha(level) -> object
 --- Method
@@ -134,7 +134,7 @@ object.alpha               = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.setAlpha            = function(self, ...) return hsdWrapper(self, drawingMT.setAlpha, ...) end
+object.setAlpha = function(self, ...) return hsdWrapper(self, drawingMT.setAlpha, ...) end
 
 --- hs._asm.progress:behavior() -> number
 --- Method
@@ -148,7 +148,7 @@ object.setAlpha            = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.behavior            = function(self, ...) return hsdWrapper(self, drawingMT.behavior, ...) end
+object.behavior = function(self, ...) return hsdWrapper(self, drawingMT.behavior, ...) end
 
 --- hs._asm.progress:behaviorAsLabels() -> table
 --- Method
@@ -162,7 +162,7 @@ object.behavior            = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.behaviorAsLabels    = function(self, ...) return hsdWrapper(self, drawingMT.behaviorAsLabels, ...) end
+object.behaviorAsLabels = function(self, ...) return hsdWrapper(self, drawingMT.behaviorAsLabels, ...) end
 
 --- hs._asm.progress:setBehavior(behavior) -> object
 --- Method
@@ -177,7 +177,7 @@ object.behaviorAsLabels    = function(self, ...) return hsdWrapper(self, drawing
 --- Notes:
 ---  * see the notes for `hs.drawing.windowBehaviors`
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.setBehavior         = function(self, ...) return hsdWrapper(self, drawingMT.setBehavior, ...) end
+object.setBehavior = function(self, ...) return hsdWrapper(self, drawingMT.setBehavior, ...) end
 
 --- hs._asm.progress:setBehaviorByLabels(table) -> object
 --- Method
@@ -205,7 +205,7 @@ object.setBehaviorByLabels = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.orderAbove          = function(self, ...) return hsdWrapper(self, drawingMT.orderAbove, ...) end
+object.orderAbove = function(self, ...) return hsdWrapper(self, drawingMT.orderAbove, ...) end
 
 --- hs._asm.progress:orderBelow([object2]) -> object1
 --- Method
@@ -219,7 +219,7 @@ object.orderAbove          = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.orderBelow          = function(self, ...) return hsdWrapper(self, drawingMT.orderBelow, ...) end
+object.orderBelow = function(self, ...) return hsdWrapper(self, drawingMT.orderBelow, ...) end
 
 --- hs._asm.progress:bringToFront([aboveEverything]) -> drawingObject
 --- Method
@@ -233,7 +233,9 @@ object.orderBelow          = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.bringToFront        = function(self, ...) return hsdWrapper(self, drawingMT.bringToFront, ...) end
+object.bringToFront = function(self, ...)
+    return object.setLevel(self, drawing.windowLevels.screenSaver, ...)
+end
 
 --- hs._asm.progress:sendToBack() -> drawingObject
 --- Method
@@ -247,7 +249,9 @@ object.bringToFront        = function(self, ...) return hsdWrapper(self, drawing
 ---
 --- Notes:
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.sendToBack          = function(self, ...) return hsdWrapper(self, drawingMT.sendToBack, ...) end
+object.sendToBack = function(self, ...)
+    return object.setLevel(self, drawing.windowLevels.desktopIcon - 1, ...)
+end
 
 --- hs._asm.progress:setLevel(theLevel) -> drawingObject
 --- Method
@@ -262,7 +266,7 @@ object.sendToBack          = function(self, ...) return hsdWrapper(self, drawing
 --- Notes:
 ---  * see the notes for `hs.drawing.windowLevels`
 ---  * this is actually a wrapper for compatibility with tools which wish to treat this object like an `hs.drawing` object.
-object.setLevel            = function(self, ...) return hsdWrapper(self, drawingMT.setLevel, ...) end
+object.setLevel = function(self, ...) return hsdWrapper(self, drawingMT.setLevel, ...) end
 
 -- Return Module Object --------------------------------------------------
 
