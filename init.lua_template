@@ -2,8 +2,8 @@
 ---
 --- Stuff about the module
 
--- local USERDATA_TAG = "hs._asm.module"
--- local module       = require(USERDATA_TAG..".internal")
+local USERDATA_TAG = "hs._asm.module"
+local module       = require(USERDATA_TAG..".internal")
 -- local log          = require("hs.logger").new("module","warning")
 -- module.log         = log
 -- module._registerLogForC(log)
