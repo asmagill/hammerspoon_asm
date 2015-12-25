@@ -5,6 +5,55 @@
 
 #import "../hammerspoon.h"
 
+
+static int lsDebug(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
+    lua_pushvalue(L, 1) ;
+    lua_pcall(L, 1, 1, 0) ;
+    NSString *theString = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+    [skin logDebug:theString] ;
+    return 0 ;
+}
+
+static int lsWarn(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
+    lua_pushvalue(L, 1) ;
+    lua_pcall(L, 1, 1, 0) ;
+    NSString *theString = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+    [skin logWarn:theString] ;
+    return 0 ;
+}
+
+static int lsError(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
+    lua_pushvalue(L, 1) ;
+    lua_pcall(L, 1, 1, 0) ;
+    NSString *theString = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+    [skin logError:theString] ;
+    return 0 ;
+}
+
+static int lsTracebackWithTag(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
+    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
+    lua_pushvalue(L, 1) ;
+    lua_pcall(L, 1, 1, 0) ;
+    NSString *theString = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+    [skin pushNSObject:[skin tracebackWithTag:theString fromLevel:(int)lua_tointeger(L, 2)]] ;
+    return 1 ;
+}
+
 /// hs._asm.extras.NSLog(luavalue)
 /// Function
 /// Send a representation of the lua value passed in to the Console application via NSLog.
@@ -348,7 +397,7 @@ static int threadInfo(lua_State *L) {
         lua_setfield(L, -2, "threadDictionary") ;
       [[LuaSkin shared] pushNSObject:[[NSThread currentThread] name]] ;
         lua_setfield(L, -2, "name") ;
-      lua_pushinteger(L, [[NSThread currentThread] stackSize]) ; lua_setfield(L, -2, "stackSize") ;
+      lua_pushinteger(L, (lua_Integer)[[NSThread currentThread] stackSize]) ; lua_setfield(L, -2, "stackSize") ;
       lua_pushnumber(L, [[NSThread currentThread] threadPriority]) ; lua_setfield(L, -2, "threadPriority") ;
     return 1 ;
 }
@@ -365,58 +414,17 @@ static int threadInfo(lua_State *L) {
 //     return 1 ;
 // }
 
-static int NSCharacterSet_tolua(lua_State __unused *L, id obj) {
-// tweaked from http://stackoverflow.com/questions/26610931/list-of-characters-in-an-nscharacterset
-    NSCharacterSet *charset = obj ;
-    NSMutableArray *array = [NSMutableArray array];
-    for (unsigned int plane = 0; plane <= 16; plane++) {
-        if ([charset hasMemberInPlane:(uint8_t)plane]) {
-            UTF32Char c;
-            for (c = plane << 16; c < (plane+1) << 16; c++) {
-                if ([charset longCharacterIsMember:c]) {
-                    UTF32Char c1 = OSSwapHostToLittleInt32(c); // To make it byte-order safe
-                    NSString *s = [[NSString alloc] initWithBytes:&c1 length:4 encoding:NSUTF32LittleEndianStringEncoding];
-                    [array addObject:s];
-                }
-            }
-        }
-    }
-    [[LuaSkin shared] pushNSObject:array] ;
-    return 1 ;
-}
-
-static int addressbookGroups(lua_State *L) {
+static int addressbookGroups(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups]] ;
     return 1 ;
 }
-// controlCharacterSet
-// whitespaceCharacterSet
-// whitespaceAndNewlineCharacterSet
-// decimalDigitCharacterSet
-// letterCharacterSet
-// lowercaseLetterCharacterSet
-// uppercaseLetterCharacterSet
-// nonBaseCharacterSet
-// alphanumericCharacterSet
-// decomposableCharacterSet
-// illegalCharacterSet
-// punctuationCharacterSet
-// capitalizedLetterCharacterSet
-// symbolCharacterSet
-// newlineCharacterSet
-// URLUserAllowedCharacterSet
-// URLPasswordAllowedCharacterSet
-// URLHostAllowedCharacterSet
-// URLPathAllowedCharacterSet
-// URLQueryAllowedCharacterSet
-// URLFragmentAllowedCharacterSet
 
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults},
-//     {"bridge",               extras_bridge},
+
     {"userDataToString",     ud_tostring},
     {"getMenuArray",         getMenuArray},
     {"doSpacesKey",          doSpacesKey},
@@ -427,6 +435,11 @@ static const luaL_Reg extrasLib[] = {
     {"colorPanel",           colorPanel},
     {"threadInfo",           threadInfo},
     {"addressbookGroups",    addressbookGroups},
+
+    {"lsDebug",              lsDebug},
+    {"lsWarn",               lsWarn},
+    {"lsError",              lsError},
+    {"lsTracebackWithTag",   lsTracebackWithTag},
 
     {NULL,                   NULL}
 };
