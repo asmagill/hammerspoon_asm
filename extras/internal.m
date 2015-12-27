@@ -8,37 +8,46 @@
 
 static int lsDebug(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
     lua_pushvalue(L, 1) ;
     lua_pcall(L, 1, 1, 0) ;
     NSString *theString = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
-    [skin logDebug:theString] ;
+    if (lua_gettop(L) == 2)
+        [skin logDebug:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+    else
+        [skin logDebug:theString] ;
     return 0 ;
 }
 
 static int lsWarn(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
     lua_pushvalue(L, 1) ;
     lua_pcall(L, 1, 1, 0) ;
     NSString *theString = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
-    [skin logWarn:theString] ;
+    if (lua_gettop(L) == 2)
+        [skin logWarn:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+    else
+        [skin logWarn:theString] ;
     return 0 ;
 }
 
 static int lsError(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
     lua_pushvalue(L, 1) ;
     lua_pcall(L, 1, 1, 0) ;
     NSString *theString = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
-    [skin logError:theString] ;
+    if (lua_gettop(L) == 2)
+        [skin logError:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+    else
+        [skin logError:theString] ;
     return 0 ;
 }
 
