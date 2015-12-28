@@ -11,15 +11,15 @@ static int refTable = LUA_NOREF;
 // #pragma mark - Errors and Logging and with hs.logger
 //
 // static int logFnRef = LUA_NOREF;
-//
-// #define _cERROR   "ef"
-// #define _cWARN    "wf"
+// #define _cERROR   "e"
+// #define _cWARN    "w"
 // #define _cINFO    "f"
-// #define _cDEBUG   "df"
-// #define _cVERBOSE "vf"
+// #define _cDEBUG   "d"
+// #define _cVERBOSE "v"
 //
 // // allow this to be potentially unused in the module
 // static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
+//     LuaSkin *skin = [LuaSkin shared] ;
 //     lua_Debug functionDebugObject, callerDebugObject;
 //     int status = lua_getstack(L, 0, &functionDebugObject);
 //     status = status + lua_getstack(L, 1, &callerDebugObject);
@@ -36,25 +36,26 @@ static int refTable = LUA_NOREF;
 //                                                                       theMessage];
 //     }
 //     // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
-//     if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage);
+//     if (level[0] != 'd' && level[0] != 'v') [skin logDebug:[NSString stringWithFormat:@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage]];
 //
 //     // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
 //     // otherwise we print to the console for everything, just in case we forget to register.
 //     if (logFnRef != LUA_NOREF) {
-//         [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
+//         [skin pushLuaRef:refTable ref:logFnRef];
 //         lua_getfield(L, -1, level); lua_remove(L, -2);
 //     } else {
 //         lua_getglobal(L, "print");
 //     }
 //
 //     lua_pushstring(L, [fullMessage UTF8String]);
-//     if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
+//     if (![skin protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
 //     return 0;
 // }
 //
 // static int lua_registerLogForC(__unused lua_State *L) {
-//     [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
-//     logFnRef = [[LuaSkin shared] luaRef:refTable];
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TTABLE, LS_TBREAK];
+//     logFnRef = [skin luaRef:refTable];
 //     return 0;
 // }
 //
