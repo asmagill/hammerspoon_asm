@@ -510,16 +510,19 @@ static int cancelPeripheralConnection(lua_State *L) {
     return 1;
 }
 
-//FIXME: currently searches for all -- add support for limiting by CBService array
-static int retrieveConnectedPeripherals(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
-    NSArray *thePeripherals = [manager retrieveConnectedPeripheralsWithServices:nil] ;
-    for (CBPeripheral *entry in thePeripherals) entry.delegate = manager ;
-    [skin pushNSObject:thePeripherals] ;
-    return 1;
-}
+// Doesn't like not having an array... must mull over whether to include deprecated method
+// instead/as-well.
+//
+// //FIXME: currently searches for all -- add support for limiting by CBUUID (service) array
+// static int retrieveConnectedPeripherals(__unused lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+//     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
+//     NSArray *thePeripherals = [manager retrieveConnectedPeripheralsWithServices:nil] ;
+//     for (CBPeripheral *entry in thePeripherals) entry.delegate = manager ;
+//     [skin pushNSObject:thePeripherals] ;
+//     return 1;
+// }
 
 static int retrievePeripheralsWithIdentifiers(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -1071,7 +1074,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"stopScan",              stopScan},
     {"connectPeripheral",     connectPeripheral},
     {"retrievePeripherals",   retrievePeripheralsWithIdentifiers},
-    {"connectedPeripherals",  retrieveConnectedPeripherals},
+//     {"connectedPeripherals",  retrieveConnectedPeripherals},
     {"disconnectPeripheral",  cancelPeripheralConnection},
     {"delete",                userdata_gc},
 
