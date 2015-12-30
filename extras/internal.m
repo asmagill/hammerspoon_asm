@@ -9,13 +9,9 @@
 static int lsDebug(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
-    lua_pushvalue(L, 1) ;
-    lua_pcall(L, 1, 1, 0) ;
-    NSString *theString = [skin toNSObjectAtIndex:-1] ;
-    lua_pop(L, 1) ;
+    NSString *theString = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 2)
-        [skin logDebug:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+        [skin logAtLevel:LS_LOG_DEBUG withMessage:theString fromStackPos:(int)luaL_checkinteger(L, 2)] ;
     else
         [skin logDebug:theString] ;
     return 0 ;
@@ -24,13 +20,9 @@ static int lsDebug(lua_State *L) {
 static int lsWarn(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
-    lua_pushvalue(L, 1) ;
-    lua_pcall(L, 1, 1, 0) ;
-    NSString *theString = [skin toNSObjectAtIndex:-1] ;
-    lua_pop(L, 1) ;
+    NSString *theString = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 2)
-        [skin logWarn:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+        [skin logAtLevel:LS_LOG_WARN withMessage:theString fromStackPos:(int)luaL_checkinteger(L, 2)] ;
     else
         [skin logWarn:theString] ;
     return 0 ;
@@ -39,13 +31,9 @@ static int lsWarn(lua_State *L) {
 static int lsError(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
-    lua_pushvalue(L, 1) ;
-    lua_pcall(L, 1, 1, 0) ;
-    NSString *theString = [skin toNSObjectAtIndex:-1] ;
-    lua_pop(L, 1) ;
+    NSString *theString = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 2)
-        [skin logError:theString fromLevel:(int)luaL_checkinteger(L, 2)] ;
+        [skin logAtLevel:LS_LOG_ERROR withMessage:theString fromStackPos:(int)luaL_checkinteger(L, 2)] ;
     else
         [skin logError:theString] ;
     return 0 ;
@@ -54,11 +42,7 @@ static int lsError(lua_State *L) {
 static int lsTracebackWithTag(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
-    lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
-    lua_pushvalue(L, 1) ;
-    lua_pcall(L, 1, 1, 0) ;
-    NSString *theString = [skin toNSObjectAtIndex:-1] ;
-    lua_pop(L, 1) ;
+    NSString *theString = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[skin tracebackWithTag:theString fromLevel:(int)lua_tointeger(L, 2)]] ;
     return 1 ;
 }
@@ -372,7 +356,7 @@ static int pathological(__unused lua_State *L) {
 // Verify conversion tools properly handle self reference
 static int copyAndTouch(lua_State *L) {
     luaL_checktype(L, 1, LUA_TTABLE) ;
-    id stuff = [[LuaSkin shared] toNSObjectAtIndex:1 allowSelfReference:(BOOL)lua_toboolean(L, 2)] ;
+    id stuff = [[LuaSkin shared] toNSObjectAtIndex:1 withOptions:(lua_toboolean(L, 2) ? LS_NSAllowsSelfReference : LS_NSNone)] ;
     if ([stuff isKindOfClass: [NSArray class]]) {
         [stuff addObject:@"KilroyWasHere"] ;
     } else {

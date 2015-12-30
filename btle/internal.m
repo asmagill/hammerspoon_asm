@@ -539,12 +539,12 @@ static int retrievePeripheralsWithIdentifiers(lua_State *L) {
                 identifier = [[NSUUID alloc] initWithUUIDString:string] ;
             }
             if (!identifier) {
-                [skin logWarn:[NSString stringWithFormat:@"index %lld invalid UUID - skipping", i] fromLevel:1] ;
+                [skin logAtLevel:LS_LOG_WARN withMessage:[NSString stringWithFormat:@"index %lld invalid UUID - skipping", i] fromStackPos:1] ;
             } else {
                 [peripherals addObject:identifier] ;
             }
         } else {
-            [skin logWarn:[NSString stringWithFormat:@"index %lld not a string - skipping", i] fromLevel:1] ;
+            [skin logAtLevel:LS_LOG_WARN withMessage:[NSString stringWithFormat:@"index %lld not a string - skipping", i] fromStackPos:1] ;
         }
         lua_pop(L, 1) ;
     }
