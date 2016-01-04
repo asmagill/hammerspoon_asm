@@ -140,18 +140,101 @@ static int isSupersetOfSet(lua_State *L) {
     return 1 ;
 }
 
-// TODO: Methods
-// Will need to create mutableCopy first
-// - (void)addCharactersInRange:(NSRange)aRange
-// - (void)removeCharactersInRange:(NSRange)aRange
-// - (void)addCharactersInString:(NSString *)aString
-// - (void)removeCharactersInString:(NSString *)aString
-// - (void)formIntersectionWithCharacterSet:(NSCharacterSet *)otherSet
-// - (void)formUnionWithCharacterSet:(NSCharacterSet *)otherSet
+static int intersectionWithSet(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    NSMutableCharacterSet *charSet1 = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
+    NSCharacterSet        *charSet2 = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
+    [charSet1 formIntersectionWithCharacterSet:charSet2] ;
+    [skin pushNSObject:charSet1] ;
+    return 1 ;
+}
 
+static int unionWithSet(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    NSMutableCharacterSet *charSet1 = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
+    NSCharacterSet        *charSet2 = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
+    [charSet1 formUnionWithCharacterSet:charSet2] ;
+    [skin pushNSObject:charSet1] ;
+    return 1 ;
+}
+
+static int removeCharactersFromSet(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    NSMutableCharacterSet *charSet = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
+    if (lua_gettop(L) == 2) {
+        luaL_checkstring(L, 2) ;
+        [charSet removeCharactersInString:[skin toNSObjectAtIndex:2]] ;
+    } else {
+        lua_Integer starts = luaL_checkinteger(L, 2) ;
+        lua_Integer ends   = luaL_checkinteger(L, 3) ;
+        if (starts < 0 || ends < 0) {
+            return luaL_error(L, "starting and ending codepoints must be positive") ;
+        } else if (ends < starts) {
+            return luaL_error(L, "ending codepoint must be greater than starting codepoint") ;
+        }
+        NSUInteger location = (NSUInteger)starts ;
+        NSUInteger length   = (NSUInteger)ends + 1 - location ;
+        [charSet removeCharactersInRange:NSMakeRange(location, length)] ;
+    }
+    [skin pushNSObject:charSet] ;
+    return 1 ;
+}
+
+static int addCharactersToSet(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    NSMutableCharacterSet *charSet = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
+    if (lua_gettop(L) == 2) {
+        luaL_checkstring(L, 2) ;
+        [charSet addCharactersInString:[skin toNSObjectAtIndex:2]] ;
+    } else {
+        lua_Integer starts = luaL_checkinteger(L, 2) ;
+        lua_Integer ends   = luaL_checkinteger(L, 3) ;
+        if (starts < 0 || ends < 0) {
+            return luaL_error(L, "starting and ending codepoints must be positive") ;
+        } else if (ends < starts) {
+            return luaL_error(L, "ending codepoint must be greater than starting codepoint") ;
+        }
+        NSUInteger location = (NSUInteger)starts ;
+        NSUInteger length   = (NSUInteger)ends + 1 - location ;
+        [charSet addCharactersInRange:NSMakeRange(location, length)] ;
+    }
+    [skin pushNSObject:charSet] ;
+    return 1 ;
+}
+
+static int stringIsMemberOfSet(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    luaL_checkstring(L, 2) ;
+
+    NSCharacterSet *charSet   = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
+    NSString       *theString = [skin toNSObjectAtIndex:2] ;
+    BOOL           isGood     = YES ;
+    NSUInteger     len        = [theString length];
+    unichar        buffer[len+1];
+    NSUInteger     idx        = 0 ;
+
+    // NOTE: won't work with decomposed characters, but then I don't think Hammerspoon's console or much else
+    // in Hammerspoon will either, so... cowardly ignore until it matters
+    // See http://stackoverflow.com/questions/4158646/most-efficient-way-to-iterate-over-all-the-chars-in-an-nsstring/25938062#25938062
+    // if it ever does matter.
+
+    [theString getCharacters:buffer range:NSMakeRange(0, len)];
+    while(isGood && idx < len) {
+        isGood = [charSet characterIsMember:buffer[idx]] ;
+        idx++ ;
+    }
+    lua_pushboolean(L, isGood) ;
+    return 1 ;
+}
+
+// TODO: Methods
 // Need to think about UTF32 and how it compares/converts to UTF8, which is what almost everything
 // else in Hammerspoon is based upon.
-// - (BOOL)characterIsMember:(unichar)aCharacter
 // - (BOOL)hasMemberInPlane:(uint8_t)thePlane
 // - (BOOL)longCharacterIsMember:(UTF32Char)theLongChar
 
@@ -247,9 +330,14 @@ static int userdata_gc(lua_State* L) {
 // // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
     {"bitmapRepresentation", bitmapRepresentation},
-    {"invertedSet",          invertedSet},
+    {"inverted",             invertedSet},
     {"characters",           setCharacters},
     {"isSupersetOf",         isSupersetOfSet},
+    {"intersectionWith",     intersectionWithSet},
+    {"unionWith",            unionWithSet},
+    {"addToSet",             addCharactersToSet},
+    {"removeFromSet",        removeCharactersFromSet},
+    {"containsString",       stringIsMemberOfSet},
 
     {"__tostring",           userdata_tostring},
     {"__eq",                 userdata_eq},

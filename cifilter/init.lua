@@ -1,12 +1,9 @@
---- === hs._asm.characterset ===
+--- === hs._asm.module ===
 ---
---- Work with NSCharacterSet objects... probably of little practical Hammerspoon value for now...
----
---- May be useful in the future for a better treatment of URLs and if we ever change `hs.styledtext` to use the "Apple Preferred" way of handling tabStops in the "correct" non-deprecated way as opposed to the method currently employed.
+--- Stuff about the module
 
-local USERDATA_TAG = "hs._asm.characterset"
+local USERDATA_TAG = "hs._asm.cifilter"
 local module       = require(USERDATA_TAG..".internal")
-local internal     = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
 
@@ -88,11 +85,7 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.names = _makeConstantsTable(module.names)
-
-internal.relativeComplementOf = function(self, otherSet)
-    return self:intersectionWith(otherSet:inverted())
-end
+module.categories = _makeConstantsTable(module.categories)
 
 -- Return Module Object --------------------------------------------------
 
