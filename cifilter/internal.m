@@ -257,17 +257,32 @@ static int filterUserInterface(lua_State *L) {
                                                 excludedKeys:nil] ;
 
     // TODO: sub-class NSWindow so it can be a delegate and allow input when not titled, etc.
-    NSUIntger initialStyle = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask ;
+    NSUInteger initialStyle = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask ;
     NSRect viewFrame = [theView frame] ;
-    NSRect windowFrame = NSMakeRect(where.x, where.y, viewFrame.size.width, viewFrame.size.height) ;
-    // OK, now figure out what it will be with the specified style
-    windowFrame = [NSWindow frameRectForContentRect:windowFrame styleMask:initialStyle] ;
+    viewFrame.origin.x = where.x ;
+    viewFrame.origin.y = where.y ;
 
+    // adjust for title bar, etc based upon default style
+    NSRect inWindowFrame = [NSWindow frameRectForContentRect:viewFrame styleMask:initialStyle] ;
+    inWindowFrame.origin.y = inWindowFrame.origin.y + (inWindowFrame.size.height - viewFrame.size.height) ;
+    inWindowFrame.size.height = viewFrame.size.height ;
 
-    windowFrame.origin.y=[[NSScreen screens][0] frame].size.height - windowFrame.origin.y - windowFrame.size.height;
-    [skin logInfo:[NSString stringWithFormat:@"UI Rect: x:%f y:%f w:%f h:%f", windowFrame.origin.x, windowFrame.origin.y, windowFrame.size.width, windowFrame.size.height]] ;
+//     [skin logInfo:[NSString stringWithFormat:@"UI View Rect:   x:%f y:%f w:%f h:%f",
+//                                               viewFrame.origin.x,
+//                                               viewFrame.origin.y,
+//                                               viewFrame.size.width,
+//                                               viewFrame.size.height]] ;
+//
+//     [skin logInfo:[NSString stringWithFormat:@"UI Window Rect: x:%f y:%f w:%f h:%f",
+//                                               inWindowFrame.origin.x,
+//                                               inWindowFrame.origin.y,
+//                                               inWindowFrame.size.width,
+//                                               inWindowFrame.size.height]] ;
 
-    NSWindow *theWindow = [[NSWindow alloc] initWithContentRect:windowFrame
+    // adjust for inverted coordinate's used in Hammerspoon
+    inWindowFrame.origin.y = [[NSScreen screens][0] frame].size.height - inWindowFrame.origin.y - inWindowFrame.size.height ;
+
+    NSWindow *theWindow = [[NSWindow alloc] initWithContentRect:inWindowFrame
                                                       styleMask:initialStyle
                                                         backing:NSBackingStoreBuffered
                                                           defer:YES] ;
