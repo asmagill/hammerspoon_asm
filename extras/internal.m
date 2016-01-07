@@ -43,7 +43,7 @@ static int lsTracebackWithTag(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
     NSString *theString = [skin toNSObjectAtIndex:1] ;
-    [skin pushNSObject:[skin tracebackWithTag:theString fromLevel:(int)lua_tointeger(L, 2)]] ;
+    [skin pushNSObject:[skin tracebackWithTag:theString fromStackPos:(int)lua_tointeger(L, 2)]] ;
     return 1 ;
 }
 
@@ -413,6 +413,29 @@ static int addressbookGroups(__unused lua_State *L) {
     return 1 ;
 }
 
+static int testNSValueEncodings(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSValue *theRect  = [NSValue valueWithRect:NSMakeRect(0,1,2,3)] ;
+    NSValue *thePoint = [NSValue valueWithPoint:NSMakePoint(4,5)] ;
+    NSValue *theSize  = [NSValue valueWithSize:NSMakeSize(6,7)] ;
+    NSValue *theRange = [NSValue valueWithRange:NSMakeRange(8,9)] ;
+
+    lua_newtable(L) ;
+    lua_newtable(L) ;
+    [skin pushNSObject:theRect withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "rect") ;
+    [skin pushNSObject:thePoint withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "point") ;
+    [skin pushNSObject:theSize withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "size") ;
+    [skin pushNSObject:theRange withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "range") ;
+    lua_setfield(L, -2, "raw") ;
+    lua_newtable(L) ;
+    lua_pushstring(L, [theRect objCType]) ;  lua_setfield(L, -2, "rect") ;
+    lua_pushstring(L, [thePoint objCType]) ; lua_setfield(L, -2, "point") ;
+    lua_pushstring(L, [theSize objCType]) ;  lua_setfield(L, -2, "size") ;
+    lua_pushstring(L, [theRange objCType]) ; lua_setfield(L, -2, "range") ;
+    lua_setfield(L, -2, "objCType") ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -428,6 +451,8 @@ static const luaL_Reg extrasLib[] = {
     {"colorPanel",           colorPanel},
     {"threadInfo",           threadInfo},
     {"addressbookGroups",    addressbookGroups},
+
+    {"testNSValue",          testNSValueEncodings},
 
     {"lsDebug",              lsDebug},
     {"lsWarn",               lsWarn},
