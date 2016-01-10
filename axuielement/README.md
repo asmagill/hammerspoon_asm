@@ -10,6 +10,24 @@ Some interesting things of note:
 ax = require("hs._asm.axuielement")
 ~~~
 
+### 2016-01-09 additions:
+
+~~~lua
+ax.log.level = 0 -- turn off log output for missing Safari types (believed to be AXTextMarkerRef, and AXTextMarkerRangeRef, but they are private as far as I can determine so far, so... no joy for now.)
+
+print(os.date()) ; z1 = ax.applicationElement(hs.appfinder.appFromName("Safari")):elementSearch({}) ; print(os.date(), #z1)
+
+
+print(os.date()) ; z2 = ax.applicationElement(hs.appfinder.appFromName("Safari")):getAllChildElements() ; print(os.date(), #z2)
+~~~
+
+* z1 - uses lua based elementSearch to grab all AXUIelements from the starting point and put them into an array.
+* z2 - uses Objective-C function to do the same.  Runs an average of 3-4 times faster (15 seconds vs 60 seconds for one test)
+
+Array returned from either can be used in further refinement searches that only search within the array, rather than recurse through AXUIelements the slow way each time -- e.g. `z2:elementSearch({role="AXWindow"})` to get just the window AXUIElements from the z2 array.
+
+Considering putting z2 version in a separate thread and callback with the array so doesn't block Hammerspoon even for the reduced time period.
+
 ### Latest Examples:
 
 ~~~lua

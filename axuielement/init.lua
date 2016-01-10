@@ -460,6 +460,16 @@ object.elementSearch = function(self, searchParameters, isPattern, includeParent
     })
 end
 
+local internalHolderForGetAllChildElements = object.getAllChildElements
+
+object.getAllChildElements = function(...)
+    return setmetatable(internalHolderForGetAllChildElements(...), {
+        __index = {
+            elementSearch = object.elementSearch
+        }
+    })
+end
+
 -- Return Module Object --------------------------------------------------
 
 if module.types then module.types = _makeConstantsTable(module.types) end

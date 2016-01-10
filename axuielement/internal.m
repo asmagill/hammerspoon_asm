@@ -860,6 +860,71 @@ static int setAttributeValue(lua_State *L) {
     return 1 ;
 }
 
+static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParents, CFMutableArrayRef results) {
+    CFTypeID theRefType = CFGetTypeID(theRef) ;
+    if (theRefType == CFArrayGetTypeID()) {
+        CFIndex theRefCount = CFArrayGetCount(theRef) ;
+        for (CFIndex i = 0 ; i < theRefCount ; i++) {
+            CFTypeRef value = CFArrayGetValueAtIndex(theRef, i) ;
+            CFTypeID valueType = CFGetTypeID(value) ;
+            if ((valueType == CFArrayGetTypeID()) || (valueType == AXUIElementGetTypeID())) {
+                getAllAXUIElements_searchHamster(value, includeParents, results) ;
+            }
+        }
+    } else if (theRefType == AXUIElementGetTypeID()) {
+        if (CFArrayContainsValue(results, CFRangeMake(0, CFArrayGetCount(results)), theRef)) return ;
+//         NSLog(@"appending to results(%ld): %@", CFArrayGetCount(results), theRef) ;
+        CFArrayAppendValue(results, theRef) ;
+        CFArrayRef attributeNames ;
+        AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
+        if (errorState == kAXErrorSuccess) {
+            for (id name in (__bridge NSArray *)attributeNames) {
+                if ((![name isEqualToString:(__bridge NSString *)kAXTopLevelUIElementAttribute] &&
+                    ![name isEqualToString:(__bridge NSString *)kAXParentAttribute]) || includeParents) {
+                    CFTypeRef value ;
+                    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)name, &value) ;
+                    if (errorState == kAXErrorSuccess) {
+                        CFTypeID theType = CFGetTypeID(value) ;
+                        if ((theType == CFArrayGetTypeID()) || (theType == AXUIElementGetTypeID())) {
+                            getAllAXUIElements_searchHamster(value, includeParents, results) ;
+                        }
+                    } else {
+                        errorWrapper([[LuaSkin shared] L], errorState) ;
+                    }
+                    if (value) CFRelease(value) ;
+                }
+            }
+        } else {
+            errorWrapper([[LuaSkin shared] L], errorState) ;
+        }
+        if (attributeNames) CFRelease(attributeNames) ;
+    } /* else {
+       * ignore it, not a type we care about
+    }  */
+    return ;
+}
+
+static int getAllAXUIElements(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    BOOL includeParents = NO ;
+    if (lua_gettop(L) == 2) includeParents = (BOOL)lua_toboolean(L, 2) ;
+//     CFArrayRef seenObjects = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks) ;
+    CFMutableArrayRef results     = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
+//     getAllAXUIElements_searchHamster(theRef, includeParents, &results, &seenObjects) ;
+    getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
+    CFIndex arraySize = CFArrayGetCount(results) ;
+    lua_newtable(L) ;
+    for (CFIndex i = 0 ; i < arraySize ; i++) {
+        pushAXUIElement(L, CFArrayGetValueAtIndex(results, i)) ;
+        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    }
+//     CFRelease(seenObjects) ;
+    CFRelease(results) ;
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 
@@ -1237,7 +1302,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"performAction",               performAction},
     {"elementAtPosition",           getElementAtPosition},
     {"setAttributeValue",           setAttributeValue},
-
+    {"getAllChildElements",         getAllAXUIElements},
     {"__tostring",                  userdata_tostring},
     {"__eq",                        userdata_eq},
     {"__gc",                        userdata_gc},
