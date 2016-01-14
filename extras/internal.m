@@ -436,6 +436,80 @@ static int testNSValueEncodings(lua_State *L) {
     return 1 ;
 }
 
+// probably not worth pursuing, doesn't work anyways with example key and not sure what it should be...
+#import <SystemConfiguration/SystemConfiguration.h>
+#import <SystemConfiguration/DHCPClientPreferences.h>
+static int dhcpOptions(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    NSString *applicationID = @"com.apple.SystemPreferences" ;
+    if (lua_gettop(L) == 1) applicationID = [skin toNSObjectAtIndex:1] ;
+    CFIndex count = 0 ;
+    UInt8 *options = DHCPClientPreferencesCopyApplicationOptions ((__bridge CFStringRef)applicationID, &count);
+    if (options) {
+        lua_newtable(L) ;
+        for (CFIndex i = 0 ; i < count ; i++) {
+            lua_pushinteger(L, options[i]) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+        free(options) ;
+    } else {
+        return luaL_error(L, "error retrieving DHCP options for %s:%s", [applicationID UTF8String], SCErrorString(SCError())) ;
+    }
+    return 1 ;
+}
+
+static int dynamicStore(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
+    NSArray *keyPatterns = @[ @".*" ] ;
+    NSArray *valuePatterns = @[ @".*" ] ;
+    if (lua_gettop(L) > 0) {
+        keyPatterns = [skin toNSObjectAtIndex:1] ;
+        if (lua_gettop(L) > 1) {
+            valuePatterns = [skin toNSObjectAtIndex:2] ;
+        }
+    }
+    SCDynamicStoreContext context = { 0, NULL, NULL, NULL, NULL };
+    SCDynamicStoreRef theStore = SCDynamicStoreCreate(kCFAllocatorDefault, (CFStringRef)@"Hammerspoon", NULL, &context );
+    if (theStore) {
+        CFDictionaryRef results = SCDynamicStoreCopyMultiple (theStore, (__bridge CFArrayRef)keyPatterns, (__bridge CFArrayRef)valuePatterns);
+        if (results) {
+            [skin pushNSObject:(__bridge NSDictionary *)results withOptions:(LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits)] ;
+            CFRelease(results) ;
+        } else {
+            return luaL_error(L, "unable to get key-value pairs:%s", SCErrorString(SCError())) ;
+        }
+        CFRelease(theStore) ;
+    } else {
+        return luaL_error(L, "unable to get store reference:%s", SCErrorString(SCError())) ;
+    }
+    return 1 ;
+}
+
+static int lsIntTest(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_newtable(L) ;
+    lua_newtable(L) ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x7fffffffffffffff]] ;
+    lua_setfield(L, -2, "below") ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000000]] ;
+    lua_setfield(L, -2, "at") ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000001]] ;
+    lua_setfield(L, -2, "above") ;
+    lua_setfield(L, -2, "default") ;
+    lua_newtable(L) ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x7fffffffffffffff] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
+    lua_setfield(L, -2, "below") ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000000] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
+    lua_setfield(L, -2, "at") ;
+    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000001] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
+    lua_setfield(L, -2, "above") ;
+    lua_setfield(L, -2, "withOptions") ;
+
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -458,6 +532,10 @@ static const luaL_Reg extrasLib[] = {
     {"lsWarn",               lsWarn},
     {"lsError",              lsError},
     {"lsTracebackWithTag",   lsTracebackWithTag},
+
+    {"dhcpOptions",          dhcpOptions},
+    {"dynamicStore",         dynamicStore},
+    {"lsIntTest",            lsIntTest},
 
     {NULL,                   NULL}
 };
