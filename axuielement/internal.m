@@ -1274,6 +1274,8 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_gc(lua_State* L) {
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     CFRelease(theRef) ;
+    lua_pushnil(L) ;
+    lua_setmetatable(L, 1) ;
     return 0 ;
 }
 
