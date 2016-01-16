@@ -3,9 +3,9 @@
 #import <SystemConfiguration/SystemConfiguration.h>
 
 #import <netinet/in.h>
+#import <netdb.h>
 
 // TODO:
-//    IPv6 support
 //    This just tests for a "route to"... do we need a test that it's actually up?
 //    OpenVPN interface not managed by SCNetworkInterface, so its network is seen as direct;
 //       however, checking for the interfaces IP address will specify whether its local or not
@@ -14,15 +14,14 @@
 static int              refTable          = LUA_NOREF;
 static dispatch_queue_t reachabilityQueue = nil ;
 
-// #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
-// #define get_cfobjectFromUserdata(objType, L, idx) *((objType*)luaL_checkudata(L, idx, USERDATA_TAG))
 
 #pragma mark - Support Functions and Classes
 
 typedef struct _reachability_t {
     SCNetworkReachabilityRef reachabilityObj;
     int                      callbackRef ;
+    int                      selfRef ;
     BOOL                     watcherEnabled ;
 } reachability_t;
 
@@ -32,6 +31,7 @@ static int pushSCNetworkReachability(lua_State *L, SCNetworkReachabilityRef theR
 
     thePtr->reachabilityObj = CFRetain(theRef) ;
     thePtr->callbackRef     = LUA_NOREF ;
+    thePtr->selfRef         = LUA_NOREF ;
     thePtr->watcherEnabled  = NO ;
 
     luaL_getmetatable(L, USERDATA_TAG) ;
@@ -39,14 +39,14 @@ static int pushSCNetworkReachability(lua_State *L, SCNetworkReachabilityRef theR
     return 1 ;
 }
 
-static void doReachabilityCallback(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info) {
+static void doReachabilityCallback(__unused SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info) {
     reachability_t *theRef = (reachability_t *)info ;
     if (theRef->callbackRef != LUA_NOREF) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:theRef->callbackRef] ;
-            pushSCNetworkReachability(L, target) ;
+            [skin pushLuaRef:refTable ref:theRef->selfRef] ;
             lua_pushinteger(L, (lua_Integer)flags) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s:error in Lua callback:%@",
@@ -72,74 +72,52 @@ static NSString *statusString(SCNetworkReachabilityFlags flags) {
 
 #pragma mark - Module Functions
 
-static int reachabilityForIPv4Address(lua_State *L) {
+static int reachabilityForAddress(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
 
-    uint32_t ipv4number ;
-    if (lua_type(L, 1) == LUA_TNUMBER) {
-        ipv4number = (uint32_t)luaL_checkinteger(L, 1) ;
-    } else if (lua_type(L, 1) == LUA_TTABLE) {
-        lua_rawgeti(L, 1, 1) ; lua_rawgeti(L, 1, 2) ; lua_rawgeti(L, 1, 3) ; lua_rawgeti(L, 1, 4) ;
-        ipv4number = ((uint32_t)luaL_checkinteger(L, -4) << 24) + ((uint32_t)luaL_checkinteger(L, -3) << 16) +
-                     ((uint32_t)luaL_checkinteger(L, -2) << 8)  +  (uint32_t)luaL_checkinteger(L, -1) ;
-        lua_pop(L, 4) ;
-    } else {
-        return luaL_argerror(L, 1, [[NSString stringWithFormat:@"number or table expected, found '%s'",
-                                                                lua_typename(L, lua_type(L, 1))] UTF8String]) ;
+    luaL_checkstring(L, 1) ; // force number to be a string
+    struct addrinfo *results = NULL ;
+    struct addrinfo hints = { AI_NUMERICHOST, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
+    int ecode = getaddrinfo([[skin toNSObjectAtIndex:1] UTF8String], NULL, &hints, &results);
+    if (ecode != 0) {
+        if (results) freeaddrinfo(results) ;
+        return luaL_error(L, "address parse error: %s", gai_strerror(ecode)) ;
     }
-    struct sockaddr_in ipv4sockaddr ;
-    bzero(&ipv4sockaddr, sizeof(ipv4sockaddr));
-    ipv4sockaddr.sin_len         = sizeof(ipv4sockaddr);
-    ipv4sockaddr.sin_family      = AF_INET;
-    ipv4sockaddr.sin_addr.s_addr = htonl(ipv4number);
-    SCNetworkReachabilityRef theRef = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (void *)&ipv4sockaddr);
+    SCNetworkReachabilityRef theRef = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (void *)results->ai_addr);
     pushSCNetworkReachability(L, theRef) ;
+
+    if (results) freeaddrinfo(results) ;
     return 1 ;
 }
 
-static int reachabilityForIPv4AddressPair(lua_State *L) {
+static int reachabilityForAddressPair(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TTABLE | LS_TNUMBER, LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
 
-    uint32_t Lipv4number ;
-    if (lua_type(L, 1) == LUA_TNUMBER) {
-        Lipv4number = (uint32_t)luaL_checkinteger(L, 1) ;
-    } else if (lua_type(L, 1) == LUA_TTABLE) {
-        lua_rawgeti(L, 1, 1) ; lua_rawgeti(L, 1, 2) ; lua_rawgeti(L, 1, 3) ; lua_rawgeti(L, 1, 4) ;
-        Lipv4number = ((uint32_t)luaL_checkinteger(L, -4) << 24) + ((uint32_t)luaL_checkinteger(L, -3) << 16) +
-                      ((uint32_t)luaL_checkinteger(L, -2) << 8)  +  (uint32_t)luaL_checkinteger(L, -1) ;
-        lua_pop(L, 4) ;
-    } else {
-        return luaL_argerror(L, 1, [[NSString stringWithFormat:@"number or table expected, found '%s'",
-                                                                lua_typename(L, lua_type(L, 1))] UTF8String]) ;
+    luaL_checkstring(L, 1) ; // force number to be a string
+    struct addrinfo *results1 = NULL ;
+    struct addrinfo hints = { AI_NUMERICHOST, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
+    int ecode1 = getaddrinfo([[skin toNSObjectAtIndex:1] UTF8String], NULL, &hints, &results1);
+    if (ecode1 != 0) {
+        if (results1) freeaddrinfo(results1) ;
+        return luaL_error(L, "local address parse error: %s", gai_strerror(ecode1)) ;
     }
-    struct sockaddr_in Lipv4sockaddr ;
-    bzero(&Lipv4sockaddr, sizeof(Lipv4sockaddr));
-    Lipv4sockaddr.sin_len         = sizeof(Lipv4sockaddr);
-    Lipv4sockaddr.sin_family      = AF_INET;
-    Lipv4sockaddr.sin_addr.s_addr = htonl(Lipv4number);
 
-    uint32_t Ripv4number ;
-    if (lua_type(L, 2) == LUA_TNUMBER) {
-        Ripv4number = (uint32_t)luaL_checkinteger(L, 2) ;
-    } else if (lua_type(L, 2) == LUA_TTABLE) {
-        lua_rawgeti(L, 2, 1) ; lua_rawgeti(L, 2, 2) ; lua_rawgeti(L, 2, 3) ; lua_rawgeti(L, 2, 4) ;
-        Ripv4number = ((uint32_t)luaL_checkinteger(L, -4) << 24) + ((uint32_t)luaL_checkinteger(L, -3) << 16) +
-                      ((uint32_t)luaL_checkinteger(L, -2) << 8)  +  (uint32_t)luaL_checkinteger(L, -1) ;
-        lua_pop(L, 4) ;
-    } else {
-        return luaL_argerror(L, 1, [[NSString stringWithFormat:@"number or table expected, found '%s'",
-                                                                lua_typename(L, lua_type(L, 1))] UTF8String]) ;
+    luaL_checkstring(L, 2) ; // force number to be a string
+    struct addrinfo *results2 = NULL ;
+    int ecode2 = getaddrinfo([[skin toNSObjectAtIndex:2] UTF8String], NULL, &hints, &results2);
+    if (ecode2 != 0) {
+        if (results1) freeaddrinfo(results1) ;
+        if (results2) freeaddrinfo(results2) ;
+        return luaL_error(L, "remote address parse error: %s", gai_strerror(ecode2)) ;
     }
-    struct sockaddr_in Ripv4sockaddr ;
-    bzero(&Ripv4sockaddr, sizeof(Ripv4sockaddr));
-    Ripv4sockaddr.sin_len         = sizeof(Ripv4sockaddr);
-    Ripv4sockaddr.sin_family      = AF_INET;
-    Ripv4sockaddr.sin_addr.s_addr = htonl(Ripv4number);
 
-    SCNetworkReachabilityRef theRef = SCNetworkReachabilityCreateWithAddressPair(kCFAllocatorDefault, (void *)&Lipv4sockaddr, (void *)&Ripv4sockaddr);
+    SCNetworkReachabilityRef theRef = SCNetworkReachabilityCreateWithAddressPair(kCFAllocatorDefault, results1->ai_addr, results2->ai_addr);
     pushSCNetworkReachability(L, theRef) ;
+
+    if (results1) freeaddrinfo(results1) ;
+    if (results2) freeaddrinfo(results2) ;
     return 1 ;
 }
 
@@ -192,6 +170,12 @@ static int reachabilityCallback(lua_State *L) {
     if (lua_type(L, 2) == LUA_TFUNCTION) {
         lua_pushvalue(L, 2);
         theRef->callbackRef = [skin luaRef:refTable];
+        if (theRef->selfRef == LUA_NOREF) {               // make sure that we won't be __gc'd if a callback exists
+            lua_pushvalue(L, 1) ;                         // but the user doesn't save us somewhere
+            theRef->selfRef = [skin luaRef:refTable];
+        }
+    } else {
+        theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
     }
 
     lua_pushvalue(L, 1);
@@ -275,8 +259,15 @@ static int userdata_eq(lua_State* L) {
 
 static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin logWarn:@"Reachability GC"] ;
     reachability_t* theRef = get_structFromUserdata(reachability_t, L, 1) ;
-    [skin luaUnref:refTable ref:theRef->callbackRef] ;
+    if (theRef->callbackRef != LUA_NOREF) {
+        theRef->callbackRef = [skin luaUnref:refTable ref:theRef->callbackRef] ;
+        SCNetworkReachabilitySetCallback(theRef->reachabilityObj, NULL, NULL);
+        SCNetworkReachabilitySetDispatchQueue(theRef->reachabilityObj, NULL);
+    }
+    theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
+
     CFRelease(theRef->reachabilityObj) ;
     lua_pushnil(L) ;
     lua_setmetatable(L, 1) ;
@@ -304,12 +295,10 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"_forIPv4Address",     reachabilityForIPv4Address},
-    {"_forIPv4AddressPair", reachabilityForIPv4AddressPair},
-//     {"forIPv6Address",      reachabilityForIPv6Address},
-//     {"forIPv6AddressPair",  reachabilityForIPv6AddressPair},
-    {"forHostName",         reachabilityForHostName},
-    {NULL,                  NULL}
+    {"forAddressPair", reachabilityForAddressPair},
+    {"forAddress",     reachabilityForAddress},
+    {"forHostName",    reachabilityForHostName},
+    {NULL,             NULL}
 };
 
 // Metatable for module, if needed

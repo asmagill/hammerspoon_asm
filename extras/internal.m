@@ -3,6 +3,8 @@
 #import <LuaSkin/LuaSkin.h>
 #import <AddressBook/AddressBook.h>
 
+#import <netdb.h>
+
 #import "../hammerspoon.h"
 
 
@@ -510,6 +512,60 @@ static int lsIntTest(lua_State *L) {
     return 1 ;
 }
 
+static int addressParserTesting(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *input = [skin toNSObjectAtIndex:1] ;
+//     struct addrinfo {
+//         int ai_flags;           /* input flags */
+//         int ai_family;          /* protocol family for socket */
+//         int ai_socktype;        /* socket type */
+//         int ai_protocol;        /* protocol for socket */
+//         socklen_t ai_addrlen;   /* length of socket-address */
+//         struct sockaddr *ai_addr; /* socket-address for socket */
+//         char *ai_canonname;     /* canonical name for service location */
+//         struct addrinfo *ai_next; /* pointer to next in list */
+//     };
+    struct addrinfo *results = NULL ;
+    struct addrinfo hints = { AI_NUMERICHOST, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
+    int ecode = getaddrinfo([input UTF8String], NULL, &hints, &results);
+    if (ecode == 0) {
+        struct addrinfo *current = results ;
+        lua_newtable(L) ;
+        while(current) {
+            switch(current->ai_family) {
+                case PF_INET:  lua_pushstring(L, "IPv4") ; break ;
+                case PF_INET6: lua_pushstring(L, "IPv6") ; break ;
+                default: lua_pushfstring(L, "unknown family: %d", current->ai_family) ; break ;
+            }
+            lua_setfield(L, -2, "family") ;
+            switch(current->ai_socktype) {
+                case SOCK_STREAM: lua_pushstring(L, "stream") ; break ;
+                case SOCK_DGRAM:  lua_pushstring(L, "datagram") ; break ;
+                case SOCK_RAW:    lua_pushstring(L, "raw") ; break ;
+                default: lua_pushfstring(L, "unknown socket type: %d", current->ai_socktype) ; break ;
+            }
+            lua_setfield(L, -2, "socktype") ;
+            switch(current->ai_protocol) {
+                case IPPROTO_TCP: lua_pushstring(L, "tcp") ; break ;
+                case IPPROTO_UDP: lua_pushstring(L, "udp") ; break ;
+                default: lua_pushfstring(L, "unknown protocol type: %d", current->ai_protocol) ; break ;
+            }
+            lua_setfield(L, -2, "protocol") ;
+
+            lua_pushinteger(L, current->ai_addrlen) ; lua_setfield(L, -2, "length") ;
+            [skin pushNSObject:[NSData dataWithBytes:current->ai_addr length:current->ai_addrlen]] ;
+            lua_setfield(L, -2, "rawData") ;
+
+            lua_pushstring(L, current->ai_canonname) ; lua_setfield(L, -2, "canonname") ;
+            current = current->ai_next ;
+        }
+    }
+    if (results) freeaddrinfo(results) ;
+    if (ecode != 0) return luaL_error(L, "address parse error: %s", gai_strerror(ecode)) ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -533,6 +589,7 @@ static const luaL_Reg extrasLib[] = {
     {"lsError",              lsError},
     {"lsTracebackWithTag",   lsTracebackWithTag},
 
+    {"addressParserTesting", addressParserTesting},
     {"dhcpOptions",          dhcpOptions},
     {"dynamicStore",         dynamicStore},
     {"lsIntTest",            lsIntTest},

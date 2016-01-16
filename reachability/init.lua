@@ -92,38 +92,38 @@ module.specialAddresses = _makeConstantsTable({
     INADDR_ANY         = 0x00000000, -- 0.0.0.0
 })
 
-module.forIPv4Address = function(address)
-    local addressAsTable = {}
-    if type(address) == "string" then
-        addressAsTable = table.pack(address:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
-    elseif type(address) == "table" or type(address) == "number" then
-        addressAsTable = address
-    end
-    return module._forIPv4Address(addressAsTable)
-end
+-- module.forIPv4Address = function(address)
+--     local addressAsTable = {}
+--     if type(address) == "string" then
+--         addressAsTable = table.pack(address:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
+--     elseif type(address) == "table" or type(address) == "number" then
+--         addressAsTable = address
+--     end
+--     return module._forIPv4Address(addressAsTable)
+-- end
 
-module.forIPv4AddressPair = function(Laddress, Raddress)
-    local LaddressAsTable = {}
-    if type(Laddress) == "string" then
-        LaddressAsTable = table.pack(Laddress:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
-    elseif type(Laddress) == "table" or type(Laddress) == "number" then
-        LaddressAsTable = Laddress
-    end
-    local RaddressAsTable = {}
-    if type(Raddress) == "string" then
-        RaddressAsTable = table.pack(Raddress:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
-    elseif type(Raddress) == "table" or type(Raddress) == "number" then
-        LaddressAsTable = Raddress
-    end
-    return module._forIPv4AddressPair(LaddressAsTable, RaddressAsTable)
-end
+-- module.forIPv4AddressPair = function(Laddress, Raddress)
+--     local LaddressAsTable = {}
+--     if type(Laddress) == "string" then
+--         LaddressAsTable = table.pack(Laddress:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
+--     elseif type(Laddress) == "table" or type(Laddress) == "number" then
+--         LaddressAsTable = Laddress
+--     end
+--     local RaddressAsTable = {}
+--     if type(Raddress) == "string" then
+--         RaddressAsTable = table.pack(Raddress:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$"))
+--     elseif type(Raddress) == "table" or type(Raddress) == "number" then
+--         LaddressAsTable = Raddress
+--     end
+--     return module._forIPv4AddressPair(LaddressAsTable, RaddressAsTable)
+-- end
 
 module.internet = function()
-    return module.forIPv4Address(module.specialAddresses.INADDR_ANY)
+    return module.forAddress(module.specialAddresses.INADDR_ANY)
 end
 
 module.linklocal = function()
-    return module.forIPv4Address(module.specialAddresses.IN_LINKLOCALNETNUM)
+    return module.forAddress(module.specialAddresses.IN_LINKLOCALNETNUM)
 end
 
 -- Return Module Object --------------------------------------------------
