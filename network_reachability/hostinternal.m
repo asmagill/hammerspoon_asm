@@ -99,7 +99,7 @@ void handleCallback(__unused CFHostRef theHost, __unused CFHostInfoType typeInfo
                                 NSData *thisAddr = (__bridge NSData *)CFArrayGetValueAtIndex(theAddresses, i) ;
                                 int  err;
                                 char addrStr[NI_MAXHOST];
-                                err = getnameinfo((const struct sockaddr *) [thisAddr bytes], (socklen_t) [thisAddr length], addrStr, sizeof(addrStr), NULL, 0, NI_NUMERICHOST);
+                                err = getnameinfo((const struct sockaddr *) [thisAddr bytes], (socklen_t) [thisAddr length], addrStr, sizeof(addrStr), NULL, 0, NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
                                 if (err == 0) {
                                     lua_pushstring(L, addrStr) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
                                 } else {
@@ -204,7 +204,7 @@ static int commonForAddress(lua_State *L, CFHostInfoType resolveType) {
 
     luaL_checkstring(L, 1) ; // force number to be a string
     struct addrinfo *results = NULL ;
-    struct addrinfo hints = { AI_NUMERICHOST | AI_NUMERICSERV, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
+    struct addrinfo hints = { AI_NUMERICHOST | AI_NUMERICSERV | AI_V4MAPPED_CFG, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
     int ecode = getaddrinfo([[skin toNSObjectAtIndex:1] UTF8String], NULL, &hints, &results);
     if (ecode != 0) {
         if (results) freeaddrinfo(results) ;

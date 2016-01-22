@@ -474,7 +474,7 @@ static int addressParserTesting(lua_State *L) {
 //         struct addrinfo *ai_next; /* pointer to next in list */
 //     };
     struct addrinfo *results = NULL ;
-    struct addrinfo hints = { AI_NUMERICHOST, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
+    struct addrinfo hints = { AI_NUMERICHOST | AI_NUMERICSERV | AI_V4MAPPED_CFG, PF_UNSPEC, 0, 0, 0, NULL, NULL, NULL } ;
     int ecode = getaddrinfo([input UTF8String], NULL, &hints, &results);
     if (ecode == 0) {
         struct addrinfo *current = results ;
@@ -503,6 +503,16 @@ static int addressParserTesting(lua_State *L) {
             lua_pushinteger(L, current->ai_addrlen) ; lua_setfield(L, -2, "length") ;
             [skin pushNSObject:[NSData dataWithBytes:current->ai_addr length:current->ai_addrlen]] ;
             lua_setfield(L, -2, "rawData") ;
+
+            int  err;
+            char addrStr[NI_MAXHOST];
+            err = getnameinfo(current->ai_addr, current->ai_addrlen, addrStr, sizeof(addrStr), NULL, 0, NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+            if (err == 0) {
+                lua_pushstring(L, addrStr) ;
+            } else {
+                lua_pushfstring(L, "** error:%s", gai_strerror(err)) ;
+            }
+            lua_setfield(L, -2, "addressAsString") ;
 
             lua_pushstring(L, current->ai_canonname) ; lua_setfield(L, -2, "canonname") ;
             current = current->ai_next ;
