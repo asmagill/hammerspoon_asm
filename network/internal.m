@@ -152,6 +152,7 @@ static int interfaceConfiguration(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SCNetworkInterfaceRef theInterface = get_cfobjectFromUserdata(SCNetworkInterfaceRef, L, 1) ;
     CFDictionaryRef configuration = SCNetworkInterfaceGetConfiguration(theInterface) ;
+    [skin logVerbose:[NSString stringWithFormat:@"configuration: %@", configuration]] ;
     [skin pushNSObject:(__bridge NSDictionary *)configuration withOptions:LS_NSDescribeUnknownTypes] ;
     return 1 ;
 }
