@@ -2,6 +2,7 @@
 #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
 #import <AddressBook/AddressBook.h>
+#import <SystemConfiguration/SystemConfiguration.h>
 
 #import <netdb.h>
 
@@ -523,6 +524,51 @@ static int addressParserTesting(lua_State *L) {
     return 1 ;
 }
 
+static int getSCPreferencesKeys(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    NSString *prefName = (lua_gettop(L) == 0) ? nil : [skin toNSObjectAtIndex:1] ;
+    NSString *theName = [[NSUUID UUID] UUIDString] ;
+    SCPreferencesRef thePrefs = SCPreferencesCreate(kCFAllocatorDefault, (__bridge CFStringRef)theName, (__bridge CFStringRef)prefName);
+    CFArrayRef keys = SCPreferencesCopyKeyList(thePrefs);
+    [skin pushNSObject:(__bridge NSArray *)keys] ;
+    CFRelease(keys) ;
+    CFRelease(thePrefs) ;
+    return 1 ;
+}
+
+static int getSCPreferencesValueForKey(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *keyName = [skin toNSObjectAtIndex:1] ;
+    NSString *theName = [[NSUUID UUID] UUIDString] ;
+    SCPreferencesRef thePrefs  = SCPreferencesCreate(kCFAllocatorDefault, (__bridge CFStringRef)theName, NULL);
+    SCPreferencesLock(thePrefs, true) ;
+    CFPropertyListRef theValue = SCPreferencesGetValue(thePrefs, (__bridge CFStringRef)keyName);
+    SCPreferencesUnlock(thePrefs) ;
+    CFTypeID theType = CFGetTypeID(theValue) ;
+    if (theType == CFDataGetTypeID()) {
+        [skin pushNSObject:(__bridge NSData *)theValue] ;
+    } else if (theType == CFStringGetTypeID()) {
+        [skin pushNSObject:(__bridge NSString *)theValue] ;
+    } else if (theType == CFArrayGetTypeID()) {
+        [skin pushNSObject:(__bridge NSArray *)theValue] ;
+    } else if (theType == CFDictionaryGetTypeID()) {
+        [skin pushNSObject:(__bridge NSDictionary *)theValue] ;
+    } else if (theType == CFDateGetTypeID()) {
+        [skin pushNSObject:(__bridge NSDate *)theValue] ;
+    } else if (theType == CFBooleanGetTypeID()) {
+        [skin pushNSObject:(__bridge NSNumber *)theValue] ;
+    } else if (theType == CFNumberGetTypeID()) {
+        [skin pushNSObject:(__bridge NSNumber *)theValue] ;
+    } else {
+        [skin pushNSObject:[NSString stringWithFormat:@"** invalid CF type %lu", theType]] ;
+    }
+//     CFRelease(theValue) ;
+    CFRelease(thePrefs) ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -540,6 +586,8 @@ static const luaL_Reg extrasLib[] = {
     {"addressbookGroups",    addressbookGroups},
 
     {"testNSValue",          testNSValueEncodings},
+    {"SCPreferencesKeys",    getSCPreferencesKeys},
+    {"SCPreferencesValueForKey", getSCPreferencesValueForKey},
 
     {"lsDebug",              lsDebug},
     {"lsWarn",               lsWarn},
