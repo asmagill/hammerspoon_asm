@@ -537,7 +537,7 @@ static int getSCPreferencesKeys(lua_State *L) {
     return 1 ;
 }
 
-static int getSCPreferencesValueForKey(lua_State *L) {
+static int getSCPreferencesValueForKey(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *keyName = [skin toNSObjectAtIndex:1] ;
@@ -547,25 +547,35 @@ static int getSCPreferencesValueForKey(lua_State *L) {
     CFPropertyListRef theValue = SCPreferencesGetValue(thePrefs, (__bridge CFStringRef)keyName);
     SCPreferencesUnlock(thePrefs) ;
     CFTypeID theType = CFGetTypeID(theValue) ;
-    if (theType == CFDataGetTypeID()) {
-        [skin pushNSObject:(__bridge NSData *)theValue] ;
-    } else if (theType == CFStringGetTypeID()) {
-        [skin pushNSObject:(__bridge NSString *)theValue] ;
-    } else if (theType == CFArrayGetTypeID()) {
-        [skin pushNSObject:(__bridge NSArray *)theValue] ;
-    } else if (theType == CFDictionaryGetTypeID()) {
-        [skin pushNSObject:(__bridge NSDictionary *)theValue] ;
-    } else if (theType == CFDateGetTypeID()) {
-        [skin pushNSObject:(__bridge NSDate *)theValue] ;
-    } else if (theType == CFBooleanGetTypeID()) {
-        [skin pushNSObject:(__bridge NSNumber *)theValue] ;
-    } else if (theType == CFNumberGetTypeID()) {
-        [skin pushNSObject:(__bridge NSNumber *)theValue] ;
-    } else {
-        [skin pushNSObject:[NSString stringWithFormat:@"** invalid CF type %lu", theType]] ;
-    }
-//     CFRelease(theValue) ;
+    if (theType == CFDataGetTypeID())            { [skin pushNSObject:(__bridge NSData *)theValue] ; }
+    else if (theType == CFStringGetTypeID())     { [skin pushNSObject:(__bridge NSString *)theValue] ; }
+    else if (theType == CFArrayGetTypeID())      { [skin pushNSObject:(__bridge NSArray *)theValue] ; }
+    else if (theType == CFDictionaryGetTypeID()) { [skin pushNSObject:(__bridge NSDictionary *)theValue] ; }
+    else if (theType == CFDateGetTypeID())       { [skin pushNSObject:(__bridge NSDate *)theValue] ; }
+    else if (theType == CFBooleanGetTypeID())    { [skin pushNSObject:(__bridge NSNumber *)theValue] ; }
+    else if (theType == CFNumberGetTypeID())     { [skin pushNSObject:(__bridge NSNumber *)theValue] ; }
+    else { [skin pushNSObject:[NSString stringWithFormat:@"** invalid CF type %lu", theType]] ; }
     CFRelease(thePrefs) ;
+    return 1 ;
+}
+
+static int networkUserPreferences(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFStringRef     serviceID ;
+    CFDictionaryRef userOptions ;
+
+    Boolean results = SCNetworkConnectionCopyUserPreferences(NULL, &serviceID, &userOptions);
+    if (results) {
+        lua_newtable(L) ;
+        [skin pushNSObject:(__bridge NSString *)serviceID] ;       lua_setfield(L, -2, "serviceID") ;
+        [skin pushNSObject:(__bridge NSDictionary *)userOptions] ; lua_setfield(L, -2, "userOptions") ;
+//         CFRelease(serviceID) ;   // I know the function says "copy", but it's returning a reference, and
+//         CFRelease(userOptions) ; // including these causes a crash, so...
+    } else {
+        lua_pushnil(L) ; // no dial-able (i.e. PPP or PPPOE) service
+    }
     return 1 ;
 }
 
@@ -588,6 +598,7 @@ static const luaL_Reg extrasLib[] = {
     {"testNSValue",          testNSValueEncodings},
     {"SCPreferencesKeys",    getSCPreferencesKeys},
     {"SCPreferencesValueForKey", getSCPreferencesValueForKey},
+    {"networkUserPreferences", networkUserPreferences},
 
     {"lsDebug",              lsDebug},
     {"lsWarn",               lsWarn},

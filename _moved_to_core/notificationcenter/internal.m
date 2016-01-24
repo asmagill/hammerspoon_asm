@@ -1,7 +1,6 @@
 #import <Cocoa/Cocoa.h>
 
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
 
 #define USERDATA_TAG    "hs._asm.notificationcenter"
 
@@ -20,14 +19,20 @@
 
     - (void) heard:(NSNotification*)note {
         if (self.fn != LUA_NOREF) {
-            lua_State *_L = [[LuaSkin shared] L];
+            LuaSkin *skin = [LuaSkin shared] ;
+            lua_State *_L = [skin L];
             lua_rawgeti(_L, LUA_REGISTRYINDEX, self.fn);
             lua_pushstring(_L, [[note name] UTF8String]);
-            [[LuaSkin shared] pushNSObject:[note object]] ;
-            [[LuaSkin shared] pushNSObject:[note userInfo]] ;
-            if (![[LuaSkin shared] protectedCallAndTraceback:3 nresults:0]) {
+            if ([[note object] isKindOfClass:[NSWorkspace class]]) {
+                [skin pushNSObject:[[note object] debugDescription]] ;
+            } else {
+                [skin pushNSObject:[note object] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
+            }
+            [skin pushNSObject:[note userInfo] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
+            if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 const char *errorMsg = lua_tostring(_L, -1);
-                showError(_L, (char *)errorMsg);
+                [skin logError:[NSString stringWithFormat:@"%s", errorMsg]] ;
+                lua_pop(_L, 1) ;
             }
         }
     }
