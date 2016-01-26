@@ -11,7 +11,7 @@ HEADERS  = ${wildcard *.h}
 
 SOFILE  := $(OBJCFILE:.m=.so)
 DEBUG_CFLAGS ?= -g
-DOC_FILE = hs._asm.$(MODULE).json
+DOC_FILE = hs.$(MODULE).json
 
 # special vars for uninstall
 space :=
@@ -41,13 +41,13 @@ verify: $(LUAFILE)
 	luac-5.3 -p $(LUAFILE) && echo "Passed"
 
 install-objc: $(SOFILE)
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+	mkdir -p $(PREFIX)/hs/$(MODULE)
+	install -m 0644 $(SOFILE) $(PREFIX)/hs/$(MODULE)
+	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/$(MODULE)
 
 install-lua: $(LUAFILE)
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
+	mkdir -p $(PREFIX)/hs/$(MODULE)
+	install -m 0644 $(LUAFILE) $(PREFIX)/hs/$(MODULE)
 
 docs: $(DOC_FILE)
 
@@ -55,16 +55,16 @@ $(DOC_FILE): $(DOC_SOURCES)
 	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | __doc_tools/gencomments | __doc_tools/genjson > $@
 
 install-docs: docs
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(DOC_FILE) $(PREFIX)/hs/_asm/$(MODULE)
+	mkdir -p $(PREFIX)/hs/$(MODULE)
+	install -m 0644 $(DOC_FILE) $(PREFIX)/hs/$(MODULE)
 
 clean:
 	rm -v -rf $(SOFILE) *.dSYM $(DOC_FILE)
 
 uninstall:
-	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
-	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/$(DOC_FILE)
-	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
+	rm -v -f $(PREFIX)/hs/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
+	(pushd $(PREFIX)/hs/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+	rm -v -f $(PREFIX)/hs/$(MODULE)/$(DOC_FILE)
+	rmdir -p $(PREFIX)/hs/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify docs install install-objc install-lua install-docs

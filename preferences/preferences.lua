@@ -1,12 +1,9 @@
---- === hs._asm.reachability ===
+--- === hs.network.configuration ===
 ---
 --- Stuff about the module
 
-local USERDATA_TAG   = "hs.network"
-local module         = {}
-module.reachability  = require(USERDATA_TAG..".reachability")
-module.host          = require(USERDATA_TAG..".host")
-module.configuration = require(USERDATA_TAG..".configuration")
+local USERDATA_TAG  = "hs.network.preferences"
+local module        = require(USERDATA_TAG.."internal")
 
 -- private variables and methods -----------------------------------------
 

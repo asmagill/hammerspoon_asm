@@ -217,7 +217,6 @@ static int reachabilityStopWatcher(lua_State *L) {
     return 1;
 }
 
-
 #pragma mark - Module Constants
 
 static int pushReachabilityFlags(lua_State *L) {

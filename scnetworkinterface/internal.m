@@ -4,7 +4,7 @@
 
 // #import "../hammerspoon.h"
 
-#define USERDATA_TAG "hs._asm.network"
+#define USERDATA_TAG "hs._asm.scnetworkinterface"
 static int refTable = LUA_NOREF;
 
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -352,7 +352,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_network_internal(lua_State* __unused L) {
+int luaopen_hs__asm_scnetworkinterface_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

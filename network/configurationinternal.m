@@ -114,8 +114,7 @@ static int dynamicStoreKeys(lua_State *L) {
     SCDynamicStoreRef theStore = get_structFromUserdata(dynamicstore_t, L, 1)->storeObject ;
 
     NSString *keys = (lua_gettop(L) == 1) ? @".*" : [skin toNSObjectAtIndex:2] ;
-    CFArrayRef results ;
-    results = SCDynamicStoreCopyKeyList(theStore, (__bridge CFStringRef)keys);
+    CFArrayRef results = SCDynamicStoreCopyKeyList(theStore, (__bridge CFStringRef)keys);
     if (results) {
         [skin pushNSObject:(__bridge NSArray *)results withOptions:(LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits)] ;
         CFRelease(results) ;
@@ -404,8 +403,8 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"newStore", newStoreObject},
-    {NULL,       NULL}
+    {"open", newStoreObject},
+    {NULL,   NULL}
 };
 
 // Metatable for module, if needed
