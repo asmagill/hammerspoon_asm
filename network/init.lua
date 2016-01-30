@@ -1,6 +1,6 @@
---- === hs._asm.reachability ===
+--- === hs.network ===
 ---
---- Stuff about the module
+--- This module provides functions for inquiring about and monitoring changes to the network.
 
 local USERDATA_TAG   = "hs.network"
 local module         = {}
