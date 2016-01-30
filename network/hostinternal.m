@@ -34,9 +34,62 @@ static int pushCFHost(lua_State *L, CFHostRef theHost, CFHostInfoType resolveTyp
 
     luaL_getmetatable(L, USERDATA_TAG) ;
     lua_setmetatable(L, -2) ;
+    // capture reference so __gc doesn't accidentally collect before callback if they don't save a reference to the object
     lua_pushvalue(L, -1) ;
     thePtr->selfRef = [skin luaRef:refTable] ;
     return 1 ;
+}
+
+static int pushQueryResults(lua_State *L, BOOL syncronous, CFHostRef theHost, CFHostInfoType typeInfo) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    Boolean available = false ;
+    int argCount = syncronous ? 1 : 2 ;
+    switch(typeInfo) {
+        case kCFHostAddresses:
+            if (!syncronous) lua_pushstring(L, "addresses") ;
+            CFArrayRef theAddresses = CFHostGetAddressing(theHost, &available);
+            if (available && theAddresses) {
+                lua_newtable(L) ;
+                for (CFIndex i = 0 ; i < CFArrayGetCount(theAddresses) ; i++) {
+                    NSData *thisAddr = (__bridge NSData *)CFArrayGetValueAtIndex(theAddresses, i) ;
+                    int  err;
+                    char addrStr[NI_MAXHOST];
+                    err = getnameinfo((const struct sockaddr *) [thisAddr bytes], (socklen_t) [thisAddr length], addrStr, sizeof(addrStr), NULL, 0, NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+                    if (err == 0) {
+                        lua_pushstring(L, addrStr) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                    } else {
+                        lua_pushfstring(L, "** error:%s", gai_strerror(err)) ;
+                    }
+                }
+            } else {
+                lua_pushnil(L) ;
+            }
+            break ;
+        case kCFHostNames:
+            if (!syncronous) lua_pushstring(L, "names") ;
+            CFArrayRef theNames = CFHostGetNames(theHost, &available);
+            if (available && theNames) {
+                [skin pushNSObject:(__bridge NSArray *)theNames] ;
+            } else {
+                lua_pushnil(L) ;
+            }
+            break ;
+        case kCFHostReachability:
+            if (!syncronous) lua_pushstring(L, "reachability") ;
+            CFDataRef theAvailability = CFHostGetReachability(theHost, &available);
+            if (available && theAvailability) {
+                SCNetworkConnectionFlags *flags = (SCNetworkConnectionFlags *)CFDataGetBytePtr(theAvailability) ;
+                lua_pushinteger(L, *flags) ;
+            } else {
+                lua_pushnil(L) ;
+            }
+            break ;
+        default:
+            lua_pushfstring(L, "** unknown:%d", typeInfo) ;
+            argCount = 1 ;
+            break ;
+    }
+    return argCount ;
 }
 
 static NSString *expandCFStreamError(CFStreamErrorDomain domain, SInt32 errorNum) {
@@ -84,58 +137,10 @@ void handleCallback(__unused CFHostRef theHost, __unused CFHostInfoType typeInfo
         if (theRef->callbackRef != LUA_NOREF) {
             LuaSkin   *skin    = [LuaSkin shared] ;
             lua_State *L       = [skin L] ;
-            int       argCount = 3 ;
+            int       argCount ;
             [skin pushLuaRef:refTable ref:theRef->callbackRef] ;
             if ((domain == 0) && (errorNum == 0)) {
-                Boolean available = false ;
-                switch(theRef->resolveType) {
-                    case kCFHostAddresses:
-                        lua_pushstring(L, "addresses") ;
-                        CFArrayRef theAddresses = CFHostGetAddressing(theRef->theHostObj, &available);
-                        lua_pushboolean(L, available) ;
-                        if (theAddresses) {
-                            lua_newtable(L) ;
-                            for (CFIndex i = 0 ; i < CFArrayGetCount(theAddresses) ; i++) {
-                                NSData *thisAddr = (__bridge NSData *)CFArrayGetValueAtIndex(theAddresses, i) ;
-                                int  err;
-                                char addrStr[NI_MAXHOST];
-                                err = getnameinfo((const struct sockaddr *) [thisAddr bytes], (socklen_t) [thisAddr length], addrStr, sizeof(addrStr), NULL, 0, NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-                                if (err == 0) {
-                                    lua_pushstring(L, addrStr) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-                                } else {
-                                    lua_pushfstring(L, "** error:%s", gai_strerror(err)) ;
-                                }
-                            }
-                        } else {
-                            lua_pushnil(L) ;
-                        }
-                        break ;
-                    case kCFHostNames:
-                        lua_pushstring(L, "names") ;
-                        CFArrayRef theNames = CFHostGetNames(theRef->theHostObj, &available);
-                        lua_pushboolean(L, available) ;
-                        if (theNames) {
-                            [skin pushNSObject:(__bridge NSArray *)theNames] ;
-                        } else {
-                            lua_pushnil(L) ;
-                        }
-                        break ;
-                    case kCFHostReachability:
-                        lua_pushstring(L, "reachability") ;
-                        CFDataRef theAvailability = CFHostGetReachability(theRef->theHostObj, &available);
-                        lua_pushboolean(L, available) ;
-                        if (theAvailability) {
-                            SCNetworkConnectionFlags *flags = (SCNetworkConnectionFlags *)CFDataGetBytePtr(theAvailability) ;
-                            lua_pushinteger(L, *flags) ;
-                        } else {
-                            lua_pushnil(L) ;
-                        }
-                        break ;
-                    default:
-                        lua_pushfstring(L, "** unknown:%d", theRef->resolveType) ;
-                        argCount = 1 ;
-                        break ;
-                }
+                argCount = pushQueryResults(L, NO, theRef->theHostObj, theRef->resolveType) ;
             } else {
                 [skin pushNSObject:[NSString stringWithFormat:@"resolution error:%@", expandCFStreamError(domain, errorNum)]] ;
                 argCount = 1 ;
@@ -158,49 +163,64 @@ void handleCallback(__unused CFHostRef theHost, __unused CFHostInfoType typeInfo
 
 static int commonConstructor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
 
     hshost_t* theRef = get_structFromUserdata(hshost_t, L, 1) ;
-    lua_pushvalue(L, 2);
-    theRef->callbackRef = [skin luaRef:refTable];
-    CFHostClientContext context = { 0, NULL, NULL, NULL, NULL };
-    context.info = (void *)theRef;
-    if (CFHostSetClient(theRef->theHostObj, handleCallback, &context)) {
-        CFHostScheduleWithRunLoop(theRef->theHostObj, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-        CFStreamError streamError ;
+    CFStreamError streamError ;
+    int argCount = 1 ;
+    if (lua_type(L, 2) == LUA_TNIL) {
+        theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ; // no need for hanging around - no function callback
         if (CFHostStartInfoResolution(theRef->theHostObj, theRef->resolveType, &streamError)) {
-            theRef->running = YES;
-            lua_pushvalue(L, 1) ;
+            argCount = pushQueryResults(L, YES, theRef->theHostObj, theRef->resolveType) ;
         } else {
-            CFHostUnscheduleFromRunLoop(theRef->theHostObj, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-            theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
             return luaL_error(L, [[NSString stringWithFormat:@"resolution error:%@", expandCFStreamError(streamError.domain, streamError.error)] UTF8String]) ;
         }
     } else {
-        // capture reference so __gc doesn't accidentally collect before callback if they don't save a reference to the object
-        theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
-        lua_pushnil(L) ;
+        lua_pushvalue(L, 2);
+        theRef->callbackRef = [skin luaRef:refTable];
+        CFHostClientContext context = { 0, NULL, NULL, NULL, NULL };
+        context.info = (void *)theRef;
+        if (CFHostSetClient(theRef->theHostObj, handleCallback, &context)) {
+            CFHostScheduleWithRunLoop(theRef->theHostObj, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+            if (CFHostStartInfoResolution(theRef->theHostObj, theRef->resolveType, &streamError)) {
+                theRef->running = YES;
+                lua_pushvalue(L, 1) ;
+            } else {
+                CFHostUnscheduleFromRunLoop(theRef->theHostObj, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+                theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
+                return luaL_error(L, [[NSString stringWithFormat:@"resolution error:%@", expandCFStreamError(streamError.domain, streamError.error)] UTF8String]) ;
+            }
+        } else {
+            theRef->selfRef = [skin luaUnref:refTable ref:theRef->selfRef] ;
+            lua_pushnil(L) ;
+        }
     }
     return 1 ;
 }
 
 static int commonForHostName(lua_State *L, CFHostInfoType resolveType) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TFUNCTION, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    BOOL syncronous = lua_isnoneornil(L, 2) ;
 
     CFHostRef theHost = CFHostCreateWithName(kCFAllocatorDefault, (__bridge CFStringRef)[skin toNSObjectAtIndex:1]);
 
     lua_pushcfunction(L, commonConstructor) ;
     pushCFHost(L, theHost, resolveType) ;
     CFRelease(theHost) ;
-    lua_pushvalue(L, 2) ;
+    if (!syncronous) {
+        lua_pushvalue(L, 2) ;
+    } else {
+        lua_pushnil(L) ;
+    }
     lua_call(L, 2, 1) ; // error as if the error occurred here
     return 1 ;
 }
 
 static int commonForAddress(lua_State *L, CFHostInfoType resolveType) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TFUNCTION, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TFUNCTION | LS_TOPTIONAL, LS_TBREAK] ;
+    BOOL syncronous = lua_isnoneornil(L, 2) ;
 
     luaL_checkstring(L, 1) ; // force number to be a string
     struct addrinfo *results = NULL ;
@@ -218,7 +238,11 @@ static int commonForAddress(lua_State *L, CFHostInfoType resolveType) {
     CFRelease(theSocket) ;
     CFRelease(theHost) ;
     freeaddrinfo(results) ;
-    lua_pushvalue(L, 2) ;
+    if (!syncronous) {
+        lua_pushvalue(L, 2) ;
+    } else {
+        lua_pushnil(L) ;
+    }
     lua_call(L, 2, 1) ; // error as if the error occurred here
     return 1 ;
 }
