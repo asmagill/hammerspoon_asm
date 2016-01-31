@@ -43,6 +43,15 @@ static void doDynamicStoreCallback(__unused SCDynamicStoreRef store, CFArrayRef 
 
 #pragma mark - Module Functions
 
+/// hs.network.configuration.open() -> storeObject
+/// Constructor
+/// Opens a session to the dynamic store maintained by the System Configuration server.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the storeObject
 static int newStoreObject(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -71,6 +80,19 @@ static int newStoreObject(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.network.configuration:contents([keys], [pattern]) -> table
+/// Method
+/// Return the contents of the store for the specified keys or keys matching the specified pattern(s)
+///
+/// Parameters:
+///  * keys    - a string or table of strings containing the keys or patterns of keys, if `pattern` is true.  Defaults to all keys.
+///  * pattern - a boolean indicating wether or not the string(s) provided are to be considered regular expression patterns (true) or literal strings to match (false).  Defaults to false.
+///
+/// Returns:
+///  * a table of key-value pairs from the dynamic store which match the specified keys or key patterns.
+///
+/// Notes:
+///  * if no parameters are provided, then all key-value pairs in the dynamic store are returned.
 static int dynamicStoreContents(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -108,6 +130,15 @@ static int dynamicStoreContents(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:keys([keypattern]) -> table
+/// Method
+/// Return the keys in the dynamic store which match the specified pattern
+///
+/// Parameters:
+///  * keypattern - a regular expression specifying which keys to return (defaults to ".*", or all keys)
+///
+/// Returns:
+///  * a table of keys from the dynamic store.
 static int dynamicStoreKeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -124,6 +155,19 @@ static int dynamicStoreKeys(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:dhcpInfo([serviceID]) -> table
+/// Method
+/// Return the DHCP information for the specified service or the primary service if no parameter is specified.
+///
+/// Parameters:
+///  * serviceID - an optional string contining the service ID of the interface for which to return DHCP info.  If this parameter is not provided, then the default (primary) service is queried.
+///
+/// Returns:
+///  * a table containing DHCP information including lease time and DHCP options
+///
+/// Notes:
+///  * a list of possible Service ID's can be retrieved with `hs.network.configuration:contents("Setup:/Network/Global/IPv4")`
+///  * generates an error if the service ID is invalid or was not assigned an IP address via DHCP.
 static int dynamicStoreDHCPInfo(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -144,6 +188,19 @@ static int dynamicStoreDHCPInfo(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:computerName() -> name, encoding
+/// Method
+/// Returns the name of the computeras specified in the Sharing Preferences, and its string encoding
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * name     - the computer name
+///  * encoding - the encoding type
+///
+/// Notes:
+///  * You can also retrieve this information as key-value pairs with `hs.network.configuration:contents("Setup:/System")`
 static int dynamicStoreComputerName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -182,6 +239,20 @@ static int dynamicStoreComputerName(lua_State *L) {
     return 2 ;
 }
 
+/// hs.network.configuration:consoleUser() -> name, uid, gid
+/// Method
+/// Returns the name of the user currently logged into the system, including the users id and primary group id
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * name - the user name
+///  * uid  - the user ID for the user
+///  * gid  - the user's primary group ID
+///
+/// Notes:
+///  * You can also retrieve this information as key-value pairs with `hs.network.configuration:contents("State:/Users/ConsoleUser")`
 static int dynamicStoreConsoleUser(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -201,6 +272,18 @@ static int dynamicStoreConsoleUser(lua_State *L) {
     return 3 ;
 }
 
+/// hs.network.configuration:hostname() -> name
+/// Method
+/// Returns the current local host name for the computer
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * name - the local host name
+///
+/// Notes:
+///  * You can also retrieve this information as key-value pairs with `hs.network.configuration:contents("Setup:/System")`
 static int dynamicStoreLocalHostName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -216,6 +299,19 @@ static int dynamicStoreLocalHostName(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:location() -> location
+/// Method
+/// Returns the current location identifier
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * location - the UUID for the currently active network location
+///
+/// Notes:
+///  * You can also retrieve this information as key-value pairs with `hs.network.configuration:contents("Setup:")`
+///  * If you have different locations defined in the Network preferences panel, this can be used to determine the currently active location.
 static int dynamicStoreLocation(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -231,6 +327,18 @@ static int dynamicStoreLocation(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:proxies() -> table
+/// Method
+/// Returns information about the currently active proxies, if any
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of key-value pairs describing the current proxies in effect, both globally, and scoped to specific interfaces.
+///
+/// Notes:
+///  * You can also retrieve this information as key-value pairs with `hs.network.configuration:contents("State:/Network/Global/Proxies")`
 static int dynamicStoreProxies(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -246,6 +354,19 @@ static int dynamicStoreProxies(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.configuration:setCallback(function | nil) -> storeObject
+/// Method
+/// Set or remove the callback function for a store object
+///
+/// Parameters:
+///  * a function or nil to set or remove the store object callback function
+///
+/// Returns:
+///  * the store object
+///
+/// Notes:
+///  * The callback function will be invoked each time a monitored key changes value and the callback function should accept two parameters: the storeObject itself, and an array of the keys which contain values that have changed.
+///  * This method just sets the callback function.  You specify which keys to watch with [hs.network.configuration:monitorKeys](#monitorKeys) and start or stop the watcher with [hs.network.configuration:start](#start) or [hs.network.configuartion:stop](#stop)
 static int dynamicStoreSetCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
@@ -268,6 +389,18 @@ static int dynamicStoreSetCallback(lua_State *L) {
     return 1;
 }
 
+/// hs.network.configuration:start() -> storeObject
+/// Method
+/// Starts watching the store object for changes to the monitored keys and invokes the callback function (if any) when a change occurs.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the store object
+///
+/// Notes:
+///  * The callback function should be specified with [hs.network.configuration:setCallback](#setCallback) and the keys to monitor should be specified with [hs.network.configuration:monitorKeys](#monitorKeys).
 static int dynamicStoreStartWatcher(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
@@ -283,6 +416,15 @@ static int dynamicStoreStartWatcher(lua_State *L) {
     return 1;
 }
 
+/// hs.network.configuration:stop() -> storeObject
+/// Method
+/// Stops watching the store object for changes.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the store object
 static int dynamicStoreStopWatcher(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
@@ -296,6 +438,19 @@ static int dynamicStoreStopWatcher(lua_State *L) {
     return 1;
 }
 
+/// hs.network.configuration:monitorKeys([keys], [pattern]) -> storeObject
+/// Method
+/// Specify the key(s) or key pattern(s) to monitor for changes.
+///
+/// Parameters:
+///  * keys    - a string or table of strings containing the keys or patterns of keys, if `pattern` is true.  Defaults to all keys.
+///  * pattern - a boolean indicating wether or not the string(s) provided are to be considered regular expression patterns (true) or literal strings to match (false).  Defaults to false.
+///
+/// Returns:
+///  * the store Object
+///
+/// Notes:
+///  * if no parameters are provided, then all key-value pairs in the dynamic store are monitored for changes.
 static int dynamicStoreMonitorKeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -387,7 +542,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"dhcpInfo",     dynamicStoreDHCPInfo},
     {"computerName", dynamicStoreComputerName},
     {"consoleUser",  dynamicStoreConsoleUser},
-    {"hostName",     dynamicStoreLocalHostName},
+    {"hostname",     dynamicStoreLocalHostName},
     {"location",     dynamicStoreLocation},
     {"proxies",      dynamicStoreProxies},
     {"monitorKeys",  dynamicStoreMonitorKeys},
