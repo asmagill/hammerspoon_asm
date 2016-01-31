@@ -176,7 +176,7 @@ static int reachabilityForHostName(lua_State *L) {
 ///  * None
 ///
 /// Returns:
-///  * a numeric representation of the reachability status)
+///  * a numeric representation of the reachability status
 ///
 /// Notes:
 ///  * The numeric representation is made up from a combination of the flags defined in [hs.network.reachability.flags](#flags).

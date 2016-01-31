@@ -1,6 +1,6 @@
 --- === hs.network.host ===
 ---
---- Stuff about the module
+--- This sub-module provides functions for acquiring host information, such as hostnames, addresses, and reachability.
 
 local USERDATA_TAG = "hs.network.host"
 local module       = require(USERDATA_TAG.."internal")
