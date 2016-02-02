@@ -2,81 +2,11 @@
 #import <LuaSkin/LuaSkin.h>
 #import <QuartzCore/QuartzCore.h>
 
-#import "../hammerspoon.h"
-
 #define USERDATA_TAG "hs._asm.progress"
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
-
-#pragma mark - Errors and Logging and with hs.logger
-
-static int logFnRef = LUA_NOREF;
-
-#define _cERROR   "ef"
-#define _cWARN    "wf"
-#define _cINFO    "f"
-#define _cDEBUG   "df"
-#define _cVERBOSE "vf"
-
-// allow this to be potentially unused in the module
-static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
-    lua_Debug functionDebugObject, callerDebugObject;
-    int status = lua_getstack(L, 0, &functionDebugObject);
-    status = status + lua_getstack(L, 1, &callerDebugObject);
-    NSString *fullMessage = nil ;
-    if (status == 2) {
-        lua_getinfo(L, "n", &functionDebugObject);
-        lua_getinfo(L, "Sl", &callerDebugObject);
-        fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
-                                                                     theMessage,
-                                                                     callerDebugObject.currentline,
-                                                                     callerDebugObject.short_src];
-    } else {
-        fullMessage = [NSString stringWithFormat:@"%s callback - %@", USERDATA_TAG,
-                                                                      theMessage];
-    }
-    // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
-    if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage);
-
-    // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
-    // otherwise we print to the console for everything, just in case we forget to register.
-    if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef];
-        lua_getfield(L, -1, level); lua_remove(L, -2);
-    } else {
-        lua_getglobal(L, "print");
-    }
-
-    lua_pushstring(L, [fullMessage UTF8String]);
-    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L); }
-    return 0;
-}
-
-static int lua_registerLogForC(__unused lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK];
-    logFnRef = [[LuaSkin shared] luaRef:refTable];
-    return 0;
-}
-
-// allow this to be potentially unused in the module
-static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
-    lua_Debug functionDebugObject;
-    lua_getstack(L, 0, &functionDebugObject);
-    lua_getinfo(L, "n", &functionDebugObject);
-    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]);
-}
-
-NSString *validateString(lua_State *L, int idx) {
-    luaL_checkstring(L, idx) ; // convert numbers to a string, since that's what we want
-    NSString *theString = [[LuaSkin shared] toNSObjectAtIndex:idx];
-    if (![theString isKindOfClass:[NSString class]]) {
-        log_to_console(L, _cWARN, @"string not valid UTF8");
-        theString = nil;
-    }
-    return theString;
-}
 
 #pragma mark - Support Functions and Classes
 
@@ -91,7 +21,7 @@ NSString *validateString(lua_State *L, int idx) {
 
     if (!(isfinite(contentRect.origin.x)    && isfinite(contentRect.origin.y) &&
           isfinite(contentRect.size.height) && isfinite(contentRect.size.width))) {
-        log_to_console([[LuaSkin shared] L], _cERROR, @"non-finite co-ordinate or size specified") ;
+        [[LuaSkin shared] logError:@"non-finite co-ordinate or size specified"] ;
         return nil;
     }
 
@@ -157,13 +87,13 @@ NSString *validateString(lua_State *L, int idx) {
         rect.origin.x = (parentRect.size.width - rect.size.width) / 2 ;
     }
     [self setFrame:rect] ;
-    lua_State *_L = [[LuaSkin shared] L] ;
-    log_to_console(_L, _cDEBUG, [NSString stringWithFormat:@"Window    Rect: %.2fx%.2f+%.2f+%.2f",
-                                                          parentRect.size.width, parentRect.size.height,
-                                                          parentRect.origin.x, parentRect.origin.y]) ;
-    log_to_console(_L, _cDEBUG, [NSString stringWithFormat:@"Indicator Rect: %.2fx%.2f+%.2f+%.2f",
-                                                          rect.size.width, rect.size.height,
-                                                          rect.origin.x, rect.origin.y]) ;
+//     lua_State *_L = [[LuaSkin shared] L] ;
+//     log_to_console(_L, _cDEBUG, [NSString stringWithFormat:@"Window    Rect: %.2fx%.2f+%.2f+%.2f",
+//                                                           parentRect.size.width, parentRect.size.height,
+//                                                           parentRect.origin.x, parentRect.origin.y]) ;
+//     log_to_console(_L, _cDEBUG, [NSString stringWithFormat:@"Indicator Rect: %.2fx%.2f+%.2f+%.2f",
+//                                                           rect.size.width, rect.size.height,
+//                                                           rect.origin.x, rect.origin.y]) ;
 }
 
 // Code from http://stackoverflow.com/a/32396595
@@ -174,9 +104,18 @@ NSString *validateString(lua_State *L, int idx) {
     CIFilter *colorPoly = [CIFilter filterWithName:@"CIColorPolynomial"];
     [colorPoly setDefaults];
 
-    CIVector *redVector = [CIVector vectorWithX:aColor.redComponent Y:0 Z:0 W:0];
-    CIVector *greenVector = [CIVector vectorWithX:aColor.greenComponent Y:0 Z:0 W:0];
-    CIVector *blueVector = [CIVector vectorWithX:aColor.blueComponent Y:0 Z:0 W:0];
+    CIVector *redVector ;
+    CIVector *greenVector ;
+    CIVector *blueVector ;
+    if (self.style == NSProgressIndicatorSpinningStyle) {
+        redVector = [CIVector   vectorWithX:aColor.redComponent   Y:0 Z:0 W:0];
+        greenVector = [CIVector vectorWithX:aColor.greenComponent Y:0 Z:0 W:0];
+        blueVector = [CIVector  vectorWithX:aColor.blueComponent  Y:0 Z:0 W:0];
+    } else {
+        redVector = [CIVector   vectorWithX:0 Y:aColor.redComponent   Z:0 W:0];
+        greenVector = [CIVector vectorWithX:0 Y:aColor.greenComponent Z:0 W:0];
+        blueVector = [CIVector  vectorWithX:0 Y:aColor.blueComponent  Z:0 W:0];
+    }
     [colorPoly setValue:redVector forKey:@"inputRedCoefficients"];
     [colorPoly setValue:greenVector forKey:@"inputGreenCoefficients"];
     [colorPoly setValue:blueVector forKey:@"inputBlueCoefficients"];
@@ -696,8 +635,7 @@ static int progressViewFrame(lua_State *L) {
 ///
 /// Notes:
 ///  * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http://stackoverflow.com/a/32396595 utilizing a CIFilter object to adjust the view's output.
-///  * For circular and determinate bar progress indicators, this method works as expected.
-///  * For indeterminate bar progress indicators, this method will set the entire bar to the color specified and no animation effect is apparent.  Hopefully this is a temporary limitation.
+///  * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.progress:circular](#circular).
 static int progressViewSetCustomColor(lua_State *L) {
     HS_asmProgressWindow *theWindow = get_objectFromUserdata(__bridge HS_asmProgressWindow, L, 1) ;
     HS_asmProgressView   *theView = (HS_asmProgressView *)theWindow.contentView ;
@@ -708,7 +646,7 @@ static int progressViewSetCustomColor(lua_State *L) {
     if (theColor) {
         [theView setCustomColor:theColor] ;
     } else {
-        return my_lua_error(L, @"Color must be expressible as RGB") ;
+        return luaL_error(L, "color must be expressible as RGB") ;
     }
     lua_pushvalue(L, 1) ;
     return 1 ;
@@ -898,8 +836,6 @@ static const luaL_Reg userdata_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"new", newProgressView},
-
-    {"_registerLogForC", lua_registerLogForC},
     {NULL, NULL}
 };
 

@@ -427,8 +427,7 @@ Returns:
 
 Notes:
  * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http://stackoverflow.com/a/32396595 utilizing a CIFilter object to adjust the view's output.
- * For circular and determinate bar progress indicators, this method works as expected.
- * For indeterminate bar progress indicators, this method will set the entire bar to the color specified and no animation effect is apparent.  Hopefully this is a temporary limitation.
+ * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* `hs._asm.progress:circular`.
 
 _ _ _
 

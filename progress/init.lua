@@ -4,10 +4,6 @@
 
 local module  = require("hs._asm.progress.internal")
 local drawing = require("hs.drawing")
-local log     = require("hs.logger").new("progress","warning")
-module.log    = log
-module._registerLogForC(log)
-module._registerLogForC = nil
 
 local object = hs.getObjectMetatable("hs._asm.progress")
 
