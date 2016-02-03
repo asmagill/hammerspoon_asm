@@ -1,7 +1,5 @@
 #import <Cocoa/Cocoa.h>
-// #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
 #import <Security/Security.h>
 
 #pragma mark - Definitions and Declarations
@@ -12,7 +10,7 @@
 // unnecessarily
 #define MAX_PATH_LENGTH 1024
 
-#define USERDATA_TAG        "hs.keychain"
+#define USERDATA_TAG        "hs._asm.keychain"
 int refTable ;
 
 #define get_objectFromUserdata(objType, L, idx) (objType)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -20,7 +18,8 @@ int refTable ;
 #pragma mark - Module Functions
 
 static int kc_open(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     SecKeychainRef theKeychain ;
     OSStatus resultCode = SecKeychainOpen(luaL_checkstring(L, 1), &theKeychain) ;
 
@@ -58,7 +57,8 @@ static int kc_open(lua_State *L) {
 }
 
 static int kc_default(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
     SecKeychainRef theKeychain ;
     OSStatus resultCode = SecKeychainCopyDefault(&theKeychain) ;
 
@@ -83,7 +83,8 @@ static int kc_default(lua_State *L) {
 }
 
 static int kc_lockAll(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
     OSStatus resultCode = SecKeychainLockAll() ;
 
     CFStringRef errorMsg = SecCopyErrorMessageString(resultCode, NULL) ;
@@ -104,7 +105,7 @@ static int kc_lockAll(lua_State *L) {
 // unlock so far) prevents display anyway, so... not going to include for now unless a need arises...
 //
 // static int kc_allowsInteraction(lua_State *L) {
-// //     [[LuaSkin shared] checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+// //     [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
 //
 //     if (!lua_isnoneornil(L, 1)) {
 //         OSStatus resultCode = SecKeychainSetUserInteractionAllowed((Boolean)lua_toboolean(L, 1)) ;
@@ -133,10 +134,35 @@ static int kc_lockAll(lua_State *L) {
 //     return 1 ;
 // }
 
+static int kc_searchlist(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFArrayRef searchList ;
+    OSStatus resultCode = SecKeychainCopySearchList(&searchList) ;
+    if (resultCode != errSecSuccess) {
+        if (searchList) CFRelease(searchList) ;
+        CFStringRef errorMsg = SecCopyErrorMessageString(resultCode, NULL) ;
+        if (errorMsg) {
+            return luaL_error(L, [(__bridge_transfer NSString *)errorMsg UTF8String]);
+        } else {
+            return luaL_error(L, [[NSString stringWithFormat:@"error code:%d", resultCode] UTF8String]) ;
+        }
+    }
+    if (searchList) {
+        [skin pushNSObject:(__bridge NSArray *)searchList] ;
+        CFRelease(searchList) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Object Methods
 
 static int kc_status(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SecKeychainRef theKeychain = get_objectFromUserdata(SecKeychainRef, L, 1) ;
     UInt32 status ;
 
@@ -160,7 +186,8 @@ static int kc_status(lua_State *L) {
 }
 
 static int kc_settings(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SecKeychainRef theKeychain = get_objectFromUserdata(SecKeychainRef, L, 1) ;
     UInt32 version ; SecKeychainGetVersion(&version) ;
 
@@ -187,7 +214,8 @@ static int kc_settings(lua_State *L) {
 }
 
 static int kc_path(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SecKeychainRef theKeychain = get_objectFromUserdata(SecKeychainRef, L, 1) ;
     UInt32 length = MAX_PATH_LENGTH ;
     char   path[MAX_PATH_LENGTH] ;
@@ -208,7 +236,8 @@ static int kc_path(lua_State *L) {
 }
 
 static int kc_lock(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SecKeychainRef theKeychain = get_objectFromUserdata(SecKeychainRef, L, 1) ;
 
     OSStatus resultCode = SecKeychainLock(theKeychain) ;
@@ -227,7 +256,8 @@ static int kc_lock(lua_State *L) {
 }
 
 static int kc_unlock(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                                 LS_TSTRING | LS_TOPTIONAL,
                                 LS_TBREAK] ;
 
@@ -313,6 +343,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"lock",       kc_lock},
     {"unlock",     kc_unlock},
     {"release",    userdata_gc},
+
     {"__tostring", userdata_tostring},
 //     {"__eq",       userdata_eq},
     {"__gc",       userdata_gc},
@@ -324,6 +355,8 @@ static luaL_Reg moduleLib[] = {
     {"open",              kc_open},
     {"default",           kc_default},
     {"locakAll",          kc_lockAll},
+    {"searchList",        kc_searchlist},
+
 //     {"allowsInteraction", kc_allowsInteraction},
     {NULL,                NULL}
 };
@@ -334,11 +367,9 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs_keychain_internal(lua_State* __unused L) {
-// Use this if your module doesn't have a module specific object that it returns.
-//    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
-// Use this some of your functions return or act on a specific object unique to this module
-    refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
+int luaopen_hs__asm_keychain_internal(lua_State* __unused L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
                                              metaFunctions:nil    // or module_metaLib
                                            objectFunctions:userdata_metaLib];

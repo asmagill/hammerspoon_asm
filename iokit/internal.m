@@ -1,8 +1,7 @@
 #import <Cocoa/Cocoa.h>
 #import <IOKit/IOKitLib.h>
-// #import <Carbon/Carbon.h>
+
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
 
 #define kIOAcceleratorClassName       "IOAccelerator"
 #define kIOAppleLabelSchemeClass      "IOAppleLabelScheme"

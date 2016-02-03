@@ -10,12 +10,12 @@
 [submodule "wip/hotkey"]
 	path = hotkey
 	url = https://github.com/asmagill/hammerspoon_hotkey.git
-[submodule "wip/console"]
-	path = console
-	url = https://github.com/asmagill/hammerspoon_console.git
 [submodule "wip/serial"]
 	path = serial
 	url = https://github.com/asmagill/hammerspoon_serial.git
 [submodule "_moved_to_core/text"]
 	path = _moved_to_core/text
 	url = https://github.com/asmagill/hammerspoon_text
+[submodule "_moved_to_core/console"]
+	path = _moved_to_core/console
+	url = https://github.com/asmagill/hammerspoon_console
