@@ -2,8 +2,6 @@
 #import <LuaSkin/LuaSkin.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
-// #import "../hammerspoon.h"
-
 #define USERDATA_TAG "hs._asm.scnetworkinterface"
 static int refTable = LUA_NOREF;
 

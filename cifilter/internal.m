@@ -3,8 +3,6 @@
 #import <CoreImage/CoreImage.h>
 #import <Quartz/Quartz.h>
 
-// #import "../hammerspoon.h"
-
 #define USERDATA_TAG    "hs._asm.cifilter"
 #define CIIMAGE_UD_TAG  "hs._asm.ciimage"
 #define IKUIVIEW_UD_TAG "hs._asm.ikfilteruiview"

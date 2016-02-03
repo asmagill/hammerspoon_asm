@@ -1,6 +1,5 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
-// #import "../hammerspoon.h"
 
 #define USERDATA_TAG "hs._asm.characterset"
 static int refTable = LUA_NOREF;

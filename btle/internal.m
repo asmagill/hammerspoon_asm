@@ -2,8 +2,6 @@
 #import <LuaSkin/LuaSkin.h>
 #import <CoreBluetooth/CoreBluetooth.h>
 
-// #import "../hammerspoon.h"
-
 #define USERDATA_TAG          "hs._asm.btle"
 #define UD_PERIPHERAL_TAG     "hs._asm.btle.peripheral"
 #define UD_SERVICE_TAG        "hs._asm.btle.services"

@@ -4,10 +4,6 @@
 
 
 local module = require("hs._asm.linguistictagger.internal")
-local log    = require("hs.logger").new("linguistictagger","error")
-module.log   = log
-module._registerLogForC(log)
-module._registerLogForC = nil
 
 -- private variables and methods -----------------------------------------
 
