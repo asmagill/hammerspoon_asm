@@ -1,6 +1,5 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
 
 #define USERDATA_TAG        "hs._asm.disks"
 int refTable ;
@@ -19,16 +18,19 @@ int refTable ;
     }
 
     - (void) heard:(NSNotification*)note {
+        LuaSkin *skin = [LuaSkin shared] ;
+
         if (self.fn != LUA_NOREF) {
-            lua_State *_L = [[LuaSkin shared] L];
+            lua_State *_L = [skin L];
             lua_rawgeti(_L, LUA_REGISTRYINDEX, self.fn);
-            lua_pushstring(_L, [[note name] UTF8String]);
+            [skin pushNSObject:[note name]] ;
 
-            [[LuaSkin shared] pushNSObject:note.userInfo] ;
+            [skin pushNSObject:note.userInfo withOptions:LS_NSDescribeUnknownTypes] ;
 
-            if (![[LuaSkin shared] protectedCallAndTraceback:2 nresults:0]) {
+            if (![skin protectedCallAndTraceback:2 nresults:0]) {
                 const char *errorMsg = lua_tostring(_L, -1);
-                showError(_L, (char *)errorMsg);
+                [skin logError:[NSString stringWithFormat:@"%s: %s", USERDATA_TAG, errorMsg]];
+                lua_pop(_L, 1) ; // remove error message from stack
             }
         }
     }
@@ -97,16 +99,15 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_gc(lua_State* L) {
     // stop observer, if running, and clean up after ourselves.
 
+    LuaSkin *skin = [LuaSkin shared];
     stopObserver(L) ;
     HSDiskWatcherClass* listener = (__bridge_transfer HSDiskWatcherClass*)(*(void**)luaL_checkudata(L, 1, USERDATA_TAG));
-    listener.fn = [[LuaSkin shared] luaUnref:refTable ref:listener.fn];
+    listener.fn = [skin luaUnref:refTable ref:listener.fn];
     listener = nil ;
     return 0 ;
 }
 
 // static int meta_gc(lua_State* __unused L) {
-//     [hsimageReferences removeAllIndexes];
-//     hsimageReferences = nil;
 //     return 0 ;
 // }
 

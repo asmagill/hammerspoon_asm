@@ -10,9 +10,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <MapKit/MapKit.h>
-// #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
 
 #define USERDATA_TAG  "hs._asm.geocoder"
 
@@ -23,7 +21,8 @@ int refTable   = LUA_NOREF ;
 #pragma mark - Module Functions
 
 static int lookupLocation(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TFUNCTION, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE, LS_TFUNCTION, LS_TBREAK] ;
     CLLocationDegrees   longitude = 0.0, latitude = 0.0 ;
 
     if (lua_getfield(L, 1, "longitude") == LUA_TNUMBER) longitude = lua_tonumber(L, -1) ;
@@ -33,53 +32,56 @@ static int lookupLocation(lua_State *L) {
 
     CLLocation          *theLocation = [[CLLocation alloc] initWithLatitude:latitude longitude:longitude] ;
     lua_pushvalue(L, 2) ;
-    int fnRef = [[LuaSkin shared] luaRef:refTable] ;
+    int fnRef = [skin luaRef:refTable] ;
 
     CLGeocoder *geoItem = [[CLGeocoder alloc] init] ;
     [geoItem reverseGeocodeLocation:theLocation completionHandler:^(NSArray *placemark, NSError *error) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:fnRef] ;
+        LuaSkin   *skin = [LuaSkin shared] ;
+        lua_State *L    = [skin L] ;
+        [skin pushLuaRef:refTable ref:fnRef] ;
         lua_pushboolean(L, (error == NULL)) ;
         if (error)
-            [[LuaSkin shared] pushNSObject:error] ;
+            [skin pushNSObject:error] ;
         else
-            [[LuaSkin shared] pushNSObject:placemark] ;
+            [skin pushNSObject:placemark] ;
 
-        if (![[LuaSkin shared] protectedCallAndTraceback:2 nresults:0]) {
-            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
-            showError([[LuaSkin shared] L], (char *)errorMsg);
-            lua_pop([[LuaSkin shared] L], 1) ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s", lua_tostring(L, -1)]];
+            lua_pop(L, 1) ;
         }
 
-        [[LuaSkin shared] luaUnref:refTable ref:fnRef] ;
+        [skin luaUnref:refTable ref:fnRef] ;
     }] ;
-    [[LuaSkin shared] pushNSObject:geoItem] ;
+    [skin pushNSObject:geoItem] ;
     return 1 ;
 }
 
 static int lookupAddress(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TFUNCTION, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TFUNCTION, LS_TBREAK] ;
     NSString *searchString = [NSString stringWithUTF8String:lua_tostring(L, 1)] ;
     lua_pushvalue(L, 2) ;
-    int fnRef = [[LuaSkin shared] luaRef:refTable] ;
+    int fnRef = [skin luaRef:refTable] ;
 
     CLGeocoder *geoItem = [[CLGeocoder alloc] init] ;
     [geoItem geocodeAddressString:searchString completionHandler:^(NSArray *placemark, NSError *error) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:fnRef] ;
+        LuaSkin   *skin = [LuaSkin shared] ;
+        lua_State *L    = [skin L] ;
+        [skin pushLuaRef:refTable ref:fnRef] ;
         lua_pushboolean(L, (error == NULL)) ;
         if (error)
-            [[LuaSkin shared] pushNSObject:error] ;
+            [skin pushNSObject:error] ;
         else
-            [[LuaSkin shared] pushNSObject:placemark] ;
+            [skin pushNSObject:placemark] ;
 
-        if (![[LuaSkin shared] protectedCallAndTraceback:2 nresults:0]) {
-            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
-            showError([[LuaSkin shared] L], (char *)errorMsg);
-            lua_pop([[LuaSkin shared] L], 1) ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s", lua_tostring(L, -1)]];
+            lua_pop(L, 1) ;
         }
 
-        [[LuaSkin shared] luaUnref:refTable ref:fnRef] ;
+        [skin luaUnref:refTable ref:fnRef] ;
     }] ;
-    [[LuaSkin shared] pushNSObject:geoItem] ;
+    [skin pushNSObject:geoItem] ;
     return 1 ;
 }
 
@@ -89,47 +91,51 @@ static int lookupAddress(lua_State *L) {
 // my (admittedly limited) testing so far...
 
 static int lookupAddressNear(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING,
-                                LS_TTABLE | LS_TFUNCTION | LS_TOPTIONAL,
-                                LS_TFUNCTION | LS_TOPTIONAL,
-                                LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING,
+                    LS_TTABLE | LS_TFUNCTION | LS_TOPTIONAL,
+                    LS_TFUNCTION | LS_TOPTIONAL,
+                    LS_TBREAK] ;
     NSString *searchString = [NSString stringWithUTF8String:lua_tostring(L, 1)] ;
     int fnPos = 2 ;
     CLCircularRegion *theRegion = NULL ;
     if (lua_type(L, 2) == LUA_TTABLE) {
-        theRegion = [[LuaSkin shared] luaObjectAtIndex:2 toClass:"CLCircularRegion"] ;
+        theRegion = [skin luaObjectAtIndex:2 toClass:"CLCircularRegion"] ;
         fnPos++ ;
     }
+    [skin logVerbose:[NSString stringWithFormat:@"%@", theRegion]] ;
     lua_pushvalue(L, fnPos) ;
-    int fnRef = [[LuaSkin shared] luaRef:refTable] ;
+    int fnRef = [skin luaRef:refTable] ;
     CLGeocoder *geoItem = [[CLGeocoder alloc] init] ;
     [geoItem geocodeAddressString:searchString inRegion:theRegion
                 completionHandler:^(NSArray *placemark, NSError *error) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:fnRef] ;
+        LuaSkin   *skin = [LuaSkin shared] ;
+        lua_State *L    = [skin L] ;
+        [skin pushLuaRef:refTable ref:fnRef] ;
         lua_pushboolean(L, (error == NULL)) ;
         if (error)
-            [[LuaSkin shared] pushNSObject:error] ;
+            [skin pushNSObject:error] ;
         else
-            [[LuaSkin shared] pushNSObject:placemark] ;
+            [skin pushNSObject:placemark] ;
 
-        if (![[LuaSkin shared] protectedCallAndTraceback:2 nresults:0]) {
-            const char *errorMsg = lua_tostring([[LuaSkin shared] L], -1);
-            showError([[LuaSkin shared] L], (char *)errorMsg);
-            lua_pop([[LuaSkin shared] L], 1) ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s", lua_tostring(L, -1)]];
+            lua_pop(L, 1) ;
         }
 
-        [[LuaSkin shared] luaUnref:refTable ref:fnRef] ;
+        [skin luaUnref:refTable ref:fnRef] ;
     }] ;
-    [[LuaSkin shared] pushNSObject:geoItem] ;
+    [skin pushNSObject:geoItem] ;
     return 1 ;
 }
 
 static int openPlacesInMaps(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     luaL_checktype(L, 1, LUA_TTABLE) ;
     NSMutableArray *theItems = [[NSMutableArray alloc] init] ;
     for (int i = 1 ; i <= luaL_len(L, 1) ; i++) {
         if (lua_rawgeti(L, 1, i) == LUA_TTABLE) {
-            MKPlacemark *theMKPlacemark = [[LuaSkin shared] luaObjectAtIndex:-1 toClass:"MKPlacemark"] ;
+            MKPlacemark *theMKPlacemark = [skin luaObjectAtIndex:-1 toClass:"MKPlacemark"] ;
             [theItems addObject:[[MKMapItem alloc] initWithPlacemark:theMKPlacemark]] ;
         }
         lua_pop(L, 1) ;
@@ -138,7 +144,7 @@ static int openPlacesInMaps(lua_State *L) {
     NSMutableDictionary *theOptions = [[NSMutableDictionary alloc] init] ;
     if (lua_type(L, 2) == LUA_TTABLE) {
         if (lua_getfield(L, 2, "type") == LUA_TSTRING) {
-            NSString *theType = [[LuaSkin shared] toNSObjectAtIndex:-1] ;
+            NSString *theType = [skin toNSObjectAtIndex:-1] ;
             if ([theType isEqualToString:@"standard"]) {
                 [theOptions setObject:[NSNumber numberWithInt:MKMapTypeStandard]
                                forKey:MKLaunchOptionsMapTypeKey] ;
@@ -209,14 +215,16 @@ static int openPlacesInMaps(lua_State *L) {
 #pragma mark - Object Methods
 
 static int isGeocoding(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     CLGeocoder *geoItem = get_objectFromUserdata(__bridge CLGeocoder, L, 1) ;
     lua_pushboolean(L, [geoItem isGeocoding]) ;
     return 1 ;
 }
 
 static int cancelGeocoding(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     CLGeocoder *geoItem = get_objectFromUserdata(__bridge CLGeocoder, L, 1) ;
     [geoItem cancelGeocode] ;
     return 0 ;
@@ -225,29 +233,31 @@ static int cancelGeocoding(lua_State *L) {
 #pragma mark - Data Type Converters
 
 static int CLPlacemark_tolua(lua_State *L, id obj) {
+    LuaSkin *skin = [LuaSkin shared] ;
     CLPlacemark *thePlace = obj ;
     lua_newtable(L) ;
-      [[LuaSkin shared] pushNSObject:[thePlace location]] ;                 lua_setfield(L, -2, "location") ;
-      [[LuaSkin shared] pushNSObject:[thePlace name]] ;                     lua_setfield(L, -2, "name") ;
-      [[LuaSkin shared] pushNSObject:[thePlace addressDictionary]] ;        lua_setfield(L, -2, "addressDictionary") ;
-      [[LuaSkin shared] pushNSObject:[thePlace ISOcountryCode]] ;           lua_setfield(L, -2, "ISOcountryCode") ;
-      [[LuaSkin shared] pushNSObject:[thePlace country]] ;                  lua_setfield(L, -2, "country") ;
-      [[LuaSkin shared] pushNSObject:[thePlace postalCode]] ;               lua_setfield(L, -2, "postalCode") ;
-      [[LuaSkin shared] pushNSObject:[thePlace administrativeArea]] ;       lua_setfield(L, -2, "administrativeArea") ;
-      [[LuaSkin shared] pushNSObject:[thePlace subAdministrativeArea]] ;    lua_setfield(L, -2, "subAdministrativeArea") ;
-      [[LuaSkin shared] pushNSObject:[thePlace locality]] ;                 lua_setfield(L, -2, "locality") ;
-      [[LuaSkin shared] pushNSObject:[thePlace subLocality]] ;              lua_setfield(L, -2, "subLocality") ;
-      [[LuaSkin shared] pushNSObject:[thePlace thoroughfare]] ;             lua_setfield(L, -2, "thoroughfare") ;
-      [[LuaSkin shared] pushNSObject:[thePlace subThoroughfare]] ;          lua_setfield(L, -2, "subThoroughfare") ;
-      [[LuaSkin shared] pushNSObject:[thePlace region]] ;                   lua_setfield(L, -2, "region") ;
-      [[LuaSkin shared] pushNSObject:[[thePlace timeZone] abbreviation]] ;  lua_setfield(L, -2, "timeZone") ;
-      [[LuaSkin shared] pushNSObject:[thePlace inlandWater]] ;              lua_setfield(L, -2, "inlandWater") ;
-      [[LuaSkin shared] pushNSObject:[thePlace ocean]] ;                    lua_setfield(L, -2, "ocean") ;
-      [[LuaSkin shared] pushNSObject:[thePlace areasOfInterest]] ;          lua_setfield(L, -2, "areasOfInterest") ;
+      [skin pushNSObject:[thePlace location]] ;                 lua_setfield(L, -2, "location") ;
+      [skin pushNSObject:[thePlace name]] ;                     lua_setfield(L, -2, "name") ;
+      [skin pushNSObject:[thePlace addressDictionary]] ;        lua_setfield(L, -2, "addressDictionary") ;
+      [skin pushNSObject:[thePlace ISOcountryCode]] ;           lua_setfield(L, -2, "ISOcountryCode") ;
+      [skin pushNSObject:[thePlace country]] ;                  lua_setfield(L, -2, "country") ;
+      [skin pushNSObject:[thePlace postalCode]] ;               lua_setfield(L, -2, "postalCode") ;
+      [skin pushNSObject:[thePlace administrativeArea]] ;       lua_setfield(L, -2, "administrativeArea") ;
+      [skin pushNSObject:[thePlace subAdministrativeArea]] ;    lua_setfield(L, -2, "subAdministrativeArea") ;
+      [skin pushNSObject:[thePlace locality]] ;                 lua_setfield(L, -2, "locality") ;
+      [skin pushNSObject:[thePlace subLocality]] ;              lua_setfield(L, -2, "subLocality") ;
+      [skin pushNSObject:[thePlace thoroughfare]] ;             lua_setfield(L, -2, "thoroughfare") ;
+      [skin pushNSObject:[thePlace subThoroughfare]] ;          lua_setfield(L, -2, "subThoroughfare") ;
+      [skin pushNSObject:[thePlace region]] ;                   lua_setfield(L, -2, "region") ;
+      [skin pushNSObject:[[thePlace timeZone] abbreviation]] ;  lua_setfield(L, -2, "timeZone") ;
+      [skin pushNSObject:[thePlace inlandWater]] ;              lua_setfield(L, -2, "inlandWater") ;
+      [skin pushNSObject:[thePlace ocean]] ;                    lua_setfield(L, -2, "ocean") ;
+      [skin pushNSObject:[thePlace areasOfInterest]] ;          lua_setfield(L, -2, "areasOfInterest") ;
     return 1 ;
 }
 
 static id lua_toMKPlacemark(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared] ;
     CLLocationCoordinate2D theLocation = { 0.0, 0.0 } ;
     NSDictionary *theAddress ;
 
@@ -259,13 +269,14 @@ static id lua_toMKPlacemark(lua_State *L, int idx) {
     }
     lua_pop(L, 1) ;
     if (lua_getfield(L, idx, "addressDictionary") == LUA_TTABLE)
-        theAddress = [[LuaSkin shared] toNSObjectAtIndex:-1] ;
+        theAddress = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
 
     return [[MKPlacemark alloc] initWithCoordinate:theLocation addressDictionary:theAddress] ;
 }
 
 static int CLLocation_tolua(lua_State *L, id obj) {
+    LuaSkin *skin = [LuaSkin shared] ;
     CLLocation *location = obj ;
     lua_newtable(L) ;
       lua_pushnumber(L, [location coordinate].latitude) ;               lua_setfield(L, -2, "latitude") ;
@@ -275,14 +286,15 @@ static int CLLocation_tolua(lua_State *L, id obj) {
       lua_pushnumber(L, [location horizontalAccuracy]) ;                lua_setfield(L, -2, "horizontalAccuracy") ;
       lua_pushnumber(L, [location verticalAccuracy]) ;                  lua_setfield(L, -2, "verticalAccuracy") ;
       lua_pushnumber(L, [[location timestamp] timeIntervalSince1970]) ; lua_setfield(L, -2, "timestamp") ;
-      [[LuaSkin shared] pushNSObject:[location description]] ;          lua_setfield(L, -2, "description") ;
+      [skin pushNSObject:[location description]] ;          lua_setfield(L, -2, "description") ;
     return 1 ;
 }
 
 static int CLCircularRegion_tolua(lua_State *L, id obj) {
+    LuaSkin *skin = [LuaSkin shared] ;
     CLCircularRegion *theRegion = obj ;
     lua_newtable(L) ;
-      [[LuaSkin shared] pushNSObject:[theRegion identifier]] ; lua_setfield(L, -2, "identifier") ;
+      [skin pushNSObject:[theRegion identifier]] ; lua_setfield(L, -2, "identifier") ;
       lua_pushnumber(L, [theRegion center].latitude) ;         lua_setfield(L, -2, "latitude") ;
       lua_pushnumber(L, [theRegion center].longitude) ;        lua_setfield(L, -2, "longitude") ;
       lua_pushnumber(L, [theRegion radius]) ;                  lua_setfield(L, -2, "radius") ;
@@ -290,6 +302,7 @@ static int CLCircularRegion_tolua(lua_State *L, id obj) {
 }
 
 static id lua_toCLCircularRegion(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared] ;
     luaL_checktype(L, idx, LUA_TTABLE) ;
     CLLocationCoordinate2D theCenter  = { 0.0, 0.0 } ;
     CLLocationDistance     theRadius = 0.0 ;
@@ -301,7 +314,7 @@ static id lua_toCLCircularRegion(lua_State *L, int idx) {
     lua_pop(L, 1) ;
     if (lua_getfield(L, idx, "radius") == LUA_TNUMBER)    theRadius = lua_tonumber(L, -1) ;
     lua_pop(L, 1) ;
-    if (lua_getfield(L, idx, "identifier") == LUA_TSTRING) theIdentifier = [[LuaSkin shared] toNSObjectAtIndex:-1] ;
+    if (lua_getfield(L, idx, "identifier") == LUA_TSTRING) theIdentifier = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
 
     CLCircularRegion *theRegion = [[CLCircularRegion alloc] initWithCenter:theCenter
@@ -324,7 +337,7 @@ static int CLGeocoder_tolua(lua_State *L, id obj) {
 #pragma mark - Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    CLGeocoder *geoItem = get_objectFromUserdata(__bridge_transfer CLGeocoder, L, 1) ;
+    CLGeocoder *geoItem = get_objectFromUserdata(__bridge CLGeocoder, L, 1) ;
     lua_pushfstring(L, "%s: %s (%p)", USERDATA_TAG, ([geoItem isGeocoding] ? "geocoding" : "idle"), lua_topointer(L, 1)) ;
     return 1 ;
 }
@@ -367,17 +380,18 @@ static luaL_Reg moduleLib[] = {
 };
 
 int luaopen_hs__asm_geocoder_internal(lua_State* __unused L) {
-    refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
-                                                 functions:moduleLib
-                                             metaFunctions:nil    // or module_metaLib
-                                           objectFunctions:object_metaLib];
+    LuaSkin *skin = [LuaSkin shared] ;
+    refTable = [skin registerLibraryWithObject:USERDATA_TAG
+                                     functions:moduleLib
+                                 metaFunctions:nil    // or module_metaLib
+                               objectFunctions:object_metaLib];
 
-    [[LuaSkin shared] registerPushNSHelper:CLGeocoder_tolua  forClass:"CLGeocoder"] ;
-    [[LuaSkin shared] registerPushNSHelper:CLPlacemark_tolua forClass:"CLPlacemark"] ;
-    [[LuaSkin shared] registerPushNSHelper:CLLocation_tolua  forClass:"CLLocation"] ;
-    [[LuaSkin shared] registerPushNSHelper:CLCircularRegion_tolua    forClass:"CLCircularRegion"] ;
+    [skin registerPushNSHelper:CLGeocoder_tolua  forClass:"CLGeocoder"] ;
+    [skin registerPushNSHelper:CLPlacemark_tolua forClass:"CLPlacemark"] ;
+    [skin registerPushNSHelper:CLLocation_tolua  forClass:"CLLocation"] ;
+    [skin registerPushNSHelper:CLCircularRegion_tolua    forClass:"CLCircularRegion"] ;
 
-    [[LuaSkin shared] registerLuaObjectHelper:lua_toCLCircularRegion    forClass:"CLCircularRegion"] ;
-    [[LuaSkin shared] registerLuaObjectHelper:lua_toMKPlacemark forClass:"MKPlacemark"] ;
+    [skin registerLuaObjectHelper:lua_toCLCircularRegion    forClass:"CLCircularRegion"] ;
+    [skin registerLuaObjectHelper:lua_toMKPlacemark forClass:"MKPlacemark"] ;
     return 1;
 }

@@ -15,6 +15,8 @@ static int availableTagSchemesForLanguage(lua_State *L) {
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
 // Can't find a good way to pre-validate the string, but an empty string is known to crash, so
 // exempt it.
+    // force numbers to be strings
+    luaL_checkstring(L, 1) ;
     NSString *theLanguage = [skin toNSObjectAtIndex:1] ;
     if (theLanguage && ![theLanguage isEqualToString:@""]) {
         [skin pushNSObject:[NSLinguisticTagger availableTagSchemesForLanguage:theLanguage]] ;
@@ -31,6 +33,8 @@ static int tagsForString(lua_State *L) {
                     LS_TSTRING | LS_TNUMBER, // scheme
                     LS_TNUMBER, LS_TBREAK] ; // options
 
+    // force numbers to be strings
+    luaL_checkstring(L, 1) ; luaL_checkstring(L, 2) ; luaL_checkstring(L, 3) ;
     NSString *textToParse = [skin toNSObjectAtIndex:1] ;
     NSString *language    = [skin toNSObjectAtIndex:2] ;
     NSString *scheme      = [skin toNSObjectAtIndex:3] ;
