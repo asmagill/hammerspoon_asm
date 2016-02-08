@@ -5,7 +5,7 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
+
 #import "objc.h"
 
 #import <stdlib.h>
@@ -65,31 +65,34 @@ static int refTable ;
 static int logFnRef ;
 
 static int __unused warn_to_console(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        [skin pushLuaRef:refTable ref:logFnRef] ;
         lua_getfield(L, -1, "wf") ; lua_remove(L, -2) ;
         lua_insert(L, 1) ;
-        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+        if (![skin protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
     }
     return 0 ;
 }
 
 static int __unused info_to_console(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        [skin pushLuaRef:refTable ref:logFnRef] ;
         lua_getfield(L, -1, "f") ; lua_remove(L, -2) ;
         lua_insert(L, 1) ;
-        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+        if (![skin protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
     }
     return 0 ;
 }
 
 static int __unused debug_to_console(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
+        [skin pushLuaRef:refTable ref:logFnRef] ;
         lua_getfield(L, -1, "df") ; lua_remove(L, -2) ;
         lua_insert(L, 1) ;
-        if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
+        if (![skin protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
     }
     return 0 ;
 }
@@ -117,7 +120,8 @@ static int push_class(lua_State *L, Class cls) {
 #pragma mark - Module Functions
 
 static int objc_classFromString(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     Class cls = (Class)objc_lookUpClass(luaL_checkstring(L, 1)) ;
 
     push_class(L, cls) ;
@@ -125,7 +129,8 @@ static int objc_classFromString(lua_State *L) {
 }
 
 static int objc_classList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
 
     lua_newtable(L) ;
       UInt  count ;
@@ -141,7 +146,8 @@ static int objc_classList(lua_State *L) {
 #pragma mark - Module Methods
 
 static int objc_class_getMetaClass(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
 
     Class meta = (Class)objc_getMetaClass(class_getName(cls)) ;
@@ -150,7 +156,8 @@ static int objc_class_getMetaClass(lua_State *L) {
 }
 
 static int objc_class_getMethodList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -165,7 +172,8 @@ static int objc_class_getMethodList(lua_State *L) {
 }
 
 static int objc_class_respondsToSelector(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
                                 LS_TUSERDATA, SEL_USERDATA_TAG,
                                 LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
@@ -176,7 +184,8 @@ static int objc_class_respondsToSelector(lua_State *L) {
 }
 
 static int objc_class_getInstanceMethod(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
                                 LS_TUSERDATA, SEL_USERDATA_TAG,
                                 LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
@@ -187,7 +196,8 @@ static int objc_class_getInstanceMethod(lua_State *L) {
 }
 
 static int objc_class_getClassMethod(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
                                 LS_TUSERDATA, SEL_USERDATA_TAG,
                                 LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
@@ -198,63 +208,72 @@ static int objc_class_getClassMethod(lua_State *L) {
 }
 
 static int objc_class_getInstanceSize(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushinteger(L, (lua_Integer)class_getInstanceSize(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushstring(L, class_getName(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getIvarLayout(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushstring(L, (const char *)class_getIvarLayout(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getWeakIvarLayout(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushstring(L, (const char *)class_getWeakIvarLayout(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getImageName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushstring(L, class_getImageName(cls)) ;
     return 1 ;
 }
 
 static int objc_class_isMetaClass(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushboolean(L, class_isMetaClass(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getSuperClass(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     push_class(L, class_getSuperclass(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getVersion(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     lua_pushinteger(L, (lua_Integer)class_getVersion(cls)) ;
     return 1 ;
 }
 
 static int objc_class_getPropertyList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -269,14 +288,16 @@ static int objc_class_getPropertyList(lua_State *L) {
 }
 
 static int objc_class_getProperty(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     push_property(L, class_getProperty(cls, luaL_checkstring(L, 2))) ;
     return 1 ;
 }
 
 static int objc_class_getIvarList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -291,21 +312,24 @@ static int objc_class_getIvarList(lua_State *L) {
 }
 
 static int objc_class_getInstanceVariable(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     push_ivar(L, class_getInstanceVariable(cls, luaL_checkstring(L, 2))) ;
     return 1 ;
 }
 
 static int objc_class_getClassVariable(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     push_ivar(L, class_getClassVariable(cls, luaL_checkstring(L, 2))) ;
     return 1 ;
 }
 
 static int objc_class_getAdoptedProtocols(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -320,7 +344,8 @@ static int objc_class_getAdoptedProtocols(lua_State *L) {
 }
 
 static int objc_class_conformsToProtocol(lua_State* L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
                                 LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Class    cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 2, PROTOCOL_USERDATA_TAG) ;
@@ -406,7 +431,8 @@ static luaL_Reg class_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_class(lua_State* __unused L) {
-    classRefTable = [[LuaSkin shared] registerLibraryWithObject:CLASS_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    classRefTable = [skin registerLibraryWithObject:CLASS_USERDATA_TAG
                                                  functions:class_moduleLib
                                              metaFunctions:nil // class_module_metaLib
                                            objectFunctions:class_userdata_metaLib];
@@ -437,21 +463,24 @@ static int push_ivar(lua_State *L, Ivar iv) {
 #pragma mark - Module Methods
 
 static int objc_ivar_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushstring(L, ivar_getName(iv)) ;
     return 1 ;
 }
 
 static int objc_ivar_getTypeEncoding(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushstring(L, ivar_getTypeEncoding(iv)) ;
     return 1 ;
 }
 
 static int objc_ivar_getOffset(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushinteger(L, ivar_getOffset(iv)) ;
     return 1 ;
@@ -514,7 +543,8 @@ static luaL_Reg ivar_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_ivar(lua_State* __unused L) {
-    ivarRefTable = [[LuaSkin shared] registerLibraryWithObject:IVAR_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    ivarRefTable = [skin registerLibraryWithObject:IVAR_USERDATA_TAG
                                                  functions:ivar_moduleLib
                                              metaFunctions:nil // ivar_module_metaLib
                                            objectFunctions:ivar_userdata_metaLib];
@@ -546,21 +576,24 @@ static int push_method(lua_State *L, Method meth) {
 #pragma mark - Module Methods
 
 static int objc_method_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     push_selector(L, method_getName(meth)) ;
     return 1 ;
 }
 
 static int objc_method_getTypeEncoding(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     lua_pushstring(L, method_getTypeEncoding(meth)) ;
     return 1 ;
 }
 
 static int objc_method_getReturnType(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     const char      *result = method_copyReturnType(meth) ;
 
@@ -570,7 +603,8 @@ static int objc_method_getReturnType(lua_State *L) {
 }
 
 static int objc_method_getArgumentType(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TNUMBER, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TNUMBER, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     const char      *result = method_copyArgumentType(meth, (UInt)luaL_checkinteger(L, 2)) ;
 
@@ -580,14 +614,16 @@ static int objc_method_getArgumentType(lua_State *L) {
 }
 
 static int objc_method_getNumberOfArguments(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     lua_pushinteger(L, method_getNumberOfArguments(meth)) ;
     return 1 ;
 }
 
 static int objc_method_getDescription(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
 
     struct objc_method_description *result = method_getDescription(meth) ;
@@ -657,7 +693,8 @@ static luaL_Reg method_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_method(lua_State* __unused L) {
-    methodRefTable = [[LuaSkin shared] registerLibraryWithObject:METHOD_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    methodRefTable = [skin registerLibraryWithObject:METHOD_USERDATA_TAG
                                                  functions:method_moduleLib
                                              metaFunctions:nil // method_module_metaLib
                                            objectFunctions:method_userdata_metaLib];
@@ -690,27 +727,34 @@ static int push_object(lua_State *L, id obj) {
 #pragma mark - Module Methods
 
 static int objc_object_getClassName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     lua_pushstring(L, object_getClassName(obj)) ;
     return 1 ;
 }
 
 static int objc_object_getClass(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     push_class(L, object_getClass(obj)) ;
     return 1 ;
 }
 
 static int object_value(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     @try {
         id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
-        [[LuaSkin shared] pushNSObject:obj] ;
+        [skin pushNSObject:obj] ;
     }
     @catch ( NSException *theException ) {
-        return errorOnException(L, ID_USERDATA_TAG, theException) ;
+        [skin logError:[NSString stringWithFormat:@"%s: Exception:%@, %@",
+                                                  ID_USERDATA_TAG,
+                                                  [theException name],
+                                                  [theException reason]]] ;
+        lua_pushnil(L) ;
     }
     return 1 ;
 }
@@ -735,8 +779,6 @@ static int object_userdata_gc(lua_State* L) {
 #if defined(DEBUG_GC) || defined(DEBUG_GC_OBJONLY)
     NSLog(@"object: remove %p", obj) ;
 #endif
-
-   obj = nil ;
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -773,7 +815,8 @@ static luaL_Reg object_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_object(lua_State* __unused L) {
-    objectRefTable = [[LuaSkin shared] registerLibraryWithObject:ID_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    objectRefTable = [skin registerLibraryWithObject:ID_USERDATA_TAG
                                                  functions:object_moduleLib
                                              metaFunctions:nil // object_module_metaLib
                                            objectFunctions:object_userdata_metaLib];
@@ -805,21 +848,24 @@ static int push_property(lua_State *L, objc_property_t prop) {
 #pragma mark - Module Methods
 
 static int objc_property_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     lua_pushstring(L, property_getName(prop)) ;
     return 1 ;
 }
 
 static int objc_property_getAttributes(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     lua_pushstring(L, property_getAttributes(prop)) ;
     return 1 ;
 }
 
 static int objc_property_getAttributeValue(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     const char      *result = property_copyAttributeValue(prop, luaL_checkstring(L, 2)) ;
 
@@ -829,7 +875,8 @@ static int objc_property_getAttributeValue(lua_State *L) {
 }
 
 static int objc_property_getAttributeList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -904,7 +951,8 @@ static luaL_Reg property_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_property(lua_State* __unused L) {
-    propertyRefTable = [[LuaSkin shared] registerLibraryWithObject:PROPERTY_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    propertyRefTable = [skin registerLibraryWithObject:PROPERTY_USERDATA_TAG
                                                  functions:property_moduleLib
                                              metaFunctions:nil // property_module_metaLib
                                            objectFunctions:property_userdata_metaLib];
@@ -935,7 +983,8 @@ static int push_protocol(lua_State *L, Protocol *prot) {
 #pragma mark - Module Functions
 
 static int objc_protocolFromString(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     Protocol *prot = objc_getProtocol(luaL_checkstring(L, 1)) ;
 
     push_protocol(L, prot) ;
@@ -943,7 +992,8 @@ static int objc_protocolFromString(lua_State *L) {
 }
 
 static int objc_protocolList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
 
     lua_newtable(L) ;
       UInt  count ;
@@ -959,14 +1009,16 @@ static int objc_protocolList(lua_State *L) {
 #pragma mark - Module Methods
 
 static int objc_protocol_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     lua_pushstring(L, protocol_getName(prot)) ;
     return 1 ;
 }
 
 static int objc_protocol_getPropertyList(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -981,7 +1033,8 @@ static int objc_protocol_getPropertyList(lua_State *L) {
 }
 
 static int objc_protocol_getProperty(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                                 LS_TSTRING,
                                 LS_TBOOLEAN,
                                 LS_TBOOLEAN, LS_TBREAK] ;
@@ -994,7 +1047,8 @@ static int objc_protocol_getProperty(lua_State *L) {
 
 
 static int objc_protocol_getAdoptedProtocols(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
 
     lua_newtable(L) ;
@@ -1009,7 +1063,8 @@ static int objc_protocol_getAdoptedProtocols(lua_State *L) {
 }
 
 static int objc_protocol_conformsToProtocol(lua_State* L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                                 LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot1 = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     Protocol *prot2 = get_objectFromUserdata(__bridge Protocol *, L, 2, PROTOCOL_USERDATA_TAG) ;
@@ -1018,7 +1073,8 @@ static int objc_protocol_conformsToProtocol(lua_State* L) {
 }
 
 static int objc_protocol_getMethodDescriptionList(lua_State* L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                                 LS_TBOOLEAN,
                                 LS_TBOOLEAN, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
@@ -1040,7 +1096,8 @@ static int objc_protocol_getMethodDescriptionList(lua_State* L) {
 }
 
 static int objc_protocol_getMethodDescription(lua_State* L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                                 LS_TUSERDATA, SEL_USERDATA_TAG,
                                 LS_TBOOLEAN,
                                 LS_TBOOLEAN, LS_TBREAK] ;
@@ -1124,7 +1181,8 @@ static luaL_Reg protocol_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_protocol(lua_State* __unused L) {
-    protocolRefTable = [[LuaSkin shared] registerLibraryWithObject:PROTOCOL_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    protocolRefTable = [skin registerLibraryWithObject:PROTOCOL_USERDATA_TAG
                                                  functions:protocol_moduleLib
                                              metaFunctions:nil // protocol_module_metaLib
                                            objectFunctions:protocol_userdata_metaLib];
@@ -1155,7 +1213,8 @@ static int push_selector(lua_State *L, SEL sel) {
 
 // sel_registerName/sel_getUid (which is what NSSelectorFromString uses) creates the selector, even if it doesn't exist yet, so it can't be used to verify that a selector is a valid message for any, much less a specific, class. See init.lua which adds selector methods to class, protocol, and object which check for the selector string in the "current" context without creating anything that doesn't already exist yet.
 static int objc_sel_selectorFromName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     push_selector(L, sel_getUid(luaL_checkstring(L, 1))) ;
     return 1 ;
 }
@@ -1163,7 +1222,8 @@ static int objc_sel_selectorFromName(lua_State *L) {
 #pragma mark - Module Methods
 
 static int objc_sel_getName(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TUSERDATA, SEL_USERDATA_TAG, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, SEL_USERDATA_TAG, LS_TBREAK] ;
     SEL sel = get_objectFromUserdata(SEL, L, 1, SEL_USERDATA_TAG) ;
     lua_pushstring(L, sel_getName(sel)) ;
     return 1 ;
@@ -1226,7 +1286,8 @@ static luaL_Reg selector_moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_selector(lua_State* __unused L) {
-    selectorRefTable = [[LuaSkin shared] registerLibraryWithObject:SEL_USERDATA_TAG
+    LuaSkin *skin = [LuaSkin shared] ;
+    selectorRefTable = [skin registerLibraryWithObject:SEL_USERDATA_TAG
                                                  functions:selector_moduleLib
                                              metaFunctions:nil // selector_module_metaLib
                                            objectFunctions:selector_userdata_metaLib];
@@ -1239,13 +1300,15 @@ int luaopen_hs__asm_objc_selector(lua_State* __unused L) {
 #pragma mark - Module Functions
 
 static int extras_nslog(__unused lua_State* L) {
-    id val = [[LuaSkin shared] toNSObjectAtIndex:1] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    id val = [skin toNSObjectAtIndex:1] ;
     NSLog(@"%@", val);
     return 0;
 }
 
 static int objc_getImageNames(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
 
     lua_newtable(L) ;
       UInt  count ;
@@ -1259,7 +1322,8 @@ static int objc_getImageNames(lua_State *L) {
 }
 
 static int objc_classNamesForImage(lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TSTRING, LS_TBREAK] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 
     lua_newtable(L) ;
       UInt  count ;
@@ -1299,6 +1363,7 @@ static int objc_classNamesForImage(lua_State *L) {
 // void                            objc_msgSendSuper_stret(struct objc_super *super, SEL op, ...)
 
 static int lua_FFISend(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     int rcvPos = (lua_type(L, 1) == LUA_TNUMBER) ? 2 : 1 ;
     int selPos = rcvPos + 1 ;
 
@@ -1578,9 +1643,13 @@ static int lua_FFISend(lua_State *L) {
         }
     }
     @catch ( NSException *theException ) {
-        return errorOnException(L, messageHolder, theException) ;
+        [skin logError:[NSString stringWithFormat:@"%s: Exception:%@, %@",
+                                                  messageHolder,
+                                                  [theException name],
+                                                  [theException reason]]] ;
+        lua_pushnil(L) ;
     }
-    @finally { // yeah, the lual_error in errorOnException means these might not be freed until the lua state is reset, but they will be freed eventually.
+    @finally {
         free(returnType) ;
         free(messageHolder) ;
         free(argTypes) ;
@@ -1591,8 +1660,9 @@ static int lua_FFISend(lua_State *L) {
 }
 
 static int lua_registerLogForC(__unused lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK] ;
-    logFnRef = [[LuaSkin shared] luaRef:refTable] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    logFnRef = [skin luaRef:refTable] ;
     return 0 ;
 }
 
@@ -1615,20 +1685,22 @@ static int NSMethodSignature_toLua(lua_State *L, id obj) {
 }
 
 static int NSException_toLua(lua_State *L, id obj) {
+    LuaSkin *skin = [LuaSkin shared] ;
     NSException *theError = obj ;
 
     lua_newtable(L) ;
-      [[LuaSkin shared] pushNSObject:[theError name]] ;                     lua_setfield(L, -2, "name") ;
-      [[LuaSkin shared] pushNSObject:[theError reason]] ;                   lua_setfield(L, -2, "reason") ;
-      [[LuaSkin shared] pushNSObject:[theError userInfo]] ;                 lua_setfield(L, -2, "userInfo") ;
-      [[LuaSkin shared] pushNSObject:[theError callStackReturnAddresses]] ; lua_setfield(L, -2, "callStackReturnAddresses") ;
-      [[LuaSkin shared] pushNSObject:[theError callStackSymbols]] ;         lua_setfield(L, -2, "callStackSymbols") ;
+      [skin pushNSObject:[theError name]] ;                     lua_setfield(L, -2, "name") ;
+      [skin pushNSObject:[theError reason]] ;                   lua_setfield(L, -2, "reason") ;
+      [skin pushNSObject:[theError userInfo]] ;                 lua_setfield(L, -2, "userInfo") ;
+      [skin pushNSObject:[theError callStackReturnAddresses]] ; lua_setfield(L, -2, "callStackReturnAddresses") ;
+      [skin pushNSObject:[theError callStackSymbols]] ;         lua_setfield(L, -2, "callStackSymbols") ;
     return 1 ;
 }
 
 static int tryToRegisterHandlers(__unused lua_State *L) {
-    [[LuaSkin shared] registerPushNSHelper:NSMethodSignature_toLua forClass:"NSMethodSignature"] ;
-    [[LuaSkin shared] registerPushNSHelper:NSException_toLua       forClass:"NSException"] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin registerPushNSHelper:NSMethodSignature_toLua forClass:"NSMethodSignature"] ;
+    [skin registerPushNSHelper:NSException_toLua       forClass:"NSException"] ;
     return 0 ;
 }
 
@@ -1644,13 +1716,14 @@ static luaL_Reg moduleLib[] = {
 };
 
 int luaopen_hs__asm_objc_internal(lua_State* L) {
-    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ;
 
     logFnRef = LUA_NOREF ;
 
     lua_pushcfunction(L, tryToRegisterHandlers) ;
     if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-        printToConsole(L, (char *)lua_tostring(L, -1)) ;
+        [skin logWarn:[NSString stringWithFormat:@"%s", lua_tostring(L, -1)]] ;
         lua_pop(L, 1) ;
     }
 
