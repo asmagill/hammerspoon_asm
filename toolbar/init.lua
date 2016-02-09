@@ -11,7 +11,9 @@ require("hs.image")
 -- targets we want to be able to add toolbars to
 require("hs.drawing")
 require("hs.webview")
-require("hs.console")
+
+local drawingMT = hs.getObjectMetatable("hs.drawing")
+local webviewMT = hs.getObjectMetatable("hs.webview")
 
 -- private variables and methods -----------------------------------------
 
@@ -92,6 +94,10 @@ end
 -- Public interface ------------------------------------------------------
 
 module.systemToolbarItems = _makeConstantsTable(module.systemToolbarItems)
+module.itemPriorities     = _makeConstantsTable(module.itemPriorities)
+
+drawingMT.attachToolbar = module.attachToolbar
+webviewMT.attachToolbar = module.attachToolbar
 
 -- Return Module Object --------------------------------------------------
 

@@ -2,63 +2,64 @@
 //    group items
 //    addItemAtPosition
 //    removeItemAtPosition
+// +  copy toolbar
 
-// Usefull?
-//    @property(strong) NSMenuItem *menuFormRepresentation
-//    @property(strong) NSView *view
-//    @property NSSize minSize
-//    @property NSSize maxSize
+// global callback -- use for add/remove notification as well or instead?
+// modify (some?) attributes of systemToolbarItems?
 
 // Hooks into:
-//    hs.drawing
-//    hs.webview
-// -  hs.console
+// -  hs.drawing
+// +  hs.webview
+// +  hs.console
 
 // What would it take to properly support
-//    color panel
+// +  color panel
 //    font panel
 //    NSSearchField
-// -  configuration panel with autosave/resume
+// +  configuration panel with autosave/resume
 //    print?
+
+// Useful?
+//    @property(strong) NSMenuItem *menuFormRepresentation - can provide submenu's
+//    @property(strong) NSView *view                       - search, other views?
+//    @property NSSize minSize                             - needed for views
+//    @property NSSize maxSize                             - needed for views
 
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
 
-#define USERDATA_TAG "hs._asm.toolbar"
-static int refTable = LUA_NOREF;
+#define USERDATA_TAG  "hs._asm.toolbar"
+static int            refTable = LUA_NOREF;
+static NSArray        *builtinToolbarItems ;
+static NSMutableArray *identifiersInUse ;
 
-static NSArray * builtinToolbarItems ;
-
-#define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
-// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
+#define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
+#define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx) *((objType*)luaL_checkudata(L, idx, USERDATA_TAG))
 
-#pragma mark - Support Functions and Classes
+typedef struct _drawing_t {
+    void *window;
+    BOOL skipClose ;
+} drawing_t;
 
 @interface MJConsoleWindowController : NSWindowController
 + (instancetype)singleton;
 - (void)setup;
 @end
 
-@interface MJConsoleWindowController ()
-@property NSMutableArray *history;
-@property NSInteger historyIndex;
-@property IBOutlet NSTextView *outputView;
-@property (weak) IBOutlet NSTextField *inputField;
-@property NSMutableArray *preshownStdouts;
+@interface HSToolbar : NSToolbar <NSToolbarDelegate>
+@property            int                 callbackRef;
+@property            int                 selfRef;
+@property (readonly) NSMutableArray      *allowedIdentifiers ;
+@property (readonly) NSMutableArray      *defaultIdentifiers ;
+@property (readonly) NSMutableArray      *selectableIdentifiers ;
+@property (readonly) NSMutableDictionary *itemDictionary ;
+@property (readonly) NSMutableDictionary *fnRefDictionary ;
+@property (readonly) NSMutableDictionary *enabledDictionary ;
+@property (weak)     NSWindow            *windowUsingToolbar ;
 @end
 
-@interface HSToolbar : NSToolbar <NSToolbarDelegate>
-@property int                             callbackRef;
-@property int                             selfRef;
-@property (readonly) NSMutableArray*      allowedIdentifiers ;
-@property (readonly) NSMutableArray*      defaultIdentifiers ;
-@property (readonly) NSMutableArray*      selectableIdentifiers ;
-@property (readonly) NSMutableDictionary* itemDictionary ;
-@property (readonly) NSMutableDictionary* fnRefDictionary ;
-@property (readonly) NSMutableDictionary* enabledDictionary ;
-@property (readonly) NSHashTable*         windowsUsingToolbars ;
-@end
+#pragma mark - Support Functions and Classes
 
 @implementation HSToolbar
 - (instancetype)initWithIdentifier:(NSString *)identifier itemTableIndex:(int)idx {
@@ -72,9 +73,9 @@ static NSArray * builtinToolbarItems ;
         _itemDictionary        = [[NSMutableDictionary alloc] init] ;
         _fnRefDictionary       = [[NSMutableDictionary alloc] init] ;
         _enabledDictionary     = [[NSMutableDictionary alloc] init] ;
-        _windowsUsingToolbars  = [NSHashTable weakObjectsHashTable] ;
+        _windowUsingToolbar    = nil ;
 
-        [_allowedIdentifiers addObjectsFromArray:builtinToolbarItems] ;
+//         [_allowedIdentifiers addObjectsFromArray:builtinToolbarItems] ;
 
         LuaSkin     *skin      = [LuaSkin shared] ;
         lua_State   *L         = [skin L] ;
@@ -106,7 +107,42 @@ static NSArray * builtinToolbarItems ;
     return self ;
 }
 
--(void)performCallback:(id)sender{
+- (instancetype)initWithCopy:(HSToolbar *)original {
+    LuaSkin *skin = [LuaSkin shared] ;
+    if (original) self = [super initWithIdentifier:[original identifier]] ;
+    if (self) {
+        _callbackRef           = LUA_NOREF ;
+        if (_callbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            _callbackRef = [skin luaRef:refTable] ;
+        }
+        _selfRef               = LUA_NOREF;
+        _allowedIdentifiers    = original.allowedIdentifiers ;
+        _defaultIdentifiers    = original.defaultIdentifiers ;
+        _selectableIdentifiers = original.selectableIdentifiers ;
+        _itemDictionary        = original.itemDictionary ;
+        _fnRefDictionary       = [[NSMutableDictionary alloc] init] ;
+        for (NSString *key in [original.fnRefDictionary allKeys]) {
+            int theRef = [[original.fnRefDictionary objectForKey:key] intValue] ;
+            if (theRef != LUA_NOREF) {
+                [skin pushLuaRef:refTable ref:theRef] ;
+                theRef = [skin luaRef:refTable] ;
+            }
+            [_fnRefDictionary setObject:@(theRef) forKey:key] ;
+        }
+        _enabledDictionary     = [[NSMutableDictionary alloc] initWithDictionary:original.enabledDictionary
+                                                                       copyItems:YES] ;
+        _windowUsingToolbar    = nil ;
+
+        self.allowsUserCustomization = original.allowsUserCustomization ;
+        self.allowsExtensionItems    = original.allowsExtensionItems ;
+        self.autosavesConfiguration  = original.autosavesConfiguration ;
+        self.delegate                = self ;
+    }
+    return self ;
+}
+
+- (void)performCallback:(id)sender{
     NSToolbarItem *item = sender;
     NSNumber *theFnRef = [_fnRefDictionary objectForKey:[item itemIdentifier]] ;
     int itemFnRef = theFnRef ? [theFnRef intValue] : LUA_NOREF ;
@@ -116,11 +152,25 @@ static NSArray * builtinToolbarItems ;
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:fnRef] ;
-//             [skin pushLuaRef:refTable ref:_selfRef] ;
-//             [skin pushNSObject:[item itemIdentifier]] ;
-//             if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            if (_windowUsingToolbar) {
+                if ([_windowUsingToolbar isEqualTo:[[MJConsoleWindowController singleton] window]]) {
+                    lua_pushstring(L, "console") ;
+                } else if ([_windowUsingToolbar isKindOfClass:NSClassFromString(@"HSWebViewWindow")]) {
+                    [skin pushNSObject:_windowUsingToolbar] ;
+                } else { // must be a drawing
+                    drawing_t *drawingObject = lua_newuserdata(L, sizeof(drawing_t));
+                    memset(drawingObject, 0, sizeof(drawing_t));
+                    drawingObject->window = (__bridge_retained void*)_windowUsingToolbar;
+                    drawingObject->skipClose = YES ;
+                    luaL_getmetatable(L, "hs.drawing");
+                    lua_setmetatable(L, -2);
+                }
+            } else {
+                // shouldn't be possible, but just in case...
+                lua_pushnil(L) ;
+            }
             [skin pushNSObject:item] ;
-            if (![skin protectedCallAndTraceback:1 nresults:0]) {
+            if (![skin protectedCallAndTraceback:2 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
@@ -214,7 +264,8 @@ static NSArray * builtinToolbarItems ;
         [_enabledDictionary setObject:@(enabled) forKey:identifier] ;
         [toolbarItem setVisibilityPriority:priority] ;
         [toolbarItem setTag:tag] ;
-        [toolbarItem setTarget:self] ;
+// let the delegate handle this when creating the item
+//         [toolbarItem setTarget:self] ;
         [toolbarItem setAction:@selector(performCallback:)] ;
 
         if (lua_getfield(L, idx, "fn") == LUA_TFUNCTION) {
@@ -234,9 +285,12 @@ static NSArray * builtinToolbarItems ;
 
 #pragma mark - NSToolbarDelegate stuff
 
-- (NSToolbarItem *)toolbar:(__unused NSToolbar *)toolbar itemForItemIdentifier:(NSString *)itemIdentifier
-                                                     willBeInsertedIntoToolbar:(__unused BOOL)flag {
-    return [_itemDictionary objectForKey:itemIdentifier] ;
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)itemIdentifier
+                                            willBeInsertedIntoToolbar:(BOOL)flag {
+    NSToolbarItem *item = [[_itemDictionary objectForKey:itemIdentifier] copy] ;
+    item.target = toolbar ;
+    if (!flag) item.enabled = YES ;
+    return item ;
 }
 
 - (NSArray *)toolbarAllowedItemIdentifiers:(__unused NSToolbar *)toolbar  {
@@ -261,17 +315,80 @@ static NSArray * builtinToolbarItems ;
 static int newHSToolbar(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TTABLE, LS_TBREAK] ;
-    HSToolbar *toolbar = [[HSToolbar alloc] initWithIdentifier:[skin toNSObjectAtIndex:1]
-                                            itemTableIndex:2] ;
-    if (toolbar) {
-        [skin pushNSObject:toolbar] ;
+    NSString *identifier = [skin toNSObjectAtIndex:1] ;
+
+    if (![identifiersInUse containsObject:identifier]) {
+        HSToolbar *toolbar = [[HSToolbar alloc] initWithIdentifier:identifier
+                                                itemTableIndex:2] ;
+        if (toolbar) {
+            [skin pushNSObject:toolbar] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    } else {
+        return luaL_argerror(L, 1, "identifier already in use") ;
+    }
+    return 1 ;
+}
+
+static int attachToolbar(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSWindow *theWindow ;
+    int toolbarIdx = 2 ;
+    if (lua_gettop(L) == 1) {
+        theWindow = [[MJConsoleWindowController singleton] window];
+        toolbarIdx = 1 ;
+        if (lua_type(L, 1) != LUA_TNIL) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+        }
+    } else if (luaL_testudata(L, 1, "hs.webview")) {
+        theWindow = get_objectFromUserdata(__bridge NSWindow, L, 1, "hs.webview") ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            [skin checkArgs:LS_TUSERDATA, "hs.webview", LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, "hs.webview", LS_TNIL, LS_TBREAK] ;
+        }
+    } else if (luaL_testudata(L, 1, "hs.drawing")) {
+        drawing_t *drawingObject = get_structFromUserdata(drawing_t, L, 1, "hs.drawing");
+        theWindow = (__bridge NSWindow *)drawingObject->window;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            [skin checkArgs:LS_TUSERDATA, "hs.drawing", LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, "hs.drawing", LS_TNIL, LS_TBREAK] ;
+        }
+    } else {
+        return luaL_error(L, "toolbar can only be attached to the console, a webview, or a drawing") ;
+    }
+    HSToolbar *oldToolbar = (HSToolbar *)theWindow.toolbar ;
+    HSToolbar *newToolbar = (lua_type(L, toolbarIdx) == LUA_TNIL) ? nil : [skin toNSObjectAtIndex:toolbarIdx] ;
+    if (oldToolbar) {
+        [theWindow setToolbar:nil] ;
+        if ([oldToolbar isKindOfClass:[HSToolbar class]]) oldToolbar.windowUsingToolbar = nil ;
+    }
+    if (newToolbar) {
+        if (newToolbar.windowUsingToolbar) [newToolbar.windowUsingToolbar setToolbar:nil] ;
+        [theWindow setToolbar:newToolbar] ;
+        newToolbar.windowUsingToolbar = theWindow ;
+    }
+    [skin logWarn:[NSString stringWithFormat:@"%@ %@ %@", oldToolbar, newToolbar, theWindow]] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+#pragma mark - Module Methods
+
+static int copyToolbar(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSToolbar *oldToolbar = [skin toNSObjectAtIndex:1] ;
+    HSToolbar *newToolbar = [[HSToolbar alloc] initWithCopy:oldToolbar] ;
+    if (newToolbar) {
+        [skin pushNSObject:newToolbar] ;
     } else {
         lua_pushnil(L) ;
     }
     return 1 ;
 }
-
-#pragma mark - Module Methods
 
 static int setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -418,22 +535,33 @@ static int modifyToolbarItem(lua_State *L) {
         return luaL_error(L, "id must be present, and it must be a string") ;
     }
     lua_pop(L, 1) ;
-    NSToolbarItem *theItem = [toolbar.itemDictionary objectForKey:identifier] ;
-    if ((![builtinToolbarItems containsObject:identifier]) && theItem) {
+    NSToolbarItem *activeItem ;
+    NSToolbarItem *storedItem = [toolbar.itemDictionary objectForKey:identifier] ;
+    for (NSToolbarItem *check in [toolbar items]) {
+        if ([identifier isEqualToString:[check itemIdentifier]]) {
+            activeItem = check ;
+            break ;
+        }
+    }
+    if ((![builtinToolbarItems containsObject:identifier]) && storedItem) {
         if (lua_getfield(L, 2, "label") == LUA_TSTRING) {
-            [theItem setLabel:[skin toNSObjectAtIndex:-1]] ;
+            [storedItem setLabel:[skin toNSObjectAtIndex:-1]] ;
+            if (activeItem) [activeItem setLabel:[skin toNSObjectAtIndex:-1]] ;
         }
         lua_pop(L, 1) ;
         if (lua_getfield(L, 2, "paletteLabel") == LUA_TSTRING) {
-            [theItem setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
+            [storedItem setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
+            if (activeItem) [activeItem setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
         }
         lua_pop(L, 1) ;
         if (lua_getfield(L, 2, "tooltip") == LUA_TSTRING) {
-            [theItem setToolTip:[skin toNSObjectAtIndex:-1]] ;
+            [storedItem setToolTip:[skin toNSObjectAtIndex:-1]] ;
+            if (activeItem) [activeItem setToolTip:[skin toNSObjectAtIndex:-1]] ;
         }
         lua_pop(L, 1) ;
         if ((lua_getfield(L, 2, "image") == LUA_TUSERDATA) && luaL_checkudata(L, -1, "hs.image")) {
-            [theItem setImage:[skin toNSObjectAtIndex:-1]] ;
+            [storedItem setImage:[skin toNSObjectAtIndex:-1]] ;
+            if (activeItem) [activeItem setImage:[skin toNSObjectAtIndex:-1]] ;
         }
         lua_pop(L, 1) ;
         if (lua_getfield(L, 2, "enabled") == LUA_TBOOLEAN) {
@@ -455,11 +583,13 @@ static int modifyToolbarItem(lua_State *L) {
             lua_pop(L, 1) ;
         }
         if ((lua_getfield(L, 2, "priority") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-            [theItem setVisibilityPriority:lua_tointeger(L, -1)] ;
+            [storedItem setVisibilityPriority:lua_tointeger(L, -1)] ;
+            if (activeItem) [activeItem setVisibilityPriority:lua_tointeger(L, -1)] ;
         }
         lua_pop(L, 1) ;
         if ((lua_getfield(L, 2, "tag") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-            [theItem setTag:lua_tointeger(L, -1)] ;
+            [storedItem setTag:lua_tointeger(L, -1)] ;
+            if (activeItem) [activeItem setTag:lua_tointeger(L, -1)] ;
         }
         lua_pop(L, 1) ;
     } else {
@@ -546,21 +676,6 @@ static int toolbarCanAutosave(lua_State *L) {
     return 1 ;
 }
 
-static int attachToConsole(lua_State *L) {
-    LuaSkin *skin     = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN, LS_TBREAK] ;
-    HSToolbar *toolbar = [skin toNSObjectAtIndex:1] ;
-    NSWindow *console = [[MJConsoleWindowController singleton] window];
-    if (lua_toboolean(L, 2)) {
-        [console setToolbar:toolbar] ;
-        [toolbar.windowsUsingToolbars addObject:console] ;
-    } else {
-        [console setToolbar:nil] ;
-        [toolbar.windowsUsingToolbars removeObject:console] ;    }
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
 static int infoDump(lua_State *L) {
     LuaSkin *skin     = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -575,11 +690,11 @@ static int infoDump(lua_State *L) {
     [skin pushNSObject:toolbar.enabledDictionary] ;     lua_setfield(L, -2, "enabledDictionary") ;
     lua_pushinteger(L, toolbar.callbackRef) ;           lua_setfield(L, -2, "callbackRef") ;
     lua_pushinteger(L, toolbar.selfRef) ;               lua_setfield(L, -2, "selfRef") ;
+    [skin pushNSObject:[toolbar items]] ;               lua_setfield(L, -2, "toolbarItems") ;
+    [skin pushNSObject:[toolbar delegate]] ;            lua_setfield(L, -2, "delegate") ;
 
-    lua_pushinteger(L, (lua_Integer)[toolbar.windowsUsingToolbars count]) ;
-    lua_setfield(L, -2, "windowsCount") ;
-    [skin pushNSObject:toolbar.windowsUsingToolbars withOptions:LS_NSDescribeUnknownTypes] ;
-    lua_setfield(L, -2, "windowsUsingToolbars") ;
+    [skin pushNSObject:toolbar.windowUsingToolbar withOptions:LS_NSDescribeUnknownTypes] ;
+    lua_setfield(L, -2, "windowUsingToolbar") ;
     return 1 ;
 }
 
@@ -587,6 +702,15 @@ static int infoDump(lua_State *L) {
 
 static int systemToolbarItems(__unused lua_State *L) {
     [[LuaSkin shared] pushNSObject:builtinToolbarItems] ;
+    return 1 ;
+}
+
+static int toolbarItemPriorities(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, NSToolbarItemVisibilityPriorityStandard) ; lua_setfield(L, -2, "standard") ;
+    lua_pushinteger(L, NSToolbarItemVisibilityPriorityLow) ;      lua_setfield(L, -2, "low") ;
+    lua_pushinteger(L, NSToolbarItemVisibilityPriorityHigh) ;     lua_setfield(L, -2, "high") ;
+    lua_pushinteger(L, NSToolbarItemVisibilityPriorityUser) ;     lua_setfield(L, -2, "user") ;
     return 1 ;
 }
 
@@ -603,6 +727,7 @@ static int pushHSToolbar(lua_State *L, id obj) {
         luaL_getmetatable(L, USERDATA_TAG);
         lua_setmetatable(L, -2);
         value.selfRef = [skin luaRef:refTable] ;
+        [identifiersInUse addObject:[value identifier]] ;
     }
 
     [skin pushLuaRef:refTable ref:value.selfRef] ;
@@ -613,7 +738,7 @@ static id toHSToolbarFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSToolbar *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
-        value = get_objectFromUserdata(__bridge HSToolbar, L, idx) ;
+        value = get_objectFromUserdata(__bridge HSToolbar, L, idx, USERDATA_TAG) ;
     } else {
         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
                                                    lua_typename(L, lua_type(L, idx))]] ;
@@ -633,6 +758,11 @@ static int pushNSToolbarItem(lua_State *L, id obj) {
     lua_pushinteger(L, [value visibilityPriority]) ; lua_setfield(L, -2, "priority") ;
     lua_pushboolean(L, [value isEnabled]) ;          lua_setfield(L, -2, "enable") ;
     lua_pushinteger(L, [value tag]) ;                lua_setfield(L, -2, "tag") ;
+
+    [skin pushNSObject:[value target] withOptions:LS_NSDescribeUnknownTypes] ;
+    lua_setfield(L, -2, "target") ;
+    [skin pushNSObject:NSStringFromSelector([value action])] ;
+    lua_setfield(L, -2, "action") ;
 
     if ([[value toolbar] isKindOfClass:[HSToolbar class]]) {
         [skin pushNSObject:[value toolbar]] ;        lua_setfield(L, -2, "toolbar") ;
@@ -672,19 +802,21 @@ static int userdata_eq(lua_State* L) {
 
 static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    HSToolbar *obj = get_objectFromUserdata(__bridge_transfer HSToolbar, L, 1) ;
+    HSToolbar *obj = get_objectFromUserdata(__bridge_transfer HSToolbar, L, 1, USERDATA_TAG) ;
     if (obj) {
         for (NSNumber *fnRef in [obj.fnRefDictionary allValues]) {
             [skin luaUnref:refTable ref:[fnRef intValue]] ;
         }
-    // FIXME: remove from all windows... probably need observer to get them from drawing and webview
-        for (NSWindow *window in obj.windowsUsingToolbars) {
-            if (window && [window.toolbar isEqualTo:obj]) [window setToolbar:nil] ;
-        }
-        LuaSkin *skin = [LuaSkin shared] ;
+
+        if (obj.windowUsingToolbar && [[obj.windowUsingToolbar toolbar] isEqualTo:obj])
+            [obj.windowUsingToolbar setToolbar:nil] ;
+
         obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef];
         obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
         obj.delegate = nil ;
+        // they should be properly balanced, but lets check just in case...
+        NSUInteger identifierIndex = [identifiersInUse indexOfObject:[obj identifier]] ;
+        if (identifierIndex != NSNotFound) [identifiersInUse removeObjectAtIndex:identifierIndex] ;
         obj = nil ;
     }
 
@@ -694,12 +826,15 @@ static int userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-// static int meta_gc(lua_State* __unused L) {
-//     return 0 ;
-// }
+static int meta_gc(__unused lua_State* L) {
+    [identifiersInUse removeAllObjects] ;
+    identifiersInUse = nil ;
+    return 0 ;
+}
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
+    {"delete",          userdata_gc},
     {"identifier",      toolbarIdentifier},
     {"setCallback",     setCallback},
     {"displayMode",     displayMode},
@@ -709,20 +844,15 @@ static const luaL_Reg userdata_metaLib[] = {
     {"items",           toolbarItems},
     {"visibleItems",    visibleToolbarItems},
     {"selectedItem",    selectedToolbarItem},
-
-    {"attachToConsole", attachToConsole},
-
-    {"infoDump",        infoDump},
-
     {"customizePanel",  customizeToolbar},
     {"isCustomizing",   toolbarIsCustomizing},
     {"canCustomize",    toolbarCanCustomize},
     {"autosaves",       toolbarCanAutosave},
-
     {"separator",       showsBaselineSeparator},
-    {"dictionary",      configurationDictionary},
+    {"copyToolbar",     copyToolbar},
 
-    {"delete",          userdata_gc},
+    {"dictionary",      configurationDictionary},
+    {"infoDump",        infoDump},
 
     {"__tostring",      userdata_tostring},
     {"__eq",            userdata_eq},
@@ -732,39 +862,41 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new", newHSToolbar},
-    {NULL,  NULL}
+    {"new",           newHSToolbar},
+    {"attachToolbar", attachToolbar},
+    {NULL,            NULL}
 };
 
-// // Metatable for module, if needed
-// static const luaL_Reg module_metaLib[] = {
-//     {"__gc", meta_gc},
-//     {NULL,   NULL}
-// };
+// Metatable for module, if needed
+static const luaL_Reg module_metaLib[] = {
+    {"__gc", meta_gc},
+    {NULL,   NULL}
+};
 
-// NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_toolbar_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
-                                 metaFunctions:nil    // or module_metaLib
+                                 metaFunctions:module_metaLib
                                objectFunctions:userdata_metaLib];
 
     builtinToolbarItems = @[
-//                               NSToolbarSeparatorItemIdentifier, // deprecated
                               NSToolbarSpaceItemIdentifier,
                               NSToolbarFlexibleSpaceItemIdentifier,
-                              NSToolbarShowColorsItemIdentifier,
-                              NSToolbarShowFontsItemIdentifier,
+                              NSToolbarShowColorsItemIdentifier,       // require additional support
+                              NSToolbarShowFontsItemIdentifier,        // require additional support
+                              NSToolbarPrintItemIdentifier,            // require additional support
+//                               NSToolbarSeparatorItemIdentifier,        // deprecated
 //                               NSToolbarCustomizeToolbarItemIdentifier, // deprecated
-                              NSToolbarPrintItemIdentifier,
                           ] ;
 
-    systemToolbarItems(L) ; lua_setfield(L, -2, "systemToolbarItems") ;
+    identifiersInUse = [[NSMutableArray alloc] init] ;
+
+    systemToolbarItems(L) ;    lua_setfield(L, -2, "systemToolbarItems") ;
+    toolbarItemPriorities(L) ; lua_setfield(L, -2, "itemPriorities") ;
 
     [skin registerPushNSHelper:pushHSToolbar         forClass:"HSToolbar"];
     [skin registerLuaObjectHelper:toHSToolbarFromLua forClass:"HSToolbar" withUserdataMapping:USERDATA_TAG];
-
     [skin registerPushNSHelper:pushNSToolbarItem     forClass:"NSToolbarItem"];
 
     return 1;
