@@ -579,6 +579,14 @@ static int networkUserPreferences(lua_State *L) {
     return 1 ;
 }
 
+// http://stackoverflow.com/questions/1976520/lock-screen-by-api-in-mac-os-x/26492632#26492632
+extern int SACLockScreenImmediate();
+static int lockscreen(lua_State* L)
+{
+  lua_pushinteger(L, SACLockScreenImmediate()) ;
+  return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -608,6 +616,8 @@ static const luaL_Reg extrasLib[] = {
     {"addressParserTesting", addressParserTesting},
 
     {"lsIntTest",            lsIntTest},
+
+    {"lockscreen",           lockscreen},
 
     {NULL,                   NULL}
 };
