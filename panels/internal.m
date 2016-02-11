@@ -71,7 +71,9 @@ static int refTable = LUA_NOREF ;
 @end
 
 @interface HSFontPanel : NSObject
-@property int callbackRef ;
+@property int          callbackRef ;
+@property NSUInteger   fontPanelModes ;
+@property NSDictionary *attributesDictionary ;
 @end
 
 @implementation HSFontPanel
@@ -79,11 +81,13 @@ static int refTable = LUA_NOREF ;
     self = [super init] ;
     if (self) {
         _callbackRef = LUA_NOREF ;
+        _attributesDictionary = @{} ;
+        _fontPanelModes = NSFontPanelFaceModeMask | NSFontPanelSizeModeMask | NSFontPanelCollectionModeMask ;
         NSFontPanel *fp = [NSFontPanel sharedFontPanel];
         NSFontManager *fm = [NSFontManager sharedFontManager];
         [fm setTarget:self];
         [fm setSelectedFont:[NSFont systemFontOfSize: 27] isMultiple:NO] ;
-        [fm setSelectedAttributes:@{} isMultiple:NO] ;
+        [fm setSelectedAttributes:_attributesDictionary isMultiple:NO] ;
 
 //         [fp setAction:@selector(fontCallback:)];
 
@@ -113,6 +117,10 @@ static int refTable = LUA_NOREF ;
     }
 }
 
+- (NSUInteger)validModesForFontPanel:(__unused NSFontPanel *)fontPanel {
+    return _fontPanelModes ;
+}
+
 - (void)changeFont:(id)obj {
     if (_callbackRef != LUA_NOREF) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -137,7 +145,9 @@ static int refTable = LUA_NOREF ;
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
-            [skin pushNSObject:[obj convertAttributes:@{}]] ;
+            _attributesDictionary = [obj convertAttributes:_attributesDictionary] ;
+            [[NSFontManager sharedFontManager] setSelectedAttributes:_attributesDictionary isMultiple:NO] ;
+            [skin pushNSObject:_attributesDictionary] ;
             lua_pushboolean(L, NO) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: font callback error, %s",
@@ -317,6 +327,34 @@ static int fontPanelHide(__unused lua_State *L) {
     return 0 ;
 }
 
+static int fontPanelMode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    if (lua_gettop(L) == 1) {
+        fpReceiverObject.fontPanelModes = (NSUInteger)luaL_checkinteger(L, 1) ;
+    }
+    lua_pushinteger(L, (lua_Integer)fpReceiverObject.fontPanelModes) ;
+    return 1 ;
+}
+
+#pragma mark - Module Constants
+
+static int pushFontPanelTypes(__unused lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, NSFontPanelFaceModeMask) ;                lua_setfield(L, -2, "face") ;
+    lua_pushinteger(L, NSFontPanelSizeModeMask) ;                lua_setfield(L, -2, "size") ;
+    lua_pushinteger(L, NSFontPanelCollectionModeMask) ;          lua_setfield(L, -2, "collection") ;
+    lua_pushinteger(L, NSFontPanelUnderlineEffectModeMask) ;     lua_setfield(L, -2, "underlineEffect") ;
+    lua_pushinteger(L, NSFontPanelStrikethroughEffectModeMask) ; lua_setfield(L, -2, "strikethroughEffect") ;
+    lua_pushinteger(L, NSFontPanelTextColorEffectModeMask) ;     lua_setfield(L, -2, "textColorEffect") ;
+    lua_pushinteger(L, NSFontPanelDocumentColorEffectModeMask) ; lua_setfield(L, -2, "documentColorEffect") ;
+    lua_pushinteger(L, NSFontPanelShadowEffectModeMask) ;        lua_setfield(L, -2, "shadowEffect") ;
+    lua_pushinteger(L, NSFontPanelAllEffectsModeMask) ;          lua_setfield(L, -2, "allEffects") ;
+    lua_pushinteger(L, NSFontPanelStandardModesMask) ;           lua_setfield(L, -2, "standard") ;
+    lua_pushinteger(L, NSFontPanelAllModesMask) ;                lua_setfield(L, -2, "allModes") ;
+    return 1 ;
+}
+
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int releaseReceivers(__unused lua_State *L) {
@@ -362,7 +400,7 @@ static luaL_Reg fontPanelLib[] = {
     {"show",     fontPanelShow},
     {"hide",     fontPanelHide},
     {"callback", fontPanelCallback},
-
+    {"mode",     fontPanelMode},
     {NULL,   NULL}
 };
 
@@ -379,7 +417,9 @@ int luaopen_hs__asm_panels_internal(lua_State* __unused L) {
     [NSColorPanel setPickerMask:NSColorPanelAllModesMask] ;
     cpReceiverObject = [[HSColorPanel alloc] init] ;
     fpReceiverObject = [[HSFontPanel alloc] init] ;
-    luaL_newlib(L, fontPanelLib) ;  lua_setfield(L, -2, "font") ;
+    luaL_newlib(L, fontPanelLib) ;
+    pushFontPanelTypes(L) ; lua_setfield(L, -2, "panelModes") ;
+    lua_setfield(L, -2, "font") ;
 
     return 1;
 }
