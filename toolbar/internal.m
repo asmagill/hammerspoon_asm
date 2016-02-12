@@ -99,6 +99,8 @@ static NSMutableArray *identifiersInUse ;
         _defaultIdentifiers    = original.defaultIdentifiers ;
         _selectableIdentifiers = original.selectableIdentifiers ;
         _itemDictionary        = original.itemDictionary ;
+        _groupings             = original.groupings ;
+        _notifyToolbarChanges = original.notifyToolbarChanges ;
         _fnRefDictionary       = [[NSMutableDictionary alloc] init] ;
         for (NSString *key in [original.fnRefDictionary allKeys]) {
             int theRef = [[original.fnRefDictionary objectForKey:key] intValue] ;
@@ -142,8 +144,9 @@ static NSMutableArray *identifiersInUse ;
                 // shouldn't be possible, but just in case...
                 lua_pushstring(L, "** no window attached") ;
             }
-            [skin pushNSObject:item] ;
-            if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin pushNSObject:self] ;
+            [skin pushNSObject:[item itemIdentifier]] ;
+            if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: item callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
@@ -402,8 +405,9 @@ static NSMutableArray *identifiersInUse ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
             lua_pushstring(L, "add") ;
-            [skin pushNSObject:[[notification userInfo] objectForKey:@"item"]];
-            if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin pushNSObject:self] ;
+            [skin pushNSObject:[[[notification userInfo] objectForKey:@"item"] itemIdentifier]] ;
+            if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: toolbar callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
@@ -420,8 +424,9 @@ static NSMutableArray *identifiersInUse ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
             lua_pushstring(L, "remove") ;
-            [skin pushNSObject:[[notification userInfo] objectForKey:@"item"]];
-            if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin pushNSObject:self] ;
+            [skin pushNSObject:[[[notification userInfo] objectForKey:@"item"] itemIdentifier]] ;
+            if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: toolbar callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
