@@ -1,13 +1,12 @@
 // TODO
 //    Documentation
-//    group items
 
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
+@import Cocoa ;
+@import LuaSkin ;
 
 #define USERDATA_TAG  "hs._asm.toolbar"
 static int            refTable = LUA_NOREF;
-static NSArray        *builtinToolbarItems ;
+static NSArray        *builtinToolbarItems, *automaticallyIncluded ;
 static NSMutableArray *identifiersInUse ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
@@ -28,7 +27,9 @@ static NSMutableArray *identifiersInUse ;
 @property (readonly) NSMutableDictionary *itemDictionary ;
 @property (readonly) NSMutableDictionary *fnRefDictionary ;
 @property (readonly) NSMutableDictionary *enabledDictionary ;
+@property (readonly) NSMutableDictionary *groupings ;
 @property (weak)     NSWindow            *windowUsingToolbar ;
+@property            BOOL                notifyToolbarChanges ;
 @end
 
 #pragma mark - Support Functions and Classes
@@ -45,9 +46,11 @@ static NSMutableArray *identifiersInUse ;
         _itemDictionary        = [[NSMutableDictionary alloc] init] ;
         _fnRefDictionary       = [[NSMutableDictionary alloc] init] ;
         _enabledDictionary     = [[NSMutableDictionary alloc] init] ;
+        _groupings             = [[NSMutableDictionary alloc] init] ;
         _windowUsingToolbar    = nil ;
+        _notifyToolbarChanges  = NO ;
 
-        [_allowedIdentifiers addObjectsFromArray:builtinToolbarItems] ;
+        [_allowedIdentifiers addObjectsFromArray:automaticallyIncluded] ;
 
         LuaSkin     *skin      = [LuaSkin shared] ;
         lua_State   *L         = [skin L] ;
@@ -58,7 +61,10 @@ static NSMutableArray *identifiersInUse ;
         idx = lua_absindex(L, idx) ;
         while (isGood && (index < count)) {
             if (lua_rawgeti(L, idx, index + 1) == LUA_TTABLE) {
-                isGood = [self addToolbarItemAtIndex:-1] ;
+                if (luaL_len(L, -1) > 0)
+                    isGood = [self addToolbarItemGroupAtIndex:-1] ;
+                else
+                    isGood = [self addToolbarItemAtIndex:-1 asPrimaryItem:YES] ;
             } else {
                 [skin logWarn:[NSString stringWithFormat:@"%s:not table at index %lld; ignoring item for toolbar %@",
                                                           USERDATA_TAG, index + 1, identifier]] ;
@@ -157,102 +163,181 @@ static NSMutableArray *identifiersInUse ;
     return attached ;
 }
 
-- (BOOL)addToolbarItemAtIndex:(int)idx {
-    LuaSkin   *skin      = [LuaSkin shared] ;
-    lua_State *L         = [skin L] ;
-    NSString  *identifier ;
-    NSString  *label ;
-    NSString  *paletteLabel ;
-    NSString  *tooltip ;
-    BOOL      enabled    = YES ;
-    BOOL      included   = YES ;
-    BOOL      selectable = NO ;
-    NSImage   *image ;
-    NSInteger priority   = NSToolbarItemVisibilityPriorityStandard ;
-    NSInteger tag        = 0 ;
-
+- (void)modifyToolbarItem:(NSToolbarItem *)item fromTableAtIndex:(int)idx thatIsNew:(BOOL)newItem {
+    LuaSkin *skin = [LuaSkin shared] ;
+    lua_State *L = [skin L] ;
     idx = lua_absindex(L, idx) ;
-    if (lua_getfield(L, idx, "id") == LUA_TSTRING) {
-        identifier = [skin toNSObjectAtIndex:-1] ;
-    } else {
-        lua_pop(L, 1) ;
-        [skin  logWarn:[NSString stringWithFormat:@"%s:id must be present, and it must be a string",
-                                                   USERDATA_TAG]] ;
-        return NO ;
-    }
-    lua_pop(L, 1) ;
+    NSString *identifier = [item itemIdentifier] ;
+
     if (lua_getfield(L, idx, "label") == LUA_TSTRING) {
-        label = [skin toNSObjectAtIndex:-1] ;
-    } else {
-        label = identifier ;
-    }
-    lua_pop(L, 1) ;
-    if (lua_getfield(L, 2, "paletteLabel") == LUA_TSTRING) {
-        paletteLabel = [skin toNSObjectAtIndex:-1] ;
-    } else {
-        paletteLabel = label ;
+// for grouped sets, the palette label *must* be set or unset in sync with label, otherwise it only
+// shows some of the individual labels... so simpler to just forget that there are actually two labels.
+// very few will likely care/notice anyways.
+        [item setLabel:[skin toNSObjectAtIndex:-1]] ;
+        [item setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
+    } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)
+                                                 && [item isKindOfClass:[NSToolbarItemGroup class]]) {
+// this is the only way to switch a grouped set's individual labels back on after turning them off by
+// setting a group label...
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+        [(NSToolbarItemGroup *)item setLabel:nil] ;
+        [(NSToolbarItemGroup *)item setPaletteLabel:nil] ;
+#pragma clang diagnostic pop
+    } else if (newItem && ![item isKindOfClass:[NSToolbarItemGroup class]]) {
+        [item setLabel:identifier] ;
+        [item setPaletteLabel:identifier] ;
     }
     lua_pop(L, 1) ;
     if (lua_getfield(L, idx, "tooltip") == LUA_TSTRING) {
-        tooltip = [skin toNSObjectAtIndex:-1] ;
-    }
-    lua_pop(L, 1) ;
-    if ((lua_getfield(L, idx, "image") == LUA_TUSERDATA) && luaL_checkudata(L, -1, "hs.image")) {
-        image = [skin toNSObjectAtIndex:-1] ;
-    } else {
-        image = [NSImage imageNamed:NSImageNameStatusNone] ;
-    }
-    lua_pop(L, 1) ;
-    if (lua_getfield(L, idx, "enabled") == LUA_TBOOLEAN) {
-        enabled = (BOOL)lua_toboolean(L, -1) ;
-    }
-    if (lua_getfield(L, idx, "default") == LUA_TBOOLEAN) {
-        included = (BOOL)lua_toboolean(L, -1) ;
-    }
-    lua_pop(L, 1) ;
-    if (lua_getfield(L, idx, "selectable") == LUA_TBOOLEAN) {
-        selectable = (BOOL)lua_toboolean(L, -1) ;
+        [item setToolTip:[skin toNSObjectAtIndex:-1]] ;
+    } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)) {
+        [item setToolTip:nil] ;
     }
     lua_pop(L, 1) ;
     if ((lua_getfield(L, idx, "priority") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-        priority = lua_tointeger(L, -1) ;
+        [item setVisibilityPriority:lua_tointeger(L, -1)] ;
     }
     lua_pop(L, 1) ;
     if ((lua_getfield(L, idx, "tag") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-        tag = lua_tointeger(L, -1) ;
+        [item setTag:lua_tointeger(L, -1)] ;
     }
     lua_pop(L, 1) ;
 
-    if (![builtinToolbarItems containsObject:identifier]) {
-        if ([_itemDictionary objectForKey:identifier]) {
-            [skin  logWarn:[NSString stringWithFormat:@"%s:id must be unique or a system defined item",
-                                                       USERDATA_TAG]] ;
-            return NO ;
+    if ((lua_getfield(L, idx, "image") == LUA_TUSERDATA) && luaL_checkudata(L, -1, "hs.image")) {
+        [item setImage:[skin toNSObjectAtIndex:-1]] ;
+    } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)) {
+        [item setImage:nil] ;
+    } else if (newItem && ![item isKindOfClass:[NSToolbarItemGroup class]]) {
+        [item setImage:[NSImage imageNamed:NSImageNameStatusNone]] ;
+    }
+    lua_pop(L, 1) ;
+
+    // These should only be adjusted during creation or when changing the itemDictionary version
+    if ((newItem || [item isEqualTo:[_itemDictionary objectForKey:identifier]])
+                            && ![item isKindOfClass:[NSToolbarItemGroup class]]) {
+        if (lua_getfield(L, idx, "enabled") == LUA_TBOOLEAN) {
+            [_enabledDictionary setObject:@((BOOL)lua_toboolean(L, -1)) forKey:identifier] ;
+        } else if (newItem) {
+            [_enabledDictionary setObject:@(YES) forKey:identifier] ;
         }
+        lua_pop(L, 1) ;
+        if ((lua_getfield(L, idx, "fn") == LUA_TFUNCTION) || (lua_isboolean(L, -1) && !lua_toboolean(L, -1))) {
+            if ([[_fnRefDictionary objectForKey:identifier] intValue] != LUA_NOREF) {
+                [_fnRefDictionary setObject:@([skin luaUnref:refTable
+                                                         ref:[[_fnRefDictionary objectForKey:identifier] intValue]])
+                                     forKey:identifier] ;
+            }
+            if (lua_type(L, -1) == LUA_TFUNCTION) {
+                lua_pushvalue(L, -1) ;
+                [_fnRefDictionary setObject:@([skin luaRef:refTable]) forKey:identifier] ;
+            }
+        }
+        lua_pop(L, 1) ;
+    }
+    // default and selectable are handled separately
+}
+
+- (BOOL)addToolbarItemGroupAtIndex:(int)idx {
+    LuaSkin   *skin      = [LuaSkin shared] ;
+    lua_State *L         = [skin L] ;
+    idx = lua_absindex(L, idx) ;
+
+    NSString *identifier ;
+    if (lua_getfield(L, -1, "id") == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+
+    if (!identifier) {
+        [skin  logWarn:[NSString stringWithFormat:@"%s:id must be present, and it must be a string",
+                                                   USERDATA_TAG]] ;
+        return NO ;
+    } else if ([_itemDictionary objectForKey:identifier]) {
+        [skin  logWarn:[NSString stringWithFormat:@"%s:id must be unique or a system defined item",
+                                                   USERDATA_TAG]] ;
+        return NO ;
+    } else if ([builtinToolbarItems containsObject:identifier]) {
+        [skin  logWarn:[NSString stringWithFormat:@"%s:group id cannot be a system defined item id",
+                                                   USERDATA_TAG]] ;
+        return NO ;
+    }
+
+    NSToolbarItemGroup *groupItem = [[NSToolbarItemGroup alloc] initWithItemIdentifier:identifier] ;
+    [self modifyToolbarItem:groupItem fromTableAtIndex:idx thatIsNew:YES] ;
+
+    NSMutableArray *subItems = [[NSMutableArray alloc] init] ;
+    lua_Integer count      = luaL_len(L, idx) ;
+    lua_Integer index      = 0 ;
+    BOOL        isGood     = YES ;
+    while (isGood && (index < count)) {
+        if (lua_rawgeti(L, idx, index + 1) == LUA_TTABLE) {
+            isGood = [self addToolbarItemAtIndex:-1 asPrimaryItem:NO] ;
+            if (isGood) {
+                lua_getfield(L, -1, "id") ;
+                [subItems addObject:[skin toNSObjectAtIndex:-1]] ;
+                lua_pop(L, 1) ;
+            }
+        } else {
+            [skin logWarn:[NSString stringWithFormat:@"%s:not table at index %lld; ignoring grouped item for toolbar %@",
+                                                      USERDATA_TAG, index + 1, identifier]] ;
+        }
+        lua_pop(L, 1) ;
+        index++ ;
+    }
+    if (!isGood) return NO ;
+    [_groupings setObject:subItems forKey:identifier] ;
+
+    [_itemDictionary setObject:groupItem forKey:identifier] ;
+    if (![_allowedIdentifiers containsObject:identifier]) [_allowedIdentifiers addObject:identifier] ;
+
+    BOOL included   = (lua_getfield(L, idx, "default") == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, -1) : YES ;
+    BOOL selectable = (lua_getfield(L, idx, "selectable") == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, -1) : NO ;
+    lua_pop(L, 2) ;
+
+    if (selectable) [_selectableIdentifiers addObject:identifier] ;
+    if (included)   [_defaultIdentifiers addObject:identifier] ;
+
+    return YES ;
+}
+
+- (BOOL)addToolbarItemAtIndex:(int)idx asPrimaryItem:(BOOL)isPrimary {
+    LuaSkin   *skin      = [LuaSkin shared] ;
+    lua_State *L         = [skin L] ;
+    idx = lua_absindex(L, idx) ;
+
+    NSString *identifier ;
+    if (lua_getfield(L, -1, "id") == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 1) ;
+
+    if (!identifier) {
+        [skin  logWarn:[NSString stringWithFormat:@"%s:id must be present, and it must be a string",
+                                                   USERDATA_TAG]] ;
+        return NO ;
+    } else if ([_itemDictionary objectForKey:identifier]) {
+        [skin  logWarn:[NSString stringWithFormat:@"%s:id must be unique or a system defined item",
+                                                   USERDATA_TAG]] ;
+        return NO ;
+    }
+
+    BOOL included   = (lua_getfield(L, idx, "default") == LUA_TBOOLEAN) ?
+                                             (BOOL)lua_toboolean(L, -1) : (isPrimary ? YES : NO) ;
+    BOOL selectable = (lua_getfield(L, idx, "selectable") == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, -1) : NO ;
+    lua_pop(L, 2) ;
+
+    if (![builtinToolbarItems containsObject:identifier]) {
         NSToolbarItem *toolbarItem = [[NSToolbarItem alloc] initWithItemIdentifier:identifier] ;
-        [toolbarItem setLabel:label] ;
-        [toolbarItem setPaletteLabel:paletteLabel] ;
-        if (tooltip) [toolbarItem setToolTip:tooltip] ;
-        if (image)   [toolbarItem setImage:image] ;
-        [_enabledDictionary setObject:@(enabled) forKey:identifier] ;
-        [toolbarItem setVisibilityPriority:priority] ;
-        [toolbarItem setTag:tag] ;
-// let the delegate handle this when creating the item
-//         [toolbarItem setTarget:self] ;
+        [self modifyToolbarItem:toolbarItem fromTableAtIndex:idx thatIsNew:YES] ;
+
         [toolbarItem setAction:@selector(performCallback:)] ;
 
-        if (lua_getfield(L, idx, "fn") == LUA_TFUNCTION) {
-            [_fnRefDictionary setObject:@([skin luaRef:refTable]) forKey:identifier] ;
-        } else {
-            [_fnRefDictionary setObject:@(LUA_NOREF) forKey:identifier] ;
-            lua_pop(L, 1) ;
-        }
-
         [_itemDictionary setObject:toolbarItem forKey:identifier] ;
-        [_allowedIdentifiers addObject:identifier] ;
         if (selectable) [_selectableIdentifiers addObject:identifier] ;
     }
+    // by adjusting _allowedIdentifiers out here, we allow builtin items, even if we don't exactly
+    // advertise them, plus we may add support for duplicate id's at some point if someone comes up with
+    // a reason...
+    if (![_allowedIdentifiers containsObject:identifier] && isPrimary) [_allowedIdentifiers addObject:identifier] ;
     if (included) [_defaultIdentifiers addObject:identifier] ;
+
     return YES ;
 }
 
@@ -260,13 +345,42 @@ static NSMutableArray *identifiersInUse ;
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)itemIdentifier
                                             willBeInsertedIntoToolbar:(BOOL)flag {
-    NSToolbarItem *item = [[_itemDictionary objectForKey:itemIdentifier] copy] ;
-    if (flag) {
-        item.target = toolbar ;
-    } else {
+    if ([_groupings objectForKey:itemIdentifier]) {
+        NSToolbarItemGroup *item = [[_itemDictionary objectForKey:itemIdentifier] copy] ;
         item.enabled = YES ;
+        NSMutableArray *subItems = [[NSMutableArray alloc] init] ;
+        for (NSString *theId in [_groupings objectForKey:itemIdentifier]) {
+            NSToolbarItem *newItem = [[_itemDictionary objectForKey:theId] copy] ;
+            newItem.enabled = YES ;
+            if (flag) {
+                newItem.target = toolbar ;
+            }
+            [subItems addObject:newItem] ;
+        }
+        [item setSubitems:subItems] ;
+        // NSToolbarItemGroup is dumb...
+        // see http://stackoverflow.com/questions/15949835/nstoolbaritemgroup-doesnt-work
+        NSSize minSize = NSZeroSize;
+        NSSize maxSize = NSZeroSize;
+        for (NSToolbarItem* tmpItem in item.subitems)
+        {
+            minSize.width += tmpItem.minSize.width;
+            minSize.height = MAX(minSize.height, tmpItem.minSize.height);
+            maxSize.width += tmpItem.maxSize.width;
+            maxSize.height = MAX(maxSize.height, tmpItem.maxSize.height);
+        }
+        item.minSize = minSize;
+        item.maxSize = maxSize;
+
+        return item ;
+    } else {
+        NSToolbarItem *item = [[_itemDictionary objectForKey:itemIdentifier] copy] ;
+        item.enabled = YES ;
+        if (flag) {
+            item.target = toolbar ;
+        }
+        return item ;
     }
-    return item ;
 }
 
 - (NSArray *)toolbarAllowedItemIdentifiers:(__unused NSToolbar *)toolbar  {
@@ -282,7 +396,7 @@ static NSMutableArray *identifiersInUse ;
 }
 
 - (void)toolbarWillAddItem:(NSNotification *)notification {
-    if (_callbackRef != LUA_NOREF) {
+    if (_notifyToolbarChanges && (_callbackRef != LUA_NOREF)) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
@@ -300,7 +414,7 @@ static NSMutableArray *identifiersInUse ;
 }
 
 - (void)toolbarDidRemoveItem:(NSNotification *)notification {
-    if (_callbackRef != LUA_NOREF) {
+    if (_notifyToolbarChanges && (_callbackRef != LUA_NOREF)) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
@@ -371,6 +485,7 @@ static int attachToolbar(lua_State *L) {
         if (newToolbar.windowUsingToolbar) [newToolbar.windowUsingToolbar setToolbar:nil] ;
         [theWindow setToolbar:newToolbar] ;
         newToolbar.windowUsingToolbar = theWindow ;
+        [newToolbar setVisible:YES] ;
     }
 //     [skin logWarn:[NSString stringWithFormat:@"%@ %@ %@", oldToolbar, newToolbar, theWindow]] ;
     lua_pushvalue(L, 1) ;
@@ -445,6 +560,19 @@ static int visible(lua_State *L) {
         lua_pushvalue(L, 1) ;
     } else {
         lua_pushboolean(L, [toolbar isVisible]) ;
+    }
+    return 1 ;
+}
+
+static int notifyWhenToolbarChanges(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSToolbar *toolbar = [skin toNSObjectAtIndex:1] ;
+    if (lua_gettop(L) != 1) {
+        toolbar.notifyToolbarChanges = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    } else {
+        lua_pushboolean(L, toolbar.notifyToolbarChanges) ;
     }
     return 1 ;
 }
@@ -579,55 +707,8 @@ static int modifyToolbarItem(lua_State *L) {
         }
     }
     if ((![builtinToolbarItems containsObject:identifier]) && storedItem) {
-        if (lua_getfield(L, 2, "label") == LUA_TSTRING) {
-            [storedItem setLabel:[skin toNSObjectAtIndex:-1]] ;
-            if (activeItem) [activeItem setLabel:[skin toNSObjectAtIndex:-1]] ;
-        }
-        lua_pop(L, 1) ;
-        if (lua_getfield(L, 2, "paletteLabel") == LUA_TSTRING) {
-            [storedItem setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
-            if (activeItem) [activeItem setPaletteLabel:[skin toNSObjectAtIndex:-1]] ;
-        }
-        lua_pop(L, 1) ;
-        if (lua_getfield(L, 2, "tooltip") == LUA_TSTRING) {
-            [storedItem setToolTip:[skin toNSObjectAtIndex:-1]] ;
-            if (activeItem) [activeItem setToolTip:[skin toNSObjectAtIndex:-1]] ;
-        }
-        lua_pop(L, 1) ;
-        if ((lua_getfield(L, 2, "image") == LUA_TUSERDATA) && luaL_checkudata(L, -1, "hs.image")) {
-            [storedItem setImage:[skin toNSObjectAtIndex:-1]] ;
-            if (activeItem) [activeItem setImage:[skin toNSObjectAtIndex:-1]] ;
-        }
-        lua_pop(L, 1) ;
-        if (lua_getfield(L, 2, "enabled") == LUA_TBOOLEAN) {
-            [toolbar.enabledDictionary setObject:@((BOOL)lua_toboolean(L, -1)) forKey:identifier] ;
-        }
-        lua_pop(L, 1) ;
-        lua_getfield(L, 2, "fn") ;
-        if ((lua_type(L, -1) == LUA_TFUNCTION) || ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1))) {
-            NSNumber *theNumber = [toolbar.fnRefDictionary objectForKey:identifier] ;
-            if (theNumber) [toolbar.fnRefDictionary setObject:@([skin luaUnref:refTable ref:[theNumber intValue]])
-                                                       forKey:identifier] ;
-            if (lua_type(L, -1) == LUA_TFUNCTION) {
-                [toolbar.fnRefDictionary setObject:@([skin luaRef:refTable])
-                                            forKey:identifier] ;
-            } else {
-                lua_pop(L, 1) ;
-            }
-        } else {
-            lua_pop(L, 1) ;
-        }
-        if ((lua_getfield(L, 2, "priority") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-            [storedItem setVisibilityPriority:lua_tointeger(L, -1)] ;
-            if (activeItem) [activeItem setVisibilityPriority:lua_tointeger(L, -1)] ;
-        }
-        lua_pop(L, 1) ;
-        if ((lua_getfield(L, 2, "tag") == LUA_TNUMBER) && lua_isinteger(L, -1)) {
-            [storedItem setTag:lua_tointeger(L, -1)] ;
-            if (activeItem) [activeItem setTag:lua_tointeger(L, -1)] ;
-        }
-        lua_pop(L, 1) ;
-
+        [toolbar modifyToolbarItem:storedItem fromTableAtIndex:2 thatIsNew:NO] ;
+        if (activeItem) [toolbar modifyToolbarItem:activeItem fromTableAtIndex:2 thatIsNew:NO] ;
     } else {
         return luaL_error(L, "id does not match a user defined toolbar item") ;
     }
@@ -781,7 +862,7 @@ static int infoDump(lua_State *L) {
 #pragma mark - Module Constants
 
 static int systemToolbarItems(__unused lua_State *L) {
-    [[LuaSkin shared] pushNSObject:builtinToolbarItems] ;
+    [[LuaSkin shared] pushNSObject:automaticallyIncluded] ;
     return 1 ;
 }
 
@@ -835,7 +916,7 @@ static int pushNSToolbarItem(lua_State *L, id obj) {
     lua_newtable(L) ;
     [skin pushNSObject:[value itemIdentifier]] ;     lua_setfield(L, -2, "id") ;
     [skin pushNSObject:[value label]] ;              lua_setfield(L, -2, "label") ;
-    [skin pushNSObject:[value paletteLabel]] ;       lua_setfield(L, -2, "paletteLabel") ;
+//     [skin pushNSObject:[value paletteLabel]] ;       lua_setfield(L, -2, "paletteLabel") ;
     [skin pushNSObject:[value toolTip]] ;            lua_setfield(L, -2, "tooltip") ;
     [skin pushNSObject:[value image]] ;              lua_setfield(L, -2, "image") ;
     lua_pushinteger(L, [value visibilityPriority]) ; lua_setfield(L, -2, "priority") ;
@@ -847,13 +928,19 @@ static int pushNSToolbarItem(lua_State *L, id obj) {
         lua_pushboolean(L, [ourToolbar.selectableIdentifiers containsObject:[value itemIdentifier]]) ;
         lua_setfield(L, -2, "selectable") ;
     }
+    if ([obj isKindOfClass:[NSToolbarItemGroup class]]) {
+        [skin pushNSObject:[obj subitems]] ; lua_setfield(L, -2, "subitems") ;
+    }
+//     [skin pushNSSize:[value minSize]] ;              lua_setfield(L, -2, "minSize") ;
+//     [skin pushNSSize:[value maxSize]] ;              lua_setfield(L, -2, "maxSize") ;
+
 //     [skin pushNSObject:[value target]];              lua_setfield(L, -2, "target") ;
 //     [skin pushNSObject:NSStringFromSelector([value action])] ;
 //     lua_setfield(L, -2, "action") ;
-//     [skin pushNSObject:[value menuFormRepresentation]] ;
+//     [skin pushNSObject:[value menuFormRepresentation] withOptions:LS_NSDescribeUnknownTypes] ;
 //     lua_setfield(L, -2, "menuFormRepresentation") ;
-//     [skin pushNSSize:[value minSize]] ;              lua_setfield(L, -2, "minSize") ;
-//     [skin pushNSSize:[value maxSize]] ;              lua_setfield(L, -2, "maxSize") ;
+//     [skin pushNSObject:[value view] withOptions:LS_NSDescribeUnknownTypes] ;
+//     lua_setfield(L, -2, "view") ;
     return 1 ;
 }
 
@@ -936,6 +1023,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"allowedItems",    allowedToolbarItems},
     {"itemDetails",     detailsForItemIdentifier},
 
+    {"notifyOnChange",  notifyWhenToolbarChanges},
     {"customizePanel",  customizeToolbar},
     {"isCustomizing",   toolbarIsCustomizing},
     {"canCustomize",    toolbarCanCustomize},
@@ -971,12 +1059,16 @@ int luaopen_hs__asm_toolbar_internal(lua_State* __unused L) {
     builtinToolbarItems = @[
                               NSToolbarSpaceItemIdentifier,
                               NSToolbarFlexibleSpaceItemIdentifier,
-//                               NSToolbarShowColorsItemIdentifier,       // require additional support
-//                               NSToolbarShowFontsItemIdentifier,        // require additional support
-//                               NSToolbarPrintItemIdentifier,            // require additional support
-//                               NSToolbarSeparatorItemIdentifier,        // deprecated
-//                               NSToolbarCustomizeToolbarItemIdentifier, // deprecated
+                              NSToolbarShowColorsItemIdentifier,       // require additional support
+                              NSToolbarShowFontsItemIdentifier,        // require additional support
+                              NSToolbarPrintItemIdentifier,            // require additional support
+                              NSToolbarSeparatorItemIdentifier,        // deprecated
+                              NSToolbarCustomizeToolbarItemIdentifier, // deprecated
                           ] ;
+    automaticallyIncluded = @[
+                                NSToolbarSpaceItemIdentifier,
+                                NSToolbarFlexibleSpaceItemIdentifier,
+                            ] ;
 
     identifiersInUse = [[NSMutableArray alloc] init] ;
 
