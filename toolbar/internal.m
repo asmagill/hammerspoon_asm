@@ -1,6 +1,3 @@
-// TODO
-//    Documentation
-
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -132,6 +129,7 @@ static NSMutableArray *identifiersInUse ;
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:fnRef] ;
+            [skin pushNSObject:self] ;
             if (_windowUsingToolbar) {
                 if ([_windowUsingToolbar isEqualTo:[[MJConsoleWindowController singleton] window]]) {
                     lua_pushstring(L, "console") ;
@@ -144,7 +142,6 @@ static NSMutableArray *identifiersInUse ;
                 // shouldn't be possible, but just in case...
                 lua_pushstring(L, "** no window attached") ;
             }
-            [skin pushNSObject:self] ;
             [skin pushNSObject:[item itemIdentifier]] ;
             if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: item callback error, %s",
@@ -404,10 +401,22 @@ static NSMutableArray *identifiersInUse ;
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
-            lua_pushstring(L, "add") ;
             [skin pushNSObject:self] ;
+            if (_windowUsingToolbar) {
+                if ([_windowUsingToolbar isEqualTo:[[MJConsoleWindowController singleton] window]]) {
+                    lua_pushstring(L, "console") ;
+                } else if ([_windowUsingToolbar isKindOfClass:NSClassFromString(@"HSWebViewWindow")]) {
+                    [skin pushNSObject:_windowUsingToolbar] ;
+                } else {
+                    lua_pushstring(L, "** unknown") ;
+                }
+            } else {
+                // shouldn't be possible, but just in case...
+                lua_pushstring(L, "** no window attached") ;
+            }
             [skin pushNSObject:[[[notification userInfo] objectForKey:@"item"] itemIdentifier]] ;
-            if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            lua_pushstring(L, "add") ;
+            if (![skin protectedCallAndTraceback:4 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: toolbar callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
@@ -423,10 +432,22 @@ static NSMutableArray *identifiersInUse ;
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
-            lua_pushstring(L, "remove") ;
             [skin pushNSObject:self] ;
+            if (_windowUsingToolbar) {
+                if ([_windowUsingToolbar isEqualTo:[[MJConsoleWindowController singleton] window]]) {
+                    lua_pushstring(L, "console") ;
+                } else if ([_windowUsingToolbar isKindOfClass:NSClassFromString(@"HSWebViewWindow")]) {
+                    [skin pushNSObject:_windowUsingToolbar] ;
+                } else {
+                    lua_pushstring(L, "** unknown") ;
+                }
+            } else {
+                // shouldn't be possible, but just in case...
+                lua_pushstring(L, "** no window attached") ;
+            }
             [skin pushNSObject:[[[notification userInfo] objectForKey:@"item"] itemIdentifier]] ;
-            if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            lua_pushstring(L, "remove") ;
+            if (![skin protectedCallAndTraceback:4 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: toolbar callback error, %s",
                                                           USERDATA_TAG,
                                                           lua_tostring(L, -1)]] ;
@@ -440,6 +461,44 @@ static NSMutableArray *identifiersInUse ;
 
 #pragma mark - Module Functions
 
+/// hs._asm.toolbar.new(toolbarName, toolbarTable) -> toolbarObject
+/// Constructor
+/// Creates a new toolbar as defined by the table provided.
+///
+/// Parameters:
+///  * toolbarName  - a string specifying the name for this toolbar
+///  * toolbarTable - a table describing the possible items for the toolbar
+///
+/// Table Format:
+/// ```
+///    {
+///        -- example of a button
+///        { id = "button1", ... }
+///        -- example of a button group
+///        { id = "button2", ..., { id = "sub-button1", ... }, { id = "sub-button2" }, ... }
+///        ...
+///    }
+/// ```
+///
+/// * A button group is a collection of two or more buttons which are treated as a unit when customizing the active toolbar's look either programmatically with [hs._asm.toolbar:insertItem](#insertItem) and [hs._asm.toolbar:removeItem](#removeItem) or under user control with [hs._asm.toolbar:customizePanel](#customizePanel).
+///
+/// * The following keys are supported. The `id` key is the only required key for each button and button group. Unless otherwise specified below, keys can be modified per item after toolbar creation.
+///    * `id`         - a unique string identifier for the button or button group within the toolbar.
+///    * `label'      - a string text label, or false to remove, for the button or button group when text is displayed in the toolbar or in the customization panel.  For a button, the default is the `id`; for a button group, the default is `false`.  If a button group has a label, the group label will be displayed for the group of buttons it comprises.  If a button group does not have a label, the individual buttons which make up the group will each display their individual labels.
+///    * `tooltip`    - a string label, or `false` to remove, which is displayed as a tool tip when the user hovers the mouse over the button or button group.  If a button is in a group, it's tooltip is ignored in favor of the group tooltip.
+///    * `image`      - an `hs.image` object, or false to remove, specifying the image to use as the button's icon when icon's are displayed in the toolbar or customization panel.  Defaults to a round gray circle (`hs.image.systemImageNames.StatusNone`) for buttons.  This key is ignored for a button group, but not for it's individual buttons.
+///    * `priority`   - an integer value used to determine button order and which buttons are displayed or put into the overflow menu when the number of buttons in the toolbar exceed the width of the window in which the toolbar is attached.  Some example values are provided in the [hs._asm.toolbar.itemPriorities](#itemPriorities) table.  If a button is in a button group, it's priority is ignored and the button group is ordered by the button group's priority.
+///    * `tag`        - an integer value which can be used for custom purposes.
+///    * `enabled`    - a boolean value indicating whether or not the button is active (and can be clicked on) or inactive and greyed out.
+///    * `fn`         - a callback function, or false to remove, specific to the button.  This property is ignored if assigned to the button group.  This function will override the toolbar callback defined with [hs._asm.toolbar:setCallback](#setCallback) for this specific button.  The function should expect three arguments and return none: the toolbar object, "console" or the webview object the toolbar is attached to, and the toolbar item identifier that was clicked.
+///    * `default`    - a boolean value, default true, indicating whether or not this button or button group should be displayed in the toolbar by default, unless overridden by user customization or a saved configuration (when such options are enabled).  This key cannot be changed after the toolbar has been created.
+///    * `selectable` - a boolean value, default false, indicating whether or not this button or button group is selectable (i.e. highlights, like a selected tab) when clicked on.  Only one selectable button will be selected at a time and can be identifier or changed with [hs._asm.toolbar:selectedItem](#selectedItem).  This key cannot be changed after the toolbar has been created.
+///
+/// Returns:
+///  * a toolbarObject
+///
+/// Notes:
+///  * Toolbar names must be unique, but a toolbar may be copied with [hs._asm.toolbar:copy](#copy) if you wish to attach it to multiple windows (webview or console).
 static int newHSToolbar(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TTABLE, LS_TBREAK] ;
@@ -459,6 +518,20 @@ static int newHSToolbar(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar.attachToolbar(obj1, [obj2]) -> obj1
+/// Function
+/// Attach a toolbar to the console or webview.
+///
+/// Parameters:
+///  * obj1 - if this is the only argument and is a toolbar object or `nil`, attaches or removes a toolbar from the Hammerspoon console window.  If this is an hs.webview object, then `obj2` is required.
+///  * obj2 - if obj1 is an hs.webview object, then this argument is a toolbar object or `nil` to attach or remove the toolbar from the webview object.
+///
+/// Returns:
+///  * obj1
+///
+/// Notes:
+///  * If the toolbar is currently attached to a window when this function is called, it will be detached from the original window and attached to the new one specified by this function.
+///  * This function is added to the hs.webview object methods so that it may be used as `hs.webview:attachToolbar(obj2)`.
 static int attachToolbar(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSWindow *theWindow ;
@@ -499,6 +572,15 @@ static int attachToolbar(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.toolbar:isAttached() -> boolean
+/// Method
+/// Returns a boolean indicating whether or not the toolbar is currently attached to a window.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicating whether or not the toolbar is currently attached to a window.
 static int isAttachedToWindow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -507,6 +589,15 @@ static int isAttachedToWindow(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.toolbar:copy() -> toolbarObject
+/// Method
+/// Returns a copy of the toolbar object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a copy of the toolbar which can be attached to another window (webview or console).
 static int copyToolbar(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -520,6 +611,20 @@ static int copyToolbar(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:setCallback(fn | nil) -> toolbarObject
+/// Method
+/// Sets or removes the global callback function for the toolbar.
+///
+/// Parameters:
+///  * fn - a function to set as the global callback for the toolbar, or nil to remove the global callback.
+///
+///  The function should expect three arguments and return none: the toolbar object, "console" or the webview object the toolbar is attached to, and the toolbar item identifier that was clicked.
+/// Returns:
+///  * the toolbar object.
+///
+/// Notes:
+///  * the global callback function is invoked for a toolbar button item that does not have a specific function assigned directly to it.
+///  * if [hs._asm.toolbar:notifyOnChange](#notifyOnChange) is set to true, then this callback function will also be invoked when a toolbar item is added or removed from the toolbar either programmatically with [hs._asm.toolbar:insertItem](#insertItem) and [hs._asm.toolbar:removeItem](#removeItem) or under user control with [hs._asm.toolbar:customizePanel](#customizePanel) and the callback function will receive a string of "add" or "remove" as a fourth argument.
 static int setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
@@ -535,6 +640,19 @@ static int setCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:savedSettings() -> table
+/// Method
+/// Returns a table containing the settings which will be saved for the toolbar if [hs._asm.toolbar:autosaves](#autosaves) is true.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing the toolbar settings
+///
+/// Notes:
+///  * If the toolbar is set to autosave, then a user-defaults entry is created in org.hammerspoon.Hammerspoon domain with the key "NSToolbar Configuration XXX" where XXX is the toolbar identifier specified when the toolbar was created.
+///  * This method is provided if you do not wish for changes to the toolbar to be autosaved for every change, but may wish to save it programmatically under specific conditions.
 static int configurationDictionary(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -543,6 +661,15 @@ static int configurationDictionary(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:separator([bool]) -> toolbarObject | bool
+/// Method
+/// Get or set whether or not the toolbar shows a separator between the toolbar and the main window contents.
+///
+/// Parameters:
+///  * an optional boolean value to enable or disable the separator.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
 static int showsBaselineSeparator(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -556,6 +683,15 @@ static int showsBaselineSeparator(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:visible([bool]) -> toolbarObject | bool
+/// Method
+/// Get or set whether or not the toolbar is currently visible in the window it is attached to.
+///
+/// Parameters:
+///  * an optional boolean value to show or hide the toolbar.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
 static int visible(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -569,6 +705,15 @@ static int visible(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:notifyOnChange([bool]) -> toolbarObject | bool
+/// Method
+/// Get or set whether or not the global callback function is invoked when a toolbar item is added or removed from the toolbar.
+///
+/// Parameters:
+///  * an optional boolean value to enable or disable invoking the global callback for toolbar changes.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
 static int notifyWhenToolbarChanges(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -582,6 +727,19 @@ static int notifyWhenToolbarChanges(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:insertItem(id, index) -> toolbarObject
+/// Method
+/// Insert or move the toolbar item to the index position specified
+///
+/// Parameters:
+///  * id    - the string identifier of the toolbar item
+///  * index - the numerical position where the toolbar item should be inserted/moved to.
+///
+/// Returns:
+///  * the toolbar object
+///
+/// Notes:
+///  * the toolbar position must be between 1 and the number of currently active toolbar items.
 static int insertItemAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TNUMBER, LS_TBREAK] ;
@@ -597,6 +755,18 @@ static int insertItemAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:removeItem(index) -> toolbarObject
+/// Method
+/// Remove the toolbar item at the index position specified
+///
+/// Parameters:
+///  * index - the numerical position of the toolbar item to remove.
+///
+/// Returns:
+///  * the toolbar object
+///
+/// Notes:
+///  * the toolbar position must be between 1 and the number of currently active toolbar items.
 static int removeItemAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER, LS_TBREAK] ;
@@ -611,6 +781,15 @@ static int removeItemAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:sizeMode([size]) -> toolbarObject
+/// Method
+/// Get or set the toolbar's size.
+///
+/// Parameters:
+///  * size - an optional string to set the size of the toolbar to "default", "regular", or "small".
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
 static int sizeMode(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -648,6 +827,15 @@ static int sizeMode(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:displayMode([mode]) -> toolbarObject
+/// Method
+/// Get or set the toolbar's display mode.
+///
+/// Parameters:
+///  * mode - an optional string to set the size of the toolbar to "default", "label", "icon", or "both".
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
 static int displayMode(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -690,6 +878,24 @@ static int displayMode(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:modifyItem(table) -> toolbarObject
+/// Method
+/// Modify the toolbar item specified by the "id" key in the table argument.
+///
+/// Parameters:
+///  * a table containing an "id" key and one or more of the following keys:
+///    * id         - a string containing the toolbar item's identifier (required)
+///
+///    * `label'      - a string text label, or false to remove, for the button or button group when text is displayed in the toolbar or in the customization panel.
+///    * `tooltip`    - a string label, or `false` to remove, which is displayed as a tool tip when the user hovers the mouse over the button or button group.
+///    * `image`      - an `hs.image` object, or false to remove, specifying the image to use as the button's icon when icon's are displayed in the toolbar or customization panel.
+///    * `priority`   - an integer value used to determine button order and which buttons are displayed or put into the overflow menu when the number of buttons in the toolbar exceed the width of the window in which the toolbar is attached.  Some example values are provided in the [hs._asm.toolbar.itemPriorities](#itemPriorities) table.
+///    * `tag`        - an integer value which can be used for custom purposes.
+///    * `enabled`    - a boolean value indicating whether or not the button is active (and can be clicked on) or inactive and greyed out.
+///    * `fn`         - a callback function, or false to remove, specific to the button.  This function will override the toolbar callback defined with [hs._asm.toolbar:setCallback](#setCallback) for this specific button.  The function should expect three arguments and return none: the toolbar object, "console" or the webview object the toolbar is attached to, and the toolbar item identifier that was clicked.
+///
+/// Returns:
+///  * the toolbarObject
 static int modifyToolbarItem(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TBREAK] ;
@@ -709,6 +915,15 @@ static int modifyToolbarItem(lua_State *L) {
         if ([identifier isEqualToString:[check itemIdentifier]]) {
             activeItem = check ;
             break ;
+        } else if ([check isKindOfClass:[NSToolbarItemGroup class]]) {
+            for (NSToolbarItem *subItem in [(NSToolbarItemGroup *)check subitems]) {
+                if ([identifier isEqualToString:[subItem itemIdentifier]]) {
+//                     [skin logDebug:@"modify found an active subitem"] ;
+                    activeItem = subItem ;
+                    break ;
+                }
+            }
+            if (activeItem) break ;
         }
     }
     if ((![builtinToolbarItems containsObject:identifier]) && storedItem) {
@@ -721,6 +936,25 @@ static int modifyToolbarItem(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:itemDetails(id) -> table
+/// Method
+/// Returns a table containing details about the specified toolbar item
+///
+/// Parameters:
+///  * id - a string identifier specifying the toolbar item
+///
+/// Returns:
+///  * a table which will contain one or more of the follow key-value pairs:
+///    * id         - a string containing the toolbar item's identifier
+///    * label      - a string containing the toolbar item's label
+///    * tooltip    - a string containing the toolbar item's tooltip
+///    * image      - an hs.image object contining the toolbar item's image
+///    * priority   - an integer specifying the toolbar item's visibility priority
+///    * enable     - a boolean indicating whether or not the toolbar item is currently enabled
+///    * tag        - an integer specifying the toolbar item's user defined tag value
+///    * toolbar    - the toolbar object the toolbar item is attached to
+///    * selectable - a boolean indicating whether or not the toolbar item is defined as selectable
+///    * subitems   - if this item is a toolbar group, a table containing the toolbar items in the group.
 static int detailsForItemIdentifier(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -731,6 +965,15 @@ static int detailsForItemIdentifier(__unused lua_State *L) {
         if ([identifier isEqualToString:[item itemIdentifier]]) {
             ourItem = item ;
             break ;
+        } else if ([item isKindOfClass:[NSToolbarItemGroup class]]) {
+            for (NSToolbarItem *subItem in [(NSToolbarItemGroup *)item subitems]) {
+                if ([identifier isEqualToString:[subItem itemIdentifier]]) {
+//                     [skin logDebug:@"details found an active subitem"] ;
+                    ourItem = subItem ;
+                    break ;
+                }
+            }
+            if (ourItem) break ;
         }
     }
     if (!ourItem) ourItem = [toolbar.itemDictionary objectForKey:identifier] ;
@@ -738,6 +981,15 @@ static int detailsForItemIdentifier(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:allowedItems() -> array
+/// Method
+/// Returns an array of all toolbar item identifiers defined for this toolbar.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table as an array of all toolbar item identifiers defined for this toolbar.  See also [hs._asm.toolbar:items](#items) and [hs._asm.toolbar:visibleItems](#visibleItems).
 static int allowedToolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -746,6 +998,15 @@ static int allowedToolbarItems(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:items() -> array
+/// Method
+/// Returns an array of the current toolbar item identifiers.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table as an array of the current toolbar item identifiers.  Toolbar items which are in the overflow menu *are* included in this array.  See also [hs._asm.toolbar:visibleItems](#visibleItems) and [hs._asm.toolbar:allowedItems](#allowedItems).
 static int toolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -758,6 +1019,15 @@ static int toolbarItems(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:visibleItems() -> array
+/// Method
+/// Returns an array of the currently visible toolbar item identifiers.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table as an array of the currently visible toolbar item identifiers.  Toolbar items which are in the overflow menu are *not* included in this array.  See also [hs._asm.toolbar:items](#items) and [hs._asm.toolbar:allowedItems](#allowedItems).
 static int visibleToolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -770,6 +1040,18 @@ static int visibleToolbarItems(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:selectedItem([item]) -> toolbarObject | item
+/// Method
+/// Get or set the selected toolbar item
+///
+/// Parameters:
+///  * item - an optional id for the toolbar item to show as selected, or nil if you wish for no toolbar item to be selected.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
+///
+/// Notes:
+///  * Only toolbar items which were defined as `selectable` when created with [hs._asm.toolbar.new](#new) can be selected with this method.
 static int selectedToolbarItem(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -785,6 +1067,15 @@ static int selectedToolbarItem(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:identifier() -> identifier
+/// Method
+/// The identifier for this toolbar.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * The identifier for this toolbar.
 static int toolbarIdentifier(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -793,6 +1084,15 @@ static int toolbarIdentifier(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:customizePanel() -> toolbarObject
+/// Method
+/// Opens the toolbar customization panel.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the toolbar object
 static int customizeToolbar(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -802,6 +1102,15 @@ static int customizeToolbar(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:isCustomizing() -> bool
+/// Method
+/// Indicates whether or not the customization panel is currently open for the toolbar.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * true or false indicating whether or not the customization panel is open for the toolbar
 static int toolbarIsCustomizing(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -810,6 +1119,18 @@ static int toolbarIsCustomizing(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:canCustomize([bool]) -> toolbarObject | bool
+/// Method
+/// Get or set whether or not the user is allowed to customize the toolbar with the Customization Panel.
+///
+/// Parameters:
+///  * an optional boolean value indicating whether or not the user is allowed to customize the toolbar.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
+///
+/// Notes:
+///  * the customization panel can be pulled up by right-clicking on the toolbar or by invoking [hs._asm.toolbar:customizePanel](#customizePanel).
 static int toolbarCanCustomize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -824,6 +1145,25 @@ static int toolbarCanCustomize(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:autossaves([bool]) -> toolbarObject | bool
+/// Method
+/// Get or set whether or not the toolbar autosaves changes made to the toolbar.
+///
+/// Parameters:
+///  * an optional boolean value indicating whether or not changes made to the visible toolbar items or their order is automatically saved.
+///
+/// Returns:
+///  * if an argument is provided, returns the toolbar object; otherwise returns the current value
+///
+/// Notes:
+///  * If the toolbar is set to autosave, then a user-defaults entry is created in org.hammerspoon.Hammerspoon domain with the key "NSToolbar Configuration XXX" where XXX is the toolbar identifier specified when the toolbar was created.
+///  * The information saved for the toolbar consists of the following:
+///    * the default item identifiers that are displayed when the toolbar is first created or when the user drags the default set from the customization panel.
+///    * the current display mode (icon, text, both)
+///    * the current size mode (regular, small)
+///    * whether or not the toolbar is currently visible
+///    * the currently shown identifiers and their order
+/// * Note that the labels, icons, callback functions, etc. are not saved -- these are determined at toolbar creation time or by the [hs._asm.toolbar:modifyItem](#modifyItem) method and can differ between invocations of toolbars with the same identifier and button identifiers.
 static int toolbarCanAutosave(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -838,6 +1178,15 @@ static int toolbarCanAutosave(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.toolbars:infoDump() -> table
+/// Method
+/// Returns information useful for debugging
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing information stored in the HSToolbar object for debugging purposes.
 static int infoDump(lua_State *L) {
     LuaSkin *skin     = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -850,6 +1199,7 @@ static int infoDump(lua_State *L) {
     [skin pushNSObject:toolbar.itemDictionary] ;        lua_setfield(L, -2, "itemDictionary") ;
     [skin pushNSObject:toolbar.fnRefDictionary] ;       lua_setfield(L, -2, "fnRefDictionary") ;
     [skin pushNSObject:toolbar.enabledDictionary] ;     lua_setfield(L, -2, "enabledDictionary") ;
+    [skin pushNSObject:toolbar.groupings] ;             lua_setfield(L, -2, "groupings") ;
     lua_pushinteger(L, toolbar.callbackRef) ;           lua_setfield(L, -2, "callbackRef") ;
     lua_pushinteger(L, toolbar.selfRef) ;               lua_setfield(L, -2, "selfRef") ;
     [skin pushNSObject:[toolbar items]] ;               lua_setfield(L, -2, "toolbarItems") ;
@@ -866,11 +1216,29 @@ static int infoDump(lua_State *L) {
 
 #pragma mark - Module Constants
 
+/// hs._asm.toolbar.systemToolbarItems
+/// Constant
+///
+/// An array containing string identifiers for supported system defined toolbar items.
+///
+/// Currently supported identifiers include:
+///  * NSToolbarSpaceItem         - represents a space approximately the size of a toolbar item
+///  * NSToolbarFlexibleSpaceItem - represents a space that stretches to fill available space in the toolbar
 static int systemToolbarItems(__unused lua_State *L) {
     [[LuaSkin shared] pushNSObject:automaticallyIncluded] ;
     return 1 ;
 }
 
+/// hs._asm.toolbar.itemPriorities
+/// Constant
+///
+/// A table containing some pre-defined toolbar item priority values for use when determining item order in the toolbar.
+///
+/// Defined keys are:
+///  * standard - the default priority for an item which does not set or change its priority
+///  * low      - a low priority value
+///  * high     - a high priority value
+///  * user     - the priority of an item which the user has added or moved with the customization panel
 static int toolbarItemPriorities(lua_State *L) {
     lua_newtable(L) ;
     lua_pushinteger(L, NSToolbarItemVisibilityPriorityStandard) ; lua_setfield(L, -2, "standard") ;

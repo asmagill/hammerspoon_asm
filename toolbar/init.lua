@@ -1,6 +1,6 @@
---- === hs._asm.module ===
+--- === hs._asm.toolbar ===
 ---
---- Stuff about the module
+--- Create and manipulate toolbars which can be attached to the Hammerspoon console or hs.webview objects.
 
 local USERDATA_TAG = "hs._asm.toolbar"
 local module       = require(USERDATA_TAG..".internal")
