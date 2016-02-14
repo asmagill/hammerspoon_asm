@@ -3,7 +3,17 @@ hs._asm.toolbar
 
 Create and manipulate toolbars which can be attached to the Hammerspoon console or hs.webview objects.
 
-A basic, but incomplete, example:
+### Toolbar Basics
+
+Toolbars are attached to titled windows and provide buttons which can be used to perform various actions within the application.  Hammerspoon can use this module to add toolbars to the console or `hs.webview` objects which have a title bar (see `hs.webview.windowMasks` and `hs.webview:windowStyle`).  Toolbars are identified by a unique identifier which is used by OS X to identify information which can be auto saved in the application's user defaults to reflect changes the user has made to the toolbar button order or active button list (this requires setting [hs._asm.toolbar:autosaves](#autosaves) and [hs._asm.toolbar:canCustomize](#canCustomize) both to true).
+
+Multiple copies of the same toolbar can be made with the [hs._asm.toolbar:copy](#copy) method so that multiple webview windows use the same toolbar, for example.  If the user customizes a copied toolbar, changes to the active buttons or their order will be reflected in all copies of the toolbar.
+
+You cannot add items to an existing toolbar, but you can delete it and re-create it with the same identifier, adding new button items to the new instance.  If the toolbar identifier matches autosaved preferences, the new toolbar will look like it did before, but the user will be able to add the new items by customizing the toolbar or by using the [hs._asm.toolbar:insertItem](#insertItem) method.
+
+### Example
+
+A basic, example:
 
 ~~~lua
 t = require("hs._asm.toolbar")
@@ -21,7 +31,7 @@ a = t.new("myConsole", {
         { id = "cust", label = "customize", fn = function(t, w, i) t:customizePanel() end }
     }):canCustomize(true)
       :autosaves(true)
-      :selectedItem("2")
+      :selectedItem("select2")
       :setCallback(function(...)
                         print("a", inspect(table.pack(...)))
                    end)
@@ -140,9 +150,9 @@ Notes:
 
 ### Module Methods
 
-<a name="autossaves"></a>
+<a name="autosaves"></a>
 ~~~lua
-toolbar:autossaves([bool]) -> toolbarObject | bool
+toolbar:autosaves([bool]) -> toolbarObject | bool
 ~~~
 Get or set whether or not the toolbar autosaves changes made to the toolbar.
 
@@ -206,6 +216,20 @@ Parameters:
 
 Returns:
  * a copy of the toolbar which can be attached to another window (webview or console).
+
+- - -
+
+<a name="delete"></a>
+~~~lua
+toolbar:delete() -> none
+~~~
+Deletes the toolbar, removing it from its window if it is currently attached.
+
+Parameters:
+ * None
+
+Returns:
+ * None
 
 - - -
 

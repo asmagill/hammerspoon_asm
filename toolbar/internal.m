@@ -1341,6 +1341,15 @@ static int userdata_eq(lua_State* L) {
     return 1 ;
 }
 
+/// hs._asm.toolbar:delete() -> none
+/// Method
+/// Deletes the toolbar, removing it from its window if it is currently attached.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * None
 static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSToolbar *obj = get_objectFromUserdata(__bridge_transfer HSToolbar, L, 1, USERDATA_TAG) ;
