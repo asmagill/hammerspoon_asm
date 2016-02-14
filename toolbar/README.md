@@ -18,17 +18,17 @@ A basic, example:
 ~~~lua
 t = require("hs._asm.toolbar")
 a = t.new("myConsole", {
-        { id = "select1", selectable = true },
+        { id = "select1", selectable = true, image = hs.image.imageFromName("NSStatusAvailable") },
         { id = "NSToolbarSpaceItem" },
-        { id = "select2", selectable = true },
-        { id = "notShown", default = false },
-        { id = "NSToolbarFlexibleSpaceItem" },
+        { id = "select2", selectable = true, image = hs.image.imageFromName("NSStatusUnavailable") },
+        { id = "notShown", default = false, image = hs.image.imageFromName("NSBonjour") },
         { id = "NSToolbarFlexibleSpaceItem" },
         { id = "navGroup", label = "Navigation",
             { id = "navLeft", image = hs.image.imageFromName("NSGoLeftTemplate") },
             { id = "navRight", image = hs.image.imageFromName("NSGoRightTemplate") }
         },
-        { id = "cust", label = "customize", fn = function(t, w, i) t:customizePanel() end }
+        { id = "NSToolbarFlexibleSpaceItem" },
+        { id = "cust", label = "customize", fn = function(t, w, i) t:customizePanel() end, image = hs.image.imageFromName("NSAdvanced") }
     }):canCustomize(true)
       :autosaves(true)
       :selectedItem("select2")
