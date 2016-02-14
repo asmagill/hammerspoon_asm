@@ -1,7 +1,38 @@
 --- === hs._asm.toolbar ===
 ---
 --- Create and manipulate toolbars which can be attached to the Hammerspoon console or hs.webview objects.
-
+---
+--- Toolbars are attached to titled windows and provide buttons which can be used to perform various actions within the application.  Hammerspoon can use this module to add toolbars to the console or `hs.webview` objects which have a title bar (see `hs.webview.windowMasks` and `hs.webview:windowStyle`).  Toolbars are identified by a unique identifier which is used by OS X to identify information which can be auto saved in the application's user defaults to reflect changes the user has made to the toolbar button order or active button list (this requires setting [hs._asm.toolbar:autosaves](#autosaves) and [hs._asm.toolbar:canCustomize](#canCustomize) both to true).
+---
+--- Multiple copies of the same toolbar can be made with the [hs._asm.toolbar:copy](#copy) method so that multiple webview windows use the same toolbar, for example.  If the user customizes a copied toolbar, changes to the active buttons or their order will be reflected in all copies of the toolbar.
+---
+--- You cannot add items to an existing toolbar, but you can delete it and re-create it with the same identifier, adding new button items to the new instance.  If the toolbar identifier matches autosaved preferences, the new toolbar will look like it did before, but the user will be able to add the new items by customizing the toolbar or by using the [hs._asm.toolbar:insertItem](#insertItem) method.
+---
+--- Example:
+--- ~~~lua
+--- t = require("hs._asm.toolbar")
+--- a = t.new("myConsole", {
+---         { id = "select1", selectable = true, image = hs.image.imageFromName("NSStatusAvailable") },
+---         { id = "NSToolbarSpaceItem" },
+---         { id = "select2", selectable = true, image = hs.image.imageFromName("NSStatusUnavailable") },
+---         { id = "notShown", default = false, image = hs.image.imageFromName("NSBonjour") },
+---         { id = "NSToolbarFlexibleSpaceItem" },
+---         { id = "navGroup", label = "Navigation",
+---             { id = "navLeft", image = hs.image.imageFromName("NSGoLeftTemplate") },
+---             { id = "navRight", image = hs.image.imageFromName("NSGoRightTemplate") }
+---         },
+---         { id = "NSToolbarFlexibleSpaceItem" },
+---         { id = "cust", label = "customize", fn = function(t, w, i) t:customizePanel() end, image = hs.image.imageFromName("NSAdvanced") }
+---     }):canCustomize(true)
+---       :autosaves(true)
+---       :selectedItem("select2")
+---       :setCallback(function(...)
+---                         print("a", inspect(table.pack(...)))
+---                    end)
+---
+--- t.attachToolbar(a)
+--- ~~~
+---
 local USERDATA_TAG = "hs._asm.toolbar"
 local module       = require(USERDATA_TAG..".internal")
 

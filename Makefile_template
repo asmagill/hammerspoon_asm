@@ -54,6 +54,9 @@ docs: $(DOC_FILE)
 $(DOC_FILE): $(DOC_SOURCES)
 	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | __doc_tools/gencomments | __doc_tools/genjson > $@
 
+markdown:
+	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
+
 install-docs: docs
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(DOC_FILE) $(PREFIX)/hs/_asm/$(MODULE)

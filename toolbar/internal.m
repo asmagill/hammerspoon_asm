@@ -1178,7 +1178,7 @@ static int toolbarCanAutosave(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.toolbars:infoDump() -> table
+/// hs._asm.toolbar:infoDump() -> table
 /// Method
 /// Returns information useful for debugging
 ///
@@ -1218,7 +1218,6 @@ static int infoDump(lua_State *L) {
 
 /// hs._asm.toolbar.systemToolbarItems
 /// Constant
-///
 /// An array containing string identifiers for supported system defined toolbar items.
 ///
 /// Currently supported identifiers include:
@@ -1231,7 +1230,6 @@ static int systemToolbarItems(__unused lua_State *L) {
 
 /// hs._asm.toolbar.itemPriorities
 /// Constant
-///
 /// A table containing some pre-defined toolbar item priority values for use when determining item order in the toolbar.
 ///
 /// Defined keys are:
