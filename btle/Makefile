@@ -19,7 +19,7 @@ space +=
 comma := ,
 ALLFILES := $(LUAFILE)
 ALLFILES += $(SOFILE)
-
+ALLFILES += org.bluetooth.txt
 .SUFFIXES: .m .so
 
 #CC=cc
@@ -48,6 +48,7 @@ install-objc: $(SOFILE)
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
+	install -m 0644 org.bluetooth.txt $(PREFIX)/hs/_asm/$(MODULE)
 
 docs: $(DOC_FILE)
 

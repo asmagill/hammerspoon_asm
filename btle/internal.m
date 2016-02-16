@@ -8,7 +8,8 @@
 #define UD_CHARACTERISTIC_TAG "hs._asm.btle.charactersitic"
 #define UD_DESCRIPTOR_TAG     "hs._asm.btle.descriptor"
 
-static int refTable = LUA_NOREF;
+static int refTable   = LUA_NOREF;
+static int gattLookup = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
@@ -103,6 +104,7 @@ static int refTable = LUA_NOREF;
         // we discovered it, so I guess we're now it's delegate... at least until I find that this breaks something
         peripheral.delegate = manager ;
         [skin pushNSObject:peripheral] ;
+//         NSLog(@"advertisementdata = %@", advertisementData) ;
         [skin pushNSObject:advertisementData] ;
         [skin pushNSObject:RSSI] ;
         if (![skin protectedCallAndTraceback:5 nresults:0]) {
@@ -416,6 +418,13 @@ static int createManager(lua_State *L) {
     else
         lua_pushnil(L) ;
     return 1 ;
+}
+
+static int assignGattLookup(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    gattLookup = [skin luaRef:refTable] ;
+    return 0 ;
 }
 
 #pragma mark - Module Methods
@@ -972,9 +981,23 @@ id toCBDescriptorFromLuaUD(lua_State *L, int idx) {
 static int pushCBUUID(lua_State *L, id obj) {
     CBUUID *theCBUUID = obj ;
     LuaSkin *skin = [LuaSkin shared] ;
-    lua_newtable(L) ;
-    [skin pushNSObject:theCBUUID.UUIDString] ; lua_setfield(L, -2, "UUID") ;
-    [skin pushNSObject:theCBUUID.data] ;       lua_setfield(L, -2, "data") ;
+//     lua_newtable(L) ;
+//     [skin pushNSObject:theCBUUID.UUIDString] ; lua_setfield(L, -2, "UUID") ;
+// the data is just the UUID in binary form
+//     [skin pushNSObject:theCBUUID.data] ;       lua_setfield(L, -2, "data") ;
+
+    NSString *answer = theCBUUID.UUIDString ; // default to the UUID itself
+    if (gattLookup != LUA_NOREF) {
+        [skin pushLuaRef:refTable ref:gattLookup] ;
+        if (lua_getfield(L, -1, [answer UTF8String]) == LUA_TTABLE) {
+            if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
+                answer = [skin toNSObjectAtIndex:-1] ;
+            }
+            lua_pop(L, 1); // name field
+        }
+        lua_pop(L, 2); // UUID lookup and gattLookup Table
+    }
+    [skin pushNSObject:answer];
     return 1 ;
 }
 
@@ -1145,6 +1168,8 @@ static const luaL_Reg descriptor_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"create", createManager},
+    {"_assignGattLookup", assignGattLookup},
+
     {NULL,  NULL}
 };
 
@@ -1160,6 +1185,7 @@ int luaopen_hs__asm_btle_internal(lua_State* L) {
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
                                objectFunctions:userdata_metaLib];
+    gattLookup = LUA_NOREF ;
 
     pushCBUUIDStrings(L) ;              lua_setfield(L, -2, "UUIDLookup") ;
     pushCBCharacteristicProperties(L) ; lua_setfield(L, -2, "characteristicProperties") ;

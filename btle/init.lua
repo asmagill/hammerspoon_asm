@@ -8,7 +8,8 @@
 ---
 --- This code is still very experimental.
 
-local USERDATA_TAG = "hs._asm.btle"
+local USERDATA_TAG     = "hs._asm.btle"
+local data = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."org.bluetooth.txt"
 
 if require("hs.host").operatingSystemVersion().minor < 9 then
     error(USERDATA_TAG.." requires OS X 10.9 or newer",2)
@@ -22,6 +23,28 @@ local log        = require("hs.logger").new("btle","verbose") -- for debugging, 
 module.log       = log
 
 local peripheral = hs.getObjectMetatable(USERDATA_TAG..".peripheral")
+
+module.gattByUUID, module.gattByName = {}, {}
+local tableType, url
+for line in io.lines(data) do
+    if line:match("^https:") then
+        tableType = line:match("^https:.*/(%w+)Home.*%.aspx$"):lower()
+        url = line
+    elseif line ~= "" then
+        local desc, name, number = line:match("^([^\t]+)\t([^\t]+)\t0[xX]([^\t]+)$")
+--         print(desc, name, number)
+        module.gattByUUID[number] = {
+            uuid = number,
+            description = desc,
+            name = name,
+            ["type"] = tableType,
+            url = url
+        }
+        module.gattByName[name] = module.gattByUUID[number]
+    end
+end
+core._assignGattLookup(module.gattByUUID)
+core._assignGattLookup = nil -- it should only be called once
 
 -- private variables and methods -----------------------------------------
 
@@ -126,6 +149,8 @@ end
 module.userCallbacks            = {}
 module.UUIDLookup               = _makeConstantsTable(core.UUIDLookup)
 module.characteristicProperties = _makeConstantsTable(core.characteristicProperties)
+module.gattByUUID               = _makeConstantsTable(module.gattByUUID)
+module.gattByName               = _makeConstantsTable(module.gattByName)
 
 module.discovered = {}
 
@@ -134,7 +159,7 @@ module.create = function()
         log.wf("%s already initialized", USERDATA_TAG)
     else
         module.manager = core.create():setCallback(function(manager, message, ...)
-            log.vf("manager callback:%s -- %s", message, hs.inspect(table.pack(...)))
+            log.vf("manager callback:%s -- %s", message, hs.utf8.asciiOnly(hs.inspect(table.pack(...))))
             if     message == "didConnectPeripheral" then
             elseif message == "didDisconnectPeripheral" then
             elseif message == "didFailToConnectPeripheral" then
@@ -185,7 +210,7 @@ module.create = function()
                 for i,v in ipairs(module.userCallbacks) do v(manager, message, ...) end
             end
         end):setPeripheralCallback(function(peripheral, message, ...)
-            log.vf("peripheral callback:%s -- %s", message, hs.inspect(table.pack(...)))
+            log.vf("peripheral callback:%s -- %s", message, hs.utf8.asciiOnly(hs.inspect(table.pack(...))))
             for i,v in ipairs(module.discovered)  do
                 if v.peripheral == peripheral and v.fn then
                     v.fn(peripheral, message, ...)
