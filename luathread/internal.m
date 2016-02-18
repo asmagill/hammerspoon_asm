@@ -8,12 +8,34 @@
 // *  @try/@catch to catch luaskin NSAsserts?
 //        can LuaSkin be made thread safe?  I kind of doubt it, so how much of it should be replicated?
 // *  flag to callback for output, result, error
-//    transfer base data types directly?
+// *  transfer base data types directly?
+//        meta methods so thread dictionary can be treated like a regular lua table?
+//        other types?
 //    check if thread is running in methods
+//    method argument checking since we can't always use LuaSkin
+//    locks need timeout/fallback (reset?)
 //    document
 #import "luathread.h"
 
 #pragma mark - Support Functions and Classes
+
+@interface HSASMBooleanType : NSObject
+@property (readonly) BOOL value ;
+@end
+
+@implementation HSASMBooleanType
+-(instancetype)initWithValue:(BOOL)value {
+    self = [super init] ;
+    if (self) {
+        _value = value ;
+    }
+    return self ;
+}
+
++(instancetype)withTrueValue { return [[HSASMBooleanType alloc] initWithValue:YES] ; }
++(instancetype)withFalseValue { return [[HSASMBooleanType alloc] initWithValue:NO] ; }
+
+@end
 
 @interface HSASMLuaThread : NSThread
 @property            int            callbackRef ;
@@ -25,6 +47,7 @@
 @property (readonly) NSMutableArray *output ;
 @property            BOOL           inputLock ;
 @property (readonly) NSMutableArray *input ;
+@property            BOOL           dictionaryLock ;
 @end
 
 @implementation HSASMLuaThread
@@ -32,16 +55,17 @@
     LuaSkin *skin = [LuaSkin shared] ;
     self = [super init] ;
     if (self) {
-        self.name     = instanceName ;
-        _callbackRef  = LUA_NOREF ;
-        _runStringRef = LUA_NOREF ;
-        _selfRef      = LUA_NOREF ;
-        _output       = [[NSMutableArray alloc] init] ;
-        _input        = [[NSMutableArray alloc] init] ;
-        _outputLock   = NO ;
-        _inputLock    = NO ;
-        _idle         = NO ;
-        _L            = luaL_newstate() ;
+        self.name       = instanceName ;
+        _callbackRef    = LUA_NOREF ;
+        _runStringRef   = LUA_NOREF ;
+        _selfRef        = LUA_NOREF ;
+        _output         = [[NSMutableArray alloc] init] ;
+        _input          = [[NSMutableArray alloc] init] ;
+        _outputLock     = NO ;
+        _inputLock      = NO ;
+        _dictionaryLock = NO ;
+        _idle           = NO ;
+        _L              = luaL_newstate() ;
         luaL_openlibs(_L) ;
         lua_pushglobaltable(_L) ;
 
@@ -284,6 +308,21 @@ static int setCallback(lua_State *L) {
     return 1 ;
 }
 
+static int dumpDictionary(lua_State *L) {
+    if ([NSThread isMainThread]) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+        HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+        [skin pushNSObject:[thread threadDictionary] withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                                 LS_NSLuaStringAsDataOnly |
+                                                                 LS_NSDescribeUnknownTypes |
+                                                                 LS_NSAllowsSelfReference] ;
+    } else {
+        return luaL_error(L, "only available on the main thread") ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Thread Methods
 
 static int returnString(lua_State *L) {
@@ -326,6 +365,125 @@ static int submitString(lua_State *L) {
     return 1 ;
 }
 
+// simplified version of what the LuaSkin push/to methods do, since we have more control over the
+// types of data being shared
+static int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) {
+    if ([alreadySeen objectForKey:obj]) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:obj] intValue]) ;
+    } else {
+        if (!obj || [obj isKindOfClass:[NSNull class]]) {
+            lua_pushnil(L) ;
+        } else if ([obj isKindOfClass:[NSData class]]) {
+            lua_pushlstring(L, [(NSData *)obj bytes], [(NSData *)obj length]) ;
+        } else if ([obj isKindOfClass:[NSNumber class]]) {
+            NSNumber *number = obj ;
+            switch([number objCType][0]) {
+                case 'c': lua_pushinteger(L, [number charValue]) ; break ;
+                case 'C': lua_pushinteger(L, [number unsignedCharValue]) ; break ;
+                case 'i': lua_pushinteger(L, [number intValue]) ; break ;
+                case 'I': lua_pushinteger(L, [number unsignedIntValue]) ; break ;
+                case 's': lua_pushinteger(L, [number shortValue]) ; break ;
+                case 'S': lua_pushinteger(L, [number unsignedShortValue]) ; break ;
+                case 'l': lua_pushinteger(L, [number longValue]) ; break ;
+                case 'L': lua_pushinteger(L, (long long)[number unsignedLongValue]) ; break ;
+                case 'q': lua_pushinteger(L, [number longLongValue]) ; break ;
+                case 'Q': lua_pushinteger(L, (long long)[number unsignedLongLongValue]) ; break ;
+                case 'f': lua_pushnumber(L,  [number floatValue]) ; break ;
+                case 'd':
+                default:  lua_pushnumber(L,  [number doubleValue]) ; break ;
+            }
+        } else if ([obj isKindOfClass:[NSDictionary class]]) {
+            NSArray *keys = [obj allKeys];
+            NSArray *values = [obj allValues];
+            lua_newtable(L);
+            [alreadySeen setObject:[NSNumber numberWithInt:luaL_ref(L, LUA_REGISTRYINDEX)] forKey:obj] ;
+            lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:obj] intValue]) ;
+            for (unsigned long i = 0; i < [keys count]; i++) {
+                getHamster(L, [keys objectAtIndex:i], alreadySeen) ;
+                getHamster(L, [values objectAtIndex:i], alreadySeen) ;
+                lua_settable(L, -3);
+            }
+        } else if ([obj isKindOfClass:[HSASMBooleanType class]]) {
+// Wrapping boolean like this only works here because we know the source and destination are both
+// Lua... LuaSkin translates between languages with differing treatments of boolean, so it can't use
+// this wrapper.
+            lua_pushboolean(L, [(HSASMBooleanType *)obj value]) ;
+        } else {
+            lua_pushfstring(L, "** unknown:%s", [obj description]) ;
+        }
+    }
+    return 1 ;
+}
+
+static int getItemFromDictionary(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    id obj ;
+    luaL_checkstring(L, 2) ;
+    while(thread.dictionaryLock) {} ;
+    thread.dictionaryLock = YES ;
+    obj = [[thread threadDictionary] objectForKey:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
+    getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
+    thread.dictionaryLock = NO ;
+    return 1 ;
+}
+
+id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) {
+    idx = lua_absindex(L, idx) ;
+    if ([alreadySeen objectForKey:[NSValue valueWithPointer:lua_topointer(L, idx)]]) {
+        return [alreadySeen objectForKey:[NSValue valueWithPointer:lua_topointer(L, idx)]] ;
+    }
+    id obj ;
+    if (lua_type(L, idx) == LUA_TNIL) {
+        obj = nil ;
+    } else if (lua_type(L, idx) == LUA_TSTRING) {
+        size_t size ;
+        unsigned char *junk = (unsigned char *)lua_tolstring(L, idx, &size) ;
+        obj = [NSData dataWithBytes:(void *)junk length:size] ;
+    } else if (lua_type(L, idx) == LUA_TNUMBER) {
+        obj = lua_isinteger(L, idx) ? [NSNumber numberWithLongLong:lua_tointeger(L, idx)] :
+                                      [NSNumber numberWithDouble:lua_tonumber(L, idx)] ;
+    } else if (lua_type(L, idx) == LUA_TBOOLEAN) {
+// Wrapping boolean like this only works here because we know the source and destination are both
+// Lua... LuaSkin translates between languages with differing treatments of boolean, so it can't use
+// this wrapper.
+        obj = lua_toboolean(L, idx) ? [HSASMBooleanType withTrueValue] :
+                                      [HSASMBooleanType withFalseValue] ;
+    } else if (lua_type(L, idx) == LUA_TTABLE) {
+        obj = [[NSMutableDictionary alloc] init] ;
+        [alreadySeen setObject:obj forKey:[NSValue valueWithPointer:lua_topointer(L, idx)]] ;
+
+        lua_pushnil(L);
+        while (lua_next(L, idx) != 0) {
+            id key = setHamster(L, -2, alreadySeen) ;
+            id val = setHamster(L, -1, alreadySeen) ;
+            if (key) {
+                [obj setValue:val forKey:key];
+                lua_pop(L, 1);
+            } else {
+                NSString *errMsg = [NSString stringWithFormat:@"table key (%s) cannot be converted",
+                                                             luaL_tolstring(L, -2, NULL)] ;
+                lua_pop(L, 3) ; // luaL_tolstring result, lua_next value, and lua_next key
+                luaL_error(L, [errMsg UTF8String]) ;
+                return nil ;
+            }
+        }
+    } else {
+        obj = [NSString stringWithFormat:@"** unsupported type:%s", lua_typename(L, lua_type(L, idx))] ;
+    }
+    return obj ;
+}
+
+static int setItemInDictionary(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    id obj = setHamster(L, 3, [[NSMutableDictionary alloc] init]) ;
+    luaL_checkstring(L, 2) ;
+    while(thread.dictionaryLock) {} ;
+    thread.dictionaryLock = YES ;
+    [[thread threadDictionary] setValue:obj forKey:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
+    thread.dictionaryLock = NO ;
+    return 0 ;
+}
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -354,6 +512,12 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) {
                                                   lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
+}
+
+static int pushHSASMBooleanType(lua_State *L, id obj) {
+    HSASMBooleanType *value = obj ;
+    lua_pushboolean(L, value.value) ;
+    return 1 ;
 }
 
 #pragma mark - Hammerspoon/Lua Infrastructure
@@ -418,6 +582,10 @@ static const luaL_Reg userdata_metaLib[] = {
     {"flushOutput", flushOutput},
     {"getOutput",   getOutput},
     {"inputQueue",  inputQueue},
+    {"get",         getItemFromDictionary},
+    {"set",         setItemInDictionary},
+
+    {"dump",         dumpDictionary},
 
     {"__tostring",  userdata_tostring},
     {"__eq",        userdata_eq},
@@ -452,6 +620,8 @@ int luaopen_hs__asm_luathread_internal(lua_State* __unused L) {
     [skin registerPushNSHelper:pushHSASMLuaThread         forClass:"HSASMLuaThread"];
     [skin registerLuaObjectHelper:toHSASMLuaThreadFromLua forClass:"HSASMLuaThread"
                                                withUserdataMapping:USERDATA_TAG];
+
+    [skin registerPushNSHelper:pushHSASMBooleanType       forClass:"HSASMBooleanType"];
 
     return 1;
 }

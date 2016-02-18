@@ -18,6 +18,8 @@ static int returnString(lua_State *L) ;
 static int threadName(lua_State *L) ;
 static int submitString(lua_State *L) ;
 static int cancelThread(lua_State *L) ;
+static int getItemFromDictionary(lua_State *L) ;
+static int setItemInDictionary(lua_State *L) ;
 
 static int userdata_tostring(lua_State* L) ;
 static int userdata_eq(lua_State* L) ;
@@ -29,6 +31,8 @@ static const luaL_Reg thread_userdata_metaLib[] = {
     {"isCancelled", threadCancelled},
     {"submit",      submitString},
     {"print",       returnString},
+    {"get",         getItemFromDictionary},
+    {"set",         setItemInDictionary},
 
     {"__tostring",  userdata_tostring},
     {"__eq",        userdata_eq},
