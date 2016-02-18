@@ -2,50 +2,16 @@
 //    see https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/Multithreading/RunLoopManagement/RunLoopManagement.html#//apple_ref/doc/uid/10000057i-CH16-SW1
 // *  switch input (and output?) to array
 //    switch input and output to NSData
-//    allow init file additions by name
+// *  allow init file additions by name
 // *  debug.sethook to detect cancelled?
 // *  separate metatables?
-//    @try/@catch to catch luaskin NSAsserts?
+// *  @try/@catch to catch luaskin NSAsserts?
 //        can LuaSkin be made thread safe?  I kind of doubt it, so how much of it should be replicated?
 // *  flag to callback for output, result, error
 //    transfer base data types directly?
 //    check if thread is running in methods
-
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
-
-#define USERDATA_TAG "hs._asm.lua"
-static int      refTable = LUA_NOREF;
-static NSString *threadInitFile ;
-
-#define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
-
-static int pushHSASMLuaThread(lua_State *L, id obj) ;
-static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
-
-// Metatable for userdata objects
-static int cancelThread(lua_State *L) ;
-static int threadName(lua_State *L) ;
-static int threadCancelled(lua_State *L) ;
-static int submitString(lua_State *L) ;
-static int returnString(lua_State *L) ;
-static int userdata_tostring(lua_State *L) ;
-static int userdata_eq(lua_State *L) ;
-static int userdata_gc(lua_State *L) ;
-static const luaL_Reg thread_userdata_metaLib[] = {
-    {"cancel",      cancelThread},
-    {"name",        threadName},
-    {"isCancelled", threadCancelled},
-    {"submit",      submitString},
-    {"print",       returnString},
-
-    {"__tostring",  userdata_tostring},
-    {"__eq",        userdata_eq},
-    {"__gc",        userdata_gc},
-    {NULL,          NULL}
-};
+//    document
+#import "luathread.h"
 
 #pragma mark - Support Functions and Classes
 
@@ -92,6 +58,7 @@ static const luaL_Reg thread_userdata_metaLib[] = {
         lua_setmetatable(_L, -2);
 
         lua_setfield(_L, -2, "_instance") ;
+        NSString *threadInitFile = [assignmentsFromParent objectForKey:@"initfile"] ;
         if (threadInitFile) {
             int loadresult = luaL_loadfile(_L, [threadInitFile fileSystemRepresentation]);
             if (loadresult != 0) {
@@ -103,7 +70,10 @@ static const luaL_Reg thread_userdata_metaLib[] = {
                 return nil ;
             }
             lua_pushstring(_L, [instanceName UTF8String]) ;
-            if (lua_pcall(_L, 1, 1, 0) != LUA_OK) {
+            lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"configdir"] UTF8String]) ;
+            lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"path"] UTF8String]) ;
+            lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"cpath"] UTF8String]) ;
+            if (lua_pcall(_L, 4, 1, 0) != LUA_OK) {
                 [self cancel] ;
                 [skin logError:[NSString stringWithFormat:@"%s:unable to execute init file %@: %s",
                                                           USERDATA_TAG,
@@ -140,22 +110,32 @@ static const luaL_Reg thread_userdata_metaLib[] = {
             if (_runStringRef != LUA_NOREF) {
                 lua_rawgeti(_L, LUA_REGISTRYINDEX, _runStringRef);
                 lua_pushstring(_L, [inputLine UTF8String]) ;
-                if (lua_pcall(_L, 1, 1, 0) != LUA_OK) {
-                    NSString *error = [NSString stringWithFormat:@"%s", lua_tostring(_L, -1)] ;
-                    dispatch_sync(dispatch_get_main_queue(), ^{
-                        LuaSkin   *skin  = [LuaSkin shared] ;
-                        [skin logError:[NSString stringWithFormat:@"%s:exiting thread; error in runstring:%@",
-                                                                  USERDATA_TAG,
-                                                                  error]] ;
-                    }) ;
-                    [self cancel] ;
-                } else {
-                    while(_outputLock) {} ;
-                    _outputLock = YES ;
-                    [_output addObject:[NSString stringWithFormat:@"%s", lua_tostring(_L, -1)]] ;
-                    _outputLock = NO ;
+                @try {
+                    if (lua_pcall(_L, 1, 1, 0) != LUA_OK) {
+                        NSString *error = [NSString stringWithFormat:@"%s", lua_tostring(_L, -1)] ;
+                        dispatch_sync(dispatch_get_main_queue(), ^{
+                            LuaSkin   *skin  = [LuaSkin shared] ;
+                            [skin logError:[NSString stringWithFormat:@"%s:exiting thread; error in runstring:%@",
+                                                                      USERDATA_TAG,
+                                                                      error]] ;
+                        }) ;
+                        [self cancel] ;
+                    } else {
+                        while(_outputLock) {} ;
+                        _outputLock = YES ;
+                        [_output addObject:[NSString stringWithFormat:@"%s", lua_tostring(_L, -1)]] ;
+                        _outputLock = NO ;
+                    }
+                    lua_pop(_L, 1) ;
+                } @catch (NSException *theException) {
+                        dispatch_sync(dispatch_get_main_queue(), ^{
+                            LuaSkin   *skin  = [LuaSkin shared] ;
+                            [skin logError:[NSString stringWithFormat:@"%s:exception %@:%@",
+                                                                      USERDATA_TAG,
+                                                                      theException.name,
+                                                                      theException.reason]] ;
+                        }) ;
                 }
-                lua_pop(_L, 1) ;
             } else {
                 // raw; should we allow it? only output will be by invoking _instance:print directly...
                 luaL_dostring(_L, [inputLine UTF8String]) ;
@@ -178,7 +158,7 @@ static const luaL_Reg thread_userdata_metaLib[] = {
     if (_callbackRef != LUA_NOREF) {
         while(_outputLock) {} ;
         _outputLock          = YES ;
-        NSString *outputCopy = [_output componentsJoinedByString:@"\n"] ;
+        NSString *outputCopy = [_output componentsJoinedByString:@""] ;
         [_output removeAllObjects] ;
         _outputLock          = NO ;
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -215,27 +195,14 @@ static int newLuaWithName(lua_State *L) {
     return 1 ;
 }
 
-static int assignThreadInitFile(__unused lua_State *L) {
+static int assignments(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-    threadInitFile = [skin toNSObjectAtIndex:1] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    assignmentsFromParent = [skin toNSObjectAtIndex:1] ;
     return 0 ;
 }
 
-#pragma mark - Module Methods
-
-static int cancelThread(lua_State *L) {
-    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
-    [thread cancel] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int threadName(lua_State *L) {
-    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
-    lua_pushstring(L, [thread.name UTF8String]) ;
-    return 1 ;
-}
+#pragma mark - Hammerspoon Module Methods
 
 static int threadIdle(lua_State *L) {
     HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
@@ -246,22 +213,6 @@ static int threadIdle(lua_State *L) {
 static int threadExecuting(lua_State *L) {
     HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
     lua_pushboolean(L, thread.executing) ;
-    return 1 ;
-}
-
-static int threadCancelled(lua_State *L) {
-    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
-    lua_pushboolean(L, thread.cancelled) ;
-    return 1 ;
-}
-
-static int submitString(lua_State *L) {
-    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
-    while(thread.inputLock) {} ;
-    thread.inputLock = YES ;
-    [thread.input addObject:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
-    thread.inputLock = NO ;
-    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
@@ -306,28 +257,6 @@ static int flushInput(lua_State *L) {
     return 1 ;
 }
 
-static int returnString(lua_State *L) {
-    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
-    while(thread.outputLock) {} ;
-    thread.outputLock = YES ;
-    [thread.output addObject:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
-    thread.outputLock = NO ;
-    return 0 ;
-}
-
-// static int luaSkinTest(lua_State *L) {
-//     __block lua_State *L2 ;
-//     if ([NSThread isMainThread]) {
-//         L2 = [[LuaSkin shared] L] ;
-//     } else {
-//         dispatch_sync(dispatch_get_main_queue(), ^{
-//             L2 = [[LuaSkin shared] L] ;
-//         }) ;
-//     }
-//     lua_pushboolean(L, (L == L2)) ;
-//     return 1 ;
-// }
-
 static int setCallback(lua_State *L) {
     if ([NSThread isMainThread]) {
         LuaSkin *skin = [LuaSkin shared] ;
@@ -355,7 +284,47 @@ static int setCallback(lua_State *L) {
     return 1 ;
 }
 
-#pragma mark - Module Constants
+#pragma mark - Thread Methods
+
+static int returnString(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    while(thread.outputLock) {} ;
+    thread.outputLock = YES ;
+    [thread.output addObject:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
+    thread.outputLock = NO ;
+    return 0 ;
+}
+
+static int threadCancelled(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    lua_pushboolean(L, thread.cancelled) ;
+    return 1 ;
+}
+
+#pragma mark - Methods used by both
+
+static int cancelThread(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    [thread cancel] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int threadName(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    lua_pushstring(L, [thread.name UTF8String]) ;
+    return 1 ;
+}
+
+static int submitString(lua_State *L) {
+    HSASMLuaThread *thread = toHSASMLuaThreadFromLua(L, 1) ;
+    while(thread.inputLock) {} ;
+    thread.inputLock = YES ;
+    [thread.input addObject:[NSString stringWithFormat:@"%s", lua_tostring(L, 2)]] ;
+    thread.inputLock = NO ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
 
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
@@ -458,8 +427,8 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new",                   newLuaWithName},
-    {"_assignThreadInitFile", assignThreadInitFile},
+    {"new",          newLuaWithName},
+    {"_assignments", assignments},
 
     {NULL,                NULL}
 };
@@ -471,14 +440,14 @@ static luaL_Reg moduleLib[] = {
 // };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs__asm_lua_internal(lua_State* __unused L) {
+int luaopen_hs__asm_luathread_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
                                objectFunctions:userdata_metaLib];
 
-    threadInitFile = nil ;
+    assignmentsFromParent = nil ;
 
     [skin registerPushNSHelper:pushHSASMLuaThread         forClass:"HSASMLuaThread"];
     [skin registerLuaObjectHelper:toHSASMLuaThreadFromLua forClass:"HSASMLuaThread"

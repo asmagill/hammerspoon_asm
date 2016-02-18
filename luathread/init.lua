@@ -2,14 +2,19 @@
 ---
 --- Spawn new lua instances from within Hammerspoon
 
-local USERDATA_TAG = "hs._asm.lua"
+local USERDATA_TAG = "hs._asm.luathread"
 local module       = require(USERDATA_TAG..".internal")
 
 -- private variables and methods -----------------------------------------
 
 local threadInitFile = package.searchpath(USERDATA_TAG.."._init", package.path)
-module._assignThreadInitFile(threadInitFile)
-module._assignThreadInitFile = nil -- should only be called once, then never again
+module._assignments({
+    initfile  = threadInitFile,
+    configdir = hs.configdir,
+    path      = package.path,
+    cpath     = package.cpath,
+})
+module._assignments = nil -- should only be called once, then never again
 
 -- local _kMetaTable = {}
 -- -- planning to experiment with using this with responses to functional queries... and I
