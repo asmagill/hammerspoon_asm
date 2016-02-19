@@ -29,11 +29,11 @@ if _instance then
 
     _sharedTable = {}
     setmetatable(_sharedTable, {
-        __index    = function(t, k) return self:get(k) end,
-        __newindex = function(t, k, v) self:set(k, v) end,
+        __index    = function(t, k) return _instance:get(k) end,
+        __newindex = function(t, k, v) _instance:set(k, v) end,
         __pairs    = function(t)
-            local keys, values = self:keys(), {}
-            for k, v in ipairs(keys) do values[v] = self:get(v) end
+            local keys, values = _instance:keys(), {}
+            for k, v in ipairs(keys) do values[v] = _instance:get(v) end
             return function(t, i)
                 i = table.remove(keys, 1)
                 if i then
@@ -45,13 +45,13 @@ if _instance then
         end,
         __len      = function(t)
             local len, pos = 0, 1
-            while self:get(pos) do
+            while _instance:get(pos) do
                 len = pos
                 pos = pos + 1
             end
             return len
         end,
-        __metatable = "shared data:"..self:name()
+        __metatable = "shared data:".._instance:name()
     })
 
     package.path  = path
@@ -74,7 +74,7 @@ if _instance then
     end
 
     hs.inspect    = require("hs.inspect")
-    hs.fs         = require("hs.fs.internal")
+    hs.fs         = require("hs.fs.internal") -- skips watcher, which requires LuaSkin
     -- remove the elements that require LuaSkin
     hs.fs.fileUTI    = nil
     hs.fs.tagsAdd    = nil
