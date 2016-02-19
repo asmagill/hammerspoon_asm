@@ -4,6 +4,7 @@
 
 local USERDATA_TAG = "hs._asm.luathread"
 local module       = require(USERDATA_TAG..".internal")
+local internal     = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
 
@@ -93,6 +94,35 @@ module._assignments = nil -- should only be called once, then never again
 -- end
 
 -- Public interface ------------------------------------------------------
+
+internal.sharedTable = function(self)
+    local _sharedTable = {}
+    return setmetatable(_sharedTable, {
+        __index    = function(t, k) return self:get(k) end,
+        __newindex = function(t, k, v) self:set(k, v) end,
+        __pairs    = function(t)
+            local keys, values = self:keys(), {}
+            for k, v in ipairs(keys) do values[v] = self:get(v) end
+            return function(t, i)
+                i = table.remove(keys, 1)
+                if i then
+                    return i, values[i]
+                else
+                    return nil
+                end
+            end, _sharedTable, nil
+        end,
+        __len      = function(t)
+            local len, pos = 0, 1
+            while self:get(pos) do
+                len = pos
+                pos = pos + 1
+            end
+            return len
+        end,
+        __metatable = "shared data:"..self:name()
+    })
+end
 
 -- Return Module Object --------------------------------------------------
 

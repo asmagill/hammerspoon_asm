@@ -2,18 +2,9 @@ local instanceName, configdir, path, cpath = ...
 
 if _instance then
 
-    print = function(...)
-        local vals = table.pack(...)
-        for k = 1, vals.n do
-            vals[k] = tostring(vals[k])
-        end
-        local str = table.concat(vals, "\t") .. "\n"
-        _instance:print(str)
-    end
+    print = function(...) _instance:print(...) end
 
-    os.exit = function(...)
-      _instance:cancel()
-    end
+    os.exit = function(...) _instance:cancel(...) end
 
     local runstring = function(s)
         --print("runstring")
@@ -35,6 +26,33 @@ if _instance then
             error("** thread cancelled")
         end
     end, "", 1000)
+
+    _sharedTable = {}
+    setmetatable(_sharedTable, {
+        __index    = function(t, k) return self:get(k) end,
+        __newindex = function(t, k, v) self:set(k, v) end,
+        __pairs    = function(t)
+            local keys, values = self:keys(), {}
+            for k, v in ipairs(keys) do values[v] = self:get(v) end
+            return function(t, i)
+                i = table.remove(keys, 1)
+                if i then
+                    return i, values[i]
+                else
+                    return nil
+                end
+            end, _sharedTable, nil
+        end,
+        __len      = function(t)
+            local len, pos = 0, 1
+            while self:get(pos) do
+                len = pos
+                pos = pos + 1
+            end
+            return len
+        end,
+        __metatable = "shared data:"..self:name()
+    })
 
     package.path  = path
     package.cpath = cpath

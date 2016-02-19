@@ -20,6 +20,7 @@ static int submitString(lua_State *L) ;
 static int cancelThread(lua_State *L) ;
 static int getItemFromDictionary(lua_State *L) ;
 static int setItemInDictionary(lua_State *L) ;
+static int itemDictionaryKeys(lua_State *L) ;
 
 static int userdata_tostring(lua_State* L) ;
 static int userdata_eq(lua_State* L) ;
@@ -33,6 +34,7 @@ static const luaL_Reg thread_userdata_metaLib[] = {
     {"print",       returnString},
     {"get",         getItemFromDictionary},
     {"set",         setItemInDictionary},
+    {"keys",        itemDictionaryKeys},
 
     {"__tostring",  userdata_tostring},
     {"__eq",        userdata_eq},
