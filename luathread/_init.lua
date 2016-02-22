@@ -6,21 +6,6 @@ if _instance then
 
     os.exit = function(...) _instance:cancel(...) end
 
-    local runstring = function(s)
-        --print("runstring")
-        local fn, err = load("return " .. s)
-        if not fn then fn, err = load(s) end
-        if not fn then return tostring(err) end
-
-        local str = ""
-        local results = table.pack(xpcall(fn,debug.traceback))
-        for i = 2,results.n do
-            if i > 2 then str = str .. "\t" end
-            str = str .. tostring(results[i])
-        end
-        return str
-    end
-
     debug.sethook(function(t,l)
         if (_instance:isCancelled()) then
             error("** thread cancelled")
@@ -74,15 +59,29 @@ if _instance then
     end
 
     hs.inspect    = require("hs.inspect")
-    hs.fs         = require("hs.fs.internal") -- skips watcher, which requires LuaSkin
-    -- remove the elements that require LuaSkin
-    hs.fs.fileUTI    = nil
-    hs.fs.tagsAdd    = nil
-    hs.fs.tagsGet    = nil
-    hs.fs.tagsRemove = nil
-    hs.fs.tagsSet    = nil
 
-    print("-- ".._VERSION..", "..instanceName)
+    local runstring = function(s)
+        --print("runstring")
+        local fn, err = load("return " .. s)
+        if not fn then fn, err = load(s) end
+        if not fn then return tostring(err) end
+
+        local str = ""
+        local startTime = _instance:timestamp()
+        local results = table.pack(xpcall(fn,debug.traceback))
+        local endTime   = _instance:timestamp()
+
+        local sharedResults = {}
+        for i = 2,results.n do
+            if i > 2 then str = str .. "\t" end
+            str = str .. tostring(results[i])
+            sharedResults[i - 1] = results[i]
+        end
+        _sharedTable._results = { start = startTime, stop = endTime, results = sharedResults }
+        return str
+    end
+
+    print("-- ".._VERSION..", Hammerspoon instance "..instanceName)
 
     local custominit = configdir.."/_init."..instanceName..".lua"
     if not os.execute("[ -f "..custominit.." ]") then
@@ -103,7 +102,7 @@ if _instance then
         end
     end
     print "-- Done."
-
+    _instance:flush()
     return runstring
 else
     error("_instance not defined, or not in child thread")

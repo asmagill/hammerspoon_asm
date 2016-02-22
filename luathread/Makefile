@@ -9,7 +9,8 @@ OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
 HEADERS  = ${wildcard *.h}
 
-SOFILE  := $(OBJCFILE:.m=.so)
+# SOFILE  := $(OBJCFILE:.m=.so)
+SOFILE  := internal.so
 DEBUG_CFLAGS ?= -g
 DOC_FILE = hs._asm.$(MODULE).json
 
@@ -31,9 +32,14 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 
 all: verify $(SOFILE)
+# all: verify internal.so
 
 .m.so: $(HEADERS)
-	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+
+# internal.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
 
@@ -43,7 +49,7 @@ verify: $(LUAFILE)
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)

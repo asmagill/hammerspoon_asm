@@ -1,44 +1,80 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
 
-#define USERDATA_TAG "hs._asm.luathread"
-static int          refTable = LUA_NOREF;
-static NSDictionary *assignmentsFromParent ;
+#define USERDATA_TAG  "hs._asm.luathread"
+#define THREAD_UD_TAG "hs._asm.luathread.thread"
+
+#define MSGID_RESULT     100
+#define MSGID_PRINTFLUSH 101
+
+#define MSGID_INPUT      200
+#define MSGID_CANCEL     201
+
+NSDictionary *assignmentsFromParent ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
-static int pushHSASMLuaThread(lua_State *L, id obj) ;
-static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
+#define DEBUG(MSG)
+// #define DEBUG(MSG) if ([NSThread isMainThread]) { \
+//         dispatch_async(dispatch_get_main_queue(), ^{ \
+//             [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
+//         }) ; \
+//     } else { \
+//         dispatch_sync(dispatch_get_main_queue(), ^{ \
+//             [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
+//         }) ; \
+//     }
 
-// Thread specific userdata methods
-static int threadCancelled(lua_State *L) ;
-static int returnString(lua_State *L) ;
+#define INFORMATION(MSG) if ([NSThread isMainThread]) { \
+        dispatch_async(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logInfo:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
+        }) ; \
+    } else { \
+        dispatch_sync(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logInfo:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
+        }) ; \
+    }
 
-// Methods used by both
-static int threadName(lua_State *L) ;
-static int submitString(lua_State *L) ;
-static int cancelThread(lua_State *L) ;
-static int getItemFromDictionary(lua_State *L) ;
-static int setItemInDictionary(lua_State *L) ;
-static int itemDictionaryKeys(lua_State *L) ;
+#define ERROR(MSG) if ([NSThread isMainThread]) { \
+        dispatch_async(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logError:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
+        }) ; \
+    } else { \
+        dispatch_sync(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logError:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
+        }) ; \
+    }
 
-static int userdata_tostring(lua_State* L) ;
-static int userdata_eq(lua_State* L) ;
-static int userdata_gc(lua_State* L) ;
+@interface HSASMBooleanType : NSObject
+@property (readonly) BOOL value ;
+@end
 
-static const luaL_Reg thread_userdata_metaLib[] = {
-    {"cancel",      cancelThread},
-    {"name",        threadName},
-    {"isCancelled", threadCancelled},
-    {"submit",      submitString},
-    {"print",       returnString},
-    {"get",         getItemFromDictionary},
-    {"set",         setItemInDictionary},
-    {"keys",        itemDictionaryKeys},
+int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) ;
+id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) ;
 
-    {"__tostring",  userdata_tostring},
-    {"__eq",        userdata_eq},
-    {"__gc",        userdata_gc},
-    {NULL,          NULL}
-};
+@interface HSASMLuaThread : NSObject <NSPortDelegate>
+@property (readonly) lua_State      *L ;
+@property (readonly) int            runStringRef ;
+@property            BOOL           performLuaClose ;
+@property            BOOL           dictionaryLock ;
+@property            BOOL           idle ;
+@property (readonly) NSThread       *thread ;
+@property (readonly) NSPort         *inPort ;
+@property (readonly) NSPort         *outPort ;
+@property (readonly) NSMutableArray *cachedOutput ;
+@property (readonly) NSDictionary   *finalDictionary ;
+
+-(instancetype)initWithPort:(NSPort *)outPort ;
+@end
+
+@interface HSASMLuaThreadManager : NSObject  <NSPortDelegate>
+@property            int            callbackRef ;
+@property            int            selfRef ;
+@property (readonly) HSASMLuaThread *threadObj ;
+@property (readonly) NSPort         *inPort ;
+@property (readonly) NSPort         *outPort ;
+@property (readonly) NSMutableArray *output ;
+@property            BOOL           printImmediate ;
+@property (readonly) NSString       *name ;
+@end
 
