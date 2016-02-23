@@ -71,7 +71,7 @@ if _instance then
         local results = table.pack(xpcall(fn,debug.traceback))
         local endTime   = _instance:timestamp()
 
-        local sharedResults = {}
+        local sharedResults = { n = results.n - 1 }
         for i = 2,results.n do
             if i > 2 then str = str .. "\t" end
             str = str .. tostring(results[i])
