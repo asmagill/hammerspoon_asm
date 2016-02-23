@@ -1,17 +1,11 @@
-// *  @try/@catch to catch luaskin NSAsserts?
-//        can LuaSkin be made thread safe?  I kind of doubt it, so how much of it should be replicated?
-//        maybe... each thread has its own instance, stored in the the threadDictionary
-//                 how to ensure the right thread gets callback?  compare luaskin's?
-//                 would be significant change in core LuaSkin, but not as much (any?) in modules
-//                 still have to ensure UI only on main thread
+//    LuaSkin swizzling/re-code specific modules?  Should be limited to things like watchers, services, etc.
 // *  transfer base data types directly?
 // *      meta methods so thread dictionary can be treated like a regular lua table?
-//        other types (non-c functions)?
-//        NSObject based userdata?
+//        other types (non-c functions, NSObject based userdata)? struct userdata would require NSValue... maybe?
 // +  check if thread is running in some (all?) methods
-//    method argument checking since we can't always use LuaSkin
+//    method argument checking in thread side of things?
 //    locks need timeout/fallback (reset?) (dictionary lock is only one still in use)
-//    document
+// *  document
 #import "luathread.h"
 
 static int refTable = LUA_NOREF;
