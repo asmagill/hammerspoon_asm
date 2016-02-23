@@ -84,6 +84,18 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs._asm.luathread.new([name]) -> threadObj
+/// Constructor
+/// Create a new lua thread instance.
+///
+/// Parameters:
+///  * name - an optional name for the thread instance.  If no name is provided, a randomly generated one is used.
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * the name does not have to be unique.  If a file with the name `_init.*name*.lua` is located in the users Hammerspoon configuration directory (`~/.hammerspoon` by default), then it will be executed at thread startup.
 static int newLuaThreadWithName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -102,6 +114,15 @@ static int assignments(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.luathread:isExecuting() -> boolean
+/// Method
+/// Determines whether or not the thread is executing or if execution has ended.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicating whether or not the thread is still active.
 static int threadIsExecuting(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -110,6 +131,18 @@ static int threadIsExecuting(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:isIdle() -> boolean
+/// Method
+/// Determines whether or not the thread is currently busy executing Lua code.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicating whether or not the thread is executing Lua code.
+///
+/// Notes:
+///  * if you are not using a callback function, you can periodically check this value to determine if submitted lua code has completed so you know when to check the results or output with [hs._asm.luathread:getOutput](#getOutput).
 static int threadIsIdle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -118,6 +151,19 @@ static int threadIsIdle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:setCallback(function | nil) -> threadObject
+/// Method
+/// Set or remove a callback function to be invoked when the thread has completed executing lua code.
+///
+/// Parameters:
+///  * a function, to set or change the callback function, or nil to remove the callback function.
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * The callback function will be invoked whenever the lua thread goes idle (i.e. is not executing lua code) or when [hs._asm.luathread._instance:flush](#flush2) is invoked from within executing lua code in the thread.
+///  * the callback function should expect two arguments and return none: the thread object and a string containing all output cached since the callback function was last invoked or the output queue was last cleared with [hs._asm.luathread:flush](#flush).
 static int setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
@@ -141,6 +187,20 @@ static int setCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:get([key]) -> value
+/// Method
+/// Get the value for a keyed entry from the shared thread dictionary for the lua thread.
+///
+/// Parameters:
+///  * key - an optional key specifying the specific entry in the shared dictionary to return a value for.  If no key is specified, returns the entire shared dictionary as a table.
+///
+/// Returns:
+///  * the value of the specified key.
+///
+/// Notes:
+///  * If the key does not exist, then this method returns nil.
+///  * This method is used in conjunction with [hs._asm.luathread:set](#set) to pass data back and forth between the thread and Hammerspoon.
+///  * see also [hs._asm.luathread:sharedTable](#sharedTable)
 static int getItemFromDictionary(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -163,6 +223,20 @@ static int getItemFromDictionary(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:set(key, value) -> threadObject
+/// Method
+/// Set the value for a keyed entry in the shared thread dictionary for the lua thread.
+///
+/// Parameters:
+///  * key   - a key specifying the specific entry in the shared dictionary to set the value of.
+///  * value - the value to set the key to.  May be `nil` to clear or remove a key from the shared dictionary.
+///
+/// Returns:
+///  * the value of the specified key.
+///
+/// Notes:
+///  * This method is used in conjunction with [hs._asm.luathread:get](#get) to pass data back and forth between the thread and Hammerspoon.
+///  * see also [hs._asm.luathread:sharedTable](#sharedTable)
 static int setItemInDictionary(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TBREAK] ;
@@ -181,6 +255,18 @@ static int setItemInDictionary(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:keys() -> table
+/// Method
+/// Returns the names of all keys that currently have values in the shared dictionary of the lua thread.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing the names of the keys as an array
+///
+/// Notes:
+///  * see also [hs._asm.luathread:get](#get) and [hs._asm.luathread:set](#set)
 static int itemDictionaryKeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -193,6 +279,19 @@ static int itemDictionaryKeys(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:cancel([_, close]) -> threadObject
+/// Method
+/// Cancel the lua thread, interrupting any lua code currently executing on the thread.
+///
+/// Parameters:
+///  * The first argument is always ignored
+///  * if two arguments are specified, the true/false value of the second argument is used to indicate whether or not the lua thread should exit cleanly with a formal lua_close (i.e. `__gc` metamethods will be invoked) or if the thread should just stop with no formal close.  Defaults to true (i.e. perform the formal close).
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * the two argument format specified above is included to follow the format of the lua builtin `os.exit` function.
 static int cancelThread(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -214,6 +313,15 @@ static int cancelThread(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:name() -> string
+/// Method
+/// Returns the name assigned to the lua thread.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name specified or dynamically assigned at the time of the thread's creation.
 static int threadName(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -222,6 +330,19 @@ static int threadName(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:getOutput([cached]) -> string
+/// Method
+/// Returns the output currently available from the last submission to the lua thread.
+///
+/// Parameters:
+///  * cached - a boolean value, defaulting to false, indicating whether the function should return the output currently cached by the thread but not yet submitted because the lua code is still executing (true) or whether the function should return the output currently in the completed output buffer.
+///
+/// Returns:
+///  * a string containing the output specified
+///
+/// Notes:
+///  * this method does not clear the output buffer; see [hs._asm.luathread:flush](#flush).
+///  * if you are using a callback function, this method will return an empty string when `cached` is not set or is false.  You can still set `cached` to true to check on the output of a long running lua process, however.
 static int getOutput(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -241,6 +362,15 @@ static int getOutput(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread:flush() -> threadObject
+/// Method
+/// Clears the output buffer.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the thread object
 static int flushOutput(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -264,6 +394,15 @@ static int flushOutput(lua_State *L) {
 //     return 1 ;
 // }
 
+/// hs._asm.luathread:submit(code) -> threadObject
+/// Method
+/// Submits the specified lua code for execution in the lua thread.
+///
+/// Parameters:
+///  * code - a string containing the lua code to execute in the thread.
+///
+/// Returns:
+///  * the thread object
 static int submitInput(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;

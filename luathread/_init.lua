@@ -1,3 +1,14 @@
+-- This is the required initialization script for a lua thread instance.  This will be
+-- installed into the proper place by the Makefile or when you expand the pre-compiled
+-- archive.
+--
+-- If you wish to add additional initialization code of your own, you can create a file
+-- in your Hammerspoon configuration directory (usually ~/.hammerspoon) named
+-- _init.*name*.lua (if you want to load it only when you create a thread with a
+-- particular name) or _init.lua, if you want to load it for any thread that does not
+-- match a name-specific file.  If you create such a file, it will be executed *after*
+-- this file completes.
+
 local instanceName, configdir, path, cpath = ...
 
 if _instance then

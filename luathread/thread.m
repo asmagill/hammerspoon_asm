@@ -161,23 +161,72 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 
 #pragma mark - Module Methods
 
+/// hs._asm.luathread._instance:timestamp() -> number
+/// Method
+/// Returns the current time as the number of seconds since Jan 1, 1970 (one of the conventional computer "Epochs" used for representing time).
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the number of seconds, including fractions of a second as the decimal portion of the number
+///
+/// Notes:
+///  * this differs from the built in lua `os.time` function in that it returns fractions of a second as the decimal portion of the number.
+///  * this is used when generating the `_sharedTable._results.start` and `_sharedTable._results.stop` values
+///  * the time values returned by this method can be used to calculate execution times in terms of clock time (i.e. other activity on the computer can cause wide fluctuations in the actual time a specific process takes).  To get a better idea of actual cpu time used by a process, check out the lua builtin `os.clock`.
 static int timestamp(lua_State *L) {
     lua_pushnumber(L, [[NSDate date] timeIntervalSince1970]) ;
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:isCancelled() -> boolean
+/// Method
+/// Returns true if the thread has been marked for cancellation.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * true or false specifying whether or not the thread has been marked for cancellation.
+///
+/// Notes:
+///  * this method is used by a handler set with `debug.sethook` to determine if lua code execution should be terminated so that the thread can be formally closed.
 static int threadIsCancelled(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     lua_pushboolean(L, luaThread.thread.cancelled) ;
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:name() -> string
+/// Method
+/// Returns the name assigned to the lua thread.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name specified or dynamically assigned at the time of the thread's creation.
 static int threadName(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     lua_pushstring(L, [luaThread.thread.name UTF8String]) ;
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:get([key]) -> value
+/// Method
+/// Get the value for a keyed entry from the shared thread dictionary for the lua thread.
+///
+/// Parameters:
+///  * key - an optional key specifying the specific entry in the shared dictionary to return a value for.  If no key is specified, returns the entire shared dictionary as a table.
+///
+/// Returns:
+///  * the value of the specified key.
+///
+/// Notes:
+///  * If the key does not exist, then this method returns nil.
+///  * This method is used in conjunction with [hs._asm.luathread._instance:set](#set2) to pass data back and forth between the thread and Hammerspoon.
+///  * see also [hs._asm.luathread:sharedTable](#sharedTable) and the description of the global `_sharedTable` in this sub-module's description.
 static int getItemFromDictionary(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
@@ -190,6 +239,20 @@ static int getItemFromDictionary(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:set(key, value) -> threadObject
+/// Method
+/// Set the value for a keyed entry in the shared thread dictionary for the lua thread.
+///
+/// Parameters:
+///  * key   - a key specifying the specific entry in the shared dictionary to set the value of.
+///  * value - the value to set the key to.  May be `nil` to clear or remove a key from the shared dictionary.
+///
+/// Returns:
+///  * the value of the specified key.
+///
+/// Notes:
+///  * This method is used in conjunction with [hs._asm.luathread._instance:get](#get2) to pass data back and forth between the thread and Hammerspoon.
+///  * see also [hs._asm.luathread:sharedTable](#sharedTable) and the description of the global `_sharedTable` in this sub-module's description.
 static int setItemInDictionary(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
@@ -202,6 +265,18 @@ static int setItemInDictionary(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:keys() -> table
+/// Method
+/// Returns the names of all keys that currently have values in the shared dictionary of the lua thread.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing the names of the keys as an array
+///
+/// Notes:
+///  * see also [hs._asm.luathread._instance:get](#get2) and [hs._asm.luathread._instance:set](#set2)
 static int itemDictionaryKeys(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     while(luaThread.dictionaryLock) {} ;
@@ -212,6 +287,19 @@ static int itemDictionaryKeys(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:cancel([_, close]) -> threadObject
+/// Method
+/// Cancel the lua thread, interrupting any lua code currently executing on the thread.
+///
+/// Parameters:
+///  * The first argument is always ignored
+///  * if two arguments are specified, the true/false value of the second argument is used to indicate whether or not the lua thread should exit cleanly with a formal lua_close (i.e. `__gc` metamethods will be invoked) or if the thread should just stop with no formal close.  Defaults to true (i.e. perform the formal close).
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * the two argument format specified above is included to follow the format of the lua builtin `os.exit`
 static int cancelThread(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     if (lua_type(L, 3) != LUA_TNONE) {
@@ -222,6 +310,18 @@ static int cancelThread(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:print(...) -> threadObject
+/// Method
+/// Adds the specified values to the output cache for the thread.
+///
+/// Parameters:
+///  * ... - zero or more values to be added to the output cache for the thread and ultimately returned to Hammerspoon with a lua processes results.
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * this method is used to replace the lua built-in function `print` and mimics its behavior as closely as possible -- objects with a `__tostring` meta method are honored, arguments separated by comma's are concatenated with a tab in between them, the output line terminates with a `\\n`, etc.
 static int printOutput(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     NSMutableData  *output = [[NSMutableData alloc] init] ;
@@ -239,11 +339,23 @@ static int printOutput(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:flush([push]) -> threadObject
+/// Method
+/// Clears the cached output buffer.
+///
+/// Parameters:
+///  * push - an optional boolean argument, defaults to true, specifying whether or not the output currently in the buffer should be pushed to Hammerspoon before clearing the local cache.
+///
+/// Returns:
+///  * the thread object
+///
+/// Notes:
+///  * if `push` is not specified or is true, the output will be sent to Hammerspoon and any callback function will be invoked with the current output.  This can be used to submit partial output for a long running process and invoke the function periodically rather than just once at the end of the process.
 static int flushOutput(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
-    BOOL skipPush = NO ;
-    if (lua_gettop(L) == 2) skipPush = (BOOL)lua_toboolean(L, 2) ;
-    if (!skipPush) {
+    BOOL push = YES ;
+    if (lua_gettop(L) == 2) push = (BOOL)lua_toboolean(L, 2) ;
+    if (push) {
         NSPortMessage* messageObj = [[NSPortMessage alloc] initWithSendPort:luaThread.outPort
                                                                 receivePort:luaThread.inPort
                                                                  components:luaThread.cachedOutput];

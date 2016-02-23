@@ -2,7 +2,7 @@
 #import <LuaSkin/LuaSkin.h>
 
 #define USERDATA_TAG  "hs._asm.luathread"
-#define THREAD_UD_TAG "hs._asm.luathread.thread"
+#define THREAD_UD_TAG "hs._asm.luathread._instance"
 
 #define MSGID_RESULT     100
 #define MSGID_PRINTFLUSH 101
