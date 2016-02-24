@@ -1,4 +1,5 @@
 // *  LuaSkin support now possible -- does require change to modules, but no change to core Application or LuaSkin framework
+//    Need to work out proper delegate for threaded LuaSkin's to allow log messages to go somewhere useful
 //    Module conversion in progress for modules I care about... may take requests afterwards...
 //       module changes require [LuaSkin performSelector:@selector(thread)] instead of [LuaSkin shared], and making sure
 //       that they don't explicitly schedule anything on main loop (use current run loop instead)
