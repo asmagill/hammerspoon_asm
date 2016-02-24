@@ -1,12 +1,22 @@
-//    LuaSkin swizzling/re-code specific modules?  Should be limited to things like watchers, services, etc.
+// *  LuaSkin support now possible -- does require change to modules, but no change to core Application or LuaSkin framework
+//    Module conversion in progress for modules I care about... may take requests afterwards...
+//       module changes require [LuaSkin performSelector:@selector(thread)] instead of [LuaSkin shared], and making sure
+//       that they don't explicitly schedule anything on main loop (use current run loop instead)
+//    Modify thread.m to use thread supported LuaSkin argument checking, etc.
+//    Modify get/set to use LuaSkin? gives us easier userdata support, but at possible cost of guaranteed proper boolean support
+//
 // *  transfer base data types directly?
 // *      meta methods so thread dictionary can be treated like a regular lua table?
 //        other types (non-c functions, NSObject based userdata)? struct userdata would require NSValue... maybe?
 // +  check if thread is running in some (all?) methods
-//    method argument checking in thread side of things?
 //    locks need timeout/fallback (reset?) (dictionary lock is only one still in use)
-// *  document
+
 #import "luathread.h"
+
+@interface LuaSkinThread : LuaSkin
++(BOOL)inject ;
++(id)thread ;
+@end
 
 static int refTable = LUA_NOREF;
 
@@ -203,10 +213,10 @@ static int getItemFromDictionary(lua_State *L) {
     if (luaThread.threadObj.thread.executing) {
         while(luaThread.threadObj.dictionaryLock) {} ;
         luaThread.threadObj.dictionaryLock = YES ;
-        id obj = (lua_gettop(L) == 1) ? luaThread.threadObj.thread.threadDictionary :
-                                        [luaThread.threadObj.thread.threadDictionary objectForKey:key] ;
-        getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
+        NSDictionary *holding = luaThread.threadObj.thread.threadDictionary ;
         luaThread.threadObj.dictionaryLock = NO ;
+        id obj = (lua_gettop(L) == 1) ? holding : [holding objectForKey:key] ;
+        getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
     } else if (luaThread.threadObj.finalDictionary) {
         id obj = (lua_gettop(L) == 1) ? luaThread.threadObj.finalDictionary :
                                         [luaThread.threadObj.finalDictionary objectForKey:key] ;
@@ -238,6 +248,8 @@ static int setItemInDictionary(lua_State *L) {
     if (luaThread.threadObj.thread.executing) {
         id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
         id obj = setHamster(L, 3, [[NSMutableDictionary alloc] init]) ;
+        if ([key isKindOfClass:[NSData class]] && [key isEqualTo:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]])
+            return luaL_error(L, "you cannot modify an internally required variable") ;
         while(luaThread.threadObj.dictionaryLock) {} ;
         luaThread.threadObj.dictionaryLock = YES ;
         [luaThread.threadObj.thread.threadDictionary setValue:obj forKey:key] ;
@@ -376,17 +388,17 @@ static int flushOutput(lua_State *L) {
 }
 
 
-// static int dumpDictionary(__unused lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
-//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-//     HSASMLuaThreadManager *luaThread = [skin toNSObjectAtIndex:1] ;
-//     [skin pushNSObject:luaThread.threadObj.thread.threadDictionary
-//            withOptions:LS_NSUnsignedLongLongPreserveBits |
-//                        LS_NSLuaStringAsDataOnly |
-//                        LS_NSDescribeUnknownTypes |
-//                        LS_NSAllowsSelfReference] ;
-//     return 1 ;
-// }
+static int dumpDictionary(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMLuaThreadManager *luaThread = [skin toNSObjectAtIndex:1] ;
+    [skin pushNSObject:luaThread.threadObj.thread.threadDictionary
+           withOptions:LS_NSUnsignedLongLongPreserveBits |
+                       LS_NSLuaStringAsDataOnly |
+                       LS_NSDescribeUnknownTypes |
+                       LS_NSAllowsSelfReference] ;
+    return 1 ;
+}
 
 /// hs._asm.luathread:submit(code) -> threadObject
 /// Method
@@ -511,7 +523,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"keys",              itemDictionaryKeys},
     {"cancel",            cancelThread},
 
-//     {"dumpDictionary",    dumpDictionary},
+    {"dumpDictionary",    dumpDictionary},
 
     {"__tostring",        userdata_tostring},
     {"__eq",              userdata_eq},
@@ -535,6 +547,9 @@ static luaL_Reg moduleLib[] = {
 
 int luaopen_hs__asm_luathread_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
+
+    [LuaSkinThread inject] ;
+
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

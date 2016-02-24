@@ -63,6 +63,7 @@ id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) ;
 @property (readonly) NSPort         *outPort ;
 @property (readonly) NSMutableArray *cachedOutput ;
 @property (readonly) NSDictionary   *finalDictionary ;
+@property (readonly) LuaSkin        *skin ;
 
 -(instancetype)initWithPort:(NSPort *)outPort ;
 @end

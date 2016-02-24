@@ -12,7 +12,6 @@ HEADERS  = ${wildcard *.h}
 # SOFILE  := $(OBJCFILE:.m=.so)
 SOFILE  := internal.so
 DEBUG_CFLAGS ?= -g
-DOC_FILE = hs._asm.$(MODULE).json
 
 # special vars for uninstall
 space :=
@@ -28,8 +27,6 @@ CC=clang
 EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
-
-DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 
 all: verify $(SOFILE)
 # all: verify internal.so
@@ -55,25 +52,15 @@ install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
 
-docs: $(DOC_FILE)
-
-$(DOC_FILE): $(DOC_SOURCES)
-	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | __doc_tools/gencomments | __doc_tools/genjson > $@
-
 markdown:
 	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
-install-docs: docs
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(DOC_FILE) $(PREFIX)/hs/_asm/$(MODULE)
-
 clean:
-	rm -v -rf $(SOFILE) *.dSYM $(DOC_FILE)
+	rm -v -rf $(SOFILE) *.dSYM
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
-	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/$(DOC_FILE)
+	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.so=.so.dSYM) ; popd)
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
-.PHONY: all clean uninstall verify docs install install-objc install-lua install-docs
+.PHONY: all clean uninstall verify install install-objc install-lua

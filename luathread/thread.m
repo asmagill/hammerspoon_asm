@@ -26,8 +26,11 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 }
 
 -(BOOL)startLuaInstance {
-    _L = luaL_newstate() ;
-    luaL_openlibs(_L) ;
+//     _L = luaL_newstate() ;
+//     luaL_openlibs(_L) ;
+    _skin = [LuaSkin performSelector:@selector(thread)] ;
+    _L = _skin.L ;
+
     lua_pushglobaltable(_L) ;
 
     pushHSASMLuaThreadMetatable(_L) ;
@@ -45,10 +48,12 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
             return NO ;
         }
         lua_pushstring(_L, [_thread.name UTF8String]) ;
-        lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"configdir"] UTF8String]) ;
-        lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"path"] UTF8String]) ;
-        lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"cpath"] UTF8String]) ;
-        if (lua_pcall(_L, 4, 1, 0) != LUA_OK) {
+        [_skin pushNSObject:assignmentsFromParent] ;
+//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"configdir"] UTF8String]) ;
+//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"docstrings_json_file"] UTF8String]) ;
+//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"path"] UTF8String]) ;
+//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"cpath"] UTF8String]) ;
+        if (lua_pcall(_L, 2, 1, 0) != LUA_OK) {
             NSString *message = [NSString stringWithFormat:@"unable to execute init file %@: %s",
                                                            threadInitFile,
                                                            lua_tostring(_L, -1)] ;
@@ -87,7 +92,8 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 
             luaL_unref(_L, LUA_REGISTRYINDEX, _runStringRef) ;
             _runStringRef = LUA_NOREF ;
-            if (_performLuaClose) lua_close(_L) ;
+//             if (_performLuaClose) lua_close(_L) ;
+            if (_performLuaClose) [_skin destroyLuaState] ;
         }
         _finalDictionary = [_thread threadDictionary] ;
 
@@ -232,10 +238,10 @@ static int getItemFromDictionary(lua_State *L) {
     id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
     while(luaThread.dictionaryLock) {} ;
     luaThread.dictionaryLock = YES ;
-    id obj = (lua_gettop(L) == 1) ? luaThread.thread.threadDictionary :
-                                    [luaThread.thread.threadDictionary objectForKey:key] ;
-    getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
+    NSDictionary *holding = luaThread.thread.threadDictionary ;
     luaThread.dictionaryLock = NO ;
+    id obj = (lua_gettop(L) == 1) ? holding : [holding objectForKey:key] ;
+    getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
     return 1 ;
 }
 
@@ -257,6 +263,8 @@ static int setItemInDictionary(lua_State *L) {
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
     id obj = setHamster(L, 3, [[NSMutableDictionary alloc] init]) ;
+    if ([key isKindOfClass:[NSData class]] && [key isEqualTo:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]])
+        return luaL_error(L, "you cannot modify an internally required variable") ;
     while(luaThread.dictionaryLock) {} ;
     luaThread.dictionaryLock = YES ;
     [luaThread.thread.threadDictionary setValue:obj forKey:key] ;

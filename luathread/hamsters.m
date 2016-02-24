@@ -16,10 +16,14 @@
 // simplified version of what the LuaSkin push/to methods do, since we have more control over the
 // types of data being shared
 int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) {
-    if ([alreadySeen objectForKey:obj]) {
+//     NSString *msg = [NSString stringWithFormat:@"getting object of type %@:%@",
+//                                                NSStringFromClass([obj class]),
+//                                                [obj debugDescription]] ;
+//     DEBUG(msg) ;
+    if (obj && [alreadySeen objectForKey:obj]) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:obj] intValue]) ;
-    } else {
-        if (!obj || [obj isKindOfClass:[NSNull class]]) {
+    } else if (obj) {
+        if ([obj isKindOfClass:[NSNull class]]) {
             lua_pushnil(L) ;
         } else if ([obj isKindOfClass:[NSData class]]) {
             lua_pushlstring(L, [(NSData *)obj bytes], [(NSData *)obj length]) ;
@@ -67,8 +71,14 @@ int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) {
         } else if ([obj isKindOfClass:[NSString class]]) {
             lua_pushstring(L, [obj UTF8String]) ;
         } else {
-            lua_pushfstring(L, "** unknown:%s", [[obj description] UTF8String]) ;
+            NSString *msg = [NSString stringWithFormat:@"unrecognized object of type %@:%@",
+                                                       NSStringFromClass([obj class]),
+                                                       [obj debugDescription]] ;
+            INFORMATION(msg) ;
+            lua_pushfstring(L, "** unknown:%s", [[obj debugDescription] UTF8String]) ;
         }
+    } else {
+        lua_pushnil(L) ;
     }
     return 1 ;
 }
@@ -103,7 +113,7 @@ id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) {
             id key = setHamster(L, -2, alreadySeen) ;
             id val = setHamster(L, -1, alreadySeen) ;
             if (key) {
-                [obj setValue:val forKey:key];
+                [obj setObject:val forKey:key];
                 lua_pop(L, 1);
             } else {
                 NSString *errMsg = [NSString stringWithFormat:@"table key (%s) cannot be converted",

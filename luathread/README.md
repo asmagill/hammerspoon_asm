@@ -3,11 +3,13 @@ hs._asm.luathread
 
 Launch an independant lua thread from within Hammerspoon to execute non-blocking lua code.
 
-At present, any Hammerspoon module which uses LuaSkin (i.e. most of them) will not work within the background thread, so background processing is limited to strictly Lua or LuaRock modules.  Attempting to load a Hammerspoon module which is incompatible will result in an error, but will not terminate Hammerspoon or the background thread.  Possible work arounds for at least some of the modules are being investigated.
+At present, any Hammerspoon module which uses LuaSkin (i.e. most of them) will not work within the background thread without modification, so background processing is limited to strictly Lua, LuaRock modules, and the few modules which have been modified in the `modules/` sub-directory.  Attempting to load a Hammerspoon module which is incompatible will result in an error, but will not terminate Hammerspoon or the background thread.  For a list of what is currently supported, check `SupportedHammerspoonModules.md`.
 
 ### Installation
 
 A compiled version of this module can (usually) be found in this folder named `luathread-vX.Y.tar.gz` .  You can download the release and install it by expanding it in your `~/.hammerspoon/` directory (or any other directory in your `package.path` and `package.cpath` search paths):
+
+The v0.2 bundle is the first to provide experimental support for some LuaSkin based Hammerspoon modules.  Adding this support does require changes (usually minor) to the module, so only those modules which make the most sense in a background thread are likely to be converted.  If you have specific requests, or wish to submit your own modified modules, please feel free to do so.  I will keep the binary bundle up to date as changes occur.
 
 ~~~bash
 cd ~/.hammerspoon
@@ -284,7 +286,7 @@ The luathread instance is a complete lua environment with the following differen
  * `debug.sethook` is used within the thread to determine if the thread has been cancelled from the outside (i.e. Hammerspoon) and will terminate any lua processing within the thread immediately when this occurs.
  * `print` within the thread has been over-ridden so that output is cached and returned to Hammerspoon (through a callback function or the [hs._asm.luathread:getOutput](#getOutput) method) once the current lua code has completed (i.e. the thread is idle).
  * `os.exit` has been overridden to cleanly terminate the thread if/when invoked.
- * `hs.printf`, `hs.configdir`, `hs._exit`, `hs.execute`, and `hs.inspect` have been replicated.
+ * `hs.printf`, `hs.configdir`, `hs._exit`, and `hs.execute` have been replicated.
 
 ### Usage
 The `_instance` variable is automatically created for you within the independant lua thread.
