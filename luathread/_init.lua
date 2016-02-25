@@ -73,6 +73,26 @@ if _instance then
         return s, status, exit_type, rc
     end
 
+  local logger = require("hs.logger").new("LSinThread", "debug")
+  hs.luaSkinLog = logger
+
+    hs.handleLogMessage = function(level, message)
+      -- may change in the future if this fills crashlog with too much useless stuff
+--         if level ~= 5 then
+--             require("hs.crash").crashLog(string.format("(%d) %s", level, message))
+--         end
+
+        if level == 5 then     logger.v(message) -- LS_LOG_VERBOSE
+        elseif level == 4 then logger.d(message) -- LS_LOG_DEBUG
+        elseif level == 3 then logger.i(message) -- LS_LOG_INFO
+        elseif level == 2 then logger.w(message) -- LS_LOG_WARN
+        elseif level == 1 then logger.e(message) -- LS_LOG_ERROR
+  --           hs.showError(message)
+        else
+            print("*** UNKNOWN LOG LEVEL: "..tostring(level).."\n\t"..message)
+        end
+    end
+
     local runstring = function(s)
         --print("runstring")
         local fn, err = load("return " .. s)

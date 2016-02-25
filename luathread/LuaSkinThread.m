@@ -237,12 +237,4 @@
     return 1 ;
 }
 
-- (void) logAtLevel:(int)level withMessage:(NSString *)theMessage {
-//     if (_delegate &&  [_delegate respondsToSelector:@selector(logForLuaSkinAtLevel:withMessage:)]) {
-//         [_delegate logForLuaSkinAtLevel:level withMessage:theMessage] ;
-//     } else {
-        NSLog(@"(missing delegate):log level %d: %@", level, theMessage) ;
-//     }
-}
-
 @end

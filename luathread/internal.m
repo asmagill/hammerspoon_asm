@@ -55,7 +55,8 @@ static int refTable = LUA_NOREF;
 }
 
 -(void)handlePortMessage:(NSPortMessage *)portMessage {
-    DEBUG(([NSString stringWithFormat:@"handlePortMessage:%d", portMessage.msgid])) ;
+    LuaSkin *skin = [LuaSkin shared];
+    [skin logVerbose:[NSString stringWithFormat:@"main handlePortMessage:%d", portMessage.msgid]] ;
     switch(portMessage.msgid) {
         case MSGID_RESULT:
         case MSGID_PRINTFLUSH: {
@@ -80,7 +81,7 @@ static int refTable = LUA_NOREF;
             }
         }   break ;
         default:
-            INFORMATION(([NSString stringWithFormat:@"unhandled message id:%d", portMessage.msgid])) ;
+            [skin logInfo:[NSString stringWithFormat:@"main unhandled message id:%d", portMessage.msgid]] ;
             break ;
     }
 }
@@ -363,7 +364,6 @@ static int getOutput(__unused lua_State *L) {
         return luaL_error(L, "thread inactive") ;
     } else {
         for (NSData *obj in luaThread.output) [outputCopy appendData:obj] ;
-//         [luaThread.output removeAllObjects] ;
     }
     [skin pushNSObject:outputCopy] ;
     return 1 ;
@@ -414,14 +414,19 @@ static int submitInput(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     HSASMLuaThreadManager *luaThread = [skin toNSObjectAtIndex:1] ;
-    NSData *input = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
 
-    NSPortMessage* messageObj = [[NSPortMessage alloc] initWithSendPort:luaThread.outPort
-                                                            receivePort:luaThread.inPort
-                                                             components:@[input]];
-    [messageObj setMsgid:MSGID_INPUT];
-    [messageObj sendBeforeDate:[NSDate date]];
-    lua_pushvalue(L, 1) ;
+    if (luaThread.threadObj.thread.executing) {
+        NSData *input = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
+
+        NSPortMessage* messageObj = [[NSPortMessage alloc] initWithSendPort:luaThread.outPort
+                                                                receivePort:luaThread.inPort
+                                                                 components:@[input]];
+        [messageObj setMsgid:MSGID_INPUT];
+        [messageObj sendBeforeDate:[NSDate date]];
+        lua_pushvalue(L, 1) ;
+    } else {
+        return luaL_error(L, "thread inactive") ;
+    }
     return 1 ;
 }
 
@@ -452,13 +457,13 @@ static int pushHSASMBooleanType(lua_State *L, id obj) {
 }
 
 static id toHSASMLuaThreadManagerFromLua(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared];
     HSASMLuaThreadManager *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge HSASMLuaThreadManager, L, idx, USERDATA_TAG) ;
     } else {
-        NSString *message = [NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
-                                                  lua_typename(L, lua_type(L, idx))] ;
-        ERROR(message) ;
+        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
+                                                  lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
 }
@@ -490,8 +495,9 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared];
     HSASMLuaThreadManager *obj = get_objectFromUserdata(__bridge_transfer HSASMLuaThreadManager, L, 1, USERDATA_TAG) ;
-    DEBUG(([NSString stringWithFormat:@"__gc for thread manager:%@", obj.threadObj.thread.name])) ;
+    [skin logVerbose:[NSString stringWithFormat:@"__gc for thread manager:%@", obj.threadObj.thread.name]] ;
     if (obj) {
         LuaSkin *skin   = [LuaSkin shared] ;
         obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;

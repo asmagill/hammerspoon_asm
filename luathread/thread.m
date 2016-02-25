@@ -26,8 +26,6 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 }
 
 -(BOOL)startLuaInstance {
-//     _L = luaL_newstate() ;
-//     luaL_openlibs(_L) ;
     _skin = [LuaSkin performSelector:@selector(thread)] ;
     _L = _skin.L ;
 
@@ -36,6 +34,8 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
     pushHSASMLuaThreadMetatable(_L) ;
     pushHSASMLuaThread(_L, self) ;
     lua_setfield(_L, -2, "_instance") ;
+
+    [_skin setDelegate:self] ;
 
     NSString *threadInitFile = [assignmentsFromParent objectForKey:@"initfile"] ;
     if (threadInitFile) {
@@ -49,10 +49,6 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
         }
         lua_pushstring(_L, [_thread.name UTF8String]) ;
         [_skin pushNSObject:assignmentsFromParent] ;
-//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"configdir"] UTF8String]) ;
-//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"docstrings_json_file"] UTF8String]) ;
-//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"path"] UTF8String]) ;
-//         lua_pushstring(_L, [[assignmentsFromParent objectForKey:@"cpath"] UTF8String]) ;
         if (lua_pcall(_L, 2, 1, 0) != LUA_OK) {
             NSString *message = [NSString stringWithFormat:@"unable to execute init file %@: %s",
                                                            threadInitFile,
@@ -92,7 +88,6 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 
             luaL_unref(_L, LUA_REGISTRYINDEX, _runStringRef) ;
             _runStringRef = LUA_NOREF ;
-//             if (_performLuaClose) lua_close(_L) ;
             if (_performLuaClose) [_skin destroyLuaState] ;
         }
         _finalDictionary = [_thread threadDictionary] ;
@@ -103,6 +98,8 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
         [_inPort invalidate] ;
         _inPort  = nil ;
         _outPort = nil ;
+        [_skin setDelegate:nil] ;
+        _skin    = nil ;
     }
 }
 
@@ -115,7 +112,7 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 }
 
 -(void)handlePortMessage:(NSPortMessage *)portMessage {
-    DEBUG(([NSString stringWithFormat:@"handlePortMessage:%d", portMessage.msgid])) ;
+    [_skin logVerbose:[NSString stringWithFormat:@"thread handlePortMessage:%d", portMessage.msgid]] ;
     _idle = NO ;
     switch(portMessage.msgid) {
         case MSGID_INPUT: {
@@ -143,10 +140,11 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
                     }
                     lua_pop(_L, 1) ;
                 } @catch (NSException *theException) {
-                        NSString *error = [NSString stringWithFormat:@"exception %@:%@",
-                                                                      theException.name,
-                                                                      theException.reason] ;
-                        ERROR(error) ;
+                    NSString *error = [NSString stringWithFormat:@"exception %@:%@",
+                                                                  theException.name,
+                                                                  theException.reason] ;
+                    [_skin logError:error] ; // log in thread
+                    ERROR(error) ;           // log in main
                 }
             } else {
                 ERROR(@"exiting thread; missing runstring function") ;
@@ -155,9 +153,35 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
         }   break ;
         case MSGID_CANCEL: // do nothing, this was just to break out of the run loop
             break ;
+        default: {
+            NSString *msg = [NSString stringWithFormat:@"thread unhandled message id:%d", portMessage.msgid] ;
+            [_skin logInfo:msg] ; // log in thread
+            INFORMATION(msg) ;    // log in main
+        }   break ;
+    }
+}
+
+- (void) logForLuaSkinAtLevel:(int)level withMessage:(NSString *)theMessage {
+    // Send logs to the appropriate location, depending on their level
+    // Note that hs.handleLogMessage also does this kind of filtering. We are special casing here for LS_LOG_BREADCRUMB to entirely bypass calling into Lua
+    // (because such logs don't need to be shown to the user, just stored in our crashlog in case we crash)
+    switch (level) {
+        case LS_LOG_BREADCRUMB:
+            NSLog(@"%@", theMessage);
+            break;
+
         default:
-            INFORMATION(([NSString stringWithFormat:@"unhandled message id:%d", portMessage.msgid])) ;
-            break ;
+            lua_getglobal(_L, "hs") ; lua_getfield(_L, -1, "handleLogMessage") ; lua_remove(_L, -2) ;
+            lua_pushinteger(_L, level) ;
+            lua_pushstring(_L, [theMessage UTF8String]) ;
+            int errState = lua_pcall(_L, 2, 0, 0) ;
+            if (errState != LUA_OK) {
+                NSArray *stateLabels = @[ @"OK", @"YIELD", @"ERRRUN", @"ERRSYNTAX", @"ERRMEM", @"ERRGCMM", @"ERRERR" ] ;
+                NSLog(@"logForLuaSkin: error, state %@: %s", [stateLabels objectAtIndex:(NSUInteger)errState],
+                          luaL_tolstring(_L, -1, NULL)) ;
+                lua_pop(_L, 2) ; // lua_pcall result + converted version from luaL_tolstring
+            }
+            break;
     }
 }
 
@@ -389,14 +413,14 @@ static int pushHSASMLuaThread(lua_State *L, id obj) {
 }
 
 static id toHSASMLuaThreadFromLua(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     HSASMLuaThread *value ;
     if (luaL_testudata(L, idx, THREAD_UD_TAG)) {
         value = get_objectFromUserdata(__bridge HSASMLuaThread, L, idx, THREAD_UD_TAG) ;
     } else {
-        NSString *message = [NSString stringWithFormat:@"expected %s object, found %s",
-                                                       THREAD_UD_TAG,
-                                                       lua_typename(L, lua_type(L, idx))] ;
-        ERROR(message) ;
+        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s",
+                                                  THREAD_UD_TAG,
+                                                  lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
 }
@@ -428,8 +452,11 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     HSASMLuaThread *obj = get_objectFromUserdata(__bridge_transfer HSASMLuaThread, L, 1, THREAD_UD_TAG) ;
-    DEBUG(([NSString stringWithFormat:@"__gc for thread:%@", obj.thread.name])) ;
+    NSString *msg = [NSString stringWithFormat:@"__gc for thread:%@", obj.thread.name] ;
+    [skin logVerbose:msg] ; // log in thread
+    VERBOSE(msg) ;          // log in main
     if (obj) {
         [obj removeCommunicationPorts] ;
         [obj.thread cancel] ;

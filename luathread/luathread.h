@@ -14,16 +14,29 @@ NSDictionary *assignmentsFromParent ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
-#define DEBUG(MSG)
-// #define DEBUG(MSG) if ([NSThread isMainThread]) { \
-//         dispatch_async(dispatch_get_main_queue(), ^{ \
-//             [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
-//         }) ; \
-//     } else { \
-//         dispatch_sync(dispatch_get_main_queue(), ^{ \
-//             [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
-//         }) ; \
-//     }
+// The following macros ensure that messages are logged in the main thread.  They are generally only used
+// in the threaded environment when something is important enough, or is likely to be lost (i.e. when the
+// lua state closes) if limited to the threaded [_skin logXXX:] methods.
+
+#define VERBOSE(MSG) if ([NSThread isMainThread]) { \
+        dispatch_async(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logVerbose:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
+        }) ; \
+    } else { \
+        dispatch_sync(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logVerbose:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
+        }) ; \
+    }
+
+#define DEBUG(MSG) if ([NSThread isMainThread]) { \
+        dispatch_async(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, MSG]] ; \
+        }) ; \
+    } else { \
+        dispatch_sync(dispatch_get_main_queue(), ^{ \
+            [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:%@", THREAD_UD_TAG, MSG]] ; \
+        }) ; \
+    }
 
 #define INFORMATION(MSG) if ([NSThread isMainThread]) { \
         dispatch_async(dispatch_get_main_queue(), ^{ \
@@ -52,7 +65,7 @@ NSDictionary *assignmentsFromParent ;
 int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) ;
 id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) ;
 
-@interface HSASMLuaThread : NSObject <NSPortDelegate>
+@interface HSASMLuaThread : NSObject <NSPortDelegate, LuaSkinDelegate>
 @property (readonly) lua_State      *L ;
 @property (readonly) int            runStringRef ;
 @property            BOOL           performLuaClose ;

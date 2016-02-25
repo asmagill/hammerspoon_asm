@@ -16,10 +16,7 @@
 // simplified version of what the LuaSkin push/to methods do, since we have more control over the
 // types of data being shared
 int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) {
-//     NSString *msg = [NSString stringWithFormat:@"getting object of type %@:%@",
-//                                                NSStringFromClass([obj class]),
-//                                                [obj debugDescription]] ;
-//     DEBUG(msg) ;
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     if (obj && [alreadySeen objectForKey:obj]) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:obj] intValue]) ;
     } else if (obj) {
@@ -71,10 +68,13 @@ int getHamster(lua_State *L, id obj, NSMutableDictionary *alreadySeen) {
         } else if ([obj isKindOfClass:[NSString class]]) {
             lua_pushstring(L, [obj UTF8String]) ;
         } else {
-            NSString *msg = [NSString stringWithFormat:@"unrecognized object of type %@:%@",
-                                                       NSStringFromClass([obj class]),
-                                                       [obj debugDescription]] ;
-            INFORMATION(msg) ;
+            [skin logInfo:[NSString stringWithFormat:@"unrecognized object of type %@:%@",
+                                                     NSStringFromClass([obj class]),
+                                                     [obj debugDescription]]] ;
+//             NSString *msg = [NSString stringWithFormat:@"unrecognized object of type %@:%@",
+//                                                        NSStringFromClass([obj class]),
+//                                                        [obj debugDescription]] ;
+//             INFORMATION(msg) ;
             lua_pushfstring(L, "** unknown:%s", [[obj debugDescription] UTF8String]) ;
         }
     } else {

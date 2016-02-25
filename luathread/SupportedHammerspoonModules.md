@@ -13,19 +13,19 @@ Note that these modules install themselves in a subdirectory of the `hs._asm.lua
 
 Module             | Status   | Notes
 -------------------|----------|------
-hs.alert           | no       | maybe
+hs.alert           | yes      | as of v0.3; given a dark blue background to distinguish source of visible alerts
 hs.appfinder       | no       | requires application and window
 hs.applescript     | no       | maybe
 hs.application     | no       | maybe
-hs.audiodevice     | no       |
-hs.base64          | no       | probably
+hs.audiodevice     | no       | uses `dispatch_get_main_queue`, no simple workaround yet
+hs.base64          | yes      | as of v0.3
 hs.battery         | no       | probably
 hs.brightness      | no       |
 hs.caffeinate      | no       |
 hs.chooser         | no       |
 hs.console         | no       |
-hs.crash           | no       |
-hs.doc             | yes      | requires json and fs
+hs.crash           | yes      | as of v0.3
+hs.doc             | yes      | as of v0.2; requires json and fs
 hs.dockicon        | no       |
 hs.drawing         | no       | probably not; tight UI integration
 hs.eventtap        | no       |
@@ -34,12 +34,12 @@ hs.fnutils         | yes      |
 hs.fs              | partial  | volume submodule doesn't work as of v0.2
 hs.geometry        | unknown  | should, but untested
 hs.grid            | no       |
-hs.hash            | no       | probably
+hs.hash            | yes      | as of v0.3
 hs.hints           | no       |
 hs.host            | yes      | as of v0.2
 hs.hotkey          | no       |
 hs.http            | no       |
-hs.httpserver      | no       |
+hs.httpserver      | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.image           | no       |
 hs.inspect         | yes      |
 hs.ipc             | no       |
@@ -49,31 +49,31 @@ hs.json            | yes      | as of v0.2
 hs.keycodes        | no       | probably not, unless eventtap is added
 hs.layout          | no       |
 hs.location        | no       |
-hs.logger          | unknown  | should, but untested
-hs.menubar         | no       | would like to make this non-blocking, but IIRC some NSMenu stuff must be in main thread; will check
+hs.logger          | yes      |
+hs.menubar         | no       | IIRC some NSMenu stuff must be in main thread; will check
 hs.messages        | no       | requires applescript
 hs.milight         | no       |
 hs.mjomatic        | no       |
 hs.mouse           | no       |
-hs.network         | no       | maybe
+hs.network         | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.notify          | no       |
 hs.pasteboard      | no       | probably
 hs.pathwatcher     | yes      | as of v0.2
 hs.redshift        | no       |
-hs.screen          | no       |
+hs.screen          | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.settings        | no       | probably
-hs.sound           | no       |
+hs.sound           | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.spaces          | no       |
 hs.speech          | no       |
 hs.spotify         | no       | requires alert, applescript, application
 hs.styledtext      | no       | probably not; requires drawing
 hs.tabs            | no       |
-hs.task            | no       | maybe
+hs.task            | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.timer           | no       | maybe
 hs.uielement       | no       |
 hs.urlevent        | no       |
 hs.usb             | yes      | as of v0.2
-hs.utf8            | no       | probably
+hs.utf8            | yes      |
 hs.webview         | no       |
 hs.wifi            | no       |
 hs.window          | no       |
