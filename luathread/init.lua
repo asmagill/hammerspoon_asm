@@ -30,14 +30,15 @@ local internal     = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
 
-local threadInitFile = package.searchpath(USERDATA_TAG.."._init", package.path)
-local configdir      = threadInitFile:gsub("/_init.lua$", "")
+local threadInitFile = package.searchpath(USERDATA_TAG.."._threadinit", package.path)
+local configdir      = threadInitFile:gsub("/_threadinit.lua$", "")
 module._assignments({
-    initfile  = threadInitFile,
-    configdir = hs.configdir,
+    initfile             = threadInitFile,
+    configdir            = hs.configdir,
     docstrings_json_file = hs.docstrings_json_file,
-    path      = configdir.."/?.lua"..";"..configdir.."/?/init.lua"..";"..package.path,
-    cpath     = configdir.."/?.so"..";"..package.cpath,
+    path                 = configdir.."/?.lua"..";"..configdir.."/?/init.lua"..";"..package.path,
+    cpath                = configdir.."/?.so"..";"..package.cpath,
+    processInfo          = hs.processInfo,
 })
 module._assignments = nil -- should only be called once, then never again
 

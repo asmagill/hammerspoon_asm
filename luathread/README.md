@@ -412,6 +412,23 @@ Notes:
 
 - - -
 
+<a name="reload"></a>
+~~~lua
+_instance:reload() -> None
+~~~
+Destroy's and recreates the lua state for the thread, reloading the configuration files and starting over.
+
+Parameters:
+ * None
+
+Returns:
+ * None
+
+Notes:
+ * this method is used to mimic the Hammerspoon `hs.reload` function, but for the luathread instance instead of Hammerspoon itself.
+
+- - -
+
 <a name="set2"></a>
 ~~~lua
 _instance:set(key, value) -> threadObject

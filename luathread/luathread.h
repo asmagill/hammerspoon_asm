@@ -71,6 +71,7 @@ id setHamster(lua_State *L, int idx, NSMutableDictionary *alreadySeen) ;
 @property            BOOL           performLuaClose ;
 @property            BOOL           dictionaryLock ;
 @property            BOOL           idle ;
+@property            BOOL           resetLuaState ;
 @property (readonly) NSThread       *thread ;
 @property (readonly) NSPort         *inPort ;
 @property (readonly) NSPort         *outPort ;

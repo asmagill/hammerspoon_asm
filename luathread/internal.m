@@ -1,16 +1,25 @@
+//    Move this to it's own repo -- getting large enough that it would be annoying for someone who
+//        wanted to clone repo for something else, but didn't care about/want this...
+//
 // *  LuaSkin support now possible -- does require change to modules, but no change to core Application or LuaSkin framework
-//    Need to work out proper delegate for threaded LuaSkin's to allow log messages to go somewhere useful
-//    Module conversion in progress for modules I care about... may take requests afterwards...
-//       module changes require [LuaSkin performSelector:@selector(thread)] instead of [LuaSkin shared], and making sure
-//       that they don't explicitly schedule anything on main loop (use current run loop instead)
-//    Modify thread.m to use thread supported LuaSkin argument checking, etc.
-//    Modify get/set to use LuaSkin? gives us easier userdata support, but at possible cost of guaranteed proper boolean support
+// *  Need to work out proper delegate for threaded LuaSkin's to allow log messages to go somewhere useful
+// +  Module conversion in progress for modules I care about... may take requests afterwards...
+//        module changes require [LuaSkin performSelector:@selector(thread)] instead of [LuaSkin shared], and
+//        making sure that they don't explicitly schedule anything on main loop, etc.
+//    Modify thread.m to use thread supported LuaSkin for argument checking, etc.
+//    Modify get/set to use LuaSkin? gives us easier userdata support, but at possible cost of guaranteed
+//        proper boolean support
 //
 // *  transfer base data types directly?
 // *      meta methods so thread dictionary can be treated like a regular lua table?
 //        other types (non-c functions, NSObject based userdata)? struct userdata would require NSValue... maybe?
 // +  check if thread is running in some (all?) methods
-//    locks need timeout/fallback (reset?) (dictionary lock is only one still in use)
+//    locks need timeout/fallback (reset?) (dictionary lock is only one still in use) -- use NSLock?
+//
+// ?  add support for thread to initiate lua on main thread (i.e. core Hammerspoon) other than through
+//       properly (and intentionally) created callback function?  would allow hand-off for things which
+//       may not be possible/easy on the threaded side (hs.drawing, etc.) but at risk of thread blocking
+//       Hammerspoon (the reason for this in the first place) or even worse -- a deadlock between the two
 
 #import "luathread.h"
 

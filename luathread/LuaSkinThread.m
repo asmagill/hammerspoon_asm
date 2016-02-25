@@ -82,8 +82,8 @@
 }
 
 - (void)destroyLuaState {
-    NSLog(@"destroyLuaState");
-    NSAssert((_L != NULL), @"destroyLuaState called with no Lua environment", nil);
+    NSLog(@"LuaSkinThread destroyLuaState");
+    NSAssert((_L != NULL), @"LuaSkinThread destroyLuaState called with no Lua environment", nil);
     if (_L) {
         lua_close(_L);
         [_registeredNSHelperFunctions removeAllObjects] ;
@@ -91,6 +91,8 @@
         [_registeredLuaObjectHelperFunctions removeAllObjects] ;
         [_registeredLuaObjectHelperLocations removeAllObjects] ;
         [_registeredLuaObjectHelperUserdataMappings removeAllObjects];
+        NSThread      *thisThread = [NSThread currentThread] ;
+        [thisThread.threadDictionary removeObjectForKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]] ;
     }
     _L = NULL;
 }

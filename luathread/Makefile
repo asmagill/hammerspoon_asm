@@ -31,12 +31,12 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 all: verify $(SOFILE)
 # all: verify internal.so
 
-.m.so: $(HEADERS)
-# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
-
-# internal.so: $(HEADERS) $(OBJCFILE)
+# .m.so: $(HEADERS)
+# # 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 # 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+
+internal.so: $(HEADERS) $(OBJCFILE)
+	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
 

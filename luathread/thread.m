@@ -15,6 +15,7 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
         _performLuaClose = YES ;
         _dictionaryLock  = NO ;
         _idle            = NO ;
+        _resetLuaState   = NO ;
         _cachedOutput    = [[NSMutableArray alloc] init] ;
 
         // go ahead and define it now, even though we're not threaded yet, because we want
@@ -26,6 +27,7 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
 }
 
 -(BOOL)startLuaInstance {
+    _resetLuaState = NO ;
     _skin = [LuaSkin performSelector:@selector(thread)] ;
     _L = _skin.L ;
 
@@ -83,12 +85,15 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
             while (![_thread isCancelled]) {
                 _idle = YES ;
                 [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+                if (_resetLuaState) [self reloadLuaThread] ;
             }
             DEBUG(@"exited while-runloop") ;
 
-            luaL_unref(_L, LUA_REGISTRYINDEX, _runStringRef) ;
+            if (_performLuaClose) {
+                luaL_unref(_L, LUA_REGISTRYINDEX, _runStringRef) ;
+                [_skin destroyLuaState] ;
+            }
             _runStringRef = LUA_NOREF ;
-            if (_performLuaClose) [_skin destroyLuaState] ;
         }
         _finalDictionary = [_thread threadDictionary] ;
 
@@ -100,6 +105,19 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
         _outPort = nil ;
         [_skin setDelegate:nil] ;
         _skin    = nil ;
+    }
+}
+
+-(void)reloadLuaThread {
+    VERBOSE(@"luathread reload requested") ;
+    [_skin setDelegate:nil] ;
+    [_skin destroyLuaState] ;
+    _runStringRef = LUA_NOREF ;
+//     [_thread.threadDictionary removeObjectForKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]] ;
+    if (![self startLuaInstance]) {
+        ERROR(@"exiting thread; error during reload") ;
+        _performLuaClose = NO ;
+        [_thread cancel] ;
     }
 }
 
@@ -399,6 +417,24 @@ static int flushOutput(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.luathread._instance:reload() -> None
+/// Method
+/// Destroy's and recreates the lua state for the thread, reloading the configuration files and starting over.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * None
+///
+/// Notes:
+///  * this method is used to mimic the Hammerspoon `hs.reload` function, but for the luathread instance instead of Hammerspoon itself.
+static int reloadLuaThread(lua_State *L) {
+    HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
+    luaThread.resetLuaState = YES ;
+    return 0 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -458,9 +494,13 @@ static int userdata_gc(lua_State* L) {
     [skin logVerbose:msg] ; // log in thread
     VERBOSE(msg) ;          // log in main
     if (obj) {
-        [obj removeCommunicationPorts] ;
-        [obj.thread cancel] ;
-        obj         = nil ;
+        if (obj.resetLuaState) {
+            VERBOSE(@"__gc for thread:reload, skipping teardown") ;
+        } else {
+            [obj removeCommunicationPorts] ;
+            [obj.thread cancel] ;
+            obj         = nil ;
+        }
     }
     // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -484,6 +524,7 @@ static const luaL_Reg thread_userdata_metaLib[] = {
     {"keys",        itemDictionaryKeys},
     {"print",       printOutput},
     {"flush",       flushOutput},
+    {"reload",      reloadLuaThread},
 
     {"__tostring",  userdata_tostring},
     {"__eq",        userdata_eq},

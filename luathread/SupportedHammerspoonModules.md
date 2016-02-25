@@ -15,11 +15,11 @@ Module             | Status   | Notes
 -------------------|----------|------
 hs.alert           | yes      | as of v0.3; given a dark blue background to distinguish source of visible alerts
 hs.appfinder       | no       | requires application and window
-hs.applescript     | no       | maybe
-hs.application     | no       | maybe
+hs.applescript     | no       |
+hs.application     | no       |
 hs.audiodevice     | no       | uses `dispatch_get_main_queue`, no simple workaround yet
 hs.base64          | yes      | as of v0.3
-hs.battery         | no       | probably
+hs.battery         | no       |
 hs.brightness      | no       |
 hs.caffeinate      | no       |
 hs.chooser         | no       |
@@ -44,7 +44,7 @@ hs.image           | no       |
 hs.inspect         | yes      |
 hs.ipc             | no       |
 hs.itunes          | no       | requires alert, applescript, application
-hs.javascript      | no       | maybe
+hs.javascript      | no       |
 hs.json            | yes      | as of v0.2
 hs.keycodes        | no       | probably not, unless eventtap is added
 hs.layout          | no       |
@@ -69,7 +69,7 @@ hs.spotify         | no       | requires alert, applescript, application
 hs.styledtext      | no       | probably not; requires drawing
 hs.tabs            | no       |
 hs.task            | no       | uses `dispatch_get_main_queue`, no simple workaround yet
-hs.timer           | no       | maybe
+hs.timer           | no       | probably
 hs.uielement       | no       |
 hs.urlevent        | no       |
 hs.usb             | yes      | as of v0.2
@@ -82,27 +82,33 @@ hs.window          | no       |
 
 Function                        | Status   | Notes
 --------------------------------|----------|------
+hs.cleanUTF8forConsole          | yes      | if you have the `hs._luathreadcoreadditions` module
+hs.configdir                    | yes      | just copied from Hammerspoon
+hs.docstrings_json_file         | yes      | just copied from Hammerspoon
+hs.execute                      | yes      | included in module `_threadinit.lua`
+hs.getObjectMetatable           | yes      | if you have the `hs._luathreadcoreadditions` module
+hs.help                         | yes      | not included by default; add `hs.help = require("hs.doc")` to `~/.hammerspoon/_init.lua`
+hs.printf                       | yes      |
+hs.processInfo                  | yes      | just copied from Hammerspoon. would like to include thread id, but this is not apparently easy for NSThread based threading
+hs.rawprint                     | yes      |
+hs.reload                       | yes      |
+hs.showError                    | no       | maybe
+
+The following are unlikely to be added unless there is interest, as they concern visible aspects of Hammerspoon and don't directly apply to a background thread process.
+
+Function                        | Status   | Notes
+--------------------------------|----------|------
 hs.accessibilityState           | no       |
 hs.autoLaunch                   | no       |
 hs.automaticallyCheckForUpdates | no       |
 hs.checkForUpdates              | no       |
-hs.cleanUTF8forConsole          | no       | if hs.utf8 added, this probably will be as well
 hs.completionsForInputString    | no       | no need in non-console thread
-hs.configdir                    | yes      |
 hs.consoleOnTop                 | no       |
 hs.dockIcon                     | no       |
-hs.docstrings_json_file         | yes      |
-hs.execute                      | yes      |
 hs.focus                        | no       |
-hs.getObjectMetatable           | no       |
-hs.help                         | yes      | Not included by default; add `hs.help = require("hs.doc")` to `~/.hammerspoon/_init.lua`
 hs.menuIcon                     | no       |
 hs.openAbout                    | no       |
 hs.openConsole                  | no       |
 hs.openPreferences              | no       |
-hs.processInfo                  | no       | maybe
-hs.rawprint                     | no       |
-hs.reload                       | no       | maybe, to reload thread
-hs.showError                    | no       | would like something visual, but this requires hs.notify
-hs.shutdownCallback             | no       | probably not
+hs.shutdownCallback             | no       |
 hs.toggleConsole                | no       |
