@@ -11,6 +11,8 @@ A compiled version of this module can (usually) be found in this folder named `l
 
 The v0.2 bundle is the first to provide experimental support for some LuaSkin based Hammerspoon modules.  Adding this support does require changes (usually minor) to the module, so only those modules which make the most sense in a background thread are likely to be converted.  If you have specific requests, or wish to submit your own modified modules, please feel free to do so.  I will keep the binary bundle up to date as changes occur.
 
+Additional note 2/26/2016 - v0.2 and v0.3 are likely to have buggy interactions if you use the added modules in more than one luathread instance at a time (using the same "module" in Hammerspoon itself doesn't count), so they have been removed... you can get them in the repo history if you really want to, but... v0.4 should be a bit more stable, but remember, this is still *very* experimental.
+
 ~~~bash
 cd ~/.hammerspoon
 tar -xzf ~/Downloads/luathread-vX.Y.tar.gz # or wherever your downloads are saved
