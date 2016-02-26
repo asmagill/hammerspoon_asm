@@ -54,7 +54,7 @@ Registers a notification observer for distributed (Intra-Application) notificati
 Parameters:
  * fn - the callback function to associate with this listener.  The function will receive 3 parameters:
    * name - a string giving the name of the notification received
-   * object - a table containing information about the notification received
+   * object - the object that posted this notification
    * userinfo - an optional table containing information attached to the notification reveived
  * name - an optional parameter specifying the name of the message you wish to listen for.  If nil or left out, all received notifications will be observed.
 
@@ -72,7 +72,7 @@ Registers a notification observer for notifications sent within Hammerspoon itse
 Parameters:
  * fn - the callback function to associate with this listener.  The function will receive 3 parameters:
    * name - a string giving the name of the notification received
-   * object - a table containing information about the notification received
+   * object - the object that posted this notification
    * userinfo - an optional table containing information attached to the notification reveived
  * name - a required parameter specifying the name of the message you wish to listen for.
 
@@ -94,7 +94,7 @@ Registers a notification observer for notifications sent to the shared workspace
 Parameters:
  * fn - the callback function to associate with this listener.  The function will receive 3 parameters:
    * name - a string giving the name of the notification received
-   * object - a table containing information about the notification received
+   * object - the object that posted this notification
    * userinfo - an optional table containing information attached to the notification reveived
  * name - an optional parameter specifying the name of the message you wish to listen for.  If nil or left out, all received notifications will be observed.
 
