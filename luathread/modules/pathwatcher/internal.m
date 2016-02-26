@@ -4,7 +4,8 @@
 // Common Code
 
 #define USERDATA_TAG    "hs.pathwatcher"
-int refTable;
+// Modules which support luathread have to store refTable in the threadDictionary rather than a static
+// static int refTable = LUA_NOREF;
 
 // Not so common code
 
@@ -16,6 +17,8 @@ typedef struct _watcher_path_t {
 
 void event_callback(ConstFSEventStreamRef __unused streamRef, void *clientCallBackInfo, size_t numEvents, void *eventPaths, const FSEventStreamEventFlags __unused eventFlags[], const FSEventStreamEventId __unused eventIds[]) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue];
 
     watcher_path_t* pw = clientCallBackInfo;
 
@@ -43,6 +46,9 @@ void event_callback(ConstFSEventStreamRef __unused streamRef, void *clientCallBa
 static int watcher_path_new(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     [skin checkArgs:LS_TSTRING, LS_TFUNCTION, LS_TBREAK];
+
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue];
 
     NSString* path = [NSString stringWithUTF8String: lua_tostring(L, 1)];
 
@@ -106,6 +112,8 @@ static int watcher_path_stop(lua_State* L) {
 
 static int watcher_path_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue];
 
     watcher_path_t* watcher_path = luaL_checkudata(L, 1, USERDATA_TAG);
 
@@ -156,7 +164,15 @@ static const luaL_Reg meta_gcLib[] = {
 
 int luaopen_hs_pathwatcher_internal(lua_State* L __unused) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
-    refTable = [skin registerLibraryWithObject:USERDATA_TAG functions:pathLib metaFunctions:meta_gcLib objectFunctions:path_metalib];
+
+    // This is necessary for any module which is to be used within luathread to ensure each module
+    // has a unique refTable value for each thread it may be running in
+    [[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+        setObject:@([skin registerLibraryWithObject:USERDATA_TAG
+                                          functions:pathLib
+                                      metaFunctions:meta_gcLib
+                                    objectFunctions:path_metalib])
+           forKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] ;
 
     return 1;
 }

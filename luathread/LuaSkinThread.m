@@ -1,5 +1,29 @@
+// Create a LuaSkin subclass which can be unique per thread
+//
+// This is not quite a drop-in replacement for LuaSkin in modules which use LuaSkin...
+// At a minimum, all references to [LuaSkin shared] need to be replaced with
+//                                 [LuaSkin performSelector:@selector(thread)].
+// If you wish for a module to work in more than one luathread instance at the same time,
+//    you should also store refTable values in the thread dictionary as demonstrated in
+//    the modules included in the luathread modules/ sub-directory.
+//
+// Modules might also need additional changes if they dispatch blocks to the main queue or
+//    explicitly call selectors on the main thread... some examples of changes that work can
+//    be found in the modules/ sub-directory of the luathread repository and an example of a
+//    third-party module which is written to be compatible with both core Hammerspoon and
+//    luathreads can be seen in hs._asm.notificationcenter
+//
+// Currently all of these referenced modules/repositories are subdirectories of
+//    https://github.com/asmagill/hammerspoon_asm.  If this change, I will try to keep
+//    these notes up-to-date
+
 @import LuaSkin ;
 #import <objc/runtime.h>
+
+// I don't remember why the tracking dictionarys were added as local static variables in
+// LuaSkin rather than as properties of the object itself, but they were, so we have to use
+// our own properties and override any method which uses them to keep our conversion
+// functions safe with a LuaSkin subclass...
 
 @interface LuaSkinThread : LuaSkin
 @property NSMutableDictionary *registeredNSHelperFunctions ;
@@ -11,6 +35,9 @@
 +(BOOL)inject ;
 +(id)thread ;
 @end
+
+// Since the overridden methods reference these, we need the interface available here as well,
+// since it isn't included in the stock LuaSkin.h
 
 @interface LuaSkin (conversionSupport)
 
@@ -32,13 +59,24 @@
                           alreadySeenObjects:(NSMutableDictionary *)alreadySeen;
 @end
 
+
 @implementation LuaSkinThread
+
+// Inject a new class method for use as a replacement for [LuaSkin shared] in a threaded instance.
+// We do this, rather than swizzle shared itself because LuaSkin isn't the only component of a module
+// that needs to be thread-aware/thread-safe, so we still want modules which haven't been explicitly
+// looked at and tested to fail to load within the luathread... by leaving the shared class method
+// alone, an exception is still thrown for untested modules and we don't potentially introduce new
+// unintended side-effects in to the core LuaSkin and Hammerspoon modules
 
 +(BOOL)inject {
     static dispatch_once_t onceToken ;
     static BOOL            injected = NO ;
 
     dispatch_once(&onceToken, ^{
+
+        // since we're adding a class method, we need to get LuaSkin's metaclass... this is the
+        // easiest way to do so...
         Class  oldClass = object_getClass([LuaSkin class]) ;
         Class  newClass = [LuaSkinThread class] ;
         SEL    selector = @selector(thread) ;
@@ -58,15 +96,22 @@
 }
 
 +(id)thread {
+    // if we're on the main thread, go ahead and act normally
     if ([NSThread isMainThread]) return [LuaSkin shared] ;
+
+    // otherwise, we're storing the LuaSkin instance in the thread's dictionary
     NSThread      *thisThread = [NSThread currentThread] ;
-    LuaSkinThread *thisSkin   = [thisThread.threadDictionary objectForKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]] ;
+
+    LuaSkinThread *thisSkin   = [thisThread.threadDictionary objectForKey:@"_LuaSkin"] ;
     if (!thisSkin) {
         thisSkin = [[LuaSkinThread alloc] init] ;
-        [thisThread.threadDictionary setObject:thisSkin forKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]];
+        [thisThread.threadDictionary setObject:thisSkin forKey:@"_LuaSkin"];
+        [thisThread.threadDictionary setObject:[[NSMutableDictionary alloc] init] forKey:@"_refTables"] ;
     }
     return thisSkin ;
 }
+
+// the following methods override the LuaSkin methods we need to make this work
 
 - (id)init {
     self = [super init];
@@ -92,7 +137,8 @@
         [_registeredLuaObjectHelperLocations removeAllObjects] ;
         [_registeredLuaObjectHelperUserdataMappings removeAllObjects];
         NSThread      *thisThread = [NSThread currentThread] ;
-        [thisThread.threadDictionary removeObjectForKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]] ;
+        [thisThread.threadDictionary removeObjectForKey:@"_LuaSkin"] ;
+        [thisThread.threadDictionary removeObjectForKey:@"_refTables"] ;
     }
     _L = NULL;
 }
@@ -223,7 +269,6 @@
             lua_pushstring(_L, [[obj absoluteString] UTF8String]) ;
         } else {
             if ((options & LS_NSDescribeUnknownTypes) == LS_NSDescribeUnknownTypes) {
-                [self logDebug:[NSString stringWithFormat:@"unrecognized type %@; converting to '%@'", NSStringFromClass([obj class]), [obj debugDescription]]] ;
                 lua_pushstring(_L, [[NSString stringWithFormat:@"%@", [obj debugDescription]] UTF8String]) ;
             } else if ((options & LS_NSIgnoreUnknownTypes) == LS_NSIgnoreUnknownTypes) {
                 [self logDebug:[NSString stringWithFormat:@"unrecognized type %@; ignoring", NSStringFromClass([obj class])]] ;

@@ -1,8 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
 
-static int refTable = LUA_NOREF;
-
 #pragma mark - Support Functions and Classes
 
 #pragma mark - Module Functions
@@ -55,7 +53,7 @@ static luaL_Reg moduleLib[] = {
 
 int luaopen_hs__luathreadcoreadditions_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared] ;
-    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+    [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 
     return 1;
 }

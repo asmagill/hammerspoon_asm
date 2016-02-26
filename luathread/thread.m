@@ -113,7 +113,6 @@ static id toHSASMLuaThreadFromLua(lua_State *L, int idx) ;
     [_skin setDelegate:nil] ;
     [_skin destroyLuaState] ;
     _runStringRef = LUA_NOREF ;
-//     [_thread.threadDictionary removeObjectForKey:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]] ;
     if (![self startLuaInstance]) {
         ERROR(@"exiting thread; error during reload") ;
         _performLuaClose = NO ;
@@ -276,14 +275,21 @@ static int threadName(lua_State *L) {
 ///  * This method is used in conjunction with [hs._asm.luathread._instance:set](#set2) to pass data back and forth between the thread and Hammerspoon.
 ///  * see also [hs._asm.luathread:sharedTable](#sharedTable) and the description of the global `_sharedTable` in this sub-module's description.
 static int getItemFromDictionary(lua_State *L) {
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
-    id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
+    id key = [skin toNSObjectAtIndex:2 withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                   LS_NSDescribeUnknownTypes         |
+                                                   LS_NSPreserveLuaStringExactly     |
+                                                   LS_NSAllowsSelfReference] ;
     while(luaThread.dictionaryLock) {} ;
     luaThread.dictionaryLock = YES ;
     NSDictionary *holding = luaThread.thread.threadDictionary ;
     luaThread.dictionaryLock = NO ;
     id obj = (lua_gettop(L) == 1) ? holding : [holding objectForKey:key] ;
-    getHamster(L, obj, [[NSMutableDictionary alloc] init]) ;
+    [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                       LS_NSDescribeUnknownTypes         |
+                                       LS_NSPreserveLuaStringExactly     |
+                                       LS_NSAllowsSelfReference] ;
     return 1 ;
 }
 
@@ -302,11 +308,20 @@ static int getItemFromDictionary(lua_State *L) {
 ///  * This method is used in conjunction with [hs._asm.luathread._instance:get](#get2) to pass data back and forth between the thread and Hammerspoon.
 ///  * see also [hs._asm.luathread:sharedTable](#sharedTable) and the description of the global `_sharedTable` in this sub-module's description.
 static int setItemInDictionary(lua_State *L) {
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
-    id key = setHamster(L, 2, [[NSMutableDictionary alloc] init]) ;
-    id obj = setHamster(L, 3, [[NSMutableDictionary alloc] init]) ;
-    if ([key isKindOfClass:[NSData class]] && [key isEqualTo:[@"_LuaSkin" dataUsingEncoding:NSUTF8StringEncoding]])
-        return luaL_error(L, "you cannot modify an internally required variable") ;
+    id key = [skin toNSObjectAtIndex:2 withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                   LS_NSDescribeUnknownTypes         |
+                                                   LS_NSPreserveLuaStringExactly     |
+                                                   LS_NSAllowsSelfReference] ;
+    id obj = [skin toNSObjectAtIndex:3 withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                   LS_NSDescribeUnknownTypes         |
+                                                   LS_NSPreserveLuaStringExactly     |
+                                                   LS_NSAllowsSelfReference] ;
+    if ([key isKindOfClass:[NSString class]] && ([key isEqualToString:@"_LuaSkin"] ||
+                                                 [key isEqualToString:@"_refTables"])) {
+        return luaL_error(L, "you cannot modify an internally managed variable") ;
+    }
     while(luaThread.dictionaryLock) {} ;
     luaThread.dictionaryLock = YES ;
     [luaThread.thread.threadDictionary setValue:obj forKey:key] ;
@@ -328,12 +343,16 @@ static int setItemInDictionary(lua_State *L) {
 /// Notes:
 ///  * see also [hs._asm.luathread._instance:get](#get2) and [hs._asm.luathread._instance:set](#set2)
 static int itemDictionaryKeys(lua_State *L) {
+    LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     HSASMLuaThread *luaThread = toHSASMLuaThreadFromLua(L, 1) ;
     while(luaThread.dictionaryLock) {} ;
     luaThread.dictionaryLock = YES ;
     NSArray *theKeys = [luaThread.thread.threadDictionary allKeys] ;
     luaThread.dictionaryLock = NO ;
-    getHamster(L, theKeys, [[NSMutableDictionary alloc] init]) ;
+    [skin pushNSObject:theKeys withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                           LS_NSDescribeUnknownTypes         |
+                                           LS_NSPreserveLuaStringExactly     |
+                                           LS_NSAllowsSelfReference] ;
     return 1 ;
 }
 
@@ -514,7 +533,6 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg thread_userdata_metaLib[] = {
-//     {"print",       returnString},
     {"cancel",      cancelThread},
     {"name",        threadName},
     {"isCancelled", threadIsCancelled},

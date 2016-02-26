@@ -13,7 +13,8 @@
 // Common Code
 
 #define USERDATA_TAG    "hs.usb.watcher"
-int refTable;
+// Modules which support luathread have to store refTable in the threadDictionary rather than a static
+// static int refTable = LUA_NOREF;
 
 // Not so common code
 
@@ -45,6 +46,8 @@ void DeviceNotification(void *refCon, io_service_t service __unused, natural_t m
     if (messageType == kIOMessageServiceIsTerminated) {
         LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
         lua_State *L = skin.L;
+        int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                    objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
         [skin pushLuaRef:refTable ref:watcher->fn];
 
@@ -134,6 +137,8 @@ void DeviceAdded(void *refCon, io_iterator_t iterator) {
         // We don't want to trigger callbacks for every device attached before the watcher starts, but we needed to enumerate them to get private device data cached
         if (!watcher->isFirstRun) {
             LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+            int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                        objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
             lua_State *L = skin.L;
 
             [skin pushLuaRef:refTable ref:watcher->fn];
@@ -179,6 +184,8 @@ void DeviceAdded(void *refCon, io_iterator_t iterator) {
 ///  * A `hs.usb.watcher` object
 static int usb_watcher_new(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
     luaL_checktype(L, 1, LUA_TFUNCTION);
 
@@ -260,6 +267,8 @@ static int usb_watcher_stop(lua_State* L) {
 
 static int usb_watcher_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
     usbwatcher_t* usbwatcher = luaL_checkudata(L, 1, USERDATA_TAG);
 
@@ -304,7 +313,15 @@ static const luaL_Reg meta_gcLib[] = {
 
 int luaopen_hs_usb_watcher(lua_State* L __unused) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
-    refTable = [skin registerLibraryWithObject:USERDATA_TAG functions:usbLib metaFunctions:meta_gcLib objectFunctions:usb_metalib];
+
+    // This is necessary for any module which is to be used within luathread to ensure each module
+    // has a unique refTable value for each thread it may be running in
+    [[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+        setObject:@([skin registerLibraryWithObject:USERDATA_TAG
+                                          functions:usbLib
+                                      metaFunctions:meta_gcLib
+                                    objectFunctions:usb_metalib])
+           forKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] ;
 
     return 1;
 }

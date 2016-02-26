@@ -28,7 +28,8 @@
 // Common Code
 
 #define USERDATA_TAG "hs.fs.volume"
-int refTable;
+// Modules which support luathread have to store refTable in the threadDictionary rather than a static
+// static int refTable = LUA_NOREF;
 
 // Not so common code
 
@@ -61,6 +62,8 @@ typedef enum _event_t {
 // Call the lua callback function and pass the application name and event type.
 - (void)callback:(NSDictionary *)dict withEvent:(event_t)event {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
     lua_State *L = skin.L;
 
     [skin pushLuaRef:refTable ref:self.object->fn];
@@ -146,6 +149,8 @@ static int volume_eject(lua_State *L) {
 static int volume_watcher_new(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
     [skin checkArgs:LS_TFUNCTION, LS_TBREAK];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
     VolumeWatcher_t* watcher = lua_newuserdata(L, sizeof(VolumeWatcher_t));
     memset(watcher, 0, sizeof(VolumeWatcher_t));
@@ -243,6 +248,8 @@ static int volume_watcher_stop(lua_State* L) {
 // Perform cleanup if the VolumeWatcher is not required anymore.
 static int volume_watcher_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
+    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
     VolumeWatcher_t* watcher = luaL_checkudata(L, 1, USERDATA_TAG);
 
@@ -303,7 +310,15 @@ static const luaL_Reg metaGcLib[] = {
 // Called when loading the module. All necessary tables need to be registered here.
 int luaopen_hs_fs_volume(lua_State* L __unused) {
     LuaSkin *skin = [LuaSkin performSelector:@selector(thread)]; //[LuaSkin shared];
-    refTable = [skin registerLibraryWithObject:USERDATA_TAG functions:appLib metaFunctions:metaGcLib objectFunctions:metaLib];
+
+    // This is necessary for any module which is to be used within luathread to ensure each module
+    // has a unique refTable value for each thread it may be running in
+    [[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
+        setObject:@([skin registerLibraryWithObject:USERDATA_TAG
+                                          functions:appLib
+                                      metaFunctions:metaGcLib
+                                    objectFunctions:metaLib])
+           forKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] ;
 
     add_event_enum(skin.L);
 
