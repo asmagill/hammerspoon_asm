@@ -269,9 +269,10 @@
             lua_pushstring(_L, [[obj absoluteString] UTF8String]) ;
         } else {
             if ((options & LS_NSDescribeUnknownTypes) == LS_NSDescribeUnknownTypes) {
+                [self logVerbose:[NSString stringWithFormat:@"unrecognized type %@; converting to '%@'", NSStringFromClass([obj class]), [obj debugDescription]]] ;
                 lua_pushstring(_L, [[NSString stringWithFormat:@"%@", [obj debugDescription]] UTF8String]) ;
             } else if ((options & LS_NSIgnoreUnknownTypes) == LS_NSIgnoreUnknownTypes) {
-                [self logDebug:[NSString stringWithFormat:@"unrecognized type %@; ignoring", NSStringFromClass([obj class])]] ;
+                [self logVerbose:[NSString stringWithFormat:@"unrecognized type %@; ignoring", NSStringFromClass([obj class])]] ;
                 return 0 ;
             }else {
                 [self logDebug:[NSString stringWithFormat:@"unrecognized type %@; returning nil", NSStringFromClass([obj class])]] ;

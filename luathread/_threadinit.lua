@@ -77,11 +77,14 @@ if _instance then
 
     local logger = require("hs.logger").new("LSinThread", "debug")
     hs.luaSkinLog       = logger
+
     hs.handleLogMessage = function(level, message)
+--         local levelLabels = { "ERROR", "WARNING", "INFO", "DEBUG", "VERBOSE" }
 -- we don't want to have to require anything which isn't safe as-is from Hammerspoon in this file
 -- to minimize problems if they don't install the entire set of re-compiled supported modules
+--       -- may change in the future if this fills crashlog with too much useless stuff
 --         if level ~= 5 then
---             require("hs.crash").crashLog(string.format("(%d) %s", level, message))
+--             crashLog(string.format("(%s) %s", (levelLabels[level] or tostring(level)), message))
 --         end
 
         if level == 5 then     logger.v(message) -- LS_LOG_VERBOSE
@@ -89,7 +92,7 @@ if _instance then
         elseif level == 3 then logger.i(message) -- LS_LOG_INFO
         elseif level == 2 then logger.w(message) -- LS_LOG_WARN
         elseif level == 1 then logger.e(message) -- LS_LOG_ERROR
---                 hs.showError(message)
+  --           hs.showError(message)
         else
             print("*** UNKNOWN LOG LEVEL: "..tostring(level).."\n\t"..message)
         end
