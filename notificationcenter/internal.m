@@ -36,6 +36,8 @@
             int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
                                         objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
 
+// NSLog(@"%@ from %@ on thread %@:refTable == %d, fnRef == %d, with %@", [note name], [note object], [[NSThread currentThread] name], refTable, self.fn, [note userInfo]) ;
+
             [skin pushLuaRef:refTable ref:self.fn] ;
             [skin pushNSObject:[note name]] ;
             if ([[note object] isKindOfClass:[NSWorkspace class]]) {
@@ -283,7 +285,7 @@ int luaopen_hs__asm_notificationcenter_internal(lua_State* __unused L) {
     // Necessary only for modules which are written to work in either Hammerspoon or luathread.
     // For luathread only modules (i.e. those included with hs._asm.luathread), this is taken care
     // of during thread initialization
-    if ([NSThread isMainThread]) {
+    if ([NSThread isMainThread] && ![[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]) {
         [[[NSThread currentThread] threadDictionary] setObject:[[NSMutableDictionary alloc] init]
                                                         forKey:@"_refTables"] ;
     }
