@@ -587,10 +587,29 @@ static int lockscreen(lua_State* L)
   return 1 ;
 }
 
+static int classLoggerTest(lua_State *L) {
+    [LuaSkin      logError:@"no dispatch, logError"] ;
+    [LuaSkin       logWarn:@"no dispatch, logWarn"] ;
+    [LuaSkin       logInfo:@"no dispatch, logInfo"] ;
+    [LuaSkin      logDebug:@"no dispatch, logDebug"] ;
+    [LuaSkin    logVerbose:@"no dispatch, logVerbose"] ;
+    [LuaSkin logBreadcrumb:@"no dispatch, logBreadcrumb"] ;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+        [LuaSkin      logError:@"dispatch, logError"] ;
+        [LuaSkin       logWarn:@"dispatch, logWarn"] ;
+        [LuaSkin       logInfo:@"dispatch, logInfo"] ;
+        [LuaSkin      logDebug:@"dispatch, logDebug"] ;
+        [LuaSkin    logVerbose:@"dispatch, logVerbose"] ;
+        [LuaSkin logBreadcrumb:@"dispatch, logBreadcrumb"] ;
+    }) ;
+    return 0 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults},
+    {"classLoggerTest",      classLoggerTest},
 
     {"userDataToString",     ud_tostring},
     {"getMenuArray",         getMenuArray},
