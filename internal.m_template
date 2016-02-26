@@ -33,7 +33,7 @@ static int refTable = LUA_NOREF;
 //     LuaSkin *skin = [LuaSkin shared] ;
 //     <moduleType> *value ;
 //     if (luaL_testudata(L, idx, USERDATA_TAG)) {
-//         value = get_objectFromUserdata(__bridge <moduleType>, L, idx) ;
+//         value = get_objectFromUserdata(__bridge <moduleType>, L, idx, USERDATA_TAG) ;
 //     } else {
 //         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
 //                                                    lua_typename(L, lua_type(L, idx))]] ;
@@ -66,7 +66,7 @@ static int refTable = LUA_NOREF;
 // }
 
 // static int userdata_gc(lua_State* L) {
-//     <moduleType> *obj = get_objectFromUserdata(__bridge_transfer <moduleType>, L, 1) ;
+//     <moduleType> *obj = get_objectFromUserdata(__bridge_transfer <moduleType>, L, 1, USERDATA_TAG) ;
 //     if (obj) obj = nil ;
 //     // Remove the Metatable so future use of the variable in Lua won't think its valid
 //     lua_pushnil(L) ;
@@ -109,6 +109,10 @@ int luaopen_hs__asm_module_internal(lua_State* __unused L) {
 //                                objectFunctions:userdata_metaLib];
 
 //     [skin registerPushNSHelper:push<moduleType>         forClass:"<moduleType>"];
+
+// // one, but not both, of...
+//     [skin registerLuaObjectHelper:to<moduleType>FromLua forClass:"<moduleType>"
+//                                              withUserdataMapping:USERDATA_TAG];
 //     [skin registerLuaObjectHelper:to<moduleType>FromLua forClass:"<moduleType>"];
 
     return 1;
