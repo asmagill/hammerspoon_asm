@@ -4,14 +4,20 @@
 ---
 --- This is probably a very bad idea.  If you're not comfortable poking around in the Hammerspoon and LuaSkin source code, this probably won't be of any use or interest.
 ---
+--- **THIS MODULE IS NOT THREAD SAFE!!!**
+--- If you use this module to examine or modify a LuaSkin object outside of it's primary thread (the application thread for Hammerspoon's LuaSkin object or the `hs._asm.luathread` instance for a LuaSkinThread object) and there is any lua activity currently occurring on that thread, that thread's lua state *may* become inconsistent.
+---
+--- You have been warned!  This is purely for experimental and informational purposes.  And because I'm curious just how far I can push things to see what's actually happening under the hood.  But if you use this and break anything, it's on you, not me.  Best bet is just to not use it.  Unless you're curious.  Or crazy.  It helps to be both.
+---
 --- I'm hoping it will help with tracking some things down during `hs._asm.luathread` development and *should* work in both environments... we'll see...
 ---
 --- You're welcome to see if you can get any use out of it as well, but remember, we're dealing directly with the very object which maintains the Lua state for all of Hammerspoon.  Earth shattering kabooms are not out of the question...
 ---
---- "This will all end in tears, I Just know it..." -- Alan Rickman / Marvin
+--- "This will all end in tears, I Just know it..." -- Marvin / Alan Rickman
 
 local USERDATA_TAG = "hs._asm.luaskinpokeytool"
 local module       = require(USERDATA_TAG..".internal")
+local methodTable  = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
 
@@ -94,6 +100,44 @@ end
 module.logLevels          = _makeConstantsTable(module.logLevels)
 module.checkArgumentTypes = _makeConstantsTable(module.checkArgumentTypes)
 module.conversionOptions  = _makeConstantsTable(module.conversionOptions)
+
+module.logVerbose    = function(...)
+    return module.classLogMessage(module.logLevels.verbose, ...)
+end
+module.logDebug      = function(...)
+    return module.classLogMessage(module.logLevels.debug, ...)
+end
+module.logError      = function(...)
+    return module.classLogMessage(module.logLevels.error, ...)
+end
+module.logInfo       = function(...)
+    return module.classLogMessage(module.logLevels.info, ...)
+end
+module.logWarn       = function(...)
+    return module.classLogMessage(module.logLevels.warn, ...)
+end
+module.logBreadcrumb = function(...)
+    return module.classLogMessage(module.logLevels.breadcrumb, ...)
+end
+
+methodTable.logVerbose    = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.verbose, ...)
+end
+methodTable.logDebug      = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.debug, ...)
+end
+methodTable.logError      = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.error, ...)
+end
+methodTable.logInfo       = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.info, ...)
+end
+methodTable.logWarn       = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.warn, ...)
+end
+methodTable.logBreadcrumb = function(self, ...)
+    return methodTable.logMessage(self, module.logLevels.breadcrumb, ...)
+end
 
 -- Return Module Object --------------------------------------------------
 
