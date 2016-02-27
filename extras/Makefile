@@ -25,7 +25,7 @@ ALLFILES += $(SOFILE)
 #CC=cc
 CC=clang
 EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -F /System/Library/PrivateFrameworks
-CFLAGS  += $(DEBUG_CFLAGS) -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
+CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS) -framework AddressBook -framework login
 
 DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
@@ -53,6 +53,9 @@ docs: $(DOC_FILE)
 
 $(DOC_FILE): $(DOC_SOURCES)
 	find . -type f \( -name '*.lua' -o -name '*.m' \) -not -name 'template.*' -not -path './_*' -exec cat {} + | __doc_tools/gencomments | __doc_tools/genjson > $@
+
+markdown:
+	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
 install-docs: docs
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
