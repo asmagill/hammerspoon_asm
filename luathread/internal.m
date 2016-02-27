@@ -1,6 +1,10 @@
 //    Move this to it's own repo -- getting large enough that it would be annoying for someone who
 //        wanted to clone repo for something else, but didn't care about/want this...
 //
+//    locks need timeout/fallback (reset?) (dictionary lock is only one still in use) -- use NSLock?
+//        sub-class NSThread and add NSLock for threadDictionary?  Would have to modify thread.m back
+//        to doing most of it's setup in main... what does that change?
+//
 // +  Document LuaSkinThread, what it does, why, and how
 //
 // *  LuaSkin support now possible -- does require change to modules, but no change to core Application or LuaSkin framework
@@ -9,20 +13,26 @@
 //        module changes require [LuaSkin performSelector:@selector(thread)] instead of [LuaSkin shared],
 //        store refTable in threadDictionary, and making sure that they don't explicitly schedule anything on
 //        main loop, etc.
-//    Modify thread.m to use thread supported LuaSkin for argument checking, etc.
+// -  Modify thread.m to use thread supported LuaSkin for argument checking, etc. -- started
 // +  Modify get/set to use LuaSkin? gives us easier userdata support, but have to think how this affects
 //        refs within the object...
 //
 // *  transfer base data types directly?
 // *      meta methods so thread dictionary can be treated like a regular lua table?
-//        other types (non-c functions, NSObject based userdata)? struct userdata would require NSValue... maybe?
-// +  check if thread is running in some (all?) methods
-//    locks need timeout/fallback (reset?) (dictionary lock is only one still in use) -- use NSLock?
+//        other types (non-c functions, NSObject based userdata)?
+//                     struct userdata would require NSValue... maybe?
+//        non-c functions with up-values would need wrapping to initialize them... see debug library
+//            but I think I'm going to need this to move menubar making code to a thread if I can't move
+//            the entire module over...
 //
-// ?  add support for thread to initiate lua on main thread (i.e. core Hammerspoon) other than through
+// +  check if thread is running in some (all?) methods
+//
+// *  No -- add support for thread to initiate lua on main thread (i.e. core Hammerspoon) other than through
 //       properly (and intentionally) created callback function?  would allow hand-off for things which
 //       may not be possible/easy on the threaded side (hs.drawing, etc.) but at risk of thread blocking
 //       Hammerspoon (the reason for this in the first place) or even worse -- a deadlock between the two
+//       At least not directly... `hs._asm.luaskinpokeytool` may be able to do this, but it's an even bigger
+//       hack then this is...
 
 #import "luathread.h"
 
