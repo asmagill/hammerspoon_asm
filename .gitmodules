@@ -16,3 +16,6 @@
 [submodule "_moved_to_core/console"]
 	path = _moved_to_core/console
 	url = https://github.com/asmagill/hammerspoon_console
+[submodule "luathread"]
+	path = luathread
+	url = https://github.com/asmagill/hs._asm.luathread.git
