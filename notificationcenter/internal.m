@@ -1,9 +1,12 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
+#import "LuaSkinThread.h"
 
 #define USERDATA_TAG    "hs._asm.notificationcenter"
-// Modules which support luathread have to store refTable in the threadDictionary rather than a static
-// static int refTable = LUA_NOREF;
+// Modules which support luathread have to store refTable in the threadDictionary rather than a static,
+// but we can keep this around, since the macros defined in LuaSkinThread.h will expect it when a module
+// is written to seamlessly work in both environments
+static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
@@ -24,21 +27,15 @@
                      onThread:_myMainThread
                    withObject:note
                 waitUntilDone:YES];
-//         [self performSelectorOnMainThread:@selector(heard:)
-//                                             withObject:note
-//                                             waitUntilDone:YES];
     }
 
     - (void) heard:(NSNotification*)note {
         if (self.fn != LUA_NOREF) {
-            LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                               [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
-            int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
-                                        objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
+            LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
 
 // NSLog(@"%@ from %@ on thread %@:refTable == %d, fnRef == %d, with %@", [note name], [note object], [[NSThread currentThread] name], refTable, self.fn, [note userInfo]) ;
 
-            [skin pushLuaRef:refTable ref:self.fn] ;
+            [skin pushLuaRef:LST_getRefTable(skin, USERDATA_TAG, refTable) ref:self.fn] ;
             [skin pushNSObject:[note name]] ;
             if ([[note object] isKindOfClass:[NSWorkspace class]]) {
     // NSWorkspace is a common object sender, so don't trigger the LuaSkin warnings for one that
@@ -60,16 +57,13 @@
 @end
 
 static int commonObserverConstruction(lua_State *L, NSNotificationCenter *nc, NSString *typeName) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
-    int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
-                                objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
 
     NSString *notificationName = (lua_gettop(L) == 2) ? [skin toNSObjectAtIndex:2] : nil ;
     lua_pushvalue(L, 1);
 
     HSNotificationCenterClass* listener = [[HSNotificationCenterClass alloc] init];
-    listener.fn               = [skin luaRef:refTable] ;
+    listener.fn               = [skin luaRef:LST_getRefTable(skin, USERDATA_TAG, refTable)] ;
     listener.whichCenter      = nc ;
     listener.notificationName = notificationName ;
     listener.typeName         = typeName ;
@@ -95,8 +89,7 @@ static int commonObserverConstruction(lua_State *L, NSNotificationCenter *nc, NS
 /// Returns:
 ///  * a notificationcenter object
 static int nc_distributedObserver(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TFUNCTION, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     return commonObserverConstruction(L, [NSDistributedNotificationCenter defaultCenter], @"distributed") ;
 }
@@ -115,8 +108,7 @@ static int nc_distributedObserver(lua_State* L) {
 /// Returns:
 ///  * a notificationcenter object
 static int nc_workspaceObserver(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TFUNCTION, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
         return commonObserverConstruction(L, [[NSWorkspace sharedWorkspace] notificationCenter], @"workspace") ;
 }
@@ -139,8 +131,7 @@ static int nc_workspaceObserver(lua_State* L) {
 ///  * Listening for all inter-application messages will cause Hammerspoon to bog down completely (not to mention generate its own, thus adding to the mayhem), so the name of the message to listen for is required for this version of the contructor.
 ///  * Currently this specific constructor is of limited use outside of development and testing, since there is no current way to programmatically send specific messages outside of the internal messaging that all Objective-C applications perform or specify specific objects within Hammerspoon to observe.  Consideration is being given to methods which will allow posting ad-hoc messages and may make this more useful outside of its currently limited scope.
 static int nc_internalObserver(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TFUNCTION, LS_TSTRING, LS_TBREAK] ;
     return commonObserverConstruction(L, [NSNotificationCenter defaultCenter], @"internal") ;
 }
@@ -157,8 +148,7 @@ static int nc_internalObserver(lua_State* L) {
 /// Returns:
 ///  * the notificationcenter object
 static int notificationcenter_start(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSNotificationCenterClass* listener = [skin toNSObjectAtIndex:1] ;
     [listener.whichCenter addObserver:listener
@@ -179,8 +169,7 @@ static int notificationcenter_start(lua_State* L) {
 /// Returns:
 ///  * the notificationcenter object
 static int notificationcenter_stop(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSNotificationCenterClass* listener = [skin toNSObjectAtIndex:1] ;
     [listener.whichCenter removeObserver:listener name:listener.notificationName object:nil] ;
@@ -202,8 +191,7 @@ static int pushHSNotificationCenterClass(lua_State *L, id obj) {
 }
 
 id toHSNotificationCenterClassFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     HSNotificationCenterClass *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge HSNotificationCenterClass, L, idx, USERDATA_TAG) ;
@@ -217,8 +205,7 @@ id toHSNotificationCenterClassFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     HSNotificationCenterClass *obj = [skin luaObjectAtIndex:1 toClass:"HSNotificationCenterClass"] ;
     NSString *title = [NSString stringWithFormat:@"%@:%@", obj.typeName, obj.notificationName] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
@@ -229,8 +216,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                           [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+        LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
         HSNotificationCenterClass *obj1 = [skin luaObjectAtIndex:1 toClass:"HSNotificationCenterClass"] ;
         HSNotificationCenterClass *obj2 = [skin luaObjectAtIndex:2 toClass:"HSNotificationCenterClass"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -243,12 +229,9 @@ static int userdata_eq(lua_State* L) {
 static int userdata_gc(lua_State* L) {
     HSNotificationCenterClass *obj = get_objectFromUserdata(__bridge_transfer HSNotificationCenterClass, L, 1, USERDATA_TAG) ;
     if (obj) {
-        LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                           [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
-        int refTable = [[[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
-                                    objectForKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] intValue];
+        LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
 
-        obj.fn = [skin luaUnref:refTable ref:obj.fn] ;
+        obj.fn = [skin luaUnref:LST_getRefTable(skin, USERDATA_TAG, refTable) ref:obj.fn] ;
         [obj.whichCenter removeObserver:obj name:obj.notificationName object:nil] ;
         obj = nil ;
     }
@@ -279,25 +262,13 @@ static const luaL_Reg notificationcenterLib[] = {
 };
 
 int luaopen_hs__asm_notificationcenter_internal(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
 
-    // Necessary only for modules which are written to work in either Hammerspoon or luathread.
-    // For luathread only modules (i.e. those included with hs._asm.luathread), this is taken care
-    // of during thread initialization
-    if ([NSThread isMainThread] && ![[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]) {
-        [[[NSThread currentThread] threadDictionary] setObject:[[NSMutableDictionary alloc] init]
-                                                        forKey:@"_refTables"] ;
-    }
-
-    // This is necessary for any module which is to be used within luathread to ensure each module
-    // has a unique refTable value for each thread it may be running in
-    [[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
-        setObject:@([skin registerLibraryWithObject:USERDATA_TAG
-                                          functions:notificationcenterLib
-                                      metaFunctions:nil
-                                    objectFunctions:notificationcenter_metalib])
-           forKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] ;
+    LST_setRefTable(skin, USERDATA_TAG, refTable,
+        [skin registerLibraryWithObject:USERDATA_TAG
+                              functions:notificationcenterLib
+                          metaFunctions:nil
+                        objectFunctions:notificationcenter_metalib]) ;
 
     [skin registerPushNSHelper:pushHSNotificationCenterClass         forClass:"HSNotificationCenterClass"];
     [skin registerLuaObjectHelper:toHSNotificationCenterClassFromLua forClass:"HSNotificationCenterClass"
