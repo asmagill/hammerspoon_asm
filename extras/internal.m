@@ -112,7 +112,7 @@ static int testNSValueEncodings(lua_State *L) {
 
 static int testNewLuaSkinArgsCheck(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TSOFTBREAK] ;
+    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK | LS_TVARARG] ;
     int argCount = lua_gettop(L) ;
     lua_newtable(L) ;
     [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
@@ -132,6 +132,25 @@ static int testNewLuaSkinArgsCheck(lua_State *L) {
 static int testNewLuaSkinArgsCheck2(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    int argCount = lua_gettop(L) ;
+    lua_newtable(L) ;
+    [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
+    lua_pushnumber(L, lua_tonumber(L, 2)) ;          lua_setfield(L, -2, "rate") ;
+    lua_pushinteger(L, lua_tointeger(L, 3)) ;        lua_setfield(L, -2, "age") ;
+    lua_pushinteger(L, argCount) ;                   lua_setfield(L, -2, "argCount") ;
+    if (argCount > 3) {
+        lua_newtable(L) ;
+        for (int i = 4 ; i <= argCount ; i++) {
+            [skin pushNSObject:[skin toNSObjectAtIndex:i]] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+        lua_setfield(L, -2, "otherStuff") ;
+    }
+    return 1 ;
+}
+
+static int testNewLuaSkinArgsCheck3(lua_State *L) {
+    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TVARARG] ;
     int argCount = lua_gettop(L) ;
     lua_newtable(L) ;
     [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
@@ -337,7 +356,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"integerTester",        integerTester},
     {"argTest",              testNewLuaSkinArgsCheck},
-    {"argTest2",              testNewLuaSkinArgsCheck2},
+    {"argTest2",             testNewLuaSkinArgsCheck2},
+    {"argTest3",             testNewLuaSkinArgsCheck3},
 
     {"userDataToString",     ud_tostring},
     {"threadInfo",           threadInfo},
