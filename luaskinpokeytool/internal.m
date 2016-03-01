@@ -11,11 +11,6 @@ static int refTable = LUA_NOREF;
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
-extern NSMutableDictionary *registeredNSHelperFunctions ;
-extern NSMutableDictionary *registeredNSHelperLocations ;
-extern NSMutableDictionary *registeredLuaObjectHelperFunctions ;
-extern NSMutableDictionary *registeredLuaObjectHelperLocations ;
-extern NSMutableDictionary *registeredLuaObjectHelperUserdataMappings;
 
 #pragma mark - Module Functions
 
@@ -101,13 +96,8 @@ static int getRegisteredNSHelperFunctions(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-
-    BOOL isThreadVersion = [targetSkin isKindOfClass:NSClassFromString(@"LuaSkinThread")] ;
-    if (isThreadVersion) {
-        [skin pushNSObject:[targetSkin performSelector:@selector(registeredNSHelperFunctions)] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    } else {
-        [skin pushNSObject:registeredNSHelperFunctions withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    }
+    [skin pushNSObject:targetSkin.registeredNSHelperFunctions
+           withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
     return 1 ;
 }
 
@@ -128,13 +118,8 @@ static int getRegisteredNSHelperLocations(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-
-    BOOL isThreadVersion = [targetSkin isKindOfClass:NSClassFromString(@"LuaSkinThread")] ;
-    if (isThreadVersion) {
-        [skin pushNSObject:[targetSkin performSelector:@selector(registeredNSHelperLocations)] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    } else {
-        [skin pushNSObject:registeredNSHelperLocations withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    }
+    [skin pushNSObject:targetSkin.registeredNSHelperLocations
+           withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
     return 1 ;
 }
 
@@ -155,13 +140,8 @@ static int getRegisteredLuaObjectHelperFunctions(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-
-    BOOL isThreadVersion = [targetSkin isKindOfClass:NSClassFromString(@"LuaSkinThread")] ;
-    if (isThreadVersion) {
-        [skin pushNSObject:[targetSkin performSelector:@selector(registeredLuaObjectHelperFunctions)] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    } else {
-        [skin pushNSObject:registeredLuaObjectHelperFunctions withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    }
+    [skin pushNSObject:targetSkin.registeredLuaObjectHelperFunctions
+           withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
     return 1 ;
 }
 
@@ -182,13 +162,8 @@ static int getRegisteredLuaObjectHelperLocations(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-
-    BOOL isThreadVersion = [targetSkin isKindOfClass:NSClassFromString(@"LuaSkinThread")] ;
-    if (isThreadVersion) {
-        [skin pushNSObject:[targetSkin performSelector:@selector(registeredLuaObjectHelperLocations)] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    } else {
-        [skin pushNSObject:registeredLuaObjectHelperLocations withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    }
+    [skin pushNSObject:targetSkin.registeredLuaObjectHelperLocations
+           withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
     return 1 ;
 }
 
@@ -208,13 +183,8 @@ static int getRegisteredLuaObjectHelperUserdataMappings(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-
-    BOOL isThreadVersion = [targetSkin isKindOfClass:NSClassFromString(@"LuaSkinThread")] ;
-    if (isThreadVersion) {
-        [skin pushNSObject:[targetSkin performSelector:@selector(registeredLuaObjectHelperUserdataMappings)] withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    } else {
-        [skin pushNSObject:registeredLuaObjectHelperUserdataMappings withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
-    }
+    [skin pushNSObject:targetSkin.registeredLuaObjectHelperUserdataMappings
+           withOptions:LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits] ;
     return 1 ;
 }
 
