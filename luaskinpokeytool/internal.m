@@ -1,9 +1,10 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
+#import "LuaSkinThread.h"
+#import "LuaSkinThread+Private.h"
 
 #define USERDATA_TAG "hs._asm.luaskinpokeytool"
-// Modules which support luathread have to store refTable in the threadDictionary rather than a static
-// static int refTable = LUA_NOREF;
+static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
@@ -35,8 +36,7 @@ extern NSMutableDictionary *registeredLuaObjectHelperUserdataMappings;
 ///
 ///  * It is **HIGHLY** recommended that you do not try to do things in the other direction (i.e. copy the Hammerspoon LuaSkin object into an `hs._asm.luathread` one with `hs._asm.luathread:set`) because the Hammerspoon LuaSkin instance is in use for every timer, hotkey invocation, callback function, etc.  Even submitting or receiving results from a threaded lua causes some LuaSkin activity on Hammerspoon's main thread, so the primary Hammerspoon LuaSkin instance can **NEVER** be considered inactive enough to be even *some-times* safe to examine or modify from another thread.
 static int getLuaSkinObject(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
     [skin pushNSObject:skin] ;
     return 1 ;
@@ -64,8 +64,7 @@ static int getLuaSkinObject(__unused lua_State *L) {
 ///
 ///  * No matter what thread this function is invoked in, it will always send the logs to the primary LuaSkin (i.e. the Hammerspoon main LuaSkin instance).
 static int classLogWithLevel(lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER,
                     LS_TSTRING,
                     LS_TBREAK] ;
@@ -99,8 +98,7 @@ static int classLogWithLevel(lua_State *L) {
 ///  * The value for each key in the returned table contains a reference to the C-function behind the conversion tool and is probably not generally useful from the Lua side.
 ///  * This function does not invoke the targeted LuaSkin instance so this method should be thread-safe if examining a LuaSkin instance other than the one running on the current thread.
 static int getRegisteredNSHelperFunctions(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -127,8 +125,7 @@ static int getRegisteredNSHelperFunctions(__unused lua_State *L) {
 ///  * This function does not invoke the targeted LuaSkin instance so this method should be thread-safe if examining a LuaSkin instance other than the one running on the current thread.
 ///  * If you have modified the lua `require` function in a fashion other than what Hammerspoon does by default, the location information may be blank or wrong.  You can try adjusting the stack level used to capture this information by adjusting the undocumented Hammerspoon setting `HSLuaSkinRegisterRequireLevel` from its default value of 3 with `hs.settings`.  Generally, if you have "undone" the wrapping of `require` to include crashlytic log messages each time the function is invoked, you should try reducing this number, and if you have added your own wrapper to the `require` function, you should try increasing this number.
 static int getRegisteredNSHelperLocations(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -155,8 +152,7 @@ static int getRegisteredNSHelperLocations(__unused lua_State *L) {
 ///  * The value for each key in the returned table contains a reference to the C-function behind the conversion tool and is probably not generally useful from the Lua side.
 ///  * This function does not invoke the targeted LuaSkin instance so this method should be thread-safe if examining a LuaSkin instance other than the one running on the current thread.
 static int getRegisteredLuaObjectHelperFunctions(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -183,8 +179,7 @@ static int getRegisteredLuaObjectHelperFunctions(__unused lua_State *L) {
 ///  * This function does not invoke the targeted LuaSkin instance so this method should be thread-safe if examining a LuaSkin instance other than the one running on the current thread.
 ///  * If you have modified the lua `require` function in a fashion other than what Hammerspoon does by default, the location information may be blank or wrong.  You can try adjusting the stack level used to capture this information by adjusting the undocumented Hammerspoon setting `HSLuaSkinRegisterRequireLevel` from its default value of 3 with `hs.settings`.  Generally, if you have "undone" the wrapping of `require` to include crashlytic log messages each time the function is invoked, you should try reducing this number, and if you have added your own wrapper to the `require` function, you should try increasing this number.
 static int getRegisteredLuaObjectHelperLocations(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -210,8 +205,7 @@ static int getRegisteredLuaObjectHelperLocations(__unused lua_State *L) {
 /// Notes:
 ///  * This function does not invoke the targeted LuaSkin instance so this method should be thread-safe if examining a LuaSkin instance other than the one running on the current thread.
 static int getRegisteredLuaObjectHelperUserdataMappings(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -242,8 +236,7 @@ static int getRegisteredLuaObjectHelperUserdataMappings(__unused lua_State *L) {
 ///
 ///  * If you specify an index, then the index location in the targetSkin is verified to be a table, and if it is, this method examines that table.  Otherwise, an error is returned.
 static int maxNatIndex(lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
     LuaSkin   *targetSkin = [skin toNSObjectAtIndex:1] ;
     lua_State *targetL    = [targetSkin L] ;
@@ -290,8 +283,7 @@ static int maxNatIndex(lua_State *L) {
 ///
 ///  * If you specify an index, then the index location in the targetSkin is verified to be a table, and if it is, this method examines that table.  Otherwise, an error is returned.
 static int countNatIndex(lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
     lua_Integer result ;
@@ -331,8 +323,7 @@ static int countNatIndex(lua_State *L) {
 /// Notes:
 ///  * This is probably a bad idea to use on a target LuaSkin other than the one that is currently active where this method is being invoked because some modules which are designed to work with a threaded LuaSkin use the current thread at the time of loading to store state information that is required for proper functioning when used in multiple environments.  If the module had not already been loaded, it may misidentify the proper thread.  I'm pondering possible work-arounds, since this actually seems like a useful tool to add to `hs._asm.luathread` proper...
 static int requireModule(lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
 
@@ -373,8 +364,7 @@ static int requireModule(lua_State *L) {
 ///
 ///  * I'm not sure how well this is going to work, since the same thread issue that `hs._asm.luaskinpokeytool:requireModule` has will come up with respect to the lua portion of the logging delegate.  However, I will test and ponder because this is another thing that seems like it might be useful to include in `hs._asm.luathread`.
 static int logWithLevel(lua_State *L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TNUMBER,
                     LS_TSTRING,
@@ -394,6 +384,8 @@ static int logWithLevel(lua_State *L) {
     }
     return 1 ;
 }
+
+// re-examine everything now that we can get the thread from a LuaSkinThread object
 
 // ?   - (NSString *)tracebackWithTag:(NSString *)theTag fromStackPos:(int)level ;
 // ?   - (void)logAtLevel:(int)level withMessage:(NSString *)theMessage fromStackPos:(int)pos ;
@@ -441,6 +433,8 @@ static int pushCheckArgumentTypes(lua_State *L) {
     lua_pushinteger(L, LS_TUSERDATA) ; lua_setfield(L, -2, "userdata") ;
     lua_pushinteger(L, LS_TNONE) ;     lua_setfield(L, -2, "none") ;
     lua_pushinteger(L, LS_TANY) ;      lua_setfield(L, -2, "optional") ;
+    lua_pushinteger(L, LS_TVARARG) ;   lua_setfield(L, -2, "vararg") ;
+    lua_pushinteger(L, LS_TINTEGER) ;  lua_setfield(L, -2, "integer") ;
     return 1 ;
 }
 
@@ -470,8 +464,7 @@ static int pushLuaSkin(lua_State *L, id obj) {
 }
 
 id toLuaSkinFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     LuaSkin *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge LuaSkin, L, idx, USERDATA_TAG) ;
@@ -485,8 +478,7 @@ id toLuaSkinFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
     LuaSkin *obj = [skin luaObjectAtIndex:1 toClass:"LuaSkin"] ;
     NSString *title = [obj isKindOfClass:NSClassFromString(@"LuaSkinThread")] ? @"LuaSkinThread" : @"LuaSkin" ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
@@ -497,8 +489,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                           [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+        LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
         LuaSkin *obj1 = [skin luaObjectAtIndex:1 toClass:"LuaSkin"] ;
         LuaSkin *obj2 = [skin luaObjectAtIndex:2 toClass:"LuaSkin"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -554,25 +545,13 @@ static luaL_Reg moduleLib[] = {
 
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_luaskinpokeytool_internal(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin respondsToSelector:@selector(thread)] ?
-                       [LuaSkin performSelector:@selector(thread)] : [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin() ; // [LuaSkin shared] ;
 
-    // Necessary only for modules which are written to work in either Hammerspoon or luathread.
-    // For luathread only modules (i.e. those included with hs._asm.luathread), this is taken care
-    // of during thread initialization
-    if ([NSThread isMainThread] && ![[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]) {
-        [[[NSThread currentThread] threadDictionary] setObject:[[NSMutableDictionary alloc] init]
-                                                        forKey:@"_refTables"] ;
-    }
-
-    // This is necessary for any module which is to be used within luathread to ensure each module
-    // has a unique refTable value for each thread it may be running in
-    [[[[NSThread currentThread] threadDictionary] objectForKey:@"_refTables"]
-        setObject:@([skin registerLibraryWithObject:USERDATA_TAG
-                                          functions:moduleLib
-                                      metaFunctions:nil
-                                    objectFunctions:userdata_metaLib])
-           forKey:[NSString stringWithFormat:@"%s", USERDATA_TAG]] ;
+    LST_setRefTable(skin, USERDATA_TAG, refTable,
+        [skin registerLibraryWithObject:USERDATA_TAG
+                              functions:moduleLib
+                          metaFunctions:nil
+                        objectFunctions:userdata_metaLib]) ;
 
     [skin registerPushNSHelper:pushLuaSkin         forClass:"LuaSkin"];
     [skin registerLuaObjectHelper:toLuaSkinFromLua forClass:"LuaSkin"

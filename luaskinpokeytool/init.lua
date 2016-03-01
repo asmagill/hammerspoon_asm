@@ -2,7 +2,9 @@
 ---
 --- Access LuaSkin directly from Hammerspoon to examine things like registered conversion functions, etc.
 ---
---- This is probably a very bad idea.  If you're not comfortable poking around in the Hammerspoon and LuaSkin source code, this probably won't be of any use or interest.
+--- This is probably a very bad idea.
+---
+--- If you're not comfortable poking around in the Hammerspoon and LuaSkin source code, this probably won't be of any use or interest.
 ---
 --- **THIS MODULE IS NOT THREAD SAFE!!!**
 --- If you use this module to examine or modify a LuaSkin object outside of it's primary thread (the application thread for Hammerspoon's LuaSkin object or the `hs._asm.luathread` instance for a LuaSkinThread object) and there is any lua activity currently occurring on that thread, that thread's lua state *may* become inconsistent.
