@@ -102,43 +102,44 @@ end
 module.logLevels          = _makeConstantsTable(module.logLevels)
 module.checkArgumentTypes = _makeConstantsTable(module.checkArgumentTypes)
 module.conversionOptions  = _makeConstantsTable(module.conversionOptions)
+module.luaConstants       = _makeConstantsTable(module.luaConstants)
 
 module.logVerbose    = function(...)
-    return module.classLogMessage(module.logLevels.verbose, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_VERBOSE, ...)
 end
 module.logDebug      = function(...)
-    return module.classLogMessage(module.logLevels.debug, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_DEBUG, ...)
 end
 module.logError      = function(...)
-    return module.classLogMessage(module.logLevels.error, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_ERROR, ...)
 end
 module.logInfo       = function(...)
-    return module.classLogMessage(module.logLevels.info, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_INFO, ...)
 end
 module.logWarn       = function(...)
-    return module.classLogMessage(module.logLevels.warn, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_WARN, ...)
 end
 module.logBreadcrumb = function(...)
-    return module.classLogMessage(module.logLevels.breadcrumb, ...)
+    return module.classLogMessage(module.logLevels.LS_LOG_BREADCRUMB, ...)
 end
 
 methodTable.logVerbose    = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.verbose, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_VERBOSE, ...)
 end
 methodTable.logDebug      = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.debug, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_DEBUG, ...)
 end
 methodTable.logError      = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.error, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_ERROR, ...)
 end
 methodTable.logInfo       = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.info, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_INFO, ...)
 end
 methodTable.logWarn       = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.warn, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_WARN, ...)
 end
 methodTable.logBreadcrumb = function(self, ...)
-    return methodTable.logMessage(self, module.logLevels.breadcrumb, ...)
+    return methodTable.logMessage(self, module.logLevels.LS_LOG_BREADCRUMB, ...)
 end
 
 -- Return Module Object --------------------------------------------------
