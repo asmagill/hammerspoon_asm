@@ -36,14 +36,12 @@
 
 // Extension to LuaSkin class to allow private modification of the lua_State property
 @interface LuaSkin ()
-
 @property (readwrite, assign) lua_State *L;
 @property (readonly, atomic)  NSMutableDictionary *registeredNSHelperFunctions ;
 @property (readonly, atomic)  NSMutableDictionary *registeredNSHelperLocations ;
 @property (readonly, atomic)  NSMutableDictionary *registeredLuaObjectHelperFunctions ;
 @property (readonly, atomic)  NSMutableDictionary *registeredLuaObjectHelperLocations ;
 @property (readonly, atomic)  NSMutableDictionary *registeredLuaObjectHelperUserdataMappings;
-
 @end
 
 #pragma mark - LuaSkinThread class private extension

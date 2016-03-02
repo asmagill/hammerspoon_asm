@@ -17,13 +17,82 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
-@interface HSASMRemoteInvocation : NSObject
+@interface HSASMInvocationWrapper : NSObject
+@property (readonly) int      callbackRef ;
+@property (readonly) NSThread *myMainThread ;
 @end
 
-@implementation HSASMRemoteInvocation
+@implementation HSASMInvocationWrapper
+-(instancetype)init {
+    self = [super init] ;
+    if (self) {
+        _callbackRef  = LUA_NOREF ;
+        _myMainThread = [NSThread currentThread] ;
+    }
+    return self ;
+}
+
+-(instancetype)initWithCallback:(int)callbackRef {
+    self = [self init] ;
+    if (self) {
+        _callbackRef = callbackRef ;
+    }
+    return self ;
+}
+
+-(void)performCallbackOnMyMainThread:(id)object {
+    if (_callbackRef != LUA_NOREF) {
+        LuaSkin *skin = LST_getLuaSkin() ;
+        [skin pushLuaRef:LST_getRefTable(skin, USERDATA_TAG, refTable) ref:_callbackRef] ;
+        [skin pushNSObject:object[@"result"] withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                         LS_NSDescribeUnknownTypes         |
+                                                         LS_NSPreserveLuaStringExactly] ;
+        [skin pushNSObject:object[@"value"] withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                                        LS_NSDescribeUnknownTypes         |
+                                                        LS_NSPreserveLuaStringExactly] ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            lua_State *L = [skin L] ;
+            [skin logError:[NSString stringWithFormat:@"%s:callback error: %s",
+                                                      USERDATA_TAG,
+                                                      lua_tostring(L, -1)]] ;
+            lua_pop(L, 1) ; // error from stack
+        }
+        [skin luaUnref:LST_getRefTable(skin, USERDATA_TAG, refTable) ref:_callbackRef] ;
+    }
+}
+
 -(void)performInvocation:(NSInvocation *)invocation {
     [invocation invoke] ;
 }
+
+-(void)performRequireInvocation:(NSInvocation *)invocation {
+    LuaSkin *skin                          = LST_getLuaSkin() ;
+    lua_State *L                           = [skin L] ;
+    NSMutableDictionary *resultsDictionary = [[NSMutableDictionary alloc] init] ;
+
+    BOOL result = NO ;
+    @try {
+        [invocation invoke] ;
+        [invocation getReturnValue:&result];
+        luaL_tolstring(L, -1, NULL) ;
+        resultsDictionary[@"value"] = [skin toNSObjectAtIndex:-1 withOptions:LS_NSDescribeUnknownTypes |
+                                                                                LS_NSPreserveLuaStringExactly] ;
+        lua_pop(L, 2) ; // the lua-side result of the invocation and the copy created by luaL_tolstring
+    } @catch (NSException *theException) {
+        NSString *error = [NSString stringWithFormat:@"exception %@:%@",
+                                                     theException.name,
+                                                     theException.reason] ;
+        resultsDictionary[@"value"] = error ;
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:requireModule:%@", USERDATA_TAG, error]] ;
+    }
+    resultsDictionary[@"result"] = @(result) ;
+
+    [self performSelector:@selector(performCallbackOnMyMainThread:)
+                 onThread:_myMainThread
+               withObject:resultsDictionary
+            waitUntilDone:NO] ;
+}
+
 @end
 
 #pragma mark - Module Functions
@@ -222,7 +291,7 @@ static int getRegisteredLuaObjectHelperUserdataMappings(__unused lua_State *L) {
 ///    * `hs._asm.luaskinpokeytool:logWarn(msg)`
 ///    * `hs._asm.luaskinpokeytool:logError(msg)`
 ///
-///  * If the target skin is not the one in which this method is invoked, the actual invocation of the method may be delayed until the thread of the target is inactive.
+///  * Actual invocation of the method on the target skin may be delayed until the thread of the target is inactive.
 static int logWithLevel(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -252,164 +321,85 @@ static int logWithLevel(lua_State *L) {
         }   break ;
     }
     [invocation setTarget:targetSkin] ;
+    [invocation retainArguments] ;
 
-    if ([skin isEqualTo:targetSkin]) {
-        [invocation invoke];
-    } else if (LST_skinIsLuaSkinThread(targetSkin)) {
-        HSASMRemoteInvocation *target = [[HSASMRemoteInvocation alloc] init] ;
+    HSASMInvocationWrapper *target = [[HSASMInvocationWrapper alloc] init] ;
+    if (LST_skinIsLuaSkinThread(targetSkin)) {
         [target performSelector:@selector(performInvocation:)
                        onThread:(NSThread *)[(LuaSkinThread *)targetSkin threadForThisSkin]
                      withObject:invocation
                   waitUntilDone:NO] ;
+    } else if ([targetSkin isMemberOfClass:[LuaSkin class]] && [NSThread isMainThread]) {
+        [target performSelectorOnMainThread:@selector(performInvocation:)
+                                 withObject:invocation
+                              waitUntilDone:NO] ;
     } else {
         invocation = nil ; // since we won't really be returning, clear objects first
+        target     = nil ;
         return luaL_error(L, "only LuaSkinThread instances can be targeted from an alternate thread") ;
     }
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
-
-
-/// hs._asm.luaskinpokeytool:maxNatIndex(table | index) -> integer
-/// Method
-/// Returns the maximum consecutive integer key, starting at 1, in the table specified.
-///
-/// Parameters:
-///  * a table or index to a table in the target LuaSkin's stack
-///
-/// Returns:
-///  * an integer specifying the largest integer key in the table, or 0 if there are no integer keys
-///
-/// Notes:
-///  * If `hs._asm.luaskinpokeytool:maxNatIndex(X) == hs._asm.luaskinpokeytool:countNatIndex(X)` and neither is equal to zero, then it is safe to assume the table is a non-sparse array starting at index 1.  This logic is used within LuaSkin to determine if a lua table is best represented as an NSDictionary or NSArray during conversions.
-///
-///  * If the targetSkin and the currently active LuaSkin are identical, then a table argument is examined in place (i.e. as the method argument).
-///  * If the targetSkin and the currently active LuaSkin are not the same, then a table argument causes the table to be copied into the targetSkin at the current global stack top and examined in the target skin.  Depending upon the conversion support functions currently available in the targetSkin, the table may not be identical to the table you supply.
-///
-///  * If you specify an index, then the index location in the targetSkin is verified to be a table, and if it is, this method examines that table.  Otherwise, an error is returned.
-static int maxNatIndex(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin() ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
-    LuaSkin   *targetSkin = [skin toNSObjectAtIndex:1] ;
-    lua_State *targetL    = [targetSkin L] ;
-
-    lua_Integer result ;
-
-    if ((lua_type(L, 2) == LUA_TTABLE) && [skin isEqualTo:targetSkin]) {
-        result = [skin maxNatIndex:2] ;
-    } else if (lua_type(L, 2) == LUA_TTABLE) {
-        id obj = [skin toNSObjectAtIndex:2 withOptions:LS_NSUnsignedLongLongPreserveBits |
-                                                       LS_NSDescribeUnknownTypes         |
-                                                       LS_NSPreserveLuaStringExactly     |
-                                                       LS_NSAllowsSelfReference] ;
-        [targetSkin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
-                                                 LS_NSDescribeUnknownTypes         |
-                                                 LS_NSPreserveLuaStringExactly     |
-                                                 LS_NSAllowsSelfReference] ;
-        result = [targetSkin maxNatIndex:-1] ;
-        lua_pop(L, 1) ;
-    } else if (lua_type(targetL, (int)luaL_checkinteger(L, 2)) == LUA_TTABLE) {
-        result = [targetSkin maxNatIndex:(int)luaL_checkinteger(L, 2)] ;
-    } else {
-        return luaL_argerror(L, 2, "expected table or index to a table in the targetSkin") ;
-    }
-    lua_pushinteger(L, result) ;
-    return 1 ;
-}
-
-/// hs._asm.luaskinpokeytool:countNatIndex(table | index) -> integer
-/// Method
-/// Returns the number of keys of any type in the table specified.
-///
-/// Parameters:
-///  * a table or index to a table in the target LuaSkin's stack
-///
-/// Returns:
-///  * an integer specifying the number of keys in the table
-///
-/// Notes:
-///  * If `hs._asm.luaskinpokeytool:maxNatIndex(X) == hs._asm.luaskinpokeytool:countNatIndex(X)` and neither is equal to zero, then it is safe to assume the table is a non-sparse array starting at index 1.  This logic is used within LuaSkin to determine if a lua table is best represented as an NSDictionary or NSArray during conversions.
-///
-///  * If the targetSkin and the currently active LuaSkin are identical, then a table argument is examined in place (i.e. as the method argument).
-///  * If the targetSkin and the currently active LuaSkin are not the same, then a table argument causes the table to be copied into the targetSkin at the current global stack top and examined in the target skin.  Depending upon the conversion support functions currently available in the targetSkin, the table may not be identical to the table you supply.
-///
-///  * If you specify an index, then the index location in the targetSkin is verified to be a table, and if it is, this method examines that table.  Otherwise, an error is returned.
-static int countNatIndex(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin() ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNUMBER, LS_TBREAK] ;
-    LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
-    lua_Integer result ;
-
-    if ((lua_type(L, 2) == LUA_TTABLE) && [skin isEqualTo:targetSkin]) {
-        result = [skin countNatIndex:2] ;
-    } if ((lua_type(L, 2) == LUA_TTABLE) && [skin isEqualTo:targetSkin]) {
-        id obj = [skin toNSObjectAtIndex:2 withOptions:LS_NSUnsignedLongLongPreserveBits |
-                                                       LS_NSDescribeUnknownTypes         |
-                                                       LS_NSPreserveLuaStringExactly     |
-                                                       LS_NSAllowsSelfReference] ;
-        [targetSkin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
-                                                 LS_NSDescribeUnknownTypes         |
-                                                 LS_NSPreserveLuaStringExactly     |
-                                                 LS_NSAllowsSelfReference] ;
-        result = [targetSkin countNatIndex:-1] ;
-        lua_pop(L, 1) ;
-    } else if (lua_type([targetSkin L], (int)luaL_checkinteger(L, 2)) == LUA_TTABLE) {
-        result = [targetSkin countNatIndex:(int)luaL_checkinteger(L, 2)] ;
-    } else {
-        return luaL_argerror(L, 2, "expected table or index to a table in the targetSkin") ;
-    }
-    lua_pushinteger(L, result) ;
-    return 1 ;
-}
-
-/// hs._asm.luaskinpokeytool:requireModule(moduleName) -> luaSkin object | false
+/// hs._asm.luaskinpokeytool:requireModule(module[, fn]) -> luaSkin object
 /// Method
 /// Attempts to load the specified module into the target LuaSkin.
 ///
 /// Parameters:
-///  * the module to load
+///  * module - the module to load
+///  * fn     - an optional function to callback with the results of the invocation.  The function should expect two arguments: a boolean indicating whether requiring the module was successful or not and a textual representation of the module's return value (usually something similar to "table: 0x60600000b060") or the error message describing why the module couldn't be loaded.  The function should return no arguments.
 ///
 /// Returns:
-///  * the luaSkin object, if successful, or false if it was not
+///  * the luaSkin object
 ///
 /// Notes:
-///  * This is probably a bad idea to use on a target LuaSkin other than the one that is currently active where this method is being invoked because some modules which are designed to work with a threaded LuaSkin use the current thread at the time of loading to store state information that is required for proper functioning when used in multiple environments.  If the module had not already been loaded, it may misidentify the proper thread.  I'm pondering possible work-arounds, since this actually seems like a useful tool to add to `hs._asm.luathread` proper...
+///  * Actual invocation of the method on the target skin may be delayed until the thread of the target is inactive.
 static int requireModule(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin() ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
-    LuaSkin *targetSkin = [skin toNSObjectAtIndex:1] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TSTRING,
+                    LS_TFUNCTION | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+    LuaSkin *targetSkin    = [skin toNSObjectAtIndex:1] ;
+    const char *moduleName = lua_tostring(L, 2) ;
+    int functionRef        = LUA_NOREF ;
 
-    BOOL success = NO ;
-    @try {
-        success = [targetSkin requireModule:(char *)luaL_checkstring(L, 2)] ;
-        lua_pop(L, 1) ;
-    } @catch (NSException *theException) {
-        NSString *error = [NSString stringWithFormat:@"exception %@:%@",
-                                                      theException.name,
-                                                      theException.reason] ;
-        [skin logError:error] ;
-        success = NO ;
+    if (lua_type(L, 3) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 3) ;
+        functionRef = [skin luaRef:LST_getRefTable(skin, USERDATA_TAG, refTable)] ;
     }
-    if (success) {
-        lua_pushvalue(L, 1) ;
+
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:
+                               [LuaSkin instanceMethodSignatureForSelector:@selector(requireModule:)]] ;
+    [invocation setTarget:targetSkin] ;
+    [invocation setSelector:@selector(requireModule:)] ;
+    [invocation setArgument:&moduleName atIndex:2] ;
+    [invocation retainArguments] ;
+
+    HSASMInvocationWrapper *target = [[HSASMInvocationWrapper alloc] initWithCallback:functionRef] ;
+    if (LST_skinIsLuaSkinThread(targetSkin)) {
+        [target performSelector:@selector(performRequireInvocation:)
+                       onThread:(NSThread *)[(LuaSkinThread *)targetSkin threadForThisSkin]
+                     withObject:invocation
+                  waitUntilDone:NO] ;
+    } else if ([targetSkin isMemberOfClass:[LuaSkin class]] && [NSThread isMainThread]) {
+        [target performSelectorOnMainThread:@selector(performRequireInvocation:)
+                     withObject:invocation
+                  waitUntilDone:NO] ;
     } else {
-        lua_pushboolean(L, success) ;
+        invocation = nil ; // since we won't really be returning, clear objects first
+        target     = nil ;
+        return luaL_error(L, "only LuaSkinThread instances can be targeted from an alternate thread") ;
     }
+    lua_pushvalue(L, 1) ;
     return 1 ;
 }
-
-// re-examine everything now that we can get the thread from a LuaSkinThread object
 
 // ?   - (NSString *)tracebackWithTag:(NSString *)theTag fromStackPos:(int)level ;
 // ?   - (void)logAtLevel:(int)level withMessage:(NSString *)theMessage fromStackPos:(int)pos ;
 
-// ?   - (BOOL)protectedCallAndTraceback:(int)nargs nresults:(int)nresults;
 // ?   - (void)checkArgs:(int)firstArg, ...;
-// ?   - (int)luaRef:(int)refTable;
-// ?   - (int)luaRef:(int)refTable atIndex:(int)idx;
-// ?   - (int)luaUnref:(int)refTable ref:(int)ref;
-// ?   - (int)pushLuaRef:(int)refTable ref:(int)ref;
 
 // possible to allow lua-based modules to be registered through these?  does that gain us anything for a lua-only module?
 //     - (int)registerLibrary:(const luaL_Reg *)functions metaFunctions:(const luaL_Reg *)metaFunctions;
@@ -671,10 +661,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"luaHelperFunctions",  getRegisteredLuaObjectHelperFunctions},
     {"luaHelperLocations",  getRegisteredLuaObjectHelperLocations},
     {"luaUserdataMappings", getRegisteredLuaObjectHelperUserdataMappings},
-
-    {"countN",              countNatIndex},
-    {"maxN",                maxNatIndex},
-
     {"requireModule",       requireModule},
     {"logMessage",          logWithLevel},
 
