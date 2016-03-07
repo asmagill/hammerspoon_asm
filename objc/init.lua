@@ -1,65 +1,96 @@
 --- === hs._asm.objc ===
 ---
---- Playing with a simplistic lua-objc bridge.
+--- Playing with a simplistic lua-objc bridge, take two.
 ---
 --- Very experimental.  Don't use or trust.  Probably forget you ever saw this.
 ---
 --- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
 
-package.loadlib("/usr/lib/libffi.dylib", "*")
-
-local module       = require("hs._asm.objc.internal")
-local log          = require("hs.logger").new("objc","warning")
-module.log = log
-module.registerLogForC(log)
-module.registerLogForC = nil
+local USERDATA_TAG = "hs._asm.objc"
+local module       = require(USERDATA_TAG..".internal")
 
 -- private variables and methods -----------------------------------------
 
-local _kMetaTable = {}
-_kMetaTable._k = {}
-_kMetaTable.__index = function(obj, key)
-        if _kMetaTable._k[obj] then
-            if _kMetaTable._k[obj][key] then
-                return _kMetaTable._k[obj][key]
-            else
-                for k,v in pairs(_kMetaTable._k[obj]) do
-                    if v == key then return k end
-                end
-            end
-        end
-        return nil
-    end
-_kMetaTable.__newindex = function(obj, key, value)
-        error("attempt to modify a table of constants",2)
-        return nil
-    end
-_kMetaTable.__pairs = function(obj) return pairs(_kMetaTable._k[obj]) end
-_kMetaTable.__tostring = function(obj)
-        local result = ""
-        if _kMetaTable._k[obj] then
-            local width = 0
-            for k,v in pairs(_kMetaTable._k[obj]) do width = width < #k and #k or width end
-            for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
-                result = result..string.format("%-"..tostring(width).."s %s\n", k, tostring(v))
-            end
-        else
-            result = "constants table missing"
-        end
-        return result
-    end
-_kMetaTable.__metatable = _kMetaTable -- go ahead and look, but don't unset this
+-- local _kMetaTable = {}
+-- -- planning to experiment with using this with responses to functional queries... and I
+-- -- don't want to keep loose generated data hanging around
+-- _kMetaTable._k = setmetatable({}, {__mode = "k"})
+-- _kMetaTable._t = setmetatable({}, {__mode = "k"})
+-- _kMetaTable.__index = function(obj, key)
+--         if _kMetaTable._k[obj] then
+--             if _kMetaTable._k[obj][key] then
+--                 return _kMetaTable._k[obj][key]
+--             else
+--                 for k,v in pairs(_kMetaTable._k[obj]) do
+--                     if v == key then return k end
+--                 end
+--             end
+--         end
+--         return nil
+--     end
+-- _kMetaTable.__newindex = function(obj, key, value)
+--         error("attempt to modify a table of constants",2)
+--         return nil
+--     end
+-- _kMetaTable.__pairs = function(obj) return pairs(_kMetaTable._k[obj]) end
+-- _kMetaTable.__len = function(obj) return #_kMetaTable._k[obj] end
+-- _kMetaTable.__tostring = function(obj)
+--         local result = ""
+--         if _kMetaTable._k[obj] then
+--             local width = 0
+--             for k,v in pairs(_kMetaTable._k[obj]) do width = width < #tostring(k) and #tostring(k) or width end
+--             for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
+--                 if _kMetaTable._t[obj] == "table" then
+--                     result = result..string.format("%-"..tostring(width).."s %s\n", tostring(k),
+--                         ((type(v) == "table") and "{ table }" or tostring(v)))
+--                 else
+--                     result = result..((type(v) == "table") and "{ table }" or tostring(v)).."\n"
+--                 end
+--             end
+--         else
+--             result = "constants table missing"
+--         end
+--         return result
+--     end
+-- _kMetaTable.__metatable = _kMetaTable -- go ahead and look, but don't unset this
+--
+-- local _makeConstantsTable
+-- _makeConstantsTable = function(theTable)
+--     if type(theTable) ~= "table" then
+--         local dbg = debug.getinfo(2)
+--         local msg = dbg.short_src..":_"..dbg.currentline..":_ attempting to make a '"..type(theTable).."' into a constant table"
+--         if module.log then module.log.ef(msg) else print(msg) end
+--         return theTable
+--     end
+--     for k,v in pairs(theTable) do
+--         if type(v) == "table" then
+--             local count = 0
+--             for a,b in pairs(v) do count = count + 1 end
+--             local results = _makeConstantsTable(v)
+--             if #v > 0 and #v == count then
+--                 _kMetaTable._t[results] = "array"
+--             else
+--                 _kMetaTable._t[results] = "table"
+--             end
+--             theTable[k] = results
+--         end
+--     end
+--     local results = setmetatable({}, _kMetaTable)
+--     _kMetaTable._k[results] = theTable
+--     local count = 0
+--     for a,b in pairs(theTable) do count = count + 1 end
+--     if #theTable > 0 and #theTable == count then
+--         _kMetaTable._t[results] = "array"
+--     else
+--         _kMetaTable._t[results] = "table"
+--     end
+--     return results
+-- end
 
-local _makeConstantsTable = function(theTable)
-    local results = setmetatable({}, _kMetaTable)
-    _kMetaTable._k[results] = theTable
-    return results
-end
-
-local class         = hs.getObjectMetatable("hs._asm.objc.class")
-local object        = hs.getObjectMetatable("hs._asm.objc.id")
-local protocol      = hs.getObjectMetatable("hs._asm.objc.protocol")
-local selector      = hs.getObjectMetatable("hs._asm.objc.selector")
+local classMT         = hs.getObjectMetatable(USERDATA_TAG..".class")
+local objectMT        = hs.getObjectMetatable(USERDATA_TAG..".id")
+local protocolMT      = hs.getObjectMetatable(USERDATA_TAG..".protocol")
+local selectorMT      = hs.getObjectMetatable(USERDATA_TAG..".selector")
 
 local sendToSuper   = 1
 local allocFirst    = 2
@@ -68,12 +99,8 @@ local msgSendWrapper = function(fn, flags)
     return function(self, selector, ...)
         local sel = selector
         if type(selector) == "string" then
-            if self._class then
-                sel = self:_selector(selector)
-            else
-                sel = self:selector(selector)
-            end
-            if not sel then error(selector.." is not a"..(self._class and "n instance" or " class").." method for "..self:_className(), 2) end
+            sel = self:selector(selector)
+            if not sel then error(selector.." is not a"..(self.class and "n instance" or " class").." method for "..self:className(), 2) end
         end
         if flags then
             return fn(flags, self, sel, ...)
@@ -85,24 +112,16 @@ end
 
 -- Public interface ------------------------------------------------------
 
--- shortcuts for class and object message sending
--- class.msgSend              = msgSendWrapper(module.objc_msgSend)
--- class.msgSendSuper         = msgSendWrapper(module.objc_msgSendSuper)
--- object.msgSend             = msgSendWrapper(module.objc_msgSend)
--- object.msgSendSuper        = msgSendWrapper(module.objc_msgSendSuper)
--- class.allocAndMsgSend      = msgSendWrapper(module.objc_allocAndMsgSend)
--- class.allocAndMsgSendSuper = msgSendWrapper(module.objc_allocAndMsgSendSuper)
+classMT.msgSend              = msgSendWrapper(module.objc_msgSend)
+classMT.msgSendSuper         = msgSendWrapper(module.objc_msgSend, sendToSuper)
+objectMT.msgSend             = msgSendWrapper(module.objc_msgSend)
+objectMT.msgSendSuper        = msgSendWrapper(module.objc_msgSend, sendToSuper)
+classMT.allocAndMsgSend      = msgSendWrapper(module.objc_msgSend, allocFirst)
+classMT.allocAndMsgSendSuper = msgSendWrapper(module.objc_msgSend, sendToSuper | allocFirst)
 
-class.msgSend              = msgSendWrapper(module.objc_msgSend)
-class.msgSendSuper         = msgSendWrapper(module.objc_msgSend, sendToSuper)
-object._msgSend            = msgSendWrapper(module.objc_msgSend)
-object._msgSendSuper       = msgSendWrapper(module.objc_msgSend, sendToSuper)
-class.allocAndMsgSend      = msgSendWrapper(module.objc_msgSend, allocFirst)
-class.allocAndMsgSendSuper = msgSendWrapper(module.objc_msgSend, sendToSuper | allocFirst)
+classMT.className = classMT.name
 
-class.className = class.name
-
-class.selector = function(self, sel)
+classMT.selector = function(self, sel)
     local alreadySeen = {}
 
     local myClass = self
@@ -115,7 +134,7 @@ class.selector = function(self, sel)
     -- search adopted protocols
         for k,v in pairs(myClass:adoptedProtocols()) do
             if not alreadySeen[v] then
-                local result = protocol.selector(v, sel, alreadySeen)
+                local result = protocolMT.selector(v, sel, alreadySeen)
                 if result then return result end
                 alreadySeen[v] = true
             end
@@ -130,7 +149,7 @@ class.selector = function(self, sel)
     return nil
 end
 
-protocol.selector = function(self, sel, alreadySeen)
+protocolMT.selector = function(self, sel, alreadySeen)
     local alreadySeen = alreadySeen or {}
     if alreadySeen[self] then return nil end
 
@@ -162,24 +181,24 @@ protocol.selector = function(self, sel, alreadySeen)
     return nil
 end
 
-object._selector = function(self, sel)
-    return class.selector(self:_class(), sel)
+objectMT.selector = function(self, sel)
+    return classMT.selector(self:class(), sel)
 end
 
-object._propertyList = function(self, includeNSObject)
+objectMT.propertyList = function(self, includeNSObject)
     -- defaults to false, self *is* NSObject
-    includeNSObject = includeNSObject or (self:_className() == "NSObject") or false
+    includeNSObject = includeNSObject or (self:className() == "NSObject") or false
 
     local properties, alreadySeen = {}, {}
 
-    local myClass = self:_class()
+    local myClass = self:class()
 
     while(myClass) do
     -- search class
         for k, v in pairs(myClass:propertyList()) do
             if not properties[k] then
                 properties[k] = v
-                log.vf("property: adding %s from class %s", k, myClass:name())
+                module.nslog(string.format("property:_ adding %s from class %s", k, myClass:name()))
             end
         end
 
@@ -195,7 +214,7 @@ object._propertyList = function(self, includeNSObject)
                 for k, v in pairs(topProtocol:propertyList()) do
                     if not properties[k] then
                         properties[k] = v
-                        log.vf("property: adding %s from class %s", k, topProtocol:name())
+                        module.nslog(string.format("property:_ adding %s from class %s", k, topProtocol:name()))
                     end
                 end
                 for _, v in pairs(topProtocol:adoptedProtocols()) do
@@ -209,7 +228,7 @@ object._propertyList = function(self, includeNSObject)
         for k,v in pairs(myClass:metaClass():propertyList()) do
             if not properties[k] then
                 properties[k] = v
-                log.vf("property: adding %s from metaclass %s", k, myClass:metaClass():name())
+                module.nslog(string.format("property:_ adding %s from metaclass %s", k, myClass:metaClass():name()))
             end
         end
 
@@ -221,59 +240,33 @@ object._propertyList = function(self, includeNSObject)
     return properties
 end
 
-object._propertyValues = function(self, includeNSObject)
-    local properties, values = object._propertyList(self, includeNSObject), {}
+objectMT.propertyValues = function(self, includeNSObject)
+    local properties, values = objectMT.propertyList(self, includeNSObject), {}
 
     for k,v in pairs(properties) do
         local getter = v:attributeList().G or k
-        values[k] = self:_msgSend(self:_selector(getter))
+        values[k] = self:msgSend(self:selector(getter))
     end
     return values
 end
 
-object._property = function(self, name)
-    local properties = object._propertyList(self, true)
+objectMT.property = function(self, name)
+    local properties = objectMT.propertyList(self, true)
 
     if properties[name] then
-        return self:_msgSend(self:_selector(properties[name]:attributeList().G or name))
+        return self:msgSend(self:selector(properties[name]:attributeList().G or name))
     else
-        log.wf("%s is not a property for class %s", name, self:_className())
+        module.nslog(string.format("%s is not a property for class %s", name, self:className()))
         return nil
     end
 end
 
+objectMT.__call = function(obj, ...) return objectMT.msgSend(obj, ...) end
+classMT.__call  = function(obj, ...) return classMT.msgSend(obj, ...) end
 
--- allow unrecognized method calls to be translated into object-c messages for objects
-object.__index = function(obj, key)
---     module.nslog("object call to "..tostring(key))
-    if object[key] then
-        return object[key]
-    else
-        return function(_, ...) return object._msgSend(_, key, ...) end
-    end
-end
-
--- probably overkill, but the Lua Manual section 2.4 (help.lua._man._2_4) suggests that adding to a metatable that already has a __gc method is "a bad thing"(TM)... so we remove the table first and add to it before applying the changed table as the brand new metatable.
--- definitely overkill since module metatables have been removed, but they may need to come back at some point, and its good practice for when I need it in the future, so...
-
-local tempMetatable
-
-tempMetatable = getmetatable(module.class) or {}
-module.class = setmetatable(module.class, nil)
-tempMetatable["__call"] = function(_, ...) return module.class.fromString(...) end
-module.class = setmetatable(module.class, tempMetatable)
-
-tempMetatable = getmetatable(module.protocol) or {}
-module.protocol = setmetatable(module.protocol, nil)
-tempMetatable["__call"] = function(_, ...) return module.protocol.fromString(...) end
-module.protocol = setmetatable(module.protocol, tempMetatable)
-
-tempMetatable = getmetatable(module.selector) or {}
-module.selector = setmetatable(module.selector, nil)
-tempMetatable["__call"] = function(_, ...) return module.selector.fromString(...) end
-module.selector = setmetatable(module.selector, tempMetatable)
-
-tempMetatable = nil
+module.class    = setmetatable(module.class,    { __call = function(_, ...) return module.class.fromString(...) end})
+module.protocol = setmetatable(module.protocol, { __call = function(_, ...) return module.protocol.fromString(...) end})
+module.selector = setmetatable(module.selector, { __call = function(_, ...) return module.selector.fromString(...) end})
 
 -- Return Module Object --------------------------------------------------
 
