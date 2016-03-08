@@ -359,12 +359,13 @@ static int invocator(lua_State *L) {
 
         default:
             [skin logWarn:[NSString stringWithFormat:@"%s return type not supported yet", returnType]] ;
-            char *result ;
-            [invocation getReturnValue:&result] ;
+            void *result = malloc(length) ;
+            [invocation getReturnValue:result] ;
             lua_newtable(L) ;
             lua_pushinteger(L, (lua_Integer)length) ;    lua_setfield(L, -2, "length") ;
             lua_pushstring(L, returnType) ;              lua_setfield(L, -2, "type") ;
             lua_pushlstring(L, (char *)result, length) ; lua_setfield(L, -2, "contents") ;
+            free(result) ;
             break ;
     }
     return 1 ;

@@ -4,7 +4,7 @@
 
 #define DEBUG_msgSend
 // #define DEBUG_GC
-#define DEBUG_GC_OBJONLY
+// #define DEBUG_GC_OBJONLY
 
 #define ROOT_USERDATA_TAG               "hs._asm.objc"
 
