@@ -26,7 +26,9 @@ static int object_value(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
-    [skin pushNSObject:obj] ;
+    [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                       LS_NSDescribeUnknownTypes         |
+                                       LS_NSPreserveLuaStringExactly] ;
     return 1 ;
 }
 

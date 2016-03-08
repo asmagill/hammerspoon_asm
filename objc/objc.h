@@ -21,8 +21,6 @@
 // #define IMP_USERDATA_TAG                ROOT_USERDATA_TAG ".imp"
 
 #define get_objectFromUserdata(objType, L, idx, tag) ((objType)(*((void**)luaL_checkudata(L, idx, tag))))
-// #define get_idobjectFromUserdata(objType, L, idx, tag) ((objType)((void**)luaL_checkudata(L, idx, tag)))
-#define get_idobjectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 int luaopen_hs__asm_objc_class(lua_State* L) ;
 int luaopen_hs__asm_objc_ivar(lua_State* L) ;

@@ -12,8 +12,6 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
-static NSArray *badSelectors ;
-
 #pragma mark - Module Functions
 
 static int extras_nslog(__unused lua_State* L) {
@@ -81,13 +79,6 @@ static int invocator(lua_State *L) {
     SEL  sel        = get_objectFromUserdata(SEL, L, selIndex, SEL_USERDATA_TAG) ;
 
     NSString *selName = NSStringFromSelector(sel) ;
-// //     some selectors are known to cause problems...
-// //     maybe... maybe it was due to the same rcv and return needing ARC fooled...
-//     for (NSDictionary *entry in badSelectors) {
-//         if ([selName isEqualToString:entry[@"sel"]]) {
-//             return luaL_error(L, "invalid selector:%s", [entry[@"err"] UTF8String]) ;
-//         }
-//     }
 
     NSMethodSignature *signature = (rcv) ? [cls instanceMethodSignatureForSelector:sel]
                                          : [cls methodSignatureForSelector:sel];
@@ -341,14 +332,12 @@ static int invocator(lua_State *L) {
             lua_pushnumber(L, result) ;
         }   break ;
         case '@': { // ID
-            id result ;
-            [invocation getReturnValue:&result] ;
-            if (rcv == result) {
-            // then we need to add a retain since ARC will bite us otherwise...
-                [skin logDebug:@"** adjusting retainCount, rcv == result"] ;
-                CFTypeRef __unused holder = (__bridge_retained CFTypeRef)rcv ;
-            }
-            push_object(L, result) ;
+        // NSInvocation's return of an ID object confusels ARC...
+        // see http://stackoverflow.com/a/11569236
+            CFTypeRef result;
+            [invocation getReturnValue:&result];
+            if (result) CFRetain(result);
+            push_object(L, (__bridge_transfer id)result) ;
         }   break ;
         case '#': { // Class
             Class result ;
@@ -454,12 +443,5 @@ int luaopen_hs__asm_objc_internal(lua_State* L) {
     luaopen_hs__asm_objc_protocol(L) ; lua_setfield(L, -2, "protocol") ;
     luaopen_hs__asm_objc_selector(L) ; lua_setfield(L, -2, "selector") ;
 
-    // some selectors are known to cause problems...
-    badSelectors = @[
-                      @{
-                          @"sel" : @"alloc",
-                          @"err" : @"use _allocAndMsgSend or _allocAndMsgSendSuper"
-                      }
-    ] ;
     return 1;
 }
