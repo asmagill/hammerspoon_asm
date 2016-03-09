@@ -348,6 +348,58 @@ static int integerTester(lua_State *L) {
     return 3 ;
 }
 
+static int nsvalueTest2(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    id obj = [skin toNSObjectAtIndex:1] ;
+    lua_newtable(L) ;
+    [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
+                                       LS_NSDescribeUnknownTypes         |
+                                       LS_NSPreserveLuaStringExactly] ;
+    lua_setfield(L, -2, "andBack") ;
+    if ([obj isKindOfClass:[NSValue class]]) {
+        NSValue *value = obj ;
+        const char *objCType = [value objCType];
+
+        NSUInteger actualSize, alignedSize ;
+        NSGetSizeAndAlignment(objCType, &actualSize, &alignedSize) ;
+
+        lua_newtable(L) ;
+        lua_pushstring(L, "NSValue") ; lua_setfield(L, -2, "__luaSkinType") ;
+        lua_pushstring(L, objCType) ;                  lua_setfield(L, -2, "objCType") ;
+        lua_pushinteger(L, (lua_Integer)actualSize) ;  lua_setfield(L, -2, "actualSize") ;
+        lua_pushinteger(L, (lua_Integer)alignedSize) ; lua_setfield(L, -2, "alignedSize") ;
+
+        NSUInteger workingSize = MAX(actualSize, alignedSize) ;
+
+        void* ptr = malloc(workingSize) ;
+        [value getValue:ptr] ;
+        NSData *raw      = [NSData dataWithBytes:ptr length:workingSize] ;
+        free(ptr) ;
+//         NSData *keyed    = [NSKeyedArchiver archivedDataWithRootObject:value] ;
+//         NSData *notKeyed = [NSArchiver archivedDataWithRootObject:value] ;
+
+        [skin pushNSObject:raw] ;      lua_setfield(L, -2, "data") ;
+//         [skin pushNSObject:keyed] ;    lua_setfield(L, -2, "keyedArchivedData") ;
+//         [skin pushNSObject:notKeyed] ; lua_setfield(L, -2, "archivedData") ;
+        lua_setfield(L, -2, "rawNSValue") ;
+
+        lua_newtable(L) ;
+
+//         [skin pushNSObject:[NSKeyedUnarchiver unarchiveObjectWithData:keyed]] ;
+//         lua_setfield(L, -2, "keyed") ;
+//         [skin pushNSObject:[NSUnarchiver unarchiveObjectWithData:notKeyed]] ;
+//         lua_setfield(L, -2, "notKeyed") ;
+        [skin pushNSObject:[NSValue value:[raw bytes] withObjCType:objCType]] ;
+
+        lua_setfield(L, -2, "raw") ;
+
+        lua_setfield(L, -2, "fromData") ;
+
+    }
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
@@ -364,6 +416,8 @@ static const luaL_Reg extrasLib[] = {
     {"addressbookGroups",    addressbookGroups},
 
     {"testNSValue",          testNSValueEncodings},
+    {"NSValueExaminer",      nsvalueTest2},
+
     {"SCPreferencesKeys",    getSCPreferencesKeys},
     {"SCPreferencesValueForKey", getSCPreferencesValueForKey},
     {"networkUserPreferences", networkUserPreferences},
