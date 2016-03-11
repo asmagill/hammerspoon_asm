@@ -4,6 +4,14 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+static int object_fromLuaObject(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TANY, LS_TBREAK] ;
+    id obj = [skin toNSObjectAtIndex:1] ;
+    push_object(L, obj) ;
+    return 1 ;
+}
+
 #pragma mark - Module Methods
 
 static int objc_object_getClassName(lua_State *L) {
@@ -97,7 +105,8 @@ static const luaL_Reg object_userdata_metaLib[] = {
 
 // Functions for returned obj when module loads
 static luaL_Reg object_moduleLib[] = {
-    {NULL, NULL}
+    {"fromLuaObject", object_fromLuaObject},
+    {NULL,            NULL}
 };
 
 // Metatable for module, if needed

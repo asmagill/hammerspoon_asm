@@ -14,13 +14,13 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
-static int extras_nslog(__unused lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    id val = [skin toNSObjectAtIndex:1] ;
-    [skin logVerbose:[NSString stringWithFormat:@"%@", val]] ;
-    NSLog(@"%@", val);
-    return 0;
-}
+// static int extras_nslog(__unused lua_State* L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     id val = [skin toNSObjectAtIndex:1] ;
+//     [skin logVerbose:[NSString stringWithFormat:@"%@", val]] ;
+//     NSLog(@"%@", val);
+//     return 0;
+// }
 
 static int objc_getImageNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -231,9 +231,27 @@ static int invocator(lua_State *L) {
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
+            case '{': { // struct
+                NSValue *val = [skin toNSObjectAtIndex:luaIndex] ;
+                if ([val isKindOfClass:[NSValue class]]) {
+                    if (!strcmp(argumentType, [val objCType])) {
+                        NSUInteger actualSize, alignedSize ;
+                        NSGetSizeAndAlignment([val objCType], &actualSize, &alignedSize) ;
+                        NSUInteger workingSize = MAX(actualSize, alignedSize) ;
+                        void* ptr = malloc(workingSize) ;
+                        [val getValue:ptr] ;
+                        [invocation setArgument:ptr atIndex:invocationIndex] ;
+                        [invocation retainArguments] ;
+                        free(ptr) ;
+                    } else {
+                        return luaL_error(L, "wrong structure:found %s, expected %s", [val objCType], argumentType) ;
+                    }
+                } else {
+                    return luaL_error(L, "argument is not a recognized structure") ;
+                }
+            }   break ;
 
     //     [array type]    An array
-    //     {name=type...}  A structure
     //     (name=type...)  A union
     //     bnum            A bit field of num bits
     //     ^type           A pointer to type
@@ -244,10 +262,17 @@ static int invocator(lua_State *L) {
                 break ;
         }
     }
-    if (callSuper) {
-        [invocation invokeSuper] ;
-    } else {
-        [invocation invoke] ;
+
+    @try {
+        if (callSuper) {
+            [invocation invokeSuper] ;
+        } else {
+            [invocation invoke] ;
+        }
+    } @catch (NSException *theException) {
+        lua_pushnil(L) ;
+        [skin pushNSObject:theException] ;
+        return 2 ;
     }
 
     NSUInteger length = [signature methodReturnLength] ;
@@ -349,9 +374,18 @@ static int invocator(lua_State *L) {
             [invocation getReturnValue:&result] ;
             push_selector(L, result) ;
         }   break ;
+        case '{': { // struct
+            NSUInteger actualSize, alignedSize ;
+            NSGetSizeAndAlignment(returnType, &actualSize, &alignedSize) ;
+            NSUInteger workingSize = MAX(actualSize, alignedSize) ;
+            void* ptr = malloc(workingSize) ;
+            [invocation getReturnValue:ptr] ;
+            NSValue *val = [NSValue valueWithBytes:ptr objCType:returnType] ;
+            [skin pushNSObject:val] ;
+            free(ptr) ;
+        }   break ;
 
 //     [array type]    An array
-//     {name=type...}  A structure
 //     (name=type...)  A union
 //     bnum            A bit field of num bits
 //     ^type           A pointer to type
@@ -417,7 +451,7 @@ static luaL_Reg moduleLib[] = {
     {"objc_msgSend",       invocator},
     {"imageNames",         objc_getImageNames},
     {"classNamesForImage", objc_classNamesForImage},
-    {"nslog",              extras_nslog},
+//     {"nslog",              extras_nslog},
 
     {NULL,                 NULL}
 };

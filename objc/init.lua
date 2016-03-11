@@ -198,7 +198,6 @@ objectMT.propertyList = function(self, includeNSObject)
         for k, v in pairs(myClass:propertyList()) do
             if not properties[k] then
                 properties[k] = v
-                module.nslog(string.format("property:_ adding %s from class %s", k, myClass:name()))
             end
         end
 
@@ -214,7 +213,6 @@ objectMT.propertyList = function(self, includeNSObject)
                 for k, v in pairs(topProtocol:propertyList()) do
                     if not properties[k] then
                         properties[k] = v
-                        module.nslog(string.format("property:_ adding %s from class %s", k, topProtocol:name()))
                     end
                 end
                 for _, v in pairs(topProtocol:adoptedProtocols()) do
@@ -228,7 +226,6 @@ objectMT.propertyList = function(self, includeNSObject)
         for k,v in pairs(myClass:metaClass():propertyList()) do
             if not properties[k] then
                 properties[k] = v
-                module.nslog(string.format("property:_ adding %s from metaclass %s", k, myClass:metaClass():name()))
             end
         end
 
@@ -256,7 +253,6 @@ objectMT.property = function(self, name)
     if properties[name] then
         return self:msgSend(self:selector(properties[name]:attributeList().G or name))
     else
-        module.nslog(string.format("%s is not a property for class %s", name, self:className()))
         return nil
     end
 end

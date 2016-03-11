@@ -7,6 +7,7 @@
 @property BOOL    lastBool ;
 @property int     lastInt ;
 @property NSArray *wordList ;
+@property NSRect  myRectangle ;
 @end
 
 @implementation OBJCTest
@@ -19,6 +20,7 @@
         _wordList = [string componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]] ;
         _lastBool = NO ;
         _lastInt  = 1 ;
+        _myRectangle = NSMakeRect(10.0, 12.0, 100.0, 120.0) ;
     }
     return self ;
 }

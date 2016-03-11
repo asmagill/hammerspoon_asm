@@ -7,6 +7,45 @@ It's extremely buggy, experimental, and probably a few other pejoratives, but it
 
 Sample output from the latest run (I just got basic arguments to work, but not structures or arrays, and union and variable argument length methods will never work due to limitations in NSInvocation -- though I've read that libFFI has issues with them as well):
 
+Latest has some support for structures, but requires development Hammerspoon with pull request #825 applied:
+
+~~~lua
+-- from within the Hammerspoon console, this moves the Console window
+> hs.luaSkinLog.level = 4 ; o = require("hs._asm.objc")
+
+> inspect(o.class("NSApplication")("sharedApplication")("mainWindow")("frame"))
+19:17:21                 @ = [NSApplication sharedApplication] with 0 arguments
+                         @ = [<NSApplication> mainWindow] with 0 arguments
+                         {CGRect={CGPoint=dd}{CGSize=dd}} = [<NSWindow> frame] with 0 arguments
+{
+  __luaSkinType = "NSRect",
+  h = 386.0,
+  w = 669.0,
+  x = 771.0,
+  y = 35.0
+}
+
+> inspect(o.class("NSApplication")("sharedApplication")("mainWindow")("setFrame:display:", {__luaSkinType="NSRect", x = 20, y = 35, h = 386, w = 669}, true))
+19:18:11                 @ = [NSApplication sharedApplication] with 0 arguments
+                         @ = [<NSApplication> mainWindow] with 0 arguments
+                         v = [<NSWindow> setFrame:display:] with 2 arguments
+nil
+
+> inspect(o.class("NSApplication")("sharedApplication")("mainWindow")("frame"))
+19:18:17                 @ = [NSApplication sharedApplication] with 0 arguments
+                         @ = [<NSApplication> mainWindow] with 0 arguments
+                         {CGRect={CGPoint=dd}{CGSize=dd}} = [<NSWindow> frame] with 0 arguments
+{
+  __luaSkinType = "NSRect",
+  h = 386.0,
+  w = 669.0,
+  x = 20.0,
+  y = 35.0
+}
+~~~
+
+Previous "show-and-tell"
+
 ~~~lua
 > hs.luaSkinLog.level = 4 ; o = require("hs._asm.objc")
 
