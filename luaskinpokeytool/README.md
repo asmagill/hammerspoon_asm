@@ -1,6 +1,10 @@
 hs._asm.luaskinpokeytool
 ========================
 
+* This document is out of date -- some of the methods have been removed to be reconsidered; others are now thread-safe...ish.  Hopefully this will be updated soon. *
+
+- - -
+
 Access LuaSkin directly from Hammerspoon to examine things like registered conversion functions, etc.
 
 This is probably a very bad idea.
