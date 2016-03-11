@@ -1,19 +1,50 @@
+/// === hs._asm.objc.selector ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C selectors.
+///
+/// The terms `selector` and `method` are often used interchangeably in this documentation and in many books and tutorials about Objective-C.  Strictly speaking this is lazy; for most purposes, I find that the easiest way to think of them is as follows: A selector is the name or label for a method, and a method is the actual implementation or function (code) for a selector.  Usually the specific intention is clear from context, but I hope to clean up this documentation to be more precise as time allows.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
-// sel_registerName/sel_getUid (which is what NSSelectorFromString uses) creates the selector, even if it doesn't exist yet, so it can't be used to verify that a selector is a valid message for any, much less a specific, class. See init.lua which adds selector methods to class, protocol, and object which check for the selector string in the "current" context without creating anything that doesn't already exist yet.
+/// hs._asm.objc.selector.fromString(name) -> selectorObject
+/// Constructor
+/// Returns a selector object for the named selector
+///
+/// Parameters:
+///  * name - a string containing the name of the desired selector
+///
+/// Returns:
+///  * the selector object for the name specified
+///
+/// Notes:
+///  * This constructor has also been assigned to the __call metamethod of the `hs._asm.objc.selector` sub-module so that it can be invoked as `hs._asm.objc.selector(name)` as a shortcut.
+///
+///  * This constructor should not generally be used; instead use [hs._asm.objc.class:selector](#selector), [hs._asm.objc.object:selector](#selector2), or [hs._asm.objc.protocol:selector](#selector3), as they first verify that the named selector is actually valid for the class, object, or protocol in question.
+///
+///  * This constructor works by attempting to create the specified selector and returning the created selector object.  If the selector already exists (i.e. is defined as a valid selector in a class or protocol somewhere), then the already existing selector is returned instead of a new one.  Because there is no built in facility for determining if a selector is valid without also creating it if it does not already exist, use of this constructor is not preferred.
 static int objc_sel_selectorFromName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+// sel_registerName/sel_getUid (which is what NSSelectorFromString uses) creates the selector, even if it doesn't exist yet, so it can't be used to verify that a selector is a valid message for any, much less a specific, class. See init.lua which adds selector methods to class, protocol, and object which check for the selector string in the "current" context without creating anything that doesn't already exist yet.
     push_selector(L, sel_getUid(luaL_checkstring(L, 1))) ;
     return 1 ;
 }
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.selector:name() -> string
+/// Method
+/// Returns the name of the selector as a string
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the selector's name as a string.
 static int objc_sel_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, SEL_USERDATA_TAG, LS_TBREAK] ;

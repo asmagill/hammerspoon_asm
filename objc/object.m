@@ -1,3 +1,9 @@
+/// === hs._asm.objc.object ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C objects.
+///
+/// Most of the methods of this sub-module concentrate on the object as an Objective-C class instance (as an object of type `id`), but there are also methods for examining property values and for converting (some) Objective-C objects to and from a format usable directly by Hammerspoon or Lua.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;

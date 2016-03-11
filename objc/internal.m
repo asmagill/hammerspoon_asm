@@ -22,6 +22,18 @@ static int refTable = LUA_NOREF;
 //     return 0;
 // }
 
+/// hs._asm.objc.imageNames() -> table
+/// Function
+/// Returns a list of the names of all the loaded Objective-C frameworks and dynamic libraries.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array of the currently loaded frameworks and dynamic libraries.  Each entry is the complete path to the framework or library.
+///
+/// Notes:
+///  * You can load a framework which is not currently loaded by using the lua builtin `package.loadlib`.  E.g. `package.loadlib("/System/Library/Frameworks/MapKit.framework/Versions/Current/MapKit","*")`
 static int objc_getImageNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -37,6 +49,19 @@ static int objc_getImageNames(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.classNamesForImage(imageName) -> table
+/// Function
+/// Returns a list of the classes within the specified library or framework.
+///
+/// Parameters:
+///  * imageName - the full path of the library or framework image to return the list of classes from.
+///
+/// Returns:
+///  * an array of the class names defined within the specified image.
+///
+/// Notes:
+///  * You can load a framework which is not currently loaded by using the lua builtin `package.loadlib`.  E.g. `package.loadlib("/System/Library/Frameworks/MapKit.framework/Versions/Current/MapKit","*")`
+///  * the `imageName` must match the actual path (without symbolic links) that was loaded.  For the example given above, the proper path name (as of OS X 10.11.3) would be "/System/Library/Frameworks/MapKit.framework/Versions/A/MapKit".  You can determine this path by looking at the results from [hs._asm.objc.imageNames](#imageNames).
 static int objc_classNamesForImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -52,8 +77,42 @@ static int objc_classNamesForImage(lua_State *L) {
     return 1 ;
 }
 
-// new approach - use NSInvocation
-
+/// hs._asm.objc.objc_msgSend([flags], target, selector, ...) -> result
+/// Function
+/// The core Objective-C message sending interface.  There are a variety of method wrappers described elsewhere which are probably more clear in context, but they all reduce down to this function.
+///
+/// Parameters:
+///  * flags    - an optional integer used as a bit flag to alter the message being sent:
+///    * 0x01 - if bit 1 is set, the message should actually be sent to the class or object's superclass.  This is equivalent to `[[target super] selector]`
+///    * 0x02 - if bit 2 is set, and the `target` is a class, then the selector is sent to `[target alloc]` and the result is returned.  This is a shorthand for allocating and initializing an object at the same time.
+///  * target   - a class object or an object instance to which the message should be sent.
+///  * selector - a selector (message) to send to the target.
+///  * optional additional arguments are passed to the target as arguments for the selector specified.
+///
+/// Returns:
+///  * the result (if any) of the message sent.
+///
+/// Notes:
+///  * In general, it will probably be clearer in most contexts to use one of the wrapper methods to this function.  They are described in the appropriate places in the [hs._asm.objc.class](#class) and [hs._asm.objc.object](#object) sections of this documentation.
+///
+///  * The following example shows the most basic form for sending the messages necessary to create a newly initialized NSObject.
+///  * In it's most raw form, a newly initialized NSObject is created as follows:
+///    * `hs._asm.objc.objc_msgSend(
+///           hs._asm.objc.objc_msgSend(
+///               hs._asm.objc.class.fromString("NSObject"),
+///               hs._asm.objc.selector.fromString("alloc")
+///           ), hs._asm.objc.selector.fromString("init")
+///       )`
+///  * Using the optional bit-flag, this can be shortened to:
+///    * `hs._asm.objc.objc_msgSend(0x02,
+///           hs._asm.objc.class.fromString("NSObject"),
+///           hs._asm.objc.selector.fromString("init")
+///       )`
+///  * Even shorter variants are possible and will be documented where appropriate.
+///
+///  * Note that an alloc'd but not initialized object is generally an unsafe object to access in any fashion -- it is why almost every programming guide for Objective-C tells you to *always* combine the two into one statement.  This is for two very important reasons that also apply when using this module:
+///    * allocating an object just sets aside the memory for the object -- it does not set any defaults and there is no way of telling what may be in the memory space provided... at best garbage; more likely something that will crash your program if you try to examine or use it assuming that it conforms to the object class or it's properties.
+///    * the `init` method does not always return the same object that the message was passed to.  If you do the equivalent of the following: `a = [someClass alloc] ; [a init] ;`, you cannot be certain that `a` is the initialized object.  Only by performing the equivalent of `a = [[someClass alloc] init]` can you be certain of what `a` contains.
 static int invocator(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     BOOL hasFlags   = (lua_type(L, 1) == LUA_TNUMBER) ;

@@ -1,9 +1,25 @@
+/// === hs._asm.objc.protocol ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C protocols.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs._asm.objc.protocol.fromString(name) -> protocolObject
+/// Constructor
+/// Returns a protocol object for the named protocol
+///
+/// Parameters:
+///  * name - a string containing the name of the desired protocol
+///
+/// Returns:
+///  * the protocol object for the name specified or nil if a protocol with the specified name does not exist
+///
+/// Notes:
+///  * This constructor has also been assigned to the __call metamethod of the `hs._asm.objc.protocol` sub-module so that it can be invoked as `hs._asm.objc.protocol(name)` as a shortcut.
 static int objc_protocolFromString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -13,6 +29,15 @@ static int objc_protocolFromString(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.protocol.list() -> table
+/// Function
+/// Returns a list of all currently available protocols
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of all currently available protocols as key-value pairs.  The key is the protocol name as a string and the value for each key is the protocolObject for the named protocol.
 static int objc_protocolList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -30,6 +55,15 @@ static int objc_protocolList(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.protocol:name() -> string
+/// Method
+/// Returns the name of the protocol
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name of the protocol as a string
 static int objc_protocol_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
@@ -38,6 +72,15 @@ static int objc_protocol_getName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.protocol:propertyList() -> table
+/// Method
+/// Returns a table of the properties declared by the protocol.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of the properties declared by the protocol as key-value pairs.  The key is a property name as a string, and the value is the propertyObject for the named property.
 static int objc_protocol_getPropertyList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
@@ -54,12 +97,23 @@ static int objc_protocol_getPropertyList(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.protocol:property(name, required, instance) -> propertyObject
+/// Method
+/// Returns the property object for the property specified in the protocol.
+///
+/// Parameters:
+///  * name     - a string containing the name of the property
+///  * required - a boolean value indicating whether or not the property is a required property of the protocol.
+///  * instance - a boolean value indicating whether or not the property is an instance property of the protocol.
+///
+/// Returns:
+///  * the propertyObject or nil if a property with the specified name, required, and instance parameters does not exist.
 static int objc_protocol_getProperty(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
-                                LS_TSTRING,
-                                LS_TBOOLEAN,
-                                LS_TBOOLEAN, LS_TBREAK] ;
+                    LS_TSTRING,
+                    LS_TBOOLEAN,
+                    LS_TBOOLEAN, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     push_property(L, protocol_getProperty(prot, luaL_checkstring(L, 2),
                                              (BOOL)lua_toboolean(L, 3),
@@ -67,7 +121,15 @@ static int objc_protocol_getProperty(lua_State *L) {
     return 1 ;
 }
 
-
+/// hs._asm.objc.protocol:adoptedProtocols() -> table
+/// Method
+/// Returns a table of the protocols adopted by the protocol.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of the protocols adopted by this protocol as key-value pairs.  The key is the protocol name as a string and the value for each key is the protocolObject for the named protocol.
 static int objc_protocol_getAdoptedProtocols(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
@@ -84,21 +146,40 @@ static int objc_protocol_getAdoptedProtocols(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.protocol:conformsToProtocol(protocol) -> boolean
+/// Method
+/// Returns whether or not the protocol conforms to the specified protocol.
+///
+/// Parameters:
+///  * protocol - the protocolObject to test if the target object conforms to.
+///
+/// Returns:
+///  * true if the target object conforms to the specified protocol; otherwise false.
 static int objc_protocol_conformsToProtocol(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
-                                LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
+                    LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot1 = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     Protocol *prot2 = get_objectFromUserdata(__bridge Protocol *, L, 2, PROTOCOL_USERDATA_TAG) ;
     lua_pushboolean(L, protocol_conformsToProtocol(prot1, prot2)) ;
     return 1 ;
 }
 
+/// hs._asm.objc.protocol:methodDescriptionList(required, instance) -> table
+/// Method
+/// Returns a table containing the methods and their description provided by this protocol.
+///
+/// Parameters:
+///  * required - a boolean value indicating whether or not the methods are required for the protocol.
+///  * instance - a boolean value indicating whether or not the methods are instance methods of the protocol.
+///
+/// Returns:
+///  * a table of key-value pairs where the key is the name of the method and the value is a table containing the method's selector object and encoding type.
 static int objc_protocol_getMethodDescriptionList(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
-                                LS_TBOOLEAN,
-                                LS_TBOOLEAN, LS_TBREAK] ;
+                    LS_TBOOLEAN,
+                    LS_TBOOLEAN, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     UInt count ;
     struct objc_method_description *results = protocol_copyMethodDescriptionList(prot,
@@ -117,12 +198,23 @@ static int objc_protocol_getMethodDescriptionList(lua_State* L) {
     return 1 ;
 }
 
+/// hs._asm.objc.protocol:methodDescription(selector, required, instance) -> table
+/// Method
+/// Returns a table containing the method description of the selector specified for this protocol.
+///
+/// Parameters:
+///  * selector - a selector object for a method within this protocol
+///  * required - a boolean value indicating whether or not the selector specifies a required method for the protocol.
+///  * instance - a boolean value indicating whether or not the selector specifies an instance method for the protocol.
+///
+/// Returns:
+///  * a table of key-value pairs containing the method's selector name keyed to its object and its encoding type.
 static int objc_protocol_getMethodDescription(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
-                                LS_TUSERDATA, SEL_USERDATA_TAG,
-                                LS_TBOOLEAN,
-                                LS_TBOOLEAN, LS_TBREAK] ;
+                    LS_TUSERDATA, SEL_USERDATA_TAG,
+                    LS_TBOOLEAN,
+                    LS_TBOOLEAN, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     SEL      sel   = get_objectFromUserdata(SEL, L, 2, SEL_USERDATA_TAG) ;
 

@@ -1,3 +1,13 @@
+/*
+
+  This file contains a couple of classes used for testing during development.  It is not required for
+  use of this module and will likely go away at some point since it just takes up space.
+
+  However, it is a convenient place to create test cases for troubleshooting and isolating specific
+  behaviors during development.  As such, it's a hodge-podge of whatever was needed at the time and
+  doesn't really make much sense as an object per-se.
+
+ */
 @import Cocoa ;
 #import <stdlib.h>
 #import <math.h>

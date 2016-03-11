@@ -1,3 +1,7 @@
+/// === hs._asm.objc.property ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C class and protocol properties.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;

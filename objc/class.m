@@ -1,3 +1,7 @@
+/// === hs._asm.objc.class ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C classes.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;
@@ -6,6 +10,18 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs._asm.objc.class.fromString(name) -> classObject
+/// Constructor
+/// Returns a class object for the named class
+///
+/// Parameters:
+///  * name - a string containing the name of the desired class
+///
+/// Returns:
+///  * the class object for the name specified or nil if a class with the specified name does not exist
+///
+/// Notes:
+///  * This constructor has also been assigned to the __call metamethod of the `hs._asm.objc.class` sub-module so that it can be invoked as `hs._asm.objc.class(name)` as a shortcut.
 static int objc_classFromString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -15,6 +31,15 @@ static int objc_classFromString(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class.list() -> table
+/// Function
+/// Returns a list of all currently available classes
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of all currently available classes as key-value pairs.  The key is the class name as a string and the value for each key is the classObject for the named class.
 static int objc_classList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -243,19 +268,18 @@ static int objc_class_conformsToProtocol(lua_State* L) {
 
 static int class_signatureForMethod(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    Class    cls  = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
-    SEL      sel ;
-    BOOL     checkForClass = NO ;
+    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
+                    LS_TUSERDATA, SEL_USERDATA_TAG,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+    Class    cls        = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
+    SEL      sel        = get_objectFromUserdata(SEL, L, 2, SEL_USERDATA_TAG) ;
+    BOOL     classCheck = NO ;
 
-    if (lua_type(L, 2) == LUA_TSTRING) {
-        sel = NSSelectorFromString([skin toNSObjectAtIndex:2]) ;
-    } else {
-        sel = get_objectFromUserdata(SEL, L, 2, SEL_USERDATA_TAG) ;
-    }
-    if (lua_type(L, 3) != LUA_TNONE) checkForClass = (BOOL)lua_toboolean(L, 3) ;
+    if (lua_type(L, 3) != LUA_TNONE) classCheck = (BOOL)lua_toboolean(L, 3) ;
 
-    [skin pushNSObject:(checkForClass) ? [cls methodSignatureForSelector:sel] :
-                                         [cls instanceMethodSignatureForSelector:sel]] ;
+    [skin pushNSObject:(classCheck) ? [cls methodSignatureForSelector:sel] :
+                                      [cls instanceMethodSignatureForSelector:sel]] ;
     return 1 ;
 }
 

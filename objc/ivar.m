@@ -1,3 +1,7 @@
+/// === hs._asm.objc.ivar ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C object instance variables.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;
@@ -8,6 +12,15 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.ivar:name() -> string
+/// Method
+/// Returns the name of an instance variable.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name of the instance variable
 static int objc_ivar_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
@@ -16,6 +29,18 @@ static int objc_ivar_getName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.ivar:typeEncoding() -> string
+/// Method
+/// Returns the type string of an instance variable.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the instance variable's type encoding
+///
+/// Notes:
+///  * Type encoding strings are encoded as described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_ivar_getTypeEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
@@ -24,6 +49,15 @@ static int objc_ivar_getTypeEncoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.ivar:offset() -> integer
+/// Method
+/// Returns the offset of an instance variable.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the offset of an instance variable.
 static int objc_ivar_getOffset(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;

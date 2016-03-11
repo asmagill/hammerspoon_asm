@@ -1,3 +1,9 @@
+/// === hs._asm.objc.method ===
+///
+/// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C class and protocol methods.
+///
+/// The terms `selector` and `method` are often used interchangeably in this documentation and in many books and tutorials about Objective-C.  Strictly speaking this is lazy; for most purposes, I find that the easiest way to think of them is as follows: A selector is the name or label for a method, and a method is the actual implementation or function (code) for a selector.  Usually the specific intention is clear from context, but I hope to clean up this documentation to be more precise as time allows.
+
 #import "objc.h"
 
 static int refTable = LUA_NOREF;

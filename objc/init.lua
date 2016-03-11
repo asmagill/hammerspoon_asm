@@ -1,91 +1,17 @@
 --- === hs._asm.objc ===
 ---
---- Playing with a simplistic lua-objc bridge, take two.
+--- A minimal and very basic Objective-C bridge for Hammerspoon
 ---
---- Very experimental.  Don't use or trust.  Probably forget you ever saw this.
+--- This module provides a way to craft Objective-C messages and create or manipulate native Objective-C objects from within Hammerspoon.  It is very experimental, very limited, and probably not safe for you or your computer.
 ---
---- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
+--- Standard disclaimers apply, including but not limited to, do not use this in production, what part of "experimental" didn't you understand?, and I am not responsible for anything this module does or does not do to or for you, your computer, your data, your dog, or anything else.
+---
+--- If you want safe, then do not use this module.  If you're curious and like to poke at things that might poke back, then I hope that this module can provide you with as much entertainment and amusement, and the occasional insight, as developing it has for me.
 
 local USERDATA_TAG = "hs._asm.objc"
 local module       = require(USERDATA_TAG..".internal")
 
 -- private variables and methods -----------------------------------------
-
--- local _kMetaTable = {}
--- -- planning to experiment with using this with responses to functional queries... and I
--- -- don't want to keep loose generated data hanging around
--- _kMetaTable._k = setmetatable({}, {__mode = "k"})
--- _kMetaTable._t = setmetatable({}, {__mode = "k"})
--- _kMetaTable.__index = function(obj, key)
---         if _kMetaTable._k[obj] then
---             if _kMetaTable._k[obj][key] then
---                 return _kMetaTable._k[obj][key]
---             else
---                 for k,v in pairs(_kMetaTable._k[obj]) do
---                     if v == key then return k end
---                 end
---             end
---         end
---         return nil
---     end
--- _kMetaTable.__newindex = function(obj, key, value)
---         error("attempt to modify a table of constants",2)
---         return nil
---     end
--- _kMetaTable.__pairs = function(obj) return pairs(_kMetaTable._k[obj]) end
--- _kMetaTable.__len = function(obj) return #_kMetaTable._k[obj] end
--- _kMetaTable.__tostring = function(obj)
---         local result = ""
---         if _kMetaTable._k[obj] then
---             local width = 0
---             for k,v in pairs(_kMetaTable._k[obj]) do width = width < #tostring(k) and #tostring(k) or width end
---             for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
---                 if _kMetaTable._t[obj] == "table" then
---                     result = result..string.format("%-"..tostring(width).."s %s\n", tostring(k),
---                         ((type(v) == "table") and "{ table }" or tostring(v)))
---                 else
---                     result = result..((type(v) == "table") and "{ table }" or tostring(v)).."\n"
---                 end
---             end
---         else
---             result = "constants table missing"
---         end
---         return result
---     end
--- _kMetaTable.__metatable = _kMetaTable -- go ahead and look, but don't unset this
---
--- local _makeConstantsTable
--- _makeConstantsTable = function(theTable)
---     if type(theTable) ~= "table" then
---         local dbg = debug.getinfo(2)
---         local msg = dbg.short_src..":_"..dbg.currentline..":_ attempting to make a '"..type(theTable).."' into a constant table"
---         if module.log then module.log.ef(msg) else print(msg) end
---         return theTable
---     end
---     for k,v in pairs(theTable) do
---         if type(v) == "table" then
---             local count = 0
---             for a,b in pairs(v) do count = count + 1 end
---             local results = _makeConstantsTable(v)
---             if #v > 0 and #v == count then
---                 _kMetaTable._t[results] = "array"
---             else
---                 _kMetaTable._t[results] = "table"
---             end
---             theTable[k] = results
---         end
---     end
---     local results = setmetatable({}, _kMetaTable)
---     _kMetaTable._k[results] = theTable
---     local count = 0
---     for a,b in pairs(theTable) do count = count + 1 end
---     if #theTable > 0 and #theTable == count then
---         _kMetaTable._t[results] = "array"
---     else
---         _kMetaTable._t[results] = "table"
---     end
---     return results
--- end
 
 local classMT         = hs.getObjectMetatable(USERDATA_TAG..".class")
 local objectMT        = hs.getObjectMetatable(USERDATA_TAG..".id")
