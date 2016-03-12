@@ -455,7 +455,7 @@ static int objc_class_getAdoptedProtocols(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.objc.conformsToProtocol(protocol) -> boolean
+/// hs._asm.objc.class:conformsToProtocol(protocol) -> boolean
 /// Method
 /// Returns true or false indicating whether the class conforms to the specified protocol or not.
 ///
