@@ -10,6 +10,32 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs._asm.objc.object.fromLuaObject(value) -> idObject | nil
+/// Constructor
+/// Converts a Hammerspoon/Lua value or userdata object into the corresponding Objective-C object.
+///
+/// Parameters:
+///  * value - the Hammerspoon or Lua value or userdata object to return an Objective-C object for.
+///
+/// Returns:
+///  * an idObject (Objective-C class instance) or nil, if no reasonable Objective-C representation exists for the value.
+///
+/// Notes:
+///  * The primary Lua variable types supported are as follows:
+///    * number  - will convert to an NSNumber
+///    * string  - will convert to an NSString or NSData, if the string does not contain properly formated UTF8 byte-code sequences
+///    * table   - will convert to an NSArray, if the table contains only non-sparse, numeric integer indexes starting at 1, or NSDictionary otherwise.
+///    * boolean - will convert to an NSNumber
+///    * other lua basic types are not supported and will return nil
+///  * Many userdata objects which have converters registered by their modules can also be converted to an appropriate type.  An incomplete list of examples follows:
+///    * hs.application   - will convert to an NSRunningApplication, if the `hs.application` module has been loaded
+///    * hs.styledtext    - will convert to an NSAttributedString, if the `hs.styledtext` module has been loaded
+///    * hs.image         - will convert to an NSImage, if the `hs.image` module has been loaded
+///  * Some tables with the appropriate __luaSkinType tag can also be converted.  An incomplete list of examples follows:
+///    * hs.drawing.color table - will convert to an NSColor, if the `hs.drawing.color` module has been loaded
+///    * a Rect table           - will convert to an NSValue containing an NSRect; the hs.geometry equivalent is not yet supported, but this is expected to be a temporary limitation.
+///    * a Point table          - will convert to an NSValue containing an NSPoint; the hs.geometry equivalent is not yet supported, but this is expected to be a temporary limitation.
+///    * a Size table           - will convert to an NSValue containing an NSSize; the hs.geometry equivalent is not yet supported, but this is expected to be a temporary limitation.
 static int object_fromLuaObject(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TANY, LS_TBREAK] ;
@@ -20,6 +46,15 @@ static int object_fromLuaObject(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.object:className() -> string
+/// Method
+/// Returns the class name of the object as a string
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name of the object's class as a string
 static int objc_object_getClassName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
@@ -28,6 +63,15 @@ static int objc_object_getClassName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.object:class() -> classObject
+/// Method
+/// Returns the classObject of the object
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the classObject (hs._asm.objc.class) of the object.
 static int objc_object_getClass(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
@@ -36,6 +80,15 @@ static int objc_object_getClass(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.object:value() -> any
+/// Method
+/// Returns the Hammerspoon or Lua equivalent value of the object
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the value of the object as its closest Hammerspoon or Lua equivalent.  Where modules have registered helper functions for handling Objective-C types directly, the appropriate userdata object is returned.  Where no such convertor exists, and if the object does not match a basic Lua data type (string, boolean, number, table), the Objective-C `debugDescription` method of the object is used to return a string describing the object.
 static int object_value(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;

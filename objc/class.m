@@ -32,7 +32,7 @@ static int objc_classFromString(lua_State *L) {
 }
 
 /// hs._asm.objc.class.list() -> table
-/// Function
+/// Constructor
 /// Returns a list of all currently available classes
 ///
 /// Parameters:
@@ -57,6 +57,18 @@ static int objc_classList(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.class:metaClass() -> classObject
+/// Method
+/// Returns the metaclass definition of a specified class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the classObject for the metaClass of the class
+///
+/// Notes:
+///  * Most of the time, you want the class object itself instead of the Meta class.  However, the meta class is useful when you need to work specifically with class methods as opposed to instance methods of the class.
 static int objc_class_getMetaClass(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -67,6 +79,18 @@ static int objc_class_getMetaClass(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:methodList() -> table
+/// Method
+/// Returns a table containing the methods defined for the class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of key-value pairs where the key is a string of the method's name (technically the method selector's name) and the value is the methodObject for the specified selector name.
+///
+/// Notes:
+///  * This method returns the instance methods for the class.  To get a table of the class methods for the class, invoke this method on the meta class of the class, e.g. `hs._asm.objc.class("className"):metaClass():methodList()`.
 static int objc_class_getMethodList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -83,6 +107,18 @@ static int objc_class_getMethodList(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:respondsToSelector(selector) -> boolean
+/// Method
+/// Returns true if the class responds to the specified selector, otherwise false.
+///
+/// Parameters:
+///  * selector - the selectorObject to check for in the class
+///
+/// Returns:
+///  * true, if the selector is recognized by the class, otherwise false
+///
+/// Notes:
+///  * this method will determine if the class recognizes the selector as an instance method of the class.  To check to see if it recognizes the selector as a class method, use this method on the class meta class, e.g. `hs._asm.objc.class("className"):metaClass():responseToSelector(selector)`.
 static int objc_class_respondsToSelector(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
@@ -95,6 +131,18 @@ static int objc_class_respondsToSelector(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:instanceMethod(selector) -> methodObject
+/// Method
+/// Returns the methodObject for the specified selector, if the class supports it as an instance method.
+///
+/// Parameters:
+///  * selector - the selectorObject to get the methodObject for
+///
+/// Returns:
+///  * the methodObject, if the selector represents an instance method of the class, otherwise nil.
+///
+/// Notes:
+///  * see also [hs._asm.objc.class:classMethod](#classMethod)
 static int objc_class_getInstanceMethod(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
@@ -107,6 +155,18 @@ static int objc_class_getInstanceMethod(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:classMethod(selector) -> methodObject
+/// Method
+/// Returns the methodObject for the specified selector, if the class supports it as a class method.
+///
+/// Parameters:
+///  * selector - the selectorObject to get the methodObject for
+///
+/// Returns:
+///  * the methodObject, if the selector represents a class method of the class, otherwise nil.
+///
+/// Notes:
+///  * see also [hs._asm.objc.class:instanceMethod](#instanceMethod)
 static int objc_class_getClassMethod(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
@@ -119,6 +179,18 @@ static int objc_class_getClassMethod(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:instanceSize() -> bytes
+/// Method
+/// Returns the size in bytes on an instance of the class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the size in bytes on an instance of the class
+///
+/// Notes:
+///  * this is provided for informational purposes only.  At present, there are no methods or plans for methods allowing direct access to the class internal memory structures.
 static int objc_class_getInstanceSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -127,6 +199,15 @@ static int objc_class_getInstanceSize(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:name() -> string
+/// Method
+/// Returns the name of the class as a string
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the class name as a string
 static int objc_class_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -135,6 +216,18 @@ static int objc_class_getName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:ivarLayout() -> string | nil
+/// Method
+/// Returns a description of the Ivar layout for the class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string specifying the ivar layout for the class
+///
+/// Notes:
+///  * this is provided for informational purposes only.  At present, there are no methods or plans for methods allowing direct access to the class internal memory structures.
 static int objc_class_getIvarLayout(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -143,6 +236,18 @@ static int objc_class_getIvarLayout(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:weakIvarLayout() -> string | nil
+/// Method
+/// Returns a description of the layout of the weak Ivar's for the class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string specifying the ivar layout for the class
+///
+/// Notes:
+///  * this is provided for informational purposes only.  At present, there are no methods or plans for methods allowing direct access to the class internal memory structures.
 static int objc_class_getWeakIvarLayout(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -151,6 +256,15 @@ static int objc_class_getWeakIvarLayout(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:imageName() -> string
+/// Method
+/// The path to the framework or library which defines the class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string containing the path to the library or framework which defines the class.
 static int objc_class_getImageName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -159,6 +273,18 @@ static int objc_class_getImageName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:isMetaClass() -> boolean
+/// Method
+/// Returns a boolean specifying whether or not the classObject refers to a meta class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * true, if the classObject is a meta class, otherwise false.
+///
+/// Notes:
+///  * A meta-class is basically the class an Objective-C Class object belongs to.  For most purposes outside of creating a class at runtime, the only real importance of a meta class is that it contains information about the class methods, as opposed to the instance methods, of the class.
 static int objc_class_isMetaClass(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -167,6 +293,15 @@ static int objc_class_isMetaClass(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:superclass() -> classObject
+/// Method
+/// Returns the superclass classObject for the class
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the classObject for the superclass of the class
 static int objc_class_getSuperClass(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -175,6 +310,18 @@ static int objc_class_getSuperClass(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:version() -> integer
+/// Method
+/// Returns the version number of the class definition
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the version number of the class definition
+///
+/// Notes:
+///  * This is provided for informational purposes only.  While the version number does provide a method for identifying changes which might affect whether or not your code can use a given class, it is usually better to verify that the support you require is available with `respondsToSelector` and such since most use cases do not care about internal or instance variable layout changes.
 static int objc_class_getVersion(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -183,6 +330,15 @@ static int objc_class_getVersion(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:propertyList() -> table
+/// Method
+/// Returns a table containing the properties defined for the class
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of key-value pairs in which each key is a string of a property name provided by the class and the value is the propertyObject for the named property.
 static int objc_class_getPropertyList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -199,6 +355,15 @@ static int objc_class_getPropertyList(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:property(name) -> propertyObject
+/// Method
+/// Returns the propertyObject for the specified property of the class
+///
+/// Parameters:
+///  * name - a string containing the name of the property
+///
+/// Returns:
+///  * the propertyObject for the named property
 static int objc_class_getProperty(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -207,6 +372,15 @@ static int objc_class_getProperty(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:ivarList() -> table
+/// Method
+/// Returns a table containing the instance variables for the class
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of key-value pairs in which the key is a string containing the name of an instance variable of the class and the value is the ivarObject for the specified instance variable.
 static int objc_class_getIvarList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -223,6 +397,15 @@ static int objc_class_getIvarList(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:instanceVariable(name) -> ivarObject
+/// Method
+/// Returns the ivarObject for the specified instance variable of the class
+///
+/// Parameters:
+///  * name - a string containing the name of the instance variable to return for the class
+///
+/// Returns:
+///  * the ivarObject for the specified instance variable named.
 static int objc_class_getInstanceVariable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -231,14 +414,31 @@ static int objc_class_getInstanceVariable(lua_State *L) {
     return 1 ;
 }
 
-static int objc_class_getClassVariable(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
-    Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
-    push_ivar(L, class_getClassVariable(cls, luaL_checkstring(L, 2))) ;
-    return 1 ;
-}
+// Googling suggests that this was added early in the specification defining days, but
+// never actually removed when the decision was made to not support class variables in
+// Objective-C.  At any rate, unless someone comes up with a reason for it, it's just
+// confusing and useless here.
+// It's been suggested that using objc_get/setAssociatedObject is a better way to store
+// class data if static variables don't cut it, and tbh, since this module only "looks at"
+// stuff right now with limited to no ability to "set" things...
+//
+// static int objc_class_getClassVariable(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+//     Class cls = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
+//     push_ivar(L, class_getClassVariable(cls, luaL_checkstring(L, 2))) ;
+//     return 1 ;
+// }
 
+/// hs._asm.objc.class:adoptedProtocols() -> table
+/// Method
+/// Returns a table of the protocols adopted by this class.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table of key-value pairs in which each key is a string containing the name of a protocol adopted by this class and the value is the protocolObject for the named protocol
 static int objc_class_getAdoptedProtocols(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG, LS_TBREAK] ;
@@ -255,6 +455,15 @@ static int objc_class_getAdoptedProtocols(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.conformsToProtocol(protocol) -> boolean
+/// Method
+/// Returns true or false indicating whether the class conforms to the specified protocol or not.
+///
+/// Parameters:
+///  * protocol - the protocolObject of the protocol to test for class conformity
+///
+/// Returns:
+///  * true, if the class conforms to the specified protocol, otherwise false
 static int objc_class_conformsToProtocol(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
@@ -266,20 +475,33 @@ static int objc_class_conformsToProtocol(lua_State* L) {
     return 1 ;
 }
 
+/// hs._asm.objc.class:signatureForMethod(selector) -> table
+/// Method
+/// Returns the method signature for the specified selector of the class.
+///
+/// Paramters:
+///  * selector - a selectorObject specifying the selector to get the method signature for
+///
+/// Returns:
+///  * a table containing the method signature for the specified selector.  The table will contain the following keys:
+///    * arguments          - A table containing an array of encoding types for each argument, including the target and selector, required when invoking this method.
+///    * frameLength        - The number of bytes that the arguments, taken together, occupy on the stack.
+///    * methodReturnLength - The number of bytes required for the return value
+///    * methodReturnType   - string encoding the return type of the method in Objective-C type encoding
+///    * numberOfArguments  - The number of arguments, including the target (object) and selector, required when invoking this method
+///
+/// Notes:
+///  * this method returns the signature of an instance method of the class.  To determine the signature for a class method of the class, use this method on the class meta class, e.g.  `hs._asm.objc.class("className"):metaClass():signatureForMethod(selector)`.
+///  * Method signatures are
 static int class_signatureForMethod(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, CLASS_USERDATA_TAG,
                     LS_TUSERDATA, SEL_USERDATA_TAG,
-                    LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
     Class    cls        = get_objectFromUserdata(__bridge Class, L, 1, CLASS_USERDATA_TAG) ;
     SEL      sel        = get_objectFromUserdata(SEL, L, 2, SEL_USERDATA_TAG) ;
-    BOOL     classCheck = NO ;
 
-    if (lua_type(L, 3) != LUA_TNONE) classCheck = (BOOL)lua_toboolean(L, 3) ;
-
-    [skin pushNSObject:(classCheck) ? [cls methodSignatureForSelector:sel] :
-                                      [cls instanceMethodSignatureForSelector:sel]] ;
+    [skin pushNSObject:[cls instanceMethodSignatureForSelector:sel]] ;
     return 1 ;
 }
 
@@ -349,7 +571,7 @@ static const luaL_Reg class_userdata_metaLib[] = {
     {"property",           objc_class_getProperty},
     {"ivarList",           objc_class_getIvarList},
     {"instanceVariable",   objc_class_getInstanceVariable},
-    {"classVariable",      objc_class_getClassVariable},
+//     {"classVariable",      objc_class_getClassVariable},
     {"adoptedProtocols",   objc_class_getAdoptedProtocols},
     {"conformsToProtocol", objc_class_conformsToProtocol},
     {"methodList",         objc_class_getMethodList},

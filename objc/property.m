@@ -10,6 +10,18 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.property:name() -> string
+/// Method
+/// Returns the name of the property
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name of the property as a string
+///
+/// Notes:
+///  * this may differ from the property's getter method
 static int objc_property_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
@@ -18,6 +30,18 @@ static int objc_property_getName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.property:attributes() -> string
+/// Method
+/// Returns the attributes of the property as a string
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the property attributes as a string
+///
+/// Notes:
+///  * The format of property attributes string can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
@@ -26,6 +50,18 @@ static int objc_property_getAttributes(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.property:attributeValue(attribute) -> string
+/// Method
+/// Returns the value of the specified attribute for the property
+///
+/// Parameters:
+///  * attribute - a string containing the property code to get the value of
+///
+/// Returns:
+///  * the value of the property attribute for the property
+///
+/// Notes:
+///  * Property codes and their meanings can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -37,6 +73,18 @@ static int objc_property_getAttributeValue(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.property:attributeList() -> table
+/// Method
+/// Returns the attributes for the property in a table
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the attributes of the property in a table of key-value pairs where the key is a property code applied to the property and the value is the codes value for the property.
+///
+/// Notes:
+///  * Property codes and their meanings can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributeList(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;

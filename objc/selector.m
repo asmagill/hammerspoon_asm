@@ -23,7 +23,7 @@ static int refTable = LUA_NOREF;
 /// Notes:
 ///  * This constructor has also been assigned to the __call metamethod of the `hs._asm.objc.selector` sub-module so that it can be invoked as `hs._asm.objc.selector(name)` as a shortcut.
 ///
-///  * This constructor should not generally be used; instead use [hs._asm.objc.class:selector](#selector), [hs._asm.objc.object:selector](#selector2), or [hs._asm.objc.protocol:selector](#selector3), as they first verify that the named selector is actually valid for the class, object, or protocol in question.
+///  * This constructor should not generally be used; instead use [hs._asm.objc.class:selector](#selector), [hs._asm.objc.object:selector](#selector3), or [hs._asm.objc.protocol:selector](#selector4), as they first verify that the named selector is actually valid for the class, object, or protocol in question.
 ///
 ///  * This constructor works by attempting to create the specified selector and returning the created selector object.  If the selector already exists (i.e. is defined as a valid selector in a class or protocol somewhere), then the already existing selector is returned instead of a new one.  Because there is no built in facility for determining if a selector is valid without also creating it if it does not already exist, use of this constructor is not preferred.
 static int objc_sel_selectorFromName(lua_State *L) {

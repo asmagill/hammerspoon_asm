@@ -14,6 +14,15 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Methods
 
+/// hs._asm.objc.method:selector() -> selectorObject
+/// Method
+/// Returns the selector for the method
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the selectorObject for the method
 static int objc_method_getName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
@@ -22,6 +31,21 @@ static int objc_method_getName(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.method:typeEncoding() -> string
+/// Method
+/// Returns a string describing a method's parameter and return types.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the type encoding for the method as a string
+///
+/// Notes:
+///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
+///
+///  * The numerical value between the return type (first character) and the arguments represents an idealized stack size for the method's argument list.  The numbers between arguments specify offsets within that idealized space.  These numbers should not be trusted as they ignore register usage and other optimizations that may be in effect for a given architecture.
+///  * Since our implementation of Objective-C message sending utilizes the NSInvocation Objective-C class, we do not have to concern ourselves with the stack space -- it is handled for us; this method is generally not necessary and is provided for informational purposes only.
 static int objc_method_getTypeEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
@@ -30,6 +54,18 @@ static int objc_method_getTypeEncoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.method:returnType() -> string
+/// Method
+/// Returns a string describing a method's return type.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the return type as a string for the method.
+///
+/// Notes:
+///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_method_getReturnType(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
@@ -41,6 +77,18 @@ static int objc_method_getReturnType(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.method:argumentType(index) -> string | nil
+/// Method
+/// Returns a string describing a single parameter type of a method.
+///
+/// Parameters:
+///  * index - the index of the parameter in the method to return the type for.  Note that the index starts at 0, and all methods have 2 internal arguments at index positions 0 and 1: The object or class receiving the message, and the selector representing the message being sent.
+///
+/// Returns:
+///  * the type for the parameter specified, or nil if there is no parameter at the specified index.
+///
+/// Notes:
+///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_method_getArgumentType(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TNUMBER, LS_TBREAK] ;
@@ -52,6 +100,18 @@ static int objc_method_getArgumentType(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.method:numberOfArguments() -> integer
+/// Method
+/// Returns the number of arguments accepted by a method.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the number of arguments accepted by the method.  Note that all methods have two internal arguments: the object or class receiving the message, and the selector representing the message being sent.  A method which takes additional user provided arguments will return a number greater than 2 for this method.
+///
+/// Notes:
+///  * Note that all methods have two internal arguments: the object or class receiving the message, and the selector representing the message being sent.  A method which takes additional user provided arguments will return a number greater than 2 for this method.
 static int objc_method_getNumberOfArguments(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
@@ -60,6 +120,20 @@ static int objc_method_getNumberOfArguments(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.objc.method:description() -> table
+/// Method
+/// Returns a table containing the selector for this method and the type encoding for the method.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table with two keys: `selector`, whose value is the selector for this method, and `types` whose value contains the type encoding for the method.
+///
+/// Notes:
+///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
+///
+///  * See also the notes for [hs._asm.objc.method:typeEncoding](#typeEncoding) concerning the type encoding value returned by this method.
 static int objc_method_getDescription(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;

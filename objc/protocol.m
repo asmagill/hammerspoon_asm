@@ -30,7 +30,7 @@ static int objc_protocolFromString(lua_State *L) {
 }
 
 /// hs._asm.objc.protocol.list() -> table
-/// Function
+/// Constructor
 /// Returns a list of all currently available protocols
 ///
 /// Parameters:

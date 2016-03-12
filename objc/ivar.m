@@ -1,6 +1,8 @@
 /// === hs._asm.objc.ivar ===
 ///
 /// The submodule for hs._asm.objc which provides methods for working with and examining Objective-C object instance variables.
+///
+/// Except in rare cases, instance variables back properties and should generally be accessed only as properties or with the getter and setter methods provided.  This module is provided for informational purposes only.
 
 #import "objc.h"
 

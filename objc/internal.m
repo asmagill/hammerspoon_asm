@@ -4,6 +4,7 @@
 #define MACOSX
 #endif
 
+// Not sure why this is unpublished as it provides a proper mirror to objc_msgSendSuper
 @interface NSInvocation (unpublished)
 -(void)invokeSuper ;
 @end
@@ -90,7 +91,7 @@ static int objc_classNamesForImage(lua_State *L) {
 ///  * optional additional arguments are passed to the target as arguments for the selector specified.
 ///
 /// Returns:
-///  * the result (if any) of the message sent.
+///  * the result (if any) of the message sent.  If an exception occurs during the sending of the message, this function returns nil as the first argument, and a second argument of a table containing the traceback information for the exception.
 ///
 /// Notes:
 ///  * In general, it will probably be clearer in most contexts to use one of the wrapper methods to this function.  They are described in the appropriate places in the [hs._asm.objc.class](#class) and [hs._asm.objc.object](#object) sections of this documentation.
@@ -108,11 +109,15 @@ static int objc_classNamesForImage(lua_State *L) {
 ///           hs._asm.objc.class.fromString("NSObject"),
 ///           hs._asm.objc.selector.fromString("init")
 ///       )`
+///  * Note that `.fromString` is optional for the [hs._asm.objc.class.fromString](#fromString) and [hs._asm.objc.selector.fromString](#fromString3) functions as described in the documentation for each -- they are provided here for completeness and clarity.
 ///  * Even shorter variants are possible and will be documented where appropriate.
 ///
-///  * Note that an alloc'd but not initialized object is generally an unsafe object to access in any fashion -- it is why almost every programming guide for Objective-C tells you to *always* combine the two into one statement.  This is for two very important reasons that also apply when using this module:
+///  * Note that an alloc'd but not initialized object is generally an unsafe object to access in any fashion -- it is why almost every programming guide for Objective-C tells you to **always** combine the two into one statement.  This is for two very important reasons that also apply when using this module:
 ///    * allocating an object just sets aside the memory for the object -- it does not set any defaults and there is no way of telling what may be in the memory space provided... at best garbage; more likely something that will crash your program if you try to examine or use it assuming that it conforms to the object class or it's properties.
 ///    * the `init` method does not always return the same object that the message was passed to.  If you do the equivalent of the following: `a = [someClass alloc] ; [a init] ;`, you cannot be certain that `a` is the initialized object.  Only by performing the equivalent of `a = [[someClass alloc] init]` can you be certain of what `a` contains.
+///    * some classes with an initializer that takes no arguments (e.g. NSObject) provide `new` as a shortcut: `a = [someClass new]` as the equivalent to `a = [[someClass alloc] init]`.  I'm not sure why this seems to be unpopular in some circles, though.
+///    * other classes provide their own shortcuts (e.g. NSString allows `a = [NSString stringWithUTF8String:"c-string"]` as a shortcut for `a = [[NSString alloc] initWithUTF8String:"c-string"]`).
+///  * Whatever style you use, make sure that you're working with a properly allocated **AND** initialized object; otherwise you're gonna get an earth-shattering kaboom.
 static int invocator(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     BOOL hasFlags   = (lua_type(L, 1) == LUA_TNUMBER) ;
@@ -276,7 +281,10 @@ static int invocator(lua_State *L) {
                 [invocation retainArguments] ;
             }   break ;
             case '@': { // ID
-                id val = get_objectFromUserdata(__bridge id, L, luaIndex, ID_USERDATA_TAG) ;
+                id val ;
+                if (lua_type(L, luaIndex) != LUA_TNIL) {
+                    val = get_objectFromUserdata(__bridge id, L, luaIndex, ID_USERDATA_TAG) ;
+                }
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
@@ -310,6 +318,15 @@ static int invocator(lua_State *L) {
                 }
             }   break ;
 
+            // partial support, for when it's NULL
+            case '^': {
+                if (lua_type(L, luaIndex) == LUA_TNIL) {
+                    id val ;
+                    [invocation setArgument:&val atIndex:invocationIndex] ;
+                    [invocation retainArguments] ;
+                    break ;
+                }
+            }
     //     [array type]    An array
     //     (name=type...)  A union
     //     bnum            A bit field of num bits
