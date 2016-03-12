@@ -11,7 +11,7 @@ Standard disclaimers apply, including but not limited to, do not use this in pro
 
 If you want safe, then do not use this module.  If you're curious and like to poke at things that might poke back, then I hope that this module can provide you with as much entertainment and amusement, and the occasional insight, as developing it has for me.
 
-You probably want to look at [some examples](Examples.md), but come back here for reference and to really understand what this module can and cannot do.
+You probably want to look at [some examples](EXAMPLES.md), but come back here for reference and to really understand what this module can and cannot do.
 
 **Known limitations, unsupported features/data-types (for arguments and return values), and things being considered:**
 
