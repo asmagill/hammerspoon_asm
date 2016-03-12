@@ -203,7 +203,7 @@ Notes:
 
 <a name="conformsToProtocol"></a>
 ~~~lua
-class.conformsToProtocol(protocol) -> boolean
+class:conformsToProtocol(protocol) -> boolean
 ~~~
 Returns true or false indicating whether the class conforms to the specified protocol or not.
 
