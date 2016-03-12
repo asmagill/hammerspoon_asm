@@ -302,10 +302,9 @@ static int invocator(lua_State *L) {
                 NSValue *val = [skin toNSObjectAtIndex:luaIndex] ;
                 if ([val isKindOfClass:[NSValue class]]) {
                     if (!strcmp(argumentType, [val objCType])) {
-                        NSUInteger actualSize, alignedSize ;
-                        NSGetSizeAndAlignment([val objCType], &actualSize, &alignedSize) ;
-                        NSUInteger workingSize = MAX(actualSize, alignedSize) ;
-                        void* ptr = malloc(workingSize) ;
+                        NSUInteger actualSize ;
+                        NSGetSizeAndAlignment([val objCType], &actualSize, NULL) ;
+                        void* ptr = malloc(actualSize) ;
                         [val getValue:ptr] ;
                         [invocation setArgument:ptr atIndex:invocationIndex] ;
                         [invocation retainArguments] ;
@@ -451,10 +450,9 @@ static int invocator(lua_State *L) {
             push_selector(L, result) ;
         }   break ;
         case '{': { // struct
-            NSUInteger actualSize, alignedSize ;
-            NSGetSizeAndAlignment(returnType, &actualSize, &alignedSize) ;
-            NSUInteger workingSize = MAX(actualSize, alignedSize) ;
-            void* ptr = malloc(workingSize) ;
+            NSUInteger actualSize ;
+            NSGetSizeAndAlignment(returnType, &actualSize, NULL) ;
+            void* ptr = malloc(actualSize) ;
             [invocation getReturnValue:ptr] ;
             NSValue *val = [NSValue valueWithBytes:ptr objCType:returnType] ;
             [skin pushNSObject:val] ;

@@ -93,6 +93,8 @@ static int testNSValueEncodings(lua_State *L) {
     NSValue *thePoint = [NSValue valueWithPoint:NSMakePoint(4,5)] ;
     NSValue *theSize  = [NSValue valueWithSize:NSMakeSize(6,7)] ;
     NSValue *theRange = [NSValue valueWithRange:NSMakeRange(8,9)] ;
+    NSValue *vector3  = [NSValue valueWithSCNVector3:SCNVector3Make(1,2,3)] ;
+    NSValue *vector4  = [NSValue valueWithSCNVector4:SCNVector4Make(4,3,2,1)] ;
 
     lua_newtable(L) ;
     lua_newtable(L) ;
@@ -100,12 +102,19 @@ static int testNSValueEncodings(lua_State *L) {
     [skin pushNSObject:thePoint withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "point") ;
     [skin pushNSObject:theSize withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "size") ;
     [skin pushNSObject:theRange withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "range") ;
+    [skin pushNSObject:vector3 withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "vector3") ;
+    [skin pushNSObject:vector4 withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "vector4") ;
+
     lua_setfield(L, -2, "raw") ;
     lua_newtable(L) ;
     lua_pushstring(L, [theRect objCType]) ;  lua_setfield(L, -2, "rect") ;
     lua_pushstring(L, [thePoint objCType]) ; lua_setfield(L, -2, "point") ;
     lua_pushstring(L, [theSize objCType]) ;  lua_setfield(L, -2, "size") ;
     lua_pushstring(L, [theRange objCType]) ; lua_setfield(L, -2, "range") ;
+    lua_pushstring(L, [vector3 objCType]) ;  lua_setfield(L, -2, "vector3") ;
+    lua_pushstring(L, @encode(SCNVector3)) ; lua_setfield(L, -2, "vector3e") ;
+    lua_pushstring(L, [vector4 objCType]) ;  lua_setfield(L, -2, "vector4") ;
+    lua_pushstring(L, @encode(SCNVector4)) ; lua_setfield(L, -2, "vector4e") ;
     lua_setfield(L, -2, "objCType") ;
     return 1 ;
 }
@@ -370,11 +379,9 @@ static int nsvalueTest2(lua_State *L) {
         lua_pushinteger(L, (lua_Integer)actualSize) ;  lua_setfield(L, -2, "actualSize") ;
         lua_pushinteger(L, (lua_Integer)alignedSize) ; lua_setfield(L, -2, "alignedSize") ;
 
-        NSUInteger workingSize = MAX(actualSize, alignedSize) ;
-
-        void* ptr = malloc(workingSize) ;
+        void* ptr = malloc(actualSize) ;
         [value getValue:ptr] ;
-        NSData *raw      = [NSData dataWithBytes:ptr length:workingSize] ;
+        NSData *raw      = [NSData dataWithBytes:ptr length:actualSize] ;
         free(ptr) ;
 //         NSData *keyed    = [NSKeyedArchiver archivedDataWithRootObject:value] ;
 //         NSData *notKeyed = [NSArchiver archivedDataWithRootObject:value] ;
