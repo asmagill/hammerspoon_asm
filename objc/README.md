@@ -96,18 +96,22 @@ Notes:
 
  * The following example shows the most basic form for sending the messages necessary to create a newly initialized NSObject.
  * In it's most raw form, a newly initialized NSObject is created as follows:
-   * `hs._asm.objc.objc_msgSend(
+   * ~~~lua
+      hs._asm.objc.objc_msgSend(
           hs._asm.objc.objc_msgSend(
               hs._asm.objc.class.fromString("NSObject"),
               hs._asm.objc.selector.fromString("alloc")
           ), hs._asm.objc.selector.fromString("init")
-      )`
+      )
+    ~~~
  * Using the optional bit-flag, this can be shortened to:
-   * `hs._asm.objc.objc_msgSend(0x02,
+   * ~~~lua
+      hs._asm.objc.objc_msgSend(0x02,
           hs._asm.objc.class.fromString("NSObject"),
           hs._asm.objc.selector.fromString("init")
-      )`
- * Note that `.fromString` is optional for the [hs._asm.objc.class.fromString](#fromString) and [hs._asm.objc.selector.fromString](#fromString3) functions as described in the documentation for each -- they are provided here for completeness and clarity.
+      )
+    ~~~
+ * Note that `.fromString` is optional for the [hs._asm.objc.class.fromString](#fromString) and [hs._asm.objc.selector.fromString](#fromString3) functions as described in the documentation for each -- they are provided here for completeness and clarity of exactly what is being done.
  * Even shorter variants are possible and will be documented where appropriate.
 
  * Note that an alloc'd but not initialized object is generally an unsafe object to access in any fashion -- it is why almost every programming guide for Objective-C tells you to **always** combine the two into one statement.  This is for two very important reasons that also apply when using this module:
@@ -116,20 +120,6 @@ Notes:
    * some classes with an initializer that takes no arguments (e.g. NSObject) provide `new` as a shortcut: `a = [someClass new]` as the equivalent to `a = [[someClass alloc] init]`.  I'm not sure why this seems to be unpopular in some circles, though.
    * other classes provide their own shortcuts (e.g. NSString allows `a = [NSString stringWithUTF8String:"c-string"]` as a shortcut for `a = [[NSString alloc] initWithUTF8String:"c-string"]`).
  * Whatever style you use, make sure that you're working with a properly allocated **AND** initialized object; otherwise you're gonna get an earth-shattering kaboom.
-
-### Module Methods
-
-<a name="conformsToProtocol"></a>
-~~~lua
-objc.conformsToProtocol(protocol) -> boolean
-~~~
-Returns true or false indicating whether the class conforms to the specified protocol or not.
-
-Parameters:
- * protocol - the protocolObject of the protocol to test for class conformity
-
-Returns:
- * true, if the class conforms to the specified protocol, otherwise false
 
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
@@ -204,6 +194,20 @@ Returns:
 
 Notes:
  * see also [hs._asm.objc.class:instanceMethod](#instanceMethod)
+
+- - -
+
+<a name="conformsToProtocol"></a>
+~~~lua
+class.conformsToProtocol(protocol) -> boolean
+~~~
+Returns true or false indicating whether the class conforms to the specified protocol or not.
+
+Parameters:
+ * protocol - the protocolObject of the protocol to test for class conformity
+
+Returns:
+ * true, if the class conforms to the specified protocol, otherwise false
 
 - - -
 
