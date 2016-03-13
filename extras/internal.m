@@ -4,6 +4,11 @@
 @import AddressBook ;
 @import SystemConfiguration ;
 #import "LuaSkinThread.h"
+@import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
+@import SceneKit.SceneKitTypes;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
+@import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
+@import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
+
 
 #import <netdb.h>
 
@@ -95,17 +100,26 @@ static int testNSValueEncodings(lua_State *L) {
     NSValue *theRange = [NSValue valueWithRange:NSMakeRange(8,9)] ;
     NSValue *vector3  = [NSValue valueWithSCNVector3:SCNVector3Make(1,2,3)] ;
     NSValue *vector4  = [NSValue valueWithSCNVector4:SCNVector4Make(4,3,2,1)] ;
+    NSValue *location = [NSValue valueWithMKCoordinate:CLLocationCoordinate2DMake(41.8369, -87.6847)] ;
+
+    typedef struct { double d; int i; } otherStruct ;
+    otherStruct holder ;
+    holder.d = 95.7 ;
+    holder.i = 200 ;
+    NSValue *other = [NSValue valueWithBytes:&holder objCType:@encode(otherStruct)] ;
 
     lua_newtable(L) ;
     lua_newtable(L) ;
-    [skin pushNSObject:theRect withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "rect") ;
+    [skin pushNSObject:theRect  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "rect") ;
     [skin pushNSObject:thePoint withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "point") ;
-    [skin pushNSObject:theSize withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "size") ;
+    [skin pushNSObject:theSize  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "size") ;
     [skin pushNSObject:theRange withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "range") ;
-    [skin pushNSObject:vector3 withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "vector3") ;
-    [skin pushNSObject:vector4 withOptions:LS_NSDescribeUnknownTypes] ;  lua_setfield(L, -2, "vector4") ;
-
+    [skin pushNSObject:vector3  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "vector3") ;
+    [skin pushNSObject:vector4  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "vector4") ;
+    [skin pushNSObject:location withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "location") ;
+    [skin pushNSObject:other    withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "other") ;
     lua_setfield(L, -2, "raw") ;
+
     lua_newtable(L) ;
     lua_pushstring(L, [theRect objCType]) ;  lua_setfield(L, -2, "rect") ;
     lua_pushstring(L, [thePoint objCType]) ; lua_setfield(L, -2, "point") ;
@@ -115,6 +129,8 @@ static int testNSValueEncodings(lua_State *L) {
     lua_pushstring(L, @encode(SCNVector3)) ; lua_setfield(L, -2, "vector3e") ;
     lua_pushstring(L, [vector4 objCType]) ;  lua_setfield(L, -2, "vector4") ;
     lua_pushstring(L, @encode(SCNVector4)) ; lua_setfield(L, -2, "vector4e") ;
+    lua_pushstring(L, [location objCType]) ; lua_setfield(L, -2, "location") ;
+    lua_pushstring(L, [other objCType]) ;    lua_setfield(L, -2, "other") ;
     lua_setfield(L, -2, "objCType") ;
     return 1 ;
 }
