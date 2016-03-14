@@ -17,7 +17,7 @@
 /// Function
 /// Send a representation of the lua value passed in to the Console application via NSLog.
 static int extras_nslog(__unused lua_State* L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     id val = [skin toNSObjectAtIndex:1] ;
     NSLog(@"%@", val);
     return 0;
@@ -38,7 +38,7 @@ static int extras_nslog(__unused lua_State* L) {
 ///  * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just "this space" or "not this space") there is at present no way to positively distinguish "real" windows from "virtual" windows used for internal application purposes.
 ///  * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.
 static int listWindows(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
 //     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) ;
 
     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll | (lua_toboolean(L,1) ? 0 : kCGWindowListExcludeDesktopElements), kCGNullWindowID) ;
@@ -49,7 +49,7 @@ static int listWindows(lua_State *L) {
 }
 
 static int extras_defaults(__unused lua_State* L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName: [[NSBundle mainBundle] bundleIdentifier]] ;
     [skin pushNSObject:defaults] ;
     return 1;
@@ -73,7 +73,7 @@ static int ud_tostring (lua_State *L) {
 }
 
 static int threadInfo(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     lua_newtable(L) ;
       lua_pushboolean(L, [NSThread isMainThread]) ; lua_setfield(L, -2, "isMainThread") ;
       lua_pushboolean(L, [NSThread isMultiThreaded]) ; lua_setfield(L, -2, "isMultiThreaded") ;
@@ -87,13 +87,13 @@ static int threadInfo(lua_State *L) {
 }
 
 static int addressbookGroups(__unused lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups]] ;
     return 1 ;
 }
 
 static int testNSValueEncodings(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     NSValue *theRect  = [NSValue valueWithRect:NSMakeRect(0,1,2,3)] ;
     NSValue *thePoint = [NSValue valueWithPoint:NSMakePoint(4,5)] ;
     NSValue *theSize  = [NSValue valueWithSize:NSMakeSize(6,7)] ;
@@ -131,93 +131,13 @@ static int testNSValueEncodings(lua_State *L) {
     lua_pushstring(L, @encode(SCNVector4)) ; lua_setfield(L, -2, "vector4e") ;
     lua_pushstring(L, [location objCType]) ; lua_setfield(L, -2, "location") ;
     lua_pushstring(L, [other objCType]) ;    lua_setfield(L, -2, "other") ;
+    lua_pushstring(L, @encode(NSDecimal)) ;  lua_setfield(L, -2, "decimal") ;
     lua_setfield(L, -2, "objCType") ;
     return 1 ;
 }
 
-static int testNewLuaSkinArgsCheck(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK | LS_TVARARG] ;
-    int argCount = lua_gettop(L) ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
-    lua_pushnumber(L, lua_tonumber(L, 2)) ;          lua_setfield(L, -2, "rate") ;
-    lua_pushinteger(L, lua_tointeger(L, 3)) ;        lua_setfield(L, -2, "age") ;
-    lua_pushinteger(L, argCount) ;                   lua_setfield(L, -2, "argCount") ;
-    if (argCount > 3) {
-        lua_newtable(L) ;
-        for (int i = 4 ; i <= argCount ; i++) {
-            [skin pushNSObject:[skin toNSObjectAtIndex:i]] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        }
-        lua_setfield(L, -2, "otherStuff") ;
-    }
-    return 1 ;
-}
-
-static int testNewLuaSkinArgsCheck2(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
-    int argCount = lua_gettop(L) ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
-    lua_pushnumber(L, lua_tonumber(L, 2)) ;          lua_setfield(L, -2, "rate") ;
-    lua_pushinteger(L, lua_tointeger(L, 3)) ;        lua_setfield(L, -2, "age") ;
-    lua_pushinteger(L, argCount) ;                   lua_setfield(L, -2, "argCount") ;
-    if (argCount > 3) {
-        lua_newtable(L) ;
-        for (int i = 4 ; i <= argCount ; i++) {
-            [skin pushNSObject:[skin toNSObjectAtIndex:i]] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        }
-        lua_setfield(L, -2, "otherStuff") ;
-    }
-    return 1 ;
-}
-
-static int testNewLuaSkinArgsCheck3(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TNUMBER | LS_TINTEGER, LS_TVARARG] ;
-    int argCount = lua_gettop(L) ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[skin toNSObjectAtIndex:1]] ; lua_setfield(L, -2, "name") ;
-    lua_pushnumber(L, lua_tonumber(L, 2)) ;          lua_setfield(L, -2, "rate") ;
-    lua_pushinteger(L, lua_tointeger(L, 3)) ;        lua_setfield(L, -2, "age") ;
-    lua_pushinteger(L, argCount) ;                   lua_setfield(L, -2, "argCount") ;
-    if (argCount > 3) {
-        lua_newtable(L) ;
-        for (int i = 4 ; i <= argCount ; i++) {
-            [skin pushNSObject:[skin toNSObjectAtIndex:i]] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        }
-        lua_setfield(L, -2, "otherStuff") ;
-    }
-    return 1 ;
-}
-
-static int lsIntTest(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TBREAK] ;
-    lua_newtable(L) ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x7fffffffffffffff]] ;
-    lua_setfield(L, -2, "below") ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000000]] ;
-    lua_setfield(L, -2, "at") ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000001]] ;
-    lua_setfield(L, -2, "above") ;
-    lua_setfield(L, -2, "default") ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x7fffffffffffffff] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
-    lua_setfield(L, -2, "below") ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000000] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
-    lua_setfield(L, -2, "at") ;
-    [skin pushNSObject:[NSNumber numberWithUnsignedLongLong:0x8000000000000001] withOptions:LS_NSUnsignedLongLongPreserveBits] ;
-    lua_setfield(L, -2, "above") ;
-    lua_setfield(L, -2, "withOptions") ;
-
-    return 1 ;
-}
-
 static int addressParserTesting(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *input = [skin toNSObjectAtIndex:1] ;
 //     struct addrinfo {
@@ -281,7 +201,7 @@ static int addressParserTesting(lua_State *L) {
 }
 
 static int getSCPreferencesKeys(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *prefName = (lua_gettop(L) == 0) ? nil : [skin toNSObjectAtIndex:1] ;
     NSString *theName = [[NSUUID UUID] UUIDString] ;
@@ -294,7 +214,7 @@ static int getSCPreferencesKeys(lua_State *L) {
 }
 
 static int getSCPreferencesValueForKey(__unused lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *keyName = [skin toNSObjectAtIndex:1] ;
     NSString *theName = [[NSUUID UUID] UUIDString] ;
@@ -316,7 +236,7 @@ static int getSCPreferencesValueForKey(__unused lua_State *L) {
 }
 
 static int networkUserPreferences(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TBREAK] ;
 
     CFStringRef     serviceID ;
@@ -343,38 +263,8 @@ static int lockscreen(lua_State* L)
   return 1 ;
 }
 
-static int classLoggerTest(__unused lua_State *L) {
-    [LuaSkin      logError:@"no dispatch, logError"] ;
-    [LuaSkin       logWarn:@"no dispatch, logWarn"] ;
-    [LuaSkin       logInfo:@"no dispatch, logInfo"] ;
-    [LuaSkin      logDebug:@"no dispatch, logDebug"] ;
-    [LuaSkin    logVerbose:@"no dispatch, logVerbose"] ;
-    [LuaSkin logBreadcrumb:@"no dispatch, logBreadcrumb"] ;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
-        [LuaSkin      logError:@"dispatch, logError"] ;
-        [LuaSkin       logWarn:@"dispatch, logWarn"] ;
-        [LuaSkin       logInfo:@"dispatch, logInfo"] ;
-        [LuaSkin      logDebug:@"dispatch, logDebug"] ;
-        [LuaSkin    logVerbose:@"dispatch, logVerbose"] ;
-        [LuaSkin logBreadcrumb:@"dispatch, logBreadcrumb"] ;
-    }) ;
-    return 0 ;
-}
-
-static int integerTester(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin(); //[LuaSkin shared] ;
-    [skin checkArgs:LS_TNUMBER, LS_TBREAK] ;
-    lua_pushinteger(L, lua_tointeger(L, 1)) ;
-    lua_pushboolean(L, lua_isinteger(L, 1)) ;
-    BOOL isInteger = NO ;
-    lua_tointegerx(L, 1, (int *)&isInteger) ;
-    lua_pushboolean(L, isInteger) ;
-
-    return 3 ;
-}
-
 static int nsvalueTest2(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
     id obj = [skin toNSObjectAtIndex:1] ;
     lua_newtable(L) ;
@@ -399,20 +289,12 @@ static int nsvalueTest2(lua_State *L) {
         [value getValue:ptr] ;
         NSData *raw      = [NSData dataWithBytes:ptr length:actualSize] ;
         free(ptr) ;
-//         NSData *keyed    = [NSKeyedArchiver archivedDataWithRootObject:value] ;
-//         NSData *notKeyed = [NSArchiver archivedDataWithRootObject:value] ;
 
         [skin pushNSObject:raw] ;      lua_setfield(L, -2, "data") ;
-//         [skin pushNSObject:keyed] ;    lua_setfield(L, -2, "keyedArchivedData") ;
-//         [skin pushNSObject:notKeyed] ; lua_setfield(L, -2, "archivedData") ;
         lua_setfield(L, -2, "rawNSValue") ;
 
         lua_newtable(L) ;
 
-//         [skin pushNSObject:[NSKeyedUnarchiver unarchiveObjectWithData:keyed]] ;
-//         lua_setfield(L, -2, "keyed") ;
-//         [skin pushNSObject:[NSUnarchiver unarchiveObjectWithData:notKeyed]] ;
-//         lua_setfield(L, -2, "notKeyed") ;
         [skin pushNSObject:[NSValue value:[raw bytes] withObjCType:objCType]] ;
 
         lua_setfield(L, -2, "raw") ;
@@ -423,16 +305,43 @@ static int nsvalueTest2(lua_State *L) {
     return 1 ;
 }
 
+static int sizeAndAlignment(lua_State *L) {
+    LuaSkin *skin = LST_getLuaSkin();
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+
+    const char *objCType = lua_tostring(L, 1) ;
+
+    lua_newtable(L) ;
+    while(*objCType) {
+        NSUInteger actualSize, alignedSize ;
+        const char *next ;
+        @try {
+            next = NSGetSizeAndAlignment(objCType, &actualSize, &alignedSize) ;
+        } @catch (NSException *theException) {
+            [skin logError:[NSString stringWithFormat:@"%@:%@", [theException name], [theException reason]]] ;
+            return 0 ;
+        }
+        lua_newtable(L) ;
+        char *tmp = calloc(1, (size_t)(next - objCType) + 1) ;
+        strncpy(tmp, objCType, (size_t)(next - objCType)) ;
+        lua_pushstring(L, tmp) ; free(tmp) ;           lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushinteger(L, (lua_Integer)actualSize) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushinteger(L, (lua_Integer)alignedSize) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        objCType = next ;
+    }
+
+    if (luaL_len(L, -1) == 1) {
+        lua_rawgeti(L, -1, 1) ;
+        lua_remove(L, -2) ;
+    }
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults},
-    {"classLoggerTest",      classLoggerTest},
-
-    {"integerTester",        integerTester},
-    {"argTest",              testNewLuaSkinArgsCheck},
-    {"argTest2",             testNewLuaSkinArgsCheck2},
-    {"argTest3",             testNewLuaSkinArgsCheck3},
 
     {"userDataToString",     ud_tostring},
     {"threadInfo",           threadInfo},
@@ -447,9 +356,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"addressParserTesting", addressParserTesting},
 
-    {"lsIntTest",            lsIntTest},
-
     {"lockscreen",           lockscreen},
+    {"sizeAndAlignment",     sizeAndAlignment},
 
     {NULL,                   NULL}
 };
