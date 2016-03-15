@@ -5,7 +5,7 @@
 @import SystemConfiguration ;
 #import "LuaSkinThread.h"
 @import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
-@import SceneKit.SceneKitTypes;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
+@import SceneKit;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
 @import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
 @import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
 
@@ -102,10 +102,12 @@ static int testNSValueEncodings(lua_State *L) {
     NSValue *vector4  = [NSValue valueWithSCNVector4:SCNVector4Make(4,3,2,1)] ;
     NSValue *location = [NSValue valueWithMKCoordinate:CLLocationCoordinate2DMake(41.8369, -87.6847)] ;
 
-    typedef struct { double d; int i; } otherStruct ;
+    typedef struct {  int i; double d; unsigned int ui; } otherStruct ;
     otherStruct holder ;
     holder.d = 95.7 ;
-    holder.i = 200 ;
+    holder.i = -101 ;
+    holder.ui = 101 ;
+
     NSValue *other = [NSValue valueWithBytes:&holder objCType:@encode(otherStruct)] ;
 
     lua_newtable(L) ;
@@ -131,7 +133,6 @@ static int testNSValueEncodings(lua_State *L) {
     lua_pushstring(L, @encode(SCNVector4)) ; lua_setfield(L, -2, "vector4e") ;
     lua_pushstring(L, [location objCType]) ; lua_setfield(L, -2, "location") ;
     lua_pushstring(L, [other objCType]) ;    lua_setfield(L, -2, "other") ;
-    lua_pushstring(L, @encode(NSDecimal)) ;  lua_setfield(L, -2, "decimal") ;
     lua_setfield(L, -2, "objCType") ;
     return 1 ;
 }
@@ -267,40 +268,11 @@ static int nsvalueTest2(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin();
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
     id obj = [skin toNSObjectAtIndex:1] ;
-    lua_newtable(L) ;
     [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
                                        LS_NSDescribeUnknownTypes         |
                                        LS_NSPreserveLuaStringExactly] ;
-    lua_setfield(L, -2, "andBack") ;
-    if ([obj isKindOfClass:[NSValue class]]) {
-        NSValue *value = obj ;
-        const char *objCType = [value objCType];
-
-        NSUInteger actualSize, alignedSize ;
-        NSGetSizeAndAlignment(objCType, &actualSize, &alignedSize) ;
-
-        lua_newtable(L) ;
-        lua_pushstring(L, "NSValue") ; lua_setfield(L, -2, "__luaSkinType") ;
-        lua_pushstring(L, objCType) ;                  lua_setfield(L, -2, "objCType") ;
-        lua_pushinteger(L, (lua_Integer)actualSize) ;  lua_setfield(L, -2, "actualSize") ;
-        lua_pushinteger(L, (lua_Integer)alignedSize) ; lua_setfield(L, -2, "alignedSize") ;
-
-        void* ptr = malloc(actualSize) ;
-        [value getValue:ptr] ;
-        NSData *raw      = [NSData dataWithBytes:ptr length:actualSize] ;
-        free(ptr) ;
-
-        [skin pushNSObject:raw] ;      lua_setfield(L, -2, "data") ;
-        lua_setfield(L, -2, "rawNSValue") ;
-
-        lua_newtable(L) ;
-
-        [skin pushNSObject:[NSValue value:[raw bytes] withObjCType:objCType]] ;
-
-        lua_setfield(L, -2, "raw") ;
-
-        lua_setfield(L, -2, "fromData") ;
-
+    if (lua_type(L, -1) == LUA_TTABLE) {
+        [skin pushNSObject:[obj className]] ; lua_setfield(L, -2, "__className") ;
     }
     return 1 ;
 }
@@ -330,7 +302,6 @@ static int sizeAndAlignment(lua_State *L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         objCType = next ;
     }
-
     if (luaL_len(L, -1) == 1) {
         lua_rawgeti(L, -1, 1) ;
         lua_remove(L, -2) ;
@@ -348,7 +319,7 @@ static const luaL_Reg extrasLib[] = {
     {"addressbookGroups",    addressbookGroups},
 
     {"testNSValue",          testNSValueEncodings},
-    {"NSValueExaminer",      nsvalueTest2},
+    {"examineNSValue",       nsvalueTest2},
 
     {"SCPreferencesKeys",    getSCPreferencesKeys},
     {"SCPreferencesValueForKey", getSCPreferencesValueForKey},
