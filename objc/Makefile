@@ -29,7 +29,6 @@ CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wext
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(SOFILE)
-# all: verify internal.so
 
 # .m.so: $(HEADERS)
 # # 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
@@ -46,6 +45,7 @@ verify: $(LUAFILE)
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
+# 	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)
@@ -60,6 +60,7 @@ clean:
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
+# 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
