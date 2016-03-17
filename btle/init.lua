@@ -18,7 +18,7 @@ end
 
 module           = {}
 local core       = require(USERDATA_TAG..".internal")
-local log        = require("hs.logger").new("btle","verbose") -- for debugging, change back to info or warn when more tested
+local log        = require("hs.logger").new("btle","debug") -- for debugging, change back to info or warn when more tested
 -- module._core     = core
 module.log       = log
 
@@ -147,8 +147,6 @@ peripheral.setCallback = function(self, fn)
 end
 
 module.userCallbacks            = {}
-module.UUIDLookup               = _makeConstantsTable(core.UUIDLookup)
-module.characteristicProperties = _makeConstantsTable(core.characteristicProperties)
 module.gattByUUID               = _makeConstantsTable(module.gattByUUID)
 module.gattByName               = _makeConstantsTable(module.gattByName)
 
@@ -160,35 +158,67 @@ module.create = function()
     else
         module.manager = core.create():setCallback(function(manager, message, ...)
             log.vf("manager callback:%s -- %s", message, hs.utf8.asciiOnly(hs.inspect(table.pack(...))))
+
             if     message == "didConnectPeripheral" then
+                local peripheral = ...
+                for i,v in ipairs(module.discovered) do
+                    if v.peripheral == peripheral then
+                        v.state           = peripheral:state()
+                        v.disconnectError = nil
+                        v.connectError    = nil
+                        v.services        = {}
+                        v.peripheral:discoverServices()
+                    end
+                end
+
             elseif message == "didDisconnectPeripheral" then
+                local peripheral, errMsg = ...
+                for i,v in ipairs(module.discovered) do
+                    if v.peripheral == peripheral then
+                        v.state           = peripheral:state()
+                        v.disconnectError = errMsg
+            -- NOTE: Note that when a peripheral is disconnected, all of its services, characteristics, and characteristic descriptors are invalidated.  We may need to clear something once services are stored somewhere...
+                    end
+                end
+
             elseif message == "didFailToConnectPeripheral" then
+                local peripheral, errMsg = ...
+                for i,v in ipairs(module.discovered) do
+                    if v.peripheral == peripheral then
+                        v.state        = peripheral:state()
+                        v.connectError = errMsg
+                    end
+                end
+
             elseif message == "didDiscoverPeripheral" then
-                local exists = false
+                local index = 0
                 local peripheral, advertisementData, RSSI = ...
                 for i,v in ipairs(module.discovered) do
                     if v.peripheral == peripheral then
-                        -- in case they've changed
-                        v.advertisement = advertisementData
-                        v.RSSI          = RSSI
-                        v.name          = peripheral:name()
-                        -- really what we care most about at this stage
-                        v.lastSeen      = os.time()
-                        exists = true
+                        index = i
                         break
                     end
                 end
-                if not exists then
-                    table.insert(module.discovered, {
-                        peripheral    = peripheral,
-                        name          = peripheral:name(),
-                        advertisement = advertisementData,
-                        RSSI          = RSSI,
-                        lastSeen      = os.time()
-                    })
+                if index == 0 then
+                    table.insert(module.discovered, { peripheral = peripheral })
+                    index = #module.discovered
                 end
+                local v = module.discovered[index]
+                v.advertisement = advertisementData
+                v.RSSI          = RSSI
+                v.name          = peripheral:name()
+                v.lastSeen      = os.time()
+                v.state         = peripheral:state()
+                v.identifier    = peripheral:identifier()
+
             elseif message == "didRetrieveConnectedPeripherals" then
+                local peripherals = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+
             elseif message == "didRetrievePeripherals" then
+                local peripherals = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+
             elseif message == "didUpdateState" then
                 local state = manager:state()
                 if state == "poweredOn" then
@@ -204,19 +234,189 @@ module.create = function()
                     log.wf("btle state %s: invalidating discovered peripherals", state)
                     module.discovered = {}
                 end
-            elseif message == "willRestoreState" then
             end
-            if #module.userCallbacks then
-                for i,v in ipairs(module.userCallbacks) do v(manager, message, ...) end
-            end
+
+--  Gotta think about how I want to handle callbacks...
+--             if #module.userCallbacks then
+--                 for i,v in ipairs(module.userCallbacks) do v(manager, message, ...) end
+--             end
         end):setPeripheralCallback(function(peripheral, message, ...)
             log.vf("peripheral callback:%s -- %s", message, hs.utf8.asciiOnly(hs.inspect(table.pack(...))))
-            for i,v in ipairs(module.discovered)  do
-                if v.peripheral == peripheral and v.fn then
-                    v.fn(peripheral, message, ...)
+            local peripheralRef
+            for i,v in ipairs(module.discovered) do
+                if peripheral == v.peripheral then
+                    peripheralRef = v
                     break
                 end
             end
+            if not peripheralRef then
+                return error(string.format("%s callback for unknown peripheral:%s", message, peripheral:name()))
+            end
+
+            if message     == "didDiscoverServices" then
+                local errMsg = ...
+                if (errMsg) then
+                    log.ef("%s:error for %s:%s", message, peripheral:name(), errMsg)
+                else
+                    for i, svc in ipairs(peripheral:services()) do
+                        local label = svc:UUID()
+                        if not peripheralRef.services[label] then
+                            peripheralRef.services[label] = {
+                                characteristics  = {},
+                                includedServices = {},
+                                primary          = svc:primary(),
+                                uuid             = svc:UUID(true),
+                                service          = svc,
+                                updated          = os.time(),
+                            }
+                            svc:discoverIncludedServices()
+                            svc:discoverCharacteristics()
+                        else
+                            log.f("%s:re-discovered service %s for %s", message, label, peripheral:name())
+                        end
+                    end
+                end
+
+            elseif message == "didDiscoverIncludedServicesForService" then
+                local service, errMsg = ...
+                local serviceLabel = service:UUID()
+                if (errMsg) then
+                    log.ef("%s:error for service %s of %s:%s", message, serviceLabel, peripheral:name(), errMsg)
+                else
+                    for i, svc in ipairs(service:includedServices()) do
+                        local label = svc:UUID()
+                        if not peripheralRef.services[serviceLabel].includedServices[label] then
+                            peripheralRef.services[serviceLabel].includedServices[label] = {
+--                                 characteristics  = {},
+--                                 includedServices = {},
+--                                 primary          = svc:primary(),
+                                uuid             = svc:UUID(true),
+                                service          = svc,
+                                updated          = os.time(),
+                            }
+--                             svc:discoverIncludedServices()
+--                             svc:discoverCharacteristics()
+                        else
+                            log.f("%s:re-discovered included service %s for service %s of %s", message, label, serviceLabel, peripheral:name())
+                        end
+                    end
+                end
+
+            elseif message == "didDiscoverCharacteristicsForService" then
+                local service, errMsg = ...
+                local serviceLabel = service:UUID()
+                if (errMsg) then
+                    log.ef("%s:error for service %s of %s:%s", message, serviceLabel, peripheral:name(), errMsg)
+                else
+                    for i, characteristic in ipairs(service:characteristics()) do
+                        local label = characteristic:UUID()
+                        if not peripheralRef.services[serviceLabel].characteristics[label] then
+                            peripheralRef.services[serviceLabel].characteristics[label] = {
+                                uuid           = characteristic:UUID(true),
+                                descriptors    = {},
+                                properties     = characteristic:properties(),
+                                isNotifying    = characteristic:isNotifying(),
+                                isBroadcasted  = characteristic:isBroadcasted(),
+                                characteristic = characteristic,
+                                updated        = os.time(),
+                            }
+                            characteristic:discoverDescriptors()
+-- blacklist problems for now
+                            if label ~= "ADABFB04-6E7D-4601-BDA2-BFFAA68956BA" then
+                                characteristic:readValue()
+                            end
+                        else
+                            log.f("%s:re-discovered characteristic %s service for %s of %s", message, label, serviceLabel, peripheral:name())
+                        end
+                    end
+                end
+
+            elseif message == "didDiscoverDescriptorsForCharacteristic" then
+                local characteristic, errMsg = ...
+                local service = characteristic:service()
+                local serviceLabel = service:UUID()
+                local charLabel    = characteristic:UUID()
+                if (errMsg) then
+                    log.ef("%s:error for characteristic %s of service %s of %s:%s", message, charLabel, serviceLabel, peripheral:name(), errMsg)
+                else
+                    for i, descriptor in ipairs(characteristic:descriptors()) do
+                        local label = descriptor:UUID()
+                        if not peripheralRef.services[serviceLabel].characteristics[charLabel].descriptors[label] then
+                            peripheralRef.services[serviceLabel].characteristics[charLabel].descriptors[label] = {
+                                uuid       = descriptor:UUID(true),
+                                descriptor = descriptor,
+                                updated    = os.time(),
+                            }
+                            descriptor:readValue()
+                        else
+                            log.f("%s:re-discovered %s descriptor for characteristic %s of service %s of %s", message, label, charLabel, serviceLabel, peripheral:name())
+                        end
+                    end
+                end
+
+            elseif message == "didUpdateValueForCharacteristic" then
+                local characteristic, errMsg = ...
+                local service = characteristic:service()
+                local serviceLabel = service:UUID()
+                local charLabel    = characteristic:UUID()
+                if (errMsg) then
+                    log.ef("%s:error for value of characteristic %s of service %s of %s:%s", message, charLabel, serviceLabel, peripheral:name(), errMsg)
+                else
+                    peripheralRef.services[serviceLabel].characteristics[charLabel].value = characteristic:value()
+                    peripheralRef.services[serviceLabel].characteristics[charLabel].valueUpdated = os.time()
+                end
+
+            elseif message == "didUpdateValueForDescriptor" then
+                local descriptor, errMsg = ...
+                local characteristic = descriptor:characteristic()
+                local service = characteristic:service()
+                local serviceLabel = service:UUID()
+                local charLabel    = characteristic:UUID()
+                local descLabel    = descriptor:UUID()
+                if (errMsg) then
+                    log.ef("%s:error for value of %s descriptor of characteristic %s of service %s of %s:%s", message, descLabel, charLabel, serviceLabel, peripheral:name(), errMsg)
+                else
+-- print(string.format("%s\n\t%s\n\t\t%s", serviceLabel, charLabel, descLabel)) ;
+                    peripheralRef.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].value = descriptor:value()
+                    peripheralRef.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].valueUpdated = os.time()
+                end
+
+            elseif message == "didWriteValueForCharacteristic" then
+                local characteristic, errMsg = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+
+            elseif message == "didWriteValueForDescriptor" then
+                local descriptor, errMsg = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+
+            elseif message == "didUpdateNotificationStateForCharacteristic" then
+                local characteristic, errMsg = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+
+            elseif message == "peripheralDidUpdateRSSI" then
+                local errMsg = ...
+                if (errMsg) then
+                    log.ef("%s:error for %s:%s", message, peripheral:name(), errMsg)
+                else
+                    peripheralRef.RSSI        = peripheral:RSSI()
+                    peripheralRef.rssiUpdated = os.time()
+                end
+
+            elseif message == "peripheralDidUpdateName" then
+                peripheralRef.name        = peripheral:name()
+                peripheralRef.nameUpdated = os.time()
+
+            elseif message == "didModifyServices" then
+                local invalidatedServices = ...
+                log.wf("%s -- Note to self: currently does nothing", message)
+            end
+--  Gotta think about how I want to handle callbacks...
+--             for i,v in ipairs(module.discovered)  do
+--                 if v.peripheral == peripheral and v.fn then
+--                     v.fn(peripheral, message, ...)
+--                     break
+--                 end
+--             end
         end)
     end
 end

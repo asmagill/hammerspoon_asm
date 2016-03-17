@@ -1,0 +1,184 @@
+{ {
+    RSSI = -53,
+    advertisement = {
+      kCBAdvDataIsConnectable = 1,
+      kCBAdvDataLocalName = "Charge HR",
+      kCBAdvDataTxPowerLevel = -6
+    },
+    identifier = "E9182616-0D1B-47A6-AC74-965D0279753F",
+    lastSeen = 1458170674,
+    name = "Charge HR",
+    peripheral = <userdata 1> -- hs._asm.btle.peripheral: Charge HR (0x7fee32fa3458),
+    services = {
+      ["558DFA00-4FA8-4105-9F02-4EAA93E62980"] = {
+        characteristics = {
+          ["558DFA01-4FA8-4105-9F02-4EAA93E62980"] = {
+            characteristic = <userdata 2> -- hs._asm.btle.characteristic: 558DFA01-4FA8-4105-9F02-4EAA93E62980 (0x7fee32d9e788),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.client_characteristic_configuration"] = {
+                descriptor = <userdata 3> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.client_characteristic_configuration (0x7fee328955b8),
+                uuid = "2902",
+                value = "\x00\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 18,
+              notify = true,
+              read = true
+            },
+            uuid = "558DFA01-4FA8-4105-9F02-4EAA93E62980",
+            value = "\x00"
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 4> -- hs._asm.btle.services: 558DFA00-4FA8-4105-9F02-4EAA93E62980 (0x7fee32dc2cc8),
+        uuid = "558DFA00-4FA8-4105-9F02-4EAA93E62980"
+      },
+      ["ADABFB00-6E7D-4601-BDA2-BFFAA68956BA"] = {
+        characteristics = {
+          ["ADABFB01-6E7D-4601-BDA2-BFFAA68956BA"] = {
+            characteristic = <userdata 5> -- hs._asm.btle.characteristic: ADABFB01-6E7D-4601-BDA2-BFFAA68956BA (0x7fee32823568),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.client_characteristic_configuration"] = {
+                descriptor = <userdata 6> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.client_characteristic_configuration (0x7fee332e4848),
+                uuid = "2902",
+                value = "\x00\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 18,
+              notify = true,
+              read = true
+            },
+            uuid = "ADABFB01-6E7D-4601-BDA2-BFFAA68956BA",
+            value = "\xC0\x01"
+          },
+          ["ADABFB02-6E7D-4601-BDA2-BFFAA68956BA"] = {
+            characteristic = <userdata 7> -- hs._asm.btle.characteristic: ADABFB02-6E7D-4601-BDA2-BFFAA68956BA (0x7fee32859018),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 6,
+              read = true,
+              writeWithoutResponse = true
+            },
+            uuid = "ADABFB02-6E7D-4601-BDA2-BFFAA68956BA",
+            value = "\xC0\x01"
+          },
+          ["ADABFB03-6E7D-4601-BDA2-BFFAA68956BA"] = {
+            characteristic = <userdata 8> -- hs._asm.btle.characteristic: ADABFB03-6E7D-4601-BDA2-BFFAA68956BA (0x7fee3283eb08),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.client_characteristic_configuration"] = {
+                descriptor = <userdata 9> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.client_characteristic_configuration (0x7fee332e31a8),
+                uuid = "2902",
+                value = "\x01\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 18,
+              notify = true,
+              read = true
+            },
+            uuid = "ADABFB03-6E7D-4601-BDA2-BFFAA68956BA",
+            value = "\x01"
+          },
+          ["ADABFB04-6E7D-4601-BDA2-BFFAA68956BA"] = {
+            characteristic = <userdata 10> -- hs._asm.btle.characteristic: ADABFB04-6E7D-4601-BDA2-BFFAA68956BA (0x7fee32861948),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.client_characteristic_configuration"] = {
+                descriptor = <userdata 11> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.client_characteristic_configuration (0x7fee32d8ad38),
+                uuid = "2902",
+                value = "\x00\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 18,
+              notify = true,
+              read = true
+            },
+            uuid = "ADABFB04-6E7D-4601-BDA2-BFFAA68956BA"
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 12> -- hs._asm.btle.services: ADABFB00-6E7D-4601-BDA2-BFFAA68956BA (0x7fee32dc2c98),
+        uuid = "ADABFB00-6E7D-4601-BDA2-BFFAA68956BA"
+      },
+      ["org.bluetooth.service.battery_service"] = {
+        characteristics = {
+          ["org.bluetooth.characteristic.battery_level"] = {
+            characteristic = <userdata 13> -- hs._asm.btle.characteristic: org.bluetooth.characteristic.battery_level (0x7fee306e4a68),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.client_characteristic_configuration"] = {
+                descriptor = <userdata 14> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.client_characteristic_configuration (0x7fee32d28428),
+                uuid = "2902",
+                value = "\x00\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 18,
+              notify = true,
+              read = true
+            },
+            uuid = "2A19",
+            value = "\x00"
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 15> -- hs._asm.btle.services: org.bluetooth.service.battery_service (0x7fee32dac238),
+        uuid = "180F"
+      },
+      ["org.bluetooth.service.device_information"] = {
+        characteristics = {
+          FB00 = {
+            characteristic = <userdata 16> -- hs._asm.btle.characteristic: FB00 (0x7fee332e26d8),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            uuid = "FB00",
+            value = "\x12\x04\xE0\xE5\x00\x00"
+          },
+          ["org.bluetooth.characteristic.manufacturer_name_string"] = {
+            characteristic = <userdata 17> -- hs._asm.btle.characteristic: org.bluetooth.characteristic.manufacturer_name_string (0x7fee332e26a8),
+            descriptors = {
+              ["org.bluetooth.descriptor.gatt.characteristic_presentation_format"] = {
+                descriptor = <userdata 18> -- hs._asm.btle.descriptor: org.bluetooth.descriptor.gatt.characteristic_presentation_format (0x7fee32d30538),
+                uuid = "2904",
+                value = "\x19\x00\x00\x00\x01\x00\x00"
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            uuid = "2A29",
+            value = "Fitbit\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 19> -- hs._asm.btle.services: org.bluetooth.service.device_information (0x7fee32dac1c8),
+        uuid = "180A"
+      }
+    },
+    state = "connected"
+  } }

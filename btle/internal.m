@@ -1,25 +1,10 @@
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
-#import <CoreBluetooth/CoreBluetooth.h>
+#import "btle.h"
 
-#define USERDATA_TAG          "hs._asm.btle"
-#define UD_PERIPHERAL_TAG     "hs._asm.btle.peripheral"
-#define UD_SERVICE_TAG        "hs._asm.btle.services"
-#define UD_CHARACTERISTIC_TAG "hs._asm.btle.charactersitic"
-#define UD_DESCRIPTOR_TAG     "hs._asm.btle.descriptor"
-
-static int refTable   = LUA_NOREF;
-static int gattLookup = LUA_NOREF;
-
-#define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
+static int refTable            = LUA_NOREF;
+       int btleGattLookupTable = LUA_NOREF;
+       int btleRefTable        = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
-
-@interface HSCBCentralManager : CBCentralManager <CBCentralManagerDelegate, CBPeripheralDelegate>
-@property int selfRef ;
-@property int callbackRef ;
-@property int peripheralCallbackRef ;
-@end
 
 @implementation HSCBCentralManager
 - (id)init {
@@ -37,6 +22,7 @@ static int gattLookup = LUA_NOREF;
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
     HSCBCentralManager *manager = (HSCBCentralManager *)central ;
     LuaSkin *skin = [LuaSkin shared] ;
+    peripheral.delegate = manager ;
     if (manager.callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:manager.callbackRef];
         [skin pushNSObject:manager];
@@ -53,6 +39,7 @@ static int gattLookup = LUA_NOREF;
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     HSCBCentralManager *manager = (HSCBCentralManager *)central ;
     LuaSkin *skin = [LuaSkin shared] ;
+    peripheral.delegate = nil ;
     if (manager.callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:manager.callbackRef];
         [skin pushNSObject:manager];
@@ -101,11 +88,9 @@ static int gattLookup = LUA_NOREF;
         [skin pushLuaRef:refTable ref:manager.callbackRef];
         [skin pushNSObject:manager];
         [skin pushNSObject:@"didDiscoverPeripheral"];
-        // we discovered it, so I guess we're now it's delegate... at least until I find that this breaks something
-        peripheral.delegate = manager ;
         [skin pushNSObject:peripheral] ;
 //         NSLog(@"advertisementdata = %@", advertisementData) ;
-        [skin pushNSObject:advertisementData] ;
+        [skin pushNSObject:advertisementData withOptions:LS_NSDescribeUnknownTypes] ;
         [skin pushNSObject:RSSI] ;
         if (![skin protectedCallAndTraceback:5 nresults:0]) {
             NSString *theError = [skin toNSObjectAtIndex:-1];
@@ -423,7 +408,9 @@ static int createManager(lua_State *L) {
 static int assignGattLookup(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
-    gattLookup = [skin luaRef:refTable] ;
+    // this is shared among files in the module
+    btleRefTable        = refTable ;
+    btleGattLookupTable = [skin luaRef:btleRefTable] ;
     return 0 ;
 }
 
@@ -561,303 +548,7 @@ static int retrievePeripheralsWithIdentifiers(lua_State *L) {
     return 1;
 }
 
-#pragma mark - Peripheral Methods
-
-static int peripheralIdentifier(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [skin pushNSObject:[thePeripheral.identifier UUIDString]] ;
-    return 1 ;
-}
-
-static int peripheralName(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [skin pushNSObject:thePeripheral.name] ;
-    return 1 ;
-}
-
-static int peripheralServices(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [skin pushNSObject:thePeripheral.services] ;
-    return 1 ;
-}
-
-//FIXME: currently searches for all -- add support for limiting by CBService array
-static int peripheralDiscoverServices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [thePeripheral discoverServices:nil] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-//FIXME: currently searches for all -- add support for limiting by CBService array
-static int peripheralDiscoverIncludedServices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBService    *theService    = [skin luaObjectAtIndex:2 toClass:"CBService"] ;
-    [thePeripheral discoverIncludedServices:nil forService:theService] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-//FIXME: currently searches for all -- add support for limiting by CBCharacteristic array
-static int peripheralDiscoverCharacteristicsForService(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBService    *theService    = [skin luaObjectAtIndex:2 toClass:"CBService"] ;
-    [thePeripheral discoverCharacteristics:nil forService:theService] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int peripheralDiscoverDescriptorsForCharacteristic(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBPeripheral     *thePeripheral     = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:2 toClass:"CBCharacteristic"] ;
-    [thePeripheral discoverDescriptorsForCharacteristic:theCharacteristic] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int peripheralReadValueForCharacteristic(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBPeripheral     *thePeripheral     = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:2 toClass:"CBCharacteristic"] ;
-    [thePeripheral readValueForCharacteristic:theCharacteristic] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int peripheralReadValueForDescriptor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBDescriptor *theDescriptor = [skin luaObjectAtIndex:2 toClass:"CBDescriptor"] ;
-    [thePeripheral readValueForDescriptor:theDescriptor] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-// TODO: - (void)writeValue:(NSData *)data forCharacteristic:(CBCharacteristic *)characteristic type:(CBCharacteristicWriteType)type
-// TODO: - (void)writeValue:(NSData *)data forDescriptor:(CBDescriptor *)descriptor
-
-static int peripheralSetNotifyForCharacteristic(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBOOLEAN, LS_TBREAK] ;
-    CBPeripheral     *thePeripheral     = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:2 toClass:"CBCharacteristic"] ;
-    [thePeripheral setNotifyValue:(BOOL)lua_toboolean(L, 3) forCharacteristic:theCharacteristic] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int peripheralState(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    CBPeripheralState theState = thePeripheral.state ;
-    switch(theState) {
-        case CBPeripheralStateDisconnected: lua_pushstring(L, "disconnected") ; break ;
-        case CBPeripheralStateConnecting:   lua_pushstring(L, "connecting") ; break ;
-        case CBPeripheralStateConnected:    lua_pushstring(L, "connected") ; break ;
-        default:
-            [skin pushNSObject:[NSString stringWithFormat:@"unrecognized state: %ld", theState]] ;
-            break ;
-    }
-    return 1 ;
-}
-
-static int peripheralRSSI(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [skin pushNSObject:thePeripheral.RSSI] ;
-    return 1 ;
-}
-
-static int peripheralReadRSSI(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [thePeripheral readRSSI] ;
-    lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-#pragma mark - Service Methods
-
-static int serviceUUID(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    [skin pushNSObject:theService.UUID] ;
-    return 1 ;
-}
-
-static int servicePeripheral(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    [skin pushNSObject:theService.peripheral] ;
-    return 1 ;
-}
-
-static int serviceCharacteristics(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    [skin pushNSObject:theService.characteristics] ;
-    return 1 ;
-}
-
-static int serviceIncludedServices(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    [skin pushNSObject:theService.includedServices] ;
-    return 1 ;
-}
-
-static int servicePrimary(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
-    CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    lua_pushboolean(L, theService.isPrimary) ;
-    return 1 ;
-}
-
-#pragma mark - Characteristic Methods
-
-static int characteristicUUID(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    [skin pushNSObject:theCharacteristic.UUID] ;
-    return 1 ;
-}
-
-static int characteristicService(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    [skin pushNSObject:theCharacteristic.service] ;
-    return 1 ;
-}
-
-static int characteristicValue(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    [skin pushNSObject:theCharacteristic.value] ;
-    return 1 ;
-}
-
-static int characteristicDescriptors(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    [skin pushNSObject:theCharacteristic.descriptors] ;
-    return 1 ;
-}
-
-static int characteristicProperties(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    lua_pushinteger(L, theCharacteristic.properties) ;
-    return 1 ;
-}
-
-static int characteristicIsNotifying(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    lua_pushinteger(L, theCharacteristic.isNotifying) ;
-    return 1 ;
-}
-
-static int characteristicIsBroadcasted(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
-    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    lua_pushinteger(L, theCharacteristic.isBroadcasted) ;
-    return 1 ;
-}
-
-#pragma mark - Descriptor Methods
-
-static int descriptorUUID(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
-    CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-    [skin pushNSObject:theDescriptor.UUID] ;
-    return 1 ;
-}
-
-static int descriptorValue(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
-    CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-    [skin pushNSObject:theDescriptor.value] ;
-    return 1 ;
-}
-
-static int descriptorCharacteristic(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
-    CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-    [skin pushNSObject:theDescriptor.characteristic] ;
-    return 1 ;
-}
-
 #pragma mark - Module Constants
-
-static int pushCBUUIDStrings(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    lua_newtable(L) ;
-    [skin pushNSObject:CBUUIDCharacteristicExtendedPropertiesString] ;        lua_setfield(L, -2, "characteristicExtendedProperties") ;
-    [skin pushNSObject:CBUUIDCharacteristicUserDescriptionString] ;           lua_setfield(L, -2, "characteristicUserDescription") ;
-    [skin pushNSObject:CBUUIDClientCharacteristicConfigurationString] ;       lua_setfield(L, -2, "clientCharacteristicConfiguration") ;
-    [skin pushNSObject:CBUUIDServerCharacteristicConfigurationString] ;       lua_setfield(L, -2, "serverCharacteristicConfiguration") ;
-    [skin pushNSObject:CBUUIDCharacteristicFormatString] ;                    lua_setfield(L, -2, "characteristicFormat") ;
-    [skin pushNSObject:CBUUIDCharacteristicAggregateFormatString] ;           lua_setfield(L, -2, "characteristicAggregateFormat") ;
-    [skin pushNSObject:CBUUIDGenericAccessProfileString] ;                    lua_setfield(L, -2, "genericAccessProfile") ;
-    [skin pushNSObject:CBUUIDGenericAttributeProfileString] ;                 lua_setfield(L, -2, "genericAttributeProfile") ;
-    [skin pushNSObject:CBUUIDDeviceNameString] ;                              lua_setfield(L, -2, "deviceName") ;
-    [skin pushNSObject:CBUUIDAppearanceString] ;                              lua_setfield(L, -2, "appearance") ;
-    [skin pushNSObject:CBUUIDPeripheralPrivacyFlagString] ;                   lua_setfield(L, -2, "peripheralPrivacyFlag") ;
-    [skin pushNSObject:CBUUIDReconnectionAddressString] ;                     lua_setfield(L, -2, "reconnectionAddress") ;
-    [skin pushNSObject:CBUUIDPeripheralPreferredConnectionParametersString] ; lua_setfield(L, -2, "peripheralPreferredConnectionParameters") ;
-    [skin pushNSObject:CBUUIDServiceChangedString] ;                          lua_setfield(L, -2, "serviceChanged") ;
-    [skin pushNSObject:CBUUIDValidRangeString] ;                              lua_setfield(L, -2, "validRange") ;
-    return 1 ;
-}
-
-static int pushCBCharacteristicProperties(lua_State *L) {
-    lua_newtable(L) ;
-    lua_pushinteger(L, CBCharacteristicPropertyBroadcast) ;                  lua_setfield(L, -2, "broadcast") ;
-    lua_pushinteger(L, CBCharacteristicPropertyRead) ;                       lua_setfield(L, -2, "read") ;
-    lua_pushinteger(L, CBCharacteristicPropertyWriteWithoutResponse) ;       lua_setfield(L, -2, "writeWithoutResponse") ;
-    lua_pushinteger(L, CBCharacteristicPropertyWrite) ;                      lua_setfield(L, -2, "write") ;
-    lua_pushinteger(L, CBCharacteristicPropertyNotify) ;                     lua_setfield(L, -2, "notify") ;
-    lua_pushinteger(L, CBCharacteristicPropertyIndicate) ;                   lua_setfield(L, -2, "indicate") ;
-    lua_pushinteger(L, CBCharacteristicPropertyAuthenticatedSignedWrites) ;  lua_setfield(L, -2, "authenticatedSignedWrites") ;
-    lua_pushinteger(L, CBCharacteristicPropertyExtendedProperties) ;         lua_setfield(L, -2, "extendedProperties") ;
-    lua_pushinteger(L, CBCharacteristicPropertyNotifyEncryptionRequired) ;   lua_setfield(L, -2, "notifyEncryptionRequired") ;
-    lua_pushinteger(L, CBCharacteristicPropertyIndicateEncryptionRequired) ; lua_setfield(L, -2, "indicateEncryptionRequired") ;
-    return 1 ;
-}
 
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
@@ -890,105 +581,12 @@ static id toHSCBCentralManagerFromLua(lua_State *L, int idx) {
     return value ;
 }
 
-static int pushCBPeripheralAsUD(lua_State *L, id obj) {
-    CBPeripheral *theCBPeripheral = obj ;
-    void** peripheralPtr = lua_newuserdata(L, sizeof(CBPeripheral *)) ;
-    *peripheralPtr = (__bridge_retained void *)theCBPeripheral ;
-
-    luaL_getmetatable(L, UD_PERIPHERAL_TAG) ;
-    lua_setmetatable(L, -2) ;
-    return 1 ;
-}
-
-static int pushCBServiceAsUD(lua_State *L, id obj) {
-    CBService *theCBService = obj ;
-    void** servicePtr = lua_newuserdata(L, sizeof(CBService *)) ;
-    *servicePtr = (__bridge_retained void *)theCBService ;
-
-    luaL_getmetatable(L, UD_SERVICE_TAG) ;
-    lua_setmetatable(L, -2) ;
-    return 1 ;
-}
-
-static int pushCBCharacteristicAsUD(lua_State *L, id obj) {
-    CBCharacteristic *theCBCharacteristic = obj ;
-    void** characteristicPtr = lua_newuserdata(L, sizeof(CBCharacteristic *)) ;
-    *characteristicPtr = (__bridge_retained void *)theCBCharacteristic ;
-
-    luaL_getmetatable(L, UD_CHARACTERISTIC_TAG) ;
-    lua_setmetatable(L, -2) ;
-    return 1 ;
-}
-
-static int pushCBDescriptorAsUD(lua_State *L, id obj) {
-    CBDescriptor *theCBDescriptor = obj ;
-    void** descriptorPtr = lua_newuserdata(L, sizeof(CBDescriptor *)) ;
-    *descriptorPtr = (__bridge_retained void *)theCBDescriptor ;
-
-    luaL_getmetatable(L, UD_DESCRIPTOR_TAG) ;
-    lua_setmetatable(L, -2) ;
-    return 1 ;
-}
-
-id toCBPeripheralFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CBPeripheral *value ;
-    if (luaL_testudata(L, idx, UD_PERIPHERAL_TAG)) {
-        value = get_objectFromUserdata(__bridge CBPeripheral, L, idx, UD_PERIPHERAL_TAG) ;
-    } else {
-        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", UD_PERIPHERAL_TAG,
-                                                   lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return value ;
-}
-
-id toCBServiceFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CBService *value ;
-    if (luaL_testudata(L, idx, UD_SERVICE_TAG)) {
-        value = get_objectFromUserdata(__bridge CBService, L, idx, UD_SERVICE_TAG) ;
-    } else {
-        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", UD_SERVICE_TAG,
-                                                   lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return value ;
-}
-
-id toCBCharacteristicFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CBCharacteristic *value ;
-    if (luaL_testudata(L, idx, UD_CHARACTERISTIC_TAG)) {
-        value = get_objectFromUserdata(__bridge CBCharacteristic, L, idx, UD_CHARACTERISTIC_TAG) ;
-    } else {
-        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", UD_CHARACTERISTIC_TAG,
-                                                   lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return value ;
-}
-
-id toCBDescriptorFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CBDescriptor *value ;
-    if (luaL_testudata(L, idx, UD_DESCRIPTOR_TAG)) {
-        value = get_objectFromUserdata(__bridge CBDescriptor, L, idx, UD_DESCRIPTOR_TAG) ;
-    } else {
-        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", UD_DESCRIPTOR_TAG,
-                                                   lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return value ;
-}
-
 static int pushCBUUID(lua_State *L, id obj) {
     CBUUID *theCBUUID = obj ;
     LuaSkin *skin = [LuaSkin shared] ;
-//     lua_newtable(L) ;
-//     [skin pushNSObject:theCBUUID.UUIDString] ; lua_setfield(L, -2, "UUID") ;
-// the data is just the UUID in binary form
-//     [skin pushNSObject:theCBUUID.data] ;       lua_setfield(L, -2, "data") ;
-
     NSString *answer = theCBUUID.UUIDString ; // default to the UUID itself
-    if (gattLookup != LUA_NOREF) {
-        [skin pushLuaRef:refTable ref:gattLookup] ;
+    if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
+        [skin pushLuaRef:refTable ref:btleGattLookupTable] ;
         if (lua_getfield(L, -1, [answer UTF8String]) == LUA_TTABLE) {
             if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
                 answer = [skin toNSObjectAtIndex:-1] ;
@@ -1005,21 +603,7 @@ static int pushCBUUID(lua_State *L, id obj) {
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    if (luaL_testudata(L, 1, UD_PERIPHERAL_TAG)) {
-        CBPeripheral *obj = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-        [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_PERIPHERAL_TAG, [obj name], lua_topointer(L, 1)]] ;
-    } else if (luaL_testudata(L, 1, UD_SERVICE_TAG)) {
-        CBService *obj = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-        [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_SERVICE_TAG, [[obj UUID] UUIDString], lua_topointer(L, 1)]] ;
-    } else if (luaL_testudata(L, 1, UD_CHARACTERISTIC_TAG)) {
-        CBCharacteristic *obj = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-        [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_CHARACTERISTIC_TAG, [[obj UUID] UUIDString], lua_topointer(L, 1)]] ;
-    } else if (luaL_testudata(L, 1, UD_DESCRIPTOR_TAG)) {
-        CBDescriptor *obj = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-        [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_DESCRIPTOR_TAG, [[obj UUID] UUIDString], lua_topointer(L, 1)]] ;
-    } else {
-        [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
-    }
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
 }
 
@@ -1031,22 +615,6 @@ static int userdata_eq(lua_State* L) {
         HSCBCentralManager *obj1 = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
         HSCBCentralManager *obj2 = [skin luaObjectAtIndex:2 toClass:"HSCBCentralManager"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
-    } else if (luaL_testudata(L, 1, UD_PERIPHERAL_TAG) && luaL_testudata(L, 2, UD_PERIPHERAL_TAG)) {
-        CBPeripheral *obj1 = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-        CBPeripheral *obj2 = [skin luaObjectAtIndex:2 toClass:"CBPeripheral"] ;
-        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
-    } else if (luaL_testudata(L, 1, UD_SERVICE_TAG) && luaL_testudata(L, 2, UD_SERVICE_TAG)) {
-        CBService *obj1 = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-        CBService *obj2 = [skin luaObjectAtIndex:2 toClass:"CBService"] ;
-        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
-    } else if (luaL_testudata(L, 1, UD_CHARACTERISTIC_TAG) && luaL_testudata(L, 2, UD_CHARACTERISTIC_TAG)) {
-        CBCharacteristic *obj1 = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-        CBCharacteristic *obj2 = [skin luaObjectAtIndex:2 toClass:"CBCharacteristic"] ;
-        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
-    } else if (luaL_testudata(L, 1, UD_DESCRIPTOR_TAG) && luaL_testudata(L, 2, UD_DESCRIPTOR_TAG)) {
-        CBDescriptor *obj1 = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-        CBDescriptor *obj2 = [skin luaObjectAtIndex:2 toClass:"CBDescriptor"] ;
-        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
     }
@@ -1054,26 +622,15 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
-    if (luaL_testudata(L, 1, UD_SERVICE_TAG) || luaL_testudata(L, 1, UD_CHARACTERISTIC_TAG) || luaL_testudata(L, 1, UD_DESCRIPTOR_TAG)) {
-        id obj = (__bridge_transfer id)*((void**)lua_touserdata(L, 1)) ;
-        if (obj) obj = nil ;
-    } else if (luaL_testudata(L, 1, UD_PERIPHERAL_TAG)) {
-        CBPeripheral *obj = get_objectFromUserdata(__bridge_transfer CBPeripheral, L, 1, UD_PERIPHERAL_TAG) ;
-        if (obj) {
-            obj.delegate = nil ;
-            obj          = nil ;
-        }
-    } else {
-        HSCBCentralManager *obj = get_objectFromUserdata(__bridge_transfer HSCBCentralManager, L, 1, USERDATA_TAG) ;
-        if (obj) {
-            LuaSkin *skin             = [LuaSkin shared] ;
-            obj.peripheralCallbackRef = [skin luaUnref:refTable ref:obj.peripheralCallbackRef] ;
-            obj.callbackRef           = [skin luaUnref:refTable ref:obj.callbackRef] ;
-            obj.selfRef               = [skin luaUnref:refTable ref:obj.selfRef] ;
-            obj.delegate              = nil ;
-            [obj stopScan] ;
-            obj = nil ;
-        }
+    HSCBCentralManager *obj = get_objectFromUserdata(__bridge_transfer HSCBCentralManager, L, 1, USERDATA_TAG) ;
+    if (obj) {
+        LuaSkin *skin             = [LuaSkin shared] ;
+        obj.peripheralCallbackRef = [skin luaUnref:refTable ref:obj.peripheralCallbackRef] ;
+        obj.callbackRef           = [skin luaUnref:refTable ref:obj.callbackRef] ;
+        obj.selfRef               = [skin luaUnref:refTable ref:obj.selfRef] ;
+        obj.delegate              = nil ;
+        [obj stopScan] ;
+        obj = nil ;
     }
 
     // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -1105,66 +662,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {NULL,                    NULL}
 };
 
-static const luaL_Reg peripheral_metaLib[] = {
-    {"identifier",                        peripheralIdentifier},
-    {"name",                              peripheralName},
-    {"services",                          peripheralServices},
-    {"discoverServices",                  peripheralDiscoverServices},
-    {"discoverIncludedServices",          peripheralDiscoverIncludedServices},
-    {"discoverServiceCharacteristics",    peripheralDiscoverCharacteristicsForService},
-    {"discoverCharacteristicDescriptors", peripheralDiscoverDescriptorsForCharacteristic},
-    {"readValueForCharacteristic",        peripheralReadValueForCharacteristic},
-    {"readValueForDescriptor",            peripheralReadValueForDescriptor},
-    {"watchCharacteristic",               peripheralSetNotifyForCharacteristic},
-    {"state",                             peripheralState},
-    {"RSSI",                              peripheralRSSI},
-    {"readRSSI",                          peripheralReadRSSI},
-
-    {"__tostring",                        userdata_tostring},
-    {"__eq",                              userdata_eq},
-    {"__gc",                              userdata_gc},
-    {NULL,                                NULL}
-};
-
-static const luaL_Reg service_metaLib[] = {
-    {"UUID",             serviceUUID},
-    {"peripheral",       servicePeripheral},
-    {"characteristics",  serviceCharacteristics},
-    {"includedServices", serviceIncludedServices},
-    {"primary",          servicePrimary},
-
-    {"__tostring",       userdata_tostring},
-    {"__eq",             userdata_eq},
-    {"__gc",             userdata_gc},
-    {NULL,               NULL}
-};
-
-static const luaL_Reg characteristic_metaLib[] = {
-    {"UUID",          characteristicUUID},
-    {"service",       characteristicService},
-    {"value",         characteristicValue},
-    {"descriptors",   characteristicDescriptors},
-    {"properties",    characteristicProperties},
-    {"isNotifying",   characteristicIsNotifying},
-    {"isBroadcasted", characteristicIsBroadcasted},
-
-    {"__tostring",  userdata_tostring},
-    {"__eq",        userdata_eq},
-    {"__gc",        userdata_gc},
-    {NULL,          NULL}
-};
-
-static const luaL_Reg descriptor_metaLib[] = {
-    {"UUID",           descriptorUUID},
-    {"value",          descriptorValue},
-    {"characteristic", descriptorCharacteristic},
-
-    {"__tostring",     userdata_tostring},
-    {"__eq",           userdata_eq},
-    {"__gc",           userdata_gc},
-    {NULL,             NULL}
-};
-
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"create", createManager},
@@ -1185,33 +682,19 @@ int luaopen_hs__asm_btle_internal(lua_State* L) {
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
                                objectFunctions:userdata_metaLib];
-    gattLookup = LUA_NOREF ;
 
-    pushCBUUIDStrings(L) ;              lua_setfield(L, -2, "UUIDLookup") ;
-    pushCBCharacteristicProperties(L) ; lua_setfield(L, -2, "characteristicProperties") ;
+    btleGattLookupTable = LUA_NOREF ;
+    btleRefTable        = LUA_NOREF;
 
     [skin registerPushNSHelper:pushHSCBCentralManager         forClass:"HSCBCentralManager"];
     [skin registerLuaObjectHelper:toHSCBCentralManagerFromLua forClass:"HSCBCentralManager"];
 
-// sub types handled by this module
-    [skin registerObject:UD_PERIPHERAL_TAG     objectFunctions:peripheral_metaLib] ;
-    [skin registerPushNSHelper:pushCBPeripheralAsUD           forClass:"CBPeripheral"] ;
-    [skin registerLuaObjectHelper:toCBPeripheralFromLuaUD     forClass:"CBPeripheral"];
-
-    [skin registerObject:UD_SERVICE_TAG        objectFunctions:service_metaLib] ;
-    [skin registerPushNSHelper:pushCBServiceAsUD              forClass:"CBService"] ;
-    [skin registerLuaObjectHelper:toCBServiceFromLuaUD        forClass:"CBService"];
-
-    [skin registerObject:UD_CHARACTERISTIC_TAG objectFunctions:characteristic_metaLib] ;
-    [skin registerPushNSHelper:pushCBCharacteristicAsUD       forClass:"CBCharacteristic"] ;
-    [skin registerLuaObjectHelper:toCBCharacteristicFromLuaUD forClass:"CBCharacteristic"];
-
-    [skin registerObject:UD_DESCRIPTOR_TAG     objectFunctions:descriptor_metaLib] ;
-    [skin registerPushNSHelper:pushCBDescriptorAsUD           forClass:"CBDescriptor"] ;
-    [skin registerLuaObjectHelper:toCBDescriptorFromLuaUD     forClass:"CBDescriptor"];
-
-// other convertors
     [skin registerPushNSHelper:pushCBUUID                     forClass:"CBUUID"] ;
+
+    luaopen_hs__asm_btle_characteristic(L) ; lua_setfield(L, -2, "characteristic") ;
+    luaopen_hs__asm_btle_descriptor(L) ;     lua_setfield(L, -2, "descriptor") ;
+    luaopen_hs__asm_btle_peripheral(L) ;     lua_setfield(L, -2, "peripheral") ;
+    luaopen_hs__asm_btle_service(L) ;        lua_setfield(L, -2, "service") ;
 
     return 1;
 }
