@@ -8,8 +8,7 @@
 --     if not hs.keycodes then hs.keycodes = require("hs.keycodes") end
 --     if not hs.window   then hs.window   = require("hs.window")   end
 
--- package.loadlib("/System/Library/Frameworks/AddressBook.framework/Versions/A/AddressBook","*")
-
+package.loadlib("/System/Library/Frameworks/AddressBook.framework/Versions/A/AddressBook","*")
 local module = require("hs._asm.extras.internal")
 -- local bridge = require("hs._asm.bridging")
 

@@ -88,7 +88,7 @@ static int threadInfo(lua_State *L) {
 
 static int addressbookGroups(__unused lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin();
-    [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups]] ;
+    [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
     return 1 ;
 }
 
