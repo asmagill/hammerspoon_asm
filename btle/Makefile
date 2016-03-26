@@ -30,9 +30,8 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(SOFILE)
 
-# .m.so: $(HEADERS)
-# # 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-# 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+# .m.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 internal.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@

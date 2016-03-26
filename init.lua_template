@@ -8,8 +8,6 @@ local module       = require(USERDATA_TAG..".internal")
 -- private variables and methods -----------------------------------------
 
 -- local _kMetaTable = {}
--- -- planning to experiment with using this with responses to functional queries... and I
--- -- don't want to keep loose generated data hanging around
 -- _kMetaTable._k = setmetatable({}, {__mode = "k"})
 -- _kMetaTable._t = setmetatable({}, {__mode = "k"})
 -- _kMetaTable.__index = function(obj, key)
