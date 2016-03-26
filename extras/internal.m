@@ -309,7 +309,21 @@ static int sizeAndAlignment(lua_State *L) {
     return 1 ;
 }
 
+static int lookup(__unused lua_State *L) {
+    LuaSkin *skin = LST_getLuaSkin();
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *word = [skin toNSObjectAtIndex:1] ;
+    CFRange  range = CFRangeMake(0, (CFIndex)[word length]) ;
+
+    [skin pushNSObject:(__bridge_transfer NSString *)DCSCopyTextDefinition(NULL,
+                                                                           (__bridge CFStringRef)word,
+                                                                           range)] ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
+    {"lookup",               lookup},
+
     {"listWindows",          listWindows},
     {"NSLog",                extras_nslog },
     {"defaults",             extras_defaults},
