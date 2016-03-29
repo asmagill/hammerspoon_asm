@@ -1,6 +1,9 @@
 #import <Cocoa/Cocoa.h>
 #import <LuaSkin/LuaSkin.h>
 
+// Documentation Needed:
+//  Need examples/documentation for XPath and XQuery queries
+
 // DTD Methods needed
 
 // Module Functions:
@@ -325,6 +328,18 @@ static int xml_children(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:nextNode() -> xmlNode object
+/// Method
+/// Returns the next xmlNode object in document order.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the next xmlNode object in document order.
+///
+/// Notes:
+///  * Use this method to “walk” forward through the tree structure representing an XML document or document section. Document order is the natural order that XML constructs appear in markup text. This method bypasses namespace and attribute nodes when traversing the tree in document order.
 static int xml_nextNode(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -333,6 +348,18 @@ static int xml_nextNode(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:nextSibling() -> xmlNode object
+/// Method
+/// Returns the next xmlNode object that is a sibling node to the object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the next xmlNode object that is a sibling node to the object.
+///
+/// Notes:
+///  * This object will have an index value that is one more than the object’s. If there are no more subsequent siblings (that is, other child nodes of the object’s parent) the method returns nil.
 static int xml_nextSibling(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -341,6 +368,18 @@ static int xml_nextSibling(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:previousNode() -> xmlNode object
+/// Method
+/// Returns the previous xmlNode object in document order.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the previous xmlNode object in document order.
+///
+/// Notes:
+///  * Use this method to “walk” backward through the tree structure representing an XML document or document section. Document order is the natural order that XML constructs appear in markup text. This method bypasses namespace and attribute nodes when traversing the tree in document order.
 static int xml_previousNode(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -349,6 +388,18 @@ static int xml_previousNode(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:previousSibling() -> xmlNode object
+/// Method
+/// Returns the previous xmlNode object that is a sibling node to the object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the previous xmlNode object that is a sibling node to the object.
+///
+/// Notes:
+///  * This object will have an index value that is one less than the object’s. If there are no more previous siblings (that is, other child nodes of the object’s parent) the method returns nil.
 static int xml_previousSibling(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -357,6 +408,18 @@ static int xml_previousSibling(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:xmlString([options]) -> string
+/// Method
+/// Returns the string representation of the object as it would appear in an XML document.
+///
+/// Parameters:
+///  * options - an optional integer value made by logically OR'ing together options described in [hs._asm.xml.nodeOptions](#nodeOptions).  Defaults to `hs._asm.xml.nodeOptions.optionsNone`.
+///
+/// Returns:
+///  * the string representation of the object as it would appear in an XML document.
+///
+/// Notes:
+///  * The returned string includes the string representations of all children.
 static int xml_xmlString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -369,6 +432,32 @@ static int xml_xmlString(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:canonicalXMLString([comments]) -> string
+/// Method
+/// Returns a string encapsulating the object’s XML in canonical form.
+///
+/// Parameters:
+///  * comments - an optional boolean indicating whether or not comment nodes should be included.  Defaults to true.
+///
+/// Returns:
+///  * a string encapsulating the object’s XML in canonical form.
+///
+/// Notes:
+///  * The canonical form of an XML document is defined by the World Wide Web Consortium at http://www.w3.org/TR/xml-c14n. Generally, if two documents with varying physical representations have the same canonical form, then they are considered logically equivalent within the given application context. The following list summarizes most key aspects of canonical form as defined by the W3C recommendation:
+///    * Encodes the document in UTF-8.
+///    * Normalizes line breaks to “#xA” on input before parsing.
+///    * Normalizes attribute values in the manner of a validating processor.
+///    * Replaces character and parsed entity references with their character content.
+///    * Replaces CDATA sections with their character content.
+///    * Removes the XML declaration and the document type declaration (DTD).
+///    * Converts empty elements to start-end tag pairs.
+///    * Normalizes whitespace outside of the document element and within start and end tags.
+///    * Retains all whitespace characters in content (excluding characters removed during line-feed normalization).
+///    * Sets attribute value delimiters to quotation marks (double quotes).
+///    * Replaces special characters in attribute values and character content with character references.
+///    * Removes superfluous namespace declarations from each element.
+///    * Adds default attributes to each element.
+Imposes lexicographic order on the namespace declarations and attributes of each element.
 static int xml_canonicalXMLString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -381,6 +470,15 @@ static int xml_canonicalXMLString(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:index() -> integer
+/// Method
+/// Returns the index of the object identifying its position relative to its sibling nodes.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the index of the object identifying its position relative to its sibling nodes.
 static int xml_index(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -389,6 +487,29 @@ static int xml_index(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:kind() -> string
+/// Method
+/// Returns the kind of node the object is as a string.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string representing the type of information represented by this node.  Possible values include:
+///    * invalid               - a node object created without a valid kind being specified
+///    * document              - a document node
+///    * element               - an element node
+///    * attribute             - an attribute node
+///    * namespace             - a namespace node
+///    * processingInstruction - a processing instruction node
+///    * comment               - a comment node
+///    * text                  - a text node
+///    * DTD                   - a document type declaration node
+///    * entityDeclaration     - an entity declaration node
+///    * attributeDeclaration  - an attribute declaration node
+///    * elementDeclaration    - an element declaration node
+///    * notationDeclaration   - a notation declaration
+///    * unknown               - should not occur -- the presence of this value indicates that an error has occurred of that Apple has changed the NSXML* classes and this module should be updated.
 static int xml_kind(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -405,13 +526,25 @@ static int xml_kind(lua_State *L) {
         case NSXMLDTDKind:                   lua_pushstring(L, "DTD") ; break ;
         case NSXMLEntityDeclarationKind:     lua_pushstring(L, "entityDeclaration") ; break ;
         case NSXMLAttributeDeclarationKind:  lua_pushstring(L, "attributeDeclaration") ; break ;
-        case NSXMLElementDeclarationKind:    lua_pushstring(L, "ElementDeclaration") ; break ;
-        case NSXMLNotationDeclarationKind:   lua_pushstring(L, "NotationDeclaration") ; break ;
+        case NSXMLElementDeclarationKind:    lua_pushstring(L, "elementDeclaration") ; break ;
+        case NSXMLNotationDeclarationKind:   lua_pushstring(L, "notationDeclaration") ; break ;
         default:                             lua_pushstring(L, "unknown") ; break ;
     }
     return 1 ;
 }
 
+/// hs._asm.xml:level() -> integer
+/// Method
+/// Returns the nesting level of the object within the tree hierarchy.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the nesting level of the object within the tree hierarchy.
+///
+/// Notes:
+///  * The root element of a document has a nesting level of one.
 static int xml_level(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -420,6 +553,18 @@ static int xml_level(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:name() -> string
+/// Method
+/// Returns the name of the object node.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the name of the object node or nil if the object does not have a name.
+///
+/// Notes:
+///  * This method is applicable only to objects representing elements, attributes, namespaces, processing instructions, and DTD-declaration nodes. If the object is not one of these kinds, this method returns nil.
 static int xml_name(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -428,6 +573,15 @@ static int xml_name(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:objectValue() -> object
+/// Method
+/// Returns the value of the xmlObject node.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the value of the xmlObject node.  For nodes without content (for example, document nodes), this method returns the same value as [hs._asm.xml:stringValue](#stringValue), or an empty string if there is no string value.
 static int xml_objectValue(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -436,6 +590,21 @@ static int xml_objectValue(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:stringValue() -> string
+/// Method
+/// Returns the content of the xmlObject as a string value.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the content of the xmlObject as a string value.
+///
+/// Notes:
+///  * If the receiver is a node object of element kind, the content is that of any text-node children. This method recursively visits elements nodes and concatenates their text nodes in document order with no intervening spaces.
+///  * If the receiver’s content is set as an object value, this method returns the string value representing the object.
+///  * If the object value is one of the standard, built-in ones (NSNumber, NSCalendarDate, and so on), the string value is in canonical format as defined by the W3C XML Schema Data Types specification.
+///  * If the object value is not represented by one of these classes (or if the default value transformer for a class has been overridden), the string value is generated by the NSValueTransformer registered for that object type.
 static int xml_stringValue(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -444,6 +613,18 @@ static int xml_stringValue(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:URI() -> string
+/// Method
+/// Returns the URI associated with the xmlObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the URI associated with the xmlObject
+///
+/// Notes:
+///  * A node’s URI is derived from its namespace or a document’s URI; for documents, the URI comes either from the parsed XML or is explicitly set.
 static int xml_URI(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -452,6 +633,18 @@ static int xml_URI(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:localName() -> string
+/// Method
+/// Returns the local name of the xmlObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the local name of the xmlObject.
+///
+/// Notes:
+///  * The local name is the part of a node name that follows a namespace-qualifying colon or the full name if there is no colon.
 static int xml_localName(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -460,6 +653,18 @@ static int xml_localName(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:prefix() -> string
+/// Method
+/// Returns the prefix (namespace) of the xmlObject’s name.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the prefix (namespace) of the xmlObject.
+///
+/// Notes:
+///  * The prefix is the part of a namespace-qualified name that precedes the colon.  This method returns an empty string if the object’s name is not qualified by a namespace.
 static int xml_prefix(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -468,6 +673,15 @@ static int xml_prefix(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:XPath() -> string
+/// Method
+/// Returns the XPath expression identifying the xmlObject node’s location in the document tree.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the XPath expression identifying the xmlObject node’s location in the document tree.
 static int xml_XPath(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -476,6 +690,15 @@ static int xml_XPath(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:XPathQuery([query]) -> table
+/// Method
+/// Returns a table containing the nodes resulting from executing an XPath query upon xmlObject.
+///
+/// Parameters:
+///  * query - an optional string that specifies an XPath query.  Defaults to ".".
+///
+/// Returns:
+///  * a table containing the nodes (if any) that match the XPath query within the context of the xmlObject node.
 static int xml_XPathQuery(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -491,14 +714,20 @@ static int xml_XPathQuery(lua_State *L) {
     }
 
     [skin pushNSObject:[obj nodesForXPath:query error:&error]] ;
-    if (error) {
-        lua_pop(L, 1) ;
-        [skin pushNSObject:[error description]] ;
-        return lua_error(L) ;
-    }
+    if (error) return luaL_error(L, [[error description] UTF8String]) ;
     return 1 ;
 }
 
+/// hs._asm.xml:XQuery([query], [constants]) -> table
+/// Method
+/// Returns a table containing the nodes resulting from executing an XQuery query upon xmlObject.
+///
+/// Parameters:
+///  * query     - an optional string that specifies an XQuery query.  Defaults to ".".
+///  * constants - an optional table containing the constants required for the query.  Defaults to an empty dictionary.
+///
+/// Returns:
+///  * a table containing the nodes (if any) that match the XQuery query within the context of the xmlObject node.
 static int xml_XQuery(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -524,16 +753,24 @@ static int xml_XQuery(lua_State *L) {
     }
 
     [skin pushNSObject:[obj objectsForXQuery:query constants:constants error:&error]] ;
-    if (error) {
-        lua_pop(L, 1) ;
-        [skin pushNSObject:[error description]] ;
-        return lua_error(L) ;
-    }
+    if (error) return luaL_error(L, [[error description] UTF8String]) ;
     return 1 ;
 }
 
 #pragma mark - DTD & DTDNode Module Methods
 
+/// hs._asm.xml:publicID() -> string
+/// Method
+/// Returns the xmlObject's public identifier.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the public identifier for the xmlObject.
+///
+/// Note:
+///  * this method is only valid for DTD and DTDNode xmlObjects; if used on an xmlObject of a different type, it will result in an error.
 static int xml_publicID(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -547,6 +784,18 @@ static int xml_publicID(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.xml:systemID() -> string
+/// Method
+/// Returns the xmlObject's system identifier.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the system identifier for the xmlObject.
+///
+/// Note:
+///  * this method is only valid for DTD and DTDNode xmlObjects; if used on an xmlObject of a different type, it will result in an error.
 static int xml_systemID(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
