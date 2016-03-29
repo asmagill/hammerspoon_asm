@@ -321,7 +321,24 @@ static int lookup(__unused lua_State *L) {
     return 1 ;
 }
 
+static int testLabeledTable1(lua_State *L) {
+    LuaSkin *skin = LST_getLuaSkin();
+    [skin checkArgs:LS_TTYPEDTABLE, "NSRect", LS_TBREAK] ;
+    lua_pushboolean(L, YES) ;
+    return 1;
+}
+
+static int testLabeledTable2(lua_State *L) {
+    LuaSkin *skin = LST_getLuaSkin();
+    [skin checkArgs:LS_TTYPEDTABLE, LS_TBREAK] ;
+    lua_pushboolean(L, YES) ;
+    return 1;
+}
+
 static const luaL_Reg extrasLib[] = {
+    {"testLabeledTable1",    testLabeledTable1},
+    {"testLabeledTable2",    testLabeledTable2},
+
     {"lookup",               lookup},
 
     {"listWindows",          listWindows},
