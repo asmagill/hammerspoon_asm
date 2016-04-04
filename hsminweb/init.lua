@@ -1,5 +1,16 @@
---
--- Minimalist Web Server for Hammerspoon
+--- === hs._asm.hsminweb ===
+---
+--- Minimalist Web Server for Hammerspoon
+---
+--- This module aims to be a minimal, but reasonably functional, web server for use within Hammerspoon.  Expanding upon the Hammerspoon module, `hs.httpserver`, this module adds support for serving static pages stored at a specified document root as well as serving dynamic content from user defined functions, lua files interpreted within the Hammerspoon environment, and external executables which support the CGI/1.1 framework.
+---
+--- This module aims to provide a fully functional, and somewhat extendable, web server foundation, but will never replace a true dedicated web server application.  Some limitations include:
+---  * It is single threaded within the Hammerspoon environment and can only serve one resource at a time
+---  * As with all Hammerspoon modules, while dynamic content is being generated, Hammerspoon cannot respond to other callback functions -- a complex or time consuming script may block other Hammerspoon activity in a noticeable manner.
+---  * All document requests and responses are handled in memory only -- because of this, maximum resource size is limited to what you are willing to allow Hammerspoon to consume and memory limitations of your computer.
+---
+--- While some of these limitations may be mitigated to an extent in the future with additional modules and additions to `hs.httpserver`, Hammerspoon's web serving capabilities will never replace a dedicated web server when volume or speed is required.
+
 --
 -- Planned Features
 --
@@ -19,6 +30,9 @@
 --   [X] add type validation, or at least wrap setters so we can reset internals when they fail
 --   [ ] documentation
 --
+--   [ ] embedded lua/SSI in regular html?
+--   [ ] logging?
+--
 --   [ ] additional response headers?
 --   [ ] Additional errors to add?
 --   [ ] proper content-type detection for GET
@@ -29,8 +43,12 @@
 --   [ ] For full WebDav support, some other methods may also require a body
 --
 
-local serverVersionString = "HSMinWeb/0.0.1"
-local module = {}
+local USERDATA_TAG          = "hs._asm.hsminweb"
+local serverVersionString   = USERDATA_TAG:gsub("^hs%._asm%.", "") .. "/0.0.1"
+local DEFAULT_ScriptTimeout = 30
+local scriptWrapper         = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."timeout3"
+
+local module     = {}
 
 local httpserver = require("hs.httpserver")
 local http       = require("hs.http")
@@ -41,8 +59,6 @@ module.log = log
 
 local HTTPdateFormatString = "!%a, %d %b %Y %T GMT"
 local HTTPformattedDate = function(x) return os.date(HTTPdateFormatString, x and x or os.time()) end
-
-local DEFAULT_ScriptTimeout = 30
 
 local shallowCopy = function(t1)
     local t2 = {}
@@ -61,23 +77,23 @@ local cgiExtensions = {
 local errorHandlers = setmetatable({
 -- https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
     [403] = function(method, path, headers)
-        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1></body></html>", 403, { Server = serverVersionString .. " (OSX)" }
+        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverVersionString .. " (OSX)" }
     end,
 
     [403.2] = function(method, path, headers)
-        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", is forbidden.<br/><hr/></body></html>", 403, { Server = serverVersionString .. " (OSX)" }
+        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverVersionString .. " (OSX)" }
     end,
 
     [404] = function(method, path, headers)
-        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", was not found on this server.<br/><hr/></body></html>", 404, { Server = serverVersionString .. " (OSX)" }
+        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 404, { Server = serverVersionString .. " (OSX)" }
     end,
 
     [405] = function(method, path, headers)
-        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ".<br/><hr/></body></html>", 405, { Server = serverVersionString .. " (OSX)" }
+        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ".<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverVersionString .. " (OSX)" }
     end,
 
     default = function(code, method, path, headers)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/></body></html>", 500, { Server = serverVersionString .. " (OSX)" }
+        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 500, { Server = serverVersionString .. " (OSX)" }
     end,
 }, {
     __index = function(_, key)
@@ -153,16 +169,16 @@ local webServerHandler = function(self, method, path, headers, body)
 
 -- check extension and see if it's an executable CGI
     local itBeCGI = false
-    if urlParts.pathExtension and self._cgiEnabled then
+    if pathParts.pathExtension and self._cgiEnabled then
         for i, v in ipairs(self._cgiExtensions) do
-            if v == urlParts.pathExtension then
+            if v == pathParts.pathExtension then
                 itBeCGI = true
                 break
             end
         end
     end
 
-    local itBeDynamic = itBeCGI or (self._inHammerspoonExtension and urlParts.pathExtension and self._inHammerspoonExtension == urlParts.pathExtension)
+    local itBeDynamic = itBeCGI or (self._inHammerspoonExtension and pathParts.pathExtension and self._inHammerspoonExtension == pathParts.pathExtension)
 
     local responseBody, responseCode, responseHeaders = "", 200, {}
 
@@ -196,7 +212,11 @@ local webServerHandler = function(self, method, path, headers, body)
             }
             for k, v in pairs(headers) do
                 local k2 = k:upper()
-                if not {"AUTHORIZATION" = true, "PROXY-AUTHORIZATION" = true, "_SSL" = true}[k2] then
+                if not ({
+                    ["AUTHORIZATION"] = true,
+                    ["PROXY-AUTHORIZATION"] = true,
+                    ["_SSL"] = true
+                })[k2] then
                     CGIVariables["HTTP_" .. k2] = v
                 end
             end
@@ -209,12 +229,12 @@ local webServerHandler = function(self, method, path, headers, body)
                 end
             end
             if not CGIVariables.REMOTE_HOST then
-                CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_ADDR
+                CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_ADDR
             end
 
             -- commonly added
             CGIVariables.DOCUMENT_URI    = CGIVariables.SCRIPT_NAME .. (CGIVariables.PATH_INFO and CGIVariables.PATH_INFO or "")
-            CGIVariables.REQUEST_URI     = CGIVariables.DOCUMENT_URI .. (CGIVariables.QUERY_STRING and ("?" .. CGIVariables.QUERY_STRING) or ""
+            CGIVariables.REQUEST_URI     = CGIVariables.DOCUMENT_URI .. (CGIVariables.QUERY_STRING and ("?" .. CGIVariables.QUERY_STRING) or "")
             CGIVariables.DOCUMENT_ROOT   = self._documentRoot
             CGIVariables.SCRIPT_FILENAME = targetFile
             CGIVariables.REQUEST_TIME    = os.time()
@@ -226,6 +246,8 @@ local webServerHandler = function(self, method, path, headers, body)
 
             if itBeCGI then
             -- do external script thing
+                local scriptTimeout = self._scriptTimeout or DEFAULT_ScriptTimeout
+
             else
             -- do the in Hammerspoon lua file thing
             end
@@ -237,7 +259,7 @@ local webServerHandler = function(self, method, path, headers, body)
             if method == "POST" then method = "GET" end
             if method == "GET" or method == "HEAD" then -- and not executable type then
                 if attributes.mode == "file" then
-                    local finput = io.open(file, "rb")
+                    local finput = io.open(targetFile, "rb")
                     if finput then
                         if method == "GET" then -- don't actually do work for HEAD
                             responseBody = finput:read("a")
@@ -249,28 +271,30 @@ local webServerHandler = function(self, method, path, headers, body)
                 elseif attributes.mode == "directory" and self._allowDirectory then
                     if fs.dir(targetFile) then
                         if method == "GET" then -- don't actually do work for HEAD
+                            local targetPath = pathParts.path
+                            if not targetPath:match("/$") then targetPath = targetPath .. "/" end
                             responseBody = [[
                                 <html>
                                   <head>
-                                    <title>Directory listing for ]] .. path .. [[</title>
+                                    <title>Directory listing for ]] .. targetPath .. [[</title>
                                   </head>
                                   <body>
-                                    <h1>Directory listing for ]] .. path .. [[</h1>
+                                    <h1>Directory listing for ]] .. targetPath .. [[</h1>
                                     <hr>
                                     <pre>]]
                             for k in fs.dir(targetFile) do
                                 local fattr = fs.attributes(targetFile.."/"..k)
                                 if k:sub(1,1) ~= "." then
                                     if fattr then
-                                        responseBody = responseBody .. string.format("    %-12s %s %7.2fK <a href=\"http%s://%s%s%s\">%s</a>\n", fattr.mode, fattr.permissions, fattr.size / 1024, (self._ssl and "s" or ""), headers.Host, path, k, k)
+                                        responseBody = responseBody .. string.format("    %-12s %s %7.2fK <a href=\"http%s://%s%s%s\">%s%s</a>\n", fattr.mode, fattr.permissions, fattr.size / 1024, (self._ssl and "s" or ""), headers.Host, targetPath, k, k, (fattr.mode == "directory" and "/" or ""))
                                     else
-                                        responseBody = responseBody .. "    ?? " .. k .. " ??\n"
+                                        responseBody = responseBody .. "    <i>unknown" .. string.rep(" ", 6) .. string.rep("-", 9) .. string.rep(" ", 10) .. "?? " .. k .. " ??</i>\n"
                                     end
                                 end
                             end
-                            responseBody = responseBody [[</pre>
+                            responseBody = responseBody .. [[</pre>
                                     <hr>
-                                    <div align="right"><i>]] .. responseHeaders["Server"] .. [[ at ]] .. os.date() .. [[</i></div>
+                                    <div align="right"><i>]] .. serverVersionString .. [[ at ]] .. os.date() .. [[</i></div>
                                   </body>
                                 </html>]]
                         end
@@ -295,9 +319,15 @@ end
 local objectMethods = {}
 local mt_table = {
     __passwords = {},
+    __tostrings = {},
     __index     = objectMethods,
     __metatable = objectMethods, -- getmetatable should only list the available methods
+    __type      = USERDATA_TAG,
 }
+
+mt_table.__tostring  = function(_)
+    return mt_table.__type .. ": " .. _:name() .. ":" .. tostring(_:port()) .. ", " .. (mt_table.__tostrings[_] or "* unbound -- this is unsupported *")
+end
 
 objectMethods.port = function(self, ...)
     local args = table.pack(...)
@@ -312,17 +342,6 @@ objectMethods.port = function(self, ...)
         return self
     else
         return self._server and self._server:getPort() or self._port
-    end
-end
-
-objectMethods.documentRoot = function(self, ...)
-    local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
-    if args.n > 0 then
-        self._documentRoot = args[1]
-        return self
-    else
-        return self._documentRoot
     end
 end
 
@@ -346,7 +365,6 @@ objectMethods.password = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
     if args.n > 0 then
-        mt_table.__passwords[self] = args[1]
         if self._server then
             self._server:setPassword(args[1])
             mt_table.__passwords[self] = args[1]
@@ -364,7 +382,6 @@ objectMethods.maxBodySize = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or (type(args[1]) == "number" and math.tointeger(args[1])), "argument must be an integer")
     if args.n > 0 then
-        self._maxBodySize = args[1]
         if self._server then
             self._server:maxBodySize(args[1])
             self._maxBodySize = self._server:maxBodySize()
@@ -374,6 +391,17 @@ objectMethods.maxBodySize = function(self, ...)
         return self
     else
         return self._server and self._server:maxBodySize() or self._maxBodySize
+    end
+end
+
+objectMethods.documentRoot = function(self, ...)
+    local args = table.pack(...)
+    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
+    if args.n > 0 then
+        self._documentRoot = args[1]
+        return self
+    else
+        return self._documentRoot
     end
 end
 
@@ -473,6 +501,17 @@ objectMethods.inHammerspoonExtension = function(self, ...)
     end
 end
 
+objectMethods.scriptTimeout = function(self, ...)
+    local args = table.pack(...)
+    assert(type(args[1]) == "nil" or (type(args[1]) == "number" and math.tointeger(args[1])), "argument must be an integer")
+    if args.n > 0 then
+        self._scriptTimeout = args[1]
+        return self
+    else
+        return self._scriptTimeout
+    end
+end
+
 objectMethods.accessList = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of access requirements")
@@ -525,12 +564,16 @@ module.new = function(documentRoot)
         _documentRoot     = documentRoot or os.getenv("HOME").."/Sites",
         _directoryIndex   = shallowCopy(directoryIndex),
         _cgiExtensions    = shallowCopy(cgiExtensions),
+
         _errorHandlers    = setmetatable({}, { __index = errorHandlers }),
         _supportedMethods = setmetatable({}, { __index = supportedMethods }),
     }
 
     -- make it easy to see which methods are supported
     for k, v in pairs(supportedMethods) do if v then instance._supportedMethods[k] = v end end
+
+    -- save tostring(instance) since we override it, but I like the address so it looks more "formal" in the console...
+    mt_table.__tostrings[instance] = tostring(instance)
 
     return setmetatable(instance, mt_table)
 end
