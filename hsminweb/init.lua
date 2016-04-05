@@ -21,20 +21,21 @@
 --   [X] functions for methods
 --   [X] default page for directory
 --   [X] text references to "http://" need to check _ssl status
---   [-] verify read access to file
---   [ ] access list/general header check for go ahead?
+--   [X] verify read access to file
+--   [X] access list/general header check for go ahead?
 --   [-] CGI Variables (still need query string)
 --   [-] CGI file types, check executable extensions
 --   [-] Hammerspoon aware pages (files, functions?)
+--       [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
 --   [ ] Decode query strings
 --   [ ] Decode form POST data
 --   [ ] Allow adding alternate POST encodings (JSON)
 --   [X] add type validation, or at least wrap setters so we can reset internals when they fail
---   [ ] documentation
+--   [X] documentation
 --
---   [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
+--   [ ] support PATH_INFO?  Not directly supported by hs.http.urlParts (i.e. NSURLComponents), so we'd have to roll our own...
+--
 --   [ ] logging?
---
 --   [ ] additional response headers?
 --   [ ] Additional errors to add?
 --   [ ] proper content-type detection for GET
@@ -60,7 +61,7 @@ local log        = require("hs.logger").new(serverVersionString, "warning")
 module.log = log
 
 local HTTPdateFormatString = "!%a, %d %b %Y %T GMT"
-local HTTPformattedDate = function(x) return os.date(HTTPdateFormatString, x and x or os.time()) end
+local HTTPformattedDate = function(x) return os.date(HTTPdateFormatString, x or os.time()) end
 
 local shallowCopy = function(t1)
     local t2 = {}
@@ -124,11 +125,57 @@ local supportedMethods = {
     UNLOCK    = false,
 }
 
+local verifyAccess = function(aclTable, headers)
+    local accessGranted = false
+    local headerMap = {}
+    for k, v in pairs(headers) do headerMap[k:upper()] = k end
+
+    for i, v in ipairs(aclTable) do
+        local headerToCheck = v[1]:upper()
+        local valueToCheck  = v[2]
+        local isPattern     = v[3]
+        local desiredResult = v[4]
+
+        if type(v[1]) == "string" and
+           type(v[2]) == "string" and
+           (type(v[3]) == "boolean" or type(v[3]) == "nil") and
+           (type(v[4]) == "boolean" or type(v[4]) == "nil") then
+
+            if headerToCheck == '*' and valueToCheck == '*' then
+                accessGranted = desiredResult
+                break
+            else
+                local matched = false
+                local value = headers[headerMap[headerToCheck]]
+                if value then
+                    if isPattern then
+                        matched = value:match(valueToCheck)
+                    else
+                        matched = (value == valueToCheck)
+                    end
+                end
+                if matched then
+                    accessGranted = desiredResult
+                    break
+                end
+            end
+        else
+            log.wf("access-list entry %d malformed, found { %s, %s, %s, %s }: skipping", i, type(v[1]), type(v[2]), type(v[3]), type(v[4]))
+        end
+    end
+
+    return accessGranted
+end
+
 local webServerHandler = function(self, method, path, headers, body)
     method = method:upper()
 
     -- to help make proper URL in error functions
     headers._SSL = self._ssl and true or false
+
+    if self._accessList and not verifyAccess(self._accessList, headers) then
+        return self._errorHandlers[403](method, path, headers)
+    end
 
     local action = self._supportedMethods[method]
     if not action then return self._errorHandlers[405](method, path, headers) end
@@ -207,21 +254,11 @@ local webServerHandler = function(self, method, path, headers, body)
 --                 REMOTE_IDENT      = , -- we don't support IDENT protocol
                 REMOTE_USER       = self:password() and "" or nil,
                 SCRIPT_NAME       = pathParts.path,
-                SERVER_NAME       = headers.host,
-                SERVER_PORT       = headers.port and headers.port or (self._ssl and 443 or 80),
+                SERVER_NAME       = pathParts.host,
+                SERVER_PORT       = pathParts.port or (self._ssl and 443 or 80),
                 SERVER_PROTOCOL   = "HTTP/1.1",
                 SERVER_SOFTWARE   = serverVersionString,
             }
-            for k, v in pairs(headers) do
-                local k2 = k:upper()
-                if not ({
-                    ["AUTHORIZATION"] = true,
-                    ["PROXY-AUTHORIZATION"] = true,
-                    ["_SSL"] = true
-                })[k2] then
-                    CGIVariables["HTTP_" .. k2] = v
-                end
-            end
             if self._dnsLookup then
                 local good, val = pcall(nethost.hostnamesForAddress, CGIVariables.REMOTE_ADDR)
                 if good then
@@ -232,6 +269,19 @@ local webServerHandler = function(self, method, path, headers, body)
             end
             if not CGIVariables.REMOTE_HOST then
                 CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_ADDR
+            end
+
+            -- Request headers per rfc2875
+            for k, v in pairs(headers) do
+                local k2 = k:upper()
+                -- skip Authorization related headers (per rfc2875) and _SSL internally used flag
+                if not ({
+                    ["AUTHORIZATION"] = true,
+                    ["PROXY-AUTHORIZATION"] = true,
+                    ["_SSL"] = true
+                })[k2] then
+                    CGIVariables["HTTP_" .. k2] = v
+                end
             end
 
             -- commonly added
@@ -331,6 +381,18 @@ mt_table.__tostring  = function(_)
     return mt_table.__type .. ": " .. _:name() .. ":" .. tostring(_:port()) .. ", " .. (mt_table.__tostrings[_] or "* unbound -- this is unsupported *")
 end
 
+--- hs._asm.hsminweb:port([port]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the name the port the web server listens on
+---
+--- Parameters:
+---  * port - an optional integer specifying the TCP port the server listens for requests on when it is running.  Defaults to `nil`, which causes the server to randomly choose a port when it is started.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * due to security restrictions enforced by OS X, the port must be a number greater than 1023
 objectMethods.port = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or (type(args[1]) == "number" and math.tointeger(args[1])), "argument must be an integer")
@@ -347,6 +409,15 @@ objectMethods.port = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:name([name]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the name the web server uses in Bonjour advertisement when the web server is running.
+---
+--- Parameters:
+---  * name - an optional string specifying the name the server advertises itself as when Bonjour is enabled and the web server is running.  Defaults to `nil`, which causes the server to be advertised with the computer's name as defined in the Sharing preferences panel for the computer.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.name  = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
@@ -363,6 +434,19 @@ objectMethods.name  = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:password([password]) -> hsminwebTable | boolean
+--- Method
+--- Set a password for the hsminweb web server, or return a boolean indicating whether or not a password is currently set for the web server.
+---
+--- Parameters:
+---  * password - An optional string that contains the server password, or an explicit `nil` to remove an existing password.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or a boolean indicathing whether or not a password has been set if no parameter is specified.
+---
+--- Notes:
+---  * the password, if set, is server wide and causes the server to use the Basic authentication scheme with an empty string for the username.
+---  * this module is an extension to the Hammerspoon core module `hs.httpserver`, so it has the limitations regarding server passwords. See the documentation for `hs.httpserver.setPassword` (`help.hs.httpserver.setPassword` in the Hammerspoon console).
 objectMethods.password = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
@@ -380,6 +464,19 @@ objectMethods.password = function(self, ...)
 end
 
 
+--- hs._asm.hsminweb:maxBodySize([size]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the maximum body size for an HTTP request
+---
+--- Parameters:
+---  * size - An optional integer value specifying the maximum body size allowed for an incoming HTTP request in bytes.  Defaults to 10485760 (10 MB).
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * Because the Hammerspoon http server processes incoming requests completely in memory, this method puts a limit on the maximum size for a POST or PUT request.
+---  * If the request body excedes this size, `hs.httpserver` will respond with a status code of 405 for the method before this module ever receives the request.
 objectMethods.maxBodySize = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or (type(args[1]) == "number" and math.tointeger(args[1])), "argument must be an integer")
@@ -396,6 +493,15 @@ objectMethods.maxBodySize = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:documentRoot([path]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the document root for the web server.
+---
+--- Parameters:
+---  * path - an optional string, default `os.getenv("HOME") .. "/Sites"`, specifying where documents for the web server should be served from.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.documentRoot = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
@@ -407,6 +513,19 @@ objectMethods.documentRoot = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:ssl([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not the web server utilizes SSL for HTTP request and response communications.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to false, indicating whether or not the server utilizes SSL for HTTP request and response traffic.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * this flag can only be changed when the server is not running (i.e. the [hs._asm.hsminweb:start](#start) method has not yet been called, or the [hs._asm.hsminweb:stop](#stop) method is called first.)
+---  * this module is an extension to the Hammerspoon core module `hs.httpserver`, so it has the considerations regarding SSL. See the documentation for `hs.httpserver.new` (`help.hs.httpserver.new` in the Hammerspoon console).
 objectMethods.ssl = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
@@ -422,6 +541,18 @@ objectMethods.ssl = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:bonjour([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not the web server should advertise itself via Bonjour when it is running.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to true, indicating whether or not the server should advertise itself via Bonjour when it is running.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * this flag can only be changed when the server is not running (i.e. the [hs._asm.hsminweb:start](#start) method has not yet been called, or the [hs._asm.hsminweb:stop](#stop) method is called first.)
 objectMethods.bonjour = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
@@ -437,6 +568,18 @@ objectMethods.bonjour = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:allowDirectory([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not a directory index is returned when the requested URL specifies a directory and no file matching an entry in the directory indexes table is found.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to false, indicating whether or not a directory index can be returned when a default file cannot be located.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * if this value is false, then an attempt to retrieve a URL specifying a directory that does not contain a default file as identified by one of the entries in the [hs._asm.hsminweb:directoryIndex](#directoryIndex) list will result in a "403.2" error.
 objectMethods.allowDirectory = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
@@ -448,6 +591,19 @@ objectMethods.allowDirectory = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:dnsLookup([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not DNS lookups are performed.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to false, indicating whether or not DNS lookups are performed.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * DNS lookups can be time consuming or even block Hammerspoon for a short time, so they are disabled by default.
+---  * Currently DNS lookups are (optionally) performed for CGI scripts, but may be added for other purposes in the future (logging, etc.).
 objectMethods.dnsLookup = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
@@ -459,6 +615,18 @@ objectMethods.dnsLookup = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:directoryIndex([table]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the file names to look for when the requested URL specifies a directory.
+---
+--- Parameters:
+---  * table - an optional table or `nil`, defaults to `{ "index.html", "index.htm" }`, specifying a list of file names to look for when the requested URL specifies a directory.  If a file with one of the names is found in the directory, this file is served instead of the directory.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * Files listed in this table are checked in order, so the first matched is served.  If no file match occurs, then the server will return a generated list of the files in the directory, or a "403.2" error, depending upon the value controlled by [hs._asm.hsminweb:allowDirectory](#allowDirectory).
 objectMethods.directoryIndex = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be a table of index file names")
@@ -470,6 +638,15 @@ objectMethods.directoryIndex = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:cgiEnabled([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not CGI file execution is enabled.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to false, indicating whether or not CGI script execution is enabled for the web server.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.cgiEnabled = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
@@ -486,7 +663,7 @@ end
 --- Get or set the file extensions which identify files which should be executed as CGI scripts to provide the results to an HTTP request.
 ---
 --- Parameters:
----  * table - an optional table or `nil`, defaults to `{ "cgi, "pl" }`, specifying a list of file extensions which indicate that a file should be executed as CGI scripts to provide the content for an HTTP request.
+---  * table - an optional table or `nil`, defaults to `{ "cgi", "pl" }`, specifying a list of file extensions which indicate that a file should be executed as CGI scripts to provide the content for an HTTP request.
 ---
 --- Returns:
 ---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
@@ -680,6 +857,63 @@ module.new = function(documentRoot)
 
     return setmetatable(instance, mt_table)
 end
+
+--- hs._asm.hsminweb._errorHandlers
+--- Variable
+--- Accessed as `object._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
+---
+--- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition.  To allow for both types, this module uses the string representation of the error code as its keys.  In addition, the key "default" is used for error codes which do not have a defined function.
+---
+--- Built in handlers exist for the following error codes:
+---  * "403"   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
+---  * "403.2" - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
+---  * "404"   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
+---  * "405"   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
+---
+--- The "default" key specifies a "500" error, which indicates a "Internal Server Error", in this case because an error condition occurred for which there is no handler.
+---
+--- You can provide your own handler by specifying a function for the desired error condition.  The function should expect three arguments:
+---  * method  - the method for the HTTP request
+---  * path    - the full path, including any GET query items
+---  * headers - a table containing key-value pairs for the HTTP request headers
+---
+--- If you override the default handler, the function should expect four arguments:  the error code as a string, followed by the same three arguments defined above.
+---
+--- In either case, the function should return three values:
+---  * body    - the content to be returned, usually HTML for a basic error description page
+---  * code    - a 3 digit integer specifying the HTTP Response status (see https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
+---  * headers - a table containing any headers which should be included in the HTTP response.  Usually this will just be an empty table (e.g. {})
+
+--- hs._asm.hsminweb._supportMethods
+--- Variable
+--- Accessed as `object._supportMethods[method]`.  A table whose keyed entries specify whether or not a specified HTTP method is supported by this server.
+---
+--- The default methods supported internally are:
+---  * HEAD - an HTTP method which verifies whether or not a resource is available and it's last modified date
+---  * GET  - an HTTP method requesting content; the default method used by web browsers for bookmarks or URLs typed in by the user
+---  * POST - an HTTP method requesting content that includes content in the request body, most often used by forms to include user input or file data which may affect the content being returned.
+---
+--- These methods are included by default in this variable and are set to the boolean value true to indicate that they are supported and that the internal support code should be used.
+---
+--- You can assign a function to these methods if you wish for a custom handler to be invoked when the method is used in an HTTP request.  The function should accept five arguments:
+---  * self    - the `hsminwebTable` object representing the web server
+---  * method  - the method for the HTTP request
+---  * path    - the full path, including any GET query items
+---  * headers - a table containing the HTTP request headers
+---  * body    - the content of the request body, if available, otherwise nil.  Currently only the POST and PUT methods will contain a request body, but this may change in the future.
+---
+--- The function should return one or three values:
+---  * body    - the content to be returned.  If this is the boolean `false` or `nil`, then the request will fall through to the default handlers as if this function had never been called (this can be used in cases where you want to override the default behavior only for certain requests based on header or path details)
+---  * code    - a 3 digit integer specifying the HTTP Response status (see https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
+---  * headers - a table containing any headers which should be included in the HTTP response.  If `Server` or `Last-Modified` are not present, they will be provided automatically.
+---
+--- If you assign `false` to a method, then any request utilizing that method will return a status of 405 (Method Not Supported).  E.g. `object._supportMethods["POST"] = false` will prevent the POST method from being supported.
+---
+--- There are some functions and conventions used within this module which can simplify generating appropriate content within your custom functions.  Currently, you should review the module source, but a companion document describing these functions and conventions is expected to follow in the near future.
+---
+--- Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support, so even if you set other methods to `true`, they will return a statuc code of 405 (Method Not Supported).  You must provide your own function, at present, if you wish to support additional methods.
+--- A companion module supporting the methods required for WebDAV is being considered.
+
 
 --- hs._asm.hsminweb.dateFormatString
 --- Constant
