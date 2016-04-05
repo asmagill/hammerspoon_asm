@@ -2,6 +2,8 @@
 ---
 --- Minimalist Web Server for Hammerspoon
 ---
+--- Note that his module is in development; not all methods described here are fully functional yet.  Others may change slightly during development, so be aware, if you choose to start using this module, that things may change somewhat before it stabilizes.
+---
 --- This module aims to be a minimal, but reasonably functional, web server for use within Hammerspoon.  Expanding upon the Hammerspoon module, `hs.httpserver`, this module adds support for serving static pages stored at a specified document root as well as serving dynamic content from user defined functions, lua files interpreted within the Hammerspoon environment, and external executables which support the CGI/1.1 framework.
 ---
 --- This module aims to provide a fully functional, and somewhat extendable, web server foundation, but will never replace a true dedicated web server application.  Some limitations include:
@@ -30,7 +32,7 @@
 --   [X] add type validation, or at least wrap setters so we can reset internals when they fail
 --   [ ] documentation
 --
---   [ ] embedded lua/SSI in regular html?
+--   [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
 --   [ ] logging?
 --
 --   [ ] additional response headers?
@@ -479,6 +481,18 @@ objectMethods.cgiEnabled = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:cgiExtensions([table]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the file extensions which identify files which should be executed as CGI scripts to provide the results to an HTTP request.
+---
+--- Parameters:
+---  * table - an optional table or `nil`, defaults to `{ "cgi, "pl" }`, specifying a list of file extensions which indicate that a file should be executed as CGI scripts to provide the content for an HTTP request.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * this list is ignored if [hs._asm.hsminweb:cgiEnabled](#cgiEnabled) is not also set to true.
 objectMethods.cgiExtensions = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of file extensions")
@@ -490,6 +504,18 @@ objectMethods.cgiExtensions = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:inHammerspoonExtension([string]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the extension of files which contain Lua code which should be executed within Hammerspoon to provide the results to an HTTP request.
+---
+--- Parameters:
+---  * string - an optional string or `nil`, defaults to `nil`, specifying the file extension which indicates that a file should be executed as Lua code within the Hammerspoon environment to provide the content for an HTTP request.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * This extension is checked after the extensions given to [hs._asm.hsminweb:cgiExtensions](#cgiExtensions); this means that if the same extension set by this method is also in the CGI extensions list, then the file will be interpreted as a CGI script and ignore this setting.
 objectMethods.inHammerspoonExtension = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be a file extension")
@@ -501,6 +527,19 @@ objectMethods.inHammerspoonExtension = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:scriptTimeout([integer]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the timeout for a CGI script
+---
+--- Parameters:
+---  * integer - an optional integer, defaults to 30, specifying the length of time in seconds a CGI script should be allowed to run before being forcibly terminated if it has not yet completed its task.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * With the current functionality available in `hs.httpserver`, any script which is expected to return content for an HTTP request must run in a blocking manner -- this means that no other Hammerspoon activity can be occurring while the script is executing.  This parameter lets you set the maximum amount of time such a script can hold things up before being terminated.
+---  * An alternative implementation of at least some of the methods available in `hs.httpserver` is being considered which may make it possible to use `hs.task` for these scripts, which would alleviate this blocking behavior.  However, even if this is addressed, a timeout for scripts is still desirable so that a client making a request doesn't sit around waiting forever if a script is malformed.
 objectMethods.scriptTimeout = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or (type(args[1]) == "number" and math.tointeger(args[1])), "argument must be an integer")
@@ -512,6 +551,37 @@ objectMethods.scriptTimeout = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:accessList([table]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the access-list table for the hsminweb web server
+---
+--- Parameters:
+---  * table - an optional table or `nil` containing the access list for the web server, default `nil`.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * The access-list feature works by comparing the request headers against a list of tests which either accept or reject the request.  If no access list is set (i.e. it is assigned a value of `nil`), then all requests are served.  If a table is passed into this method, then any request which is not explicitly accepted by one of the tests provided is rejected (i.e. there is an implicit "reject" at the end of the list).
+---  * The access-list table is a list of tests which are evaluated in order.  The first test which matches a given request determines whether or not the request is accepted or rejected.
+---  * Each entry in the access-list table is also a table with the following format:
+---    * { 'header', 'value', isPattern, isAccepted }
+---      * header     - a string value matching the name of a header.  While the header name must match exactly, the comparison is case-insensitive (i.e. "X-Client-IP" and "x-client-ip" will both match the actual header name used, which is "X-Client-Ip").
+---      * value      - a string value specifying the value to compare the header key's value to.
+---      * isPattern  - a boolean indicating whether or not the header key's value should be compared to `value` as a pattern match (true) -- see Lua documentation 6.4.1, `help.lua._man._6_4_1` in the console, or as an exact match (false)
+---      * isAccepted - a boolean indicating whether or not a match should be accepted (true) or rejected (false)
+---    * A special entry of the form { '*', '*', '*', true } accepts all further requests and can be used as the final entry if you wish for the access list to function as a list of requests to reject, but to accept any requests which do not match a previous test.
+---    * A special entry of the form { '*', '*', '*', false } rejects all further requests and can be used as the final entry if you wish for the access list to function as a list of requests to accept, but to reject any requests which do not match a previous test.  This is the implicit "default" final test if a table is assigned with the access-list method and does not actually need to be specified, but is allowed for "completeness".
+---    * Note that any entry after an entry in which the first two parameters are equal to '*' will never actually be used.
+---
+---  * The tests are performed in order; if you wich to allow one IP address in a range, but reject all others, you should list the accepted IP addresses first. For example:
+---     ~~~
+---     {
+---        { 'X-Client-IP', '192.168.1.100',  false, true },  -- accept requests from 192.168.1.100
+---        { 'X-Client-IP', '^192%.168%.1%.', true,  false }, -- reject all others from the 192.168.1 subnet
+---        { '*',           '*',              '*',   true }   -- accept all other requests
+---     }
+---     ~~~
 objectMethods.accessList = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of access requirements")
@@ -523,6 +593,15 @@ objectMethods.accessList = function(self, ...)
     end
 end
 
+--- hs._asm.hsminweb:start() -> hsminwebTable
+--- Method
+--- Start serving pages for the hsminweb web server.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * the hsminWebTable object
 objectMethods.start = function(self)
     if not self._server then
         self._ssl     = self._ssl or false
@@ -544,6 +623,18 @@ objectMethods.start = function(self)
     end
 end
 
+--- hs._asm.hsminweb:stop() -> hsminwebTable
+--- Method
+--- Stop serving pages for the hsminweb web server.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * the hsminWebTable object
+---
+--- Notes:
+---  * this method is called automatically during garbage collection.
 objectMethods.stop = function(self)
     if self._server then
         self._server:stop()
@@ -558,7 +649,19 @@ objectMethods.__gc = function(self)
     if self._server then self:stop() end
 end
 
-
+--- hs._asm.hsminweb.new([documentRoot]) -> hsminwebTable
+--- Constructor
+--- Create a new hsminweb table object representing a Hammerspoon Web Server.
+---
+--- Parameters:
+---  * documentRoot - an optional string specifying the document root for the new web server.  Defaults to the Hammerspoon users `Sites` sub-directory (i.e. `os.getenv("HOME").."/Sites"`).
+---
+--- Returns:
+---  * a table representing the hsminweb object.
+---
+--- Notes:
+---  * a web server's document root is the directory which contains the documents or files to be served by the web server.
+---  * while an hs.minweb object is actually represented by a Lua table, it has been assigned a meta-table which allows methods to be called directly on it like a user-data object.  For most purposes, you should think of this table as the module's userdata.
 module.new = function(documentRoot)
     local instance = {
         _documentRoot     = documentRoot or os.getenv("HOME").."/Sites",
@@ -578,7 +681,20 @@ module.new = function(documentRoot)
     return setmetatable(instance, mt_table)
 end
 
+--- hs._asm.hsminweb.dateFormatString
+--- Constant
+--- A format string, usable with `os.date`, which will display a date in the format expected for HTTP communications as described in RFC 822, updated by RFC 1123.
 module.dateFormatString = HTTPdateFormatString
+
+--- hs._asm.hsminweb.formattedDate([date]) -> string
+--- Function
+--- Returns the current or specified time in the format expected for HTTP communications as described in RFC 822, updated by RFC 1123.
+---
+--- Parameters:
+---  * date - an optional integer specifying the date as the number of seconds since 00:00:00 UTC on 1 January 1970.  Defaults to the current time as returned by `os.time()`
+---
+--- Returns:
+---  * the time indicated as a string in the format expected for HTTP communications as described in RFC 822, updated by RFC 1123.
 module.formattedDate    = HTTPformattedDate
 
 return module
