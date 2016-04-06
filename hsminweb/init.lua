@@ -23,31 +23,36 @@
 --   [X] text references to "http://" need to check _ssl status
 --   [X] verify read access to file
 --   [X] access list/general header check for go ahead?
---   [-] CGI Variables (still need query string)
---   [-] CGI file types, check executable extensions
+--   [X] CGI Variables
+--   [X] CGI file types, check executable extensions
+--   [ ] can CGI script change working directory to CGI file's directory?
 --   [-] Hammerspoon aware pages (files, functions?)
 --       [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
---   [ ] Decode query strings
---   [ ] Decode form POST data
+--       [ ] Decode query strings
+--       [ ] Decode form POST data
 --   [ ] Allow adding alternate POST encodings (JSON)
 --   [X] add type validation, or at least wrap setters so we can reset internals when they fail
 --   [X] documentation
+--   [X] proper content-type detection for GET
 --
+--   [ ] helpers for custom functions/handlers
+--       [ ] common headers
+--       [ ] function to get CGI-like variables?
+--       [ ] query/body parsing like Hammerspoon/cgilua support?
+--
+--   [ ] common/default response headers? Would simplify error functions...
 --   [ ] wrap webServerHandler so we can do SSI?  will need a way to verify text content or specific header check
 --
 --   [ ] should things like directory index code be a function so it can be overridden?
---       [ ] custom headers/footers?
+--       [ ] custom headers/footers? (auto include head/tail files if exist?)
 --
---   [ ] custom methods before or after directoryIndex, etc?
+--   [ ] support per-dir, in addition to per-server settings?
 --
---   [ ] support per-dir, as opposed to per-server settings?
---
---   [ ] support PATH_INFO?  Not directly supported by hs.http.urlParts (i.e. NSURLComponents), so we'd have to roll our own...
+--   [ ] support PATH_INFO?  Not directly supported by hs.http.urlParts (i.e. NSURLComponents), so we'd have to roll our own... see how Apache handles it
 --
 --   [ ] logging?
 --   [ ] additional response headers?
 --   [ ] Additional errors to add?
---   [X] proper content-type detection for GET
 --
 --   [ ] basic/digest auth via lua only?
 --   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
@@ -56,7 +61,8 @@
 --
 
 local USERDATA_TAG          = "hs._asm.hsminweb"
-local serverVersionString   = USERDATA_TAG:gsub("^hs%._asm%.", "") .. "/0.0.1"
+local VERSION               = "0.0.2"
+
 local DEFAULT_ScriptTimeout = 30
 local scriptWrapper         = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."timeout3"
 
@@ -66,13 +72,16 @@ local httpserver = require("hs.httpserver")
 local http       = require("hs.http")
 local fs         = require("hs.fs")
 local nethost    = require("hs.network.host")
-local log        = require("hs.logger").new(serverVersionString, "debug")
 local hshost     = require("hs.host")
 
+local serverAdmin    = os.getenv("USER") .. "@" .. hshost.localizedName()
+local serverSoftware = USERDATA_TAG:gsub("^hs%._asm%.", "") .. "/" .. VERSION
+
+local log  = require("hs.logger").new(serverSoftware, "debug")
 module.log = log
 
 local HTTPdateFormatString = "!%a, %d %b %Y %T GMT"
-local HTTPformattedDate = function(x) return os.date(HTTPdateFormatString, x or os.time()) end
+local HTTPformattedDate    = function(x) return os.date(HTTPdateFormatString, x or os.time()) end
 
 local shallowCopy = function(t1)
     local t2 = {}
@@ -91,27 +100,27 @@ local cgiExtensions = {
 local errorHandlers = setmetatable({
 -- https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
     [403] = function(method, path, headers)
-        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 
     [403.2] = function(method, path, headers)
-        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 
     [404] = function(method, path, headers)
-        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 404, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 404, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 
     [405] = function(method, path, headers)
-        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ".<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ".<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 
     [500] = function(method, path, headers)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>An internal server error occurred.  Check the Hammerspoon console for possible log messages which may contain more details.<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>An internal server error occurred.  Check the Hammerspoon console for possible log messages which may contain more details.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 
     default = function(code, method, path, headers)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. serverVersionString .. " at " .. os.date() .. "</i></div></body></html>", 500, { Server = serverVersionString .. " (OSX)", ["Content-Type"] = "text/html" }
+        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 500, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
     end,
 }, {
     __index = function(_, key)
@@ -202,7 +211,7 @@ local webServerHandler = function(self, method, path, headers, body)
         if responseBody then
             responseCode    = responseCode or 200
             responseHeaders = responseHeaders or {}
-            responseHeaders["Server"]        = responseHeaders["Server"]        or serverVersionString .. " (OSX)"
+            responseHeaders["Server"]        = responseHeaders["Server"]        or serverSoftware .. " (OSX)"
             responseHeaders["Last-Modified"] = responseHeaders["Last-Modified"] or HTTPformattedDate()
             return responseBody, responseCode, responseHeaders
         end
@@ -249,202 +258,204 @@ local webServerHandler = function(self, method, path, headers, body)
     local responseBody, responseCode, responseHeaders = "", 200, {}
 
     responseHeaders["Last-Modified"] = HTTPformattedDate(attributes.modified)
-    responseHeaders["Server"]        = serverVersionString .. " (OSX)"
+    responseHeaders["Server"]        = serverSoftware .. " (OSX)"
 
-    if (method == "HEAD") or (method == "GET") or (method == "POST") then
-        if itBeDynamic then
-        -- target is dynamically generated
-            responseHeaders["Last-Modified"] = HTTPformattedDate()
+    if itBeDynamic then
+    -- target is dynamically generated
+        responseHeaders["Last-Modified"] = HTTPformattedDate()
 
-            -- per https://tools.ietf.org/html/rfc3875
-            local CGIVariables = {
-                AUTH_TYPE         = self:password() and "Basic" or nil,
-                CONTENT_TYPE      = headers["Content-Type"],
-                CONTENT_LENGTH    = headers["Content-Length"],
-                GATEWAY_INTERFACE = "CGI/1.1",
+        -- per https://tools.ietf.org/html/rfc3875
+        local CGIVariables = {
+            AUTH_TYPE         = self:password() and "Basic" or nil,
+            CONTENT_TYPE      = headers["Content-Type"],
+            CONTENT_LENGTH    = headers["Content-Length"],
+            GATEWAY_INTERFACE = "CGI/1.1",
 --                 PATH_INFO         = , -- path portion after script (e.g. ../info.php/path/info/portion)
 --                 PATH_TRANSLATED   = , -- see below
-                QUERY_STRING      = pathParts.query,
-                REQUEST_METHOD    = method,
-                REMOTE_ADDR       = headers["X-Client-Ip"],
+            QUERY_STRING      = pathParts.query,
+            REQUEST_METHOD    = method,
+            REQUEST_SCHEME    = pathParts.scheme,
+            REMOTE_ADDR       = headers["X-Remote-Addr"],
+            REMOTE_PORT       = headers["X-Remote-Port"],
 --                 REMOTE_HOST       = , -- see below
 --                 REMOTE_IDENT      = , -- we don't support IDENT protocol
-                REMOTE_USER       = self:password() and "" or nil,
-                SCRIPT_NAME       = pathParts.path,
-                SERVER_NAME       = pathParts.host,
-                SERVER_PORT       = pathParts.port or (self._ssl and 443 or 80),
-                SERVER_PROTOCOL   = "HTTP/1.1",
-                SERVER_SOFTWARE   = serverVersionString,
-            }
-            if CGIVariables.PATH_INFO then
-                CGIVariables.PATH_TRANSLATED = self._documentRoot .. CGIVariables.PATH_INFO
-            end
-            if self._dnsLookup then
-                local good, val = pcall(nethost.hostnamesForAddress, CGIVariables.REMOTE_ADDR)
-                if good then
-                    CGIVariables.REMOTE_HOST = val[1]
-                else
-                    log.vf("unable to resolve %s", CGIVariables.REMOTE_ADDR)
-                end
-            end
-            if not CGIVariables.REMOTE_HOST then
-                CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_ADDR
-            end
-
-            -- Request headers per rfc2875
-            for k, v in pairs(headers) do
-                local k2 = k:upper():gsub("-", "_")
-                -- skip Authorization related headers (per rfc2875) and _SSL internally used flag
-                if not ({
-                    ["AUTHORIZATION"] = true,
-                    ["PROXY-AUTHORIZATION"] = true,
-                    ["_SSL"] = true
-                })[k2] then
-                    CGIVariables["HTTP_" .. k2] = v
-                end
-            end
-
-            -- commonly added
-            CGIVariables.DOCUMENT_URI    = CGIVariables.SCRIPT_NAME .. (CGIVariables.PATH_INFO and CGIVariables.PATH_INFO or "")
-            CGIVariables.REQUEST_URI     = CGIVariables.DOCUMENT_URI .. (CGIVariables.QUERY_STRING and ("?" .. CGIVariables.QUERY_STRING) or "")
-            CGIVariables.DOCUMENT_ROOT   = self._documentRoot
-            CGIVariables.SCRIPT_FILENAME = targetFile
-            CGIVariables.REQUEST_TIME    = os.time()
-            CGIVariables.HTTPS           = self._ssl and "on" or nil
-
-            if itBeCGI then
-            -- do external script thing
-
--- this is a horrible horrible hack...
--- look for an update to hs.httpserver because I really really really want to use hs.task for this...
-
-                local scriptTimeout = self._scriptTimeout or DEFAULT_ScriptTimeout
-                local tempFileName = fs.temporaryDirectory() .. "/" .. USERDATA_TAG:gsub("^hs%._asm%.", "") .. hshost.globallyUniqueString()
-log.vf("tempFileName:%s", tempFileName)
-
-                local tmpCGIFile = io.open(tempFileName, "w")
-                tmpCGIFile:write("#! /bin/bash\n\n")
-                for k, v in pairs(CGIVariables) do
-                    tmpCGIFile:write(string.format("export %s=%q\n", k, v))
-                end
-                tmpCGIFile:write("exec " .. targetFile .. "\n")
-                tmpCGIFile:close()
-                os.execute("chmod +x " .. tempFileName)
-
-                local tmpInputFile = io.open(tempFileName .. "input", "w")
-                tmpInputFile:write(body)
-                tmpInputFile:close()
-
-                local out, stat, typ, rc = "empty-state", false, "no-state", -1
-
-log.vf("scriptWrapper:%s", "/bin/cat " .. tempFileName .. "input | /usr/bin/env -i " .. scriptWrapper .. " -t " .. tostring(scriptTimeout) .. " " .. tempFileName .. " 2> " .. tempFileName .. "err")
-
-                out, stat, typ, rc = hs.execute("/bin/cat " .. tempFileName .. "input | /usr/bin/env -i " .. scriptWrapper .. " -t " .. tostring(scriptTimeout) .. " " .. tempFileName .. " 2> " .. tempFileName .. "err")
-
-                if stat then
-                    responseStatus = 200
-                    local headerText, bodyText = out:match("^(.-)\r?\n\r?\n(.*)$")
-                    if headerText then
-                        for line in (headerText .. "\n"):gmatch("(.-)\r?\n") do
-                            local newKey, newValue = line:match("^(.-):(.*)$")
-                            if not newKey then -- malformed header, break out and show everything
-                                log.i("malformed header in CGI output")
-                                bodyText = out
-                                break
-                            end
-                            if newKey:upper() == "STATUS" then
-                                responseStatus = newValue:match("(%d+)[^%d]")
-                            else
-                                responseHeaders[newKey] = newValue
-                            end
-                        end
-                        responseBody = bodyText
-                    else
-                        responseBody = out
-                        responseHeaders["Content-Type"] = "text/plain"
-                    end
-                else
-                    log.ef("CGI error: output:%s, exit type:%s, code:%d", out, typ, rc)
-                    return self._errorHandlers[500](method, path, headers)
-                end
-
-                if log.level ~= 5 then -- if we're at verbose, it means we're tracking something down...
-                    os.execute("rm " .. tempFileName)
-                    os.execute("rm " .. tempFileName .. "input")
-                    os.execute("rm " .. tempFileName .. "err")
-                end
-
+            REMOTE_USER       = self:password() and "" or nil,
+            SCRIPT_NAME       = pathParts.path,
+            SERVER_ADMIN      = serverAdmin,
+            SERVER_NAME       = pathParts.host,
+            SERVER_ADDR       = headers["X-Server-Addr"],
+            SERVER_PORT       = headers["X-Server-Port"],
+            SERVER_PROTOCOL   = "HTTP/1.1",
+            SERVER_SOFTWARE   = serverSoftware,
+        }
+        if CGIVariables.PATH_INFO then
+            CGIVariables.PATH_TRANSLATED = self._documentRoot .. CGIVariables.PATH_INFO
+        end
+        if self._dnsLookup then
+            local good, val = pcall(nethost.hostnamesForAddress, CGIVariables.REMOTE_ADDR)
+            if good then
+                CGIVariables.REMOTE_HOST = val[1]
             else
-            -- do the in Hammerspoon lua file thing
-                -- decode query and/or body
+                log.f("unable to resolve %s", CGIVariables.REMOTE_ADDR)
             end
+        end
+--         if not CGIVariables.REMOTE_HOST then
+--             CGIVariables.REMOTE_HOST = CGIVariables.REMOTE_ADDR
+--         end
 
-        else
-
-        -- otherwise, we can't truly POST, so treat POST as GET; it will ignore the content body which a static page can't get to anyways; POST should be handled by a function or dynamic support above -- this is a fallback for an improper form action, etc.
-
-            if method == "POST" then method = "GET" end
-            if method == "GET" or method == "HEAD" then -- and not executable type then
-                if attributes.mode == "file" then
-                    local finput = io.open(targetFile, "rb")
-                    if finput then
-                        if method == "GET" then -- don't actually do work for HEAD
-                            responseBody = finput:read("a")
-                        end
-                        finput:close()
-                        local contentType = fs.fileUTI(targetFile)
-                        if contentType then contentType = fs.fileUTIalternate(contentType, "mime") end
-                        responseHeaders["Content-Type"] = contentType
-                    else
-                        return self._errorHandlers[403.2](method, path, headers)
-                    end
-                elseif attributes.mode == "directory" and self._allowDirectory then
-                    if fs.dir(targetFile) then
-                        if method == "GET" then -- don't actually do work for HEAD
-                            local targetPath = pathParts.path
-                            if not targetPath:match("/$") then targetPath = targetPath .. "/" end
-                            responseBody = [[
-                                <html>
-                                  <head>
-                                    <title>Directory listing for ]] .. targetPath .. [[</title>
-                                  </head>
-                                  <body>
-                                    <h1>Directory listing for ]] .. targetPath .. [[</h1>
-                                    <hr>
-                                    <pre>]]
-                            for k in fs.dir(targetFile) do
-                                local fattr = fs.attributes(targetFile.."/"..k)
-                                if k:sub(1,1) ~= "." then
-                                    if fattr then
-                                        responseBody = responseBody .. string.format("    %-12s %s %7.2fK <a href=\"http%s://%s%s%s\">%s%s</a>\n", fattr.mode, fattr.permissions, fattr.size / 1024, (self._ssl and "s" or ""), headers.Host, targetPath, k, k, (fattr.mode == "directory" and "/" or ""))
-                                    else
-                                        responseBody = responseBody .. "    <i>unknown" .. string.rep(" ", 6) .. string.rep("-", 9) .. string.rep(" ", 10) .. "?? " .. k .. " ??</i>\n"
-                                    end
-                                end
-                            end
-                            responseBody = responseBody .. [[</pre>
-                                    <hr>
-                                    <div align="right"><i>]] .. serverVersionString .. [[ at ]] .. os.date() .. [[</i></div>
-                                  </body>
-                                </html>]]
-                        end
-                        responseHeaders["Content-Type"] = "text/html"
-                    else
-                        return self._errorHandlers[403.2](method, path, headers)
-                    end
-                elseif attributes.mode == "directory" then
-                    return self._errorHandlers[403.2](method, path, headers)
-                end
+        -- Request headers per rfc2875
+        for k, v in pairs(headers) do
+            local k2 = k:upper():gsub("-", "_")
+            -- skip Authorization related headers (per rfc2875) and _SSL internally used flag
+            if not ({ ["AUTHORIZATION"] = 1, ["PROXY-AUTHORIZATION"] = 1, ["_SSL"] = 1 })[k2] then
+                CGIVariables["HTTP_" .. k2] = v
             end
         end
 
-        if method == "HEAD" then responseBody = "" end -- in case it was dynamic and code gave us a body
-        return responseBody, responseCode, responseHeaders
+        -- commonly added
+        CGIVariables.DOCUMENT_URI    = CGIVariables.SCRIPT_NAME .. (CGIVariables.PATH_INFO or "")
+        CGIVariables.REQUEST_URI     = CGIVariables.DOCUMENT_URI .. (CGIVariables.QUERY_STRING and ("?" .. CGIVariables.QUERY_STRING) or "")
+        CGIVariables.DOCUMENT_ROOT   = self._documentRoot
+        CGIVariables.SCRIPT_FILENAME = targetFile
+        CGIVariables.REQUEST_TIME    = os.time()
 
+        if itBeCGI then
+        -- do external script thing
+
+-- this is a horrible horrible hack...
+-- look for an update to hs.httpserver because I really really really want to use hs.task for this, but we need chunked or delayed response support for that to work...
+
+            local scriptTimeout = self._scriptTimeout or DEFAULT_ScriptTimeout
+            local tempFileName = fs.temporaryDirectory() .. "/" .. USERDATA_TAG:gsub("^hs%._asm%.", "") .. hshost.globallyUniqueString()
+
+            local tmpCGIFile = io.open(tempFileName, "w")
+            tmpCGIFile:write("#! /bin/bash\n\n")
+            for k, v in pairs(CGIVariables) do
+                tmpCGIFile:write(string.format("export %s=%q\n", k, v))
+            end
+            tmpCGIFile:write("exec " .. targetFile .. "\n")
+            tmpCGIFile:close()
+            os.execute("chmod +x " .. tempFileName)
+
+            local tmpInputFile = io.open(tempFileName .. "input", "w")
+            tmpInputFile:write(body)
+            tmpInputFile:close()
+
+            local out, stat, typ, rc = "** no output **", false, "** unknown **", -1
+
+            out, stat, typ, rc = hs.execute("/bin/cat " .. tempFileName .. "input | /usr/bin/env -i PATH=\"/usr/bin:/bin:/usr/sbin:/sbin\" " .. scriptWrapper .. " -t " .. tostring(scriptTimeout) .. " " .. tempFileName .. " 2> " .. tempFileName .. "err")
+
+            if stat then
+                responseStatus = 200
+                local headerText, bodyText = out:match("^(.-)\r?\n\r?\n(.*)$")
+                if headerText then
+                    for line in (headerText .. "\n"):gmatch("(.-)\r?\n") do
+                        local newKey, newValue = line:match("^(.-):(.*)$")
+                        if not newKey then -- malformed header, break out and show everything
+                            log.i("malformed header in CGI output")
+                            bodyText = out
+                            break
+                        end
+                        if newKey:upper() == "STATUS" then
+                            responseStatus = newValue:match("(%d+)[^%d]")
+                        else
+                            responseHeaders[newKey] = newValue
+                        end
+                    end
+                    responseBody = bodyText
+                else
+                    responseBody = out
+                    responseHeaders["Content-Type"] = "text/plain"
+                end
+            else
+                local errOutput = "** no stderr **"
+                local errf = ioopen(tempFileName .. "err", "rb")
+                if errf then
+                    errOut = errf:read("a")
+                    errf:close()
+                end
+                log.ef("CGI error: output:%s, stderr:%s, %s code:%d", out, errOut, typ, rc)
+                log.ef("CGI support files %s* not removed", tempFileName)
+                return self._errorHandlers[500](method, path, headers)
+            end
+
+            if log.level ~= 5 then -- if we're at verbose, it means we're tracking something down...
+                os.execute("rm " .. tempFileName)
+                os.execute("rm " .. tempFileName .. "input")
+                os.execute("rm " .. tempFileName .. "err")
+            else
+                log.vf("CGI support files %s* not removed", tempFileName)
+            end
+
+        else
+        -- do the in Hammerspoon lua file thing
+            -- decode query and/or body
+        end
+
+    elseif ({ ["HEAD"] = 1, ["GET"] = 1, ["POST"] = 1 })[method] then
+
+    -- otherwise, we can't truly POST, so treat POST as GET; it will ignore the content body which a static page can't get to anyways; POST should be handled by a function or dynamic support above -- this is a fallback for an improper form action, etc.
+
+        if method == "POST" then method = "GET" end
+        if method == "GET" or method == "HEAD" then
+            if attributes.mode == "file" then
+                local finput = io.open(targetFile, "rb")
+                if finput then
+                    if method == "GET" then -- don't actually do work for HEAD
+                        responseBody = finput:read("a")
+                    end
+                    finput:close()
+                    local contentType = fs.fileUTI(targetFile)
+                    if contentType then contentType = fs.fileUTIalternate(contentType, "mime") end
+                    responseHeaders["Content-Type"] = contentType
+                else
+                    return self._errorHandlers[403.2](method, path, headers)
+                end
+            elseif attributes.mode == "directory" and self._allowDirectory then
+                if fs.dir(targetFile) then
+                    if method == "GET" then -- don't actually do work for HEAD
+                        local targetPath = pathParts.path
+                        if not targetPath:match("/$") then targetPath = targetPath .. "/" end
+                        responseBody = [[
+                            <html>
+                              <head>
+                                <title>Directory listing for ]] .. targetPath .. [[</title>
+                              </head>
+                              <body>
+                                <h1>Directory listing for ]] .. targetPath .. [[</h1>
+                                <hr>
+                                <pre>]]
+                        for k in fs.dir(targetFile) do
+                            local fattr = fs.attributes(targetFile.."/"..k)
+                            if k:sub(1,1) ~= "." then
+                                if fattr then
+                                    responseBody = responseBody .. string.format("    %-12s %s %7.2fK <a href=\"http%s://%s%s%s\">%s%s</a>\n", fattr.mode, fattr.permissions, fattr.size / 1024, (self._ssl and "s" or ""), headers.Host, targetPath, k, k, (fattr.mode == "directory" and "/" or ""))
+                                else
+                                    responseBody = responseBody .. "    <i>unknown" .. string.rep(" ", 6) .. string.rep("-", 9) .. string.rep(" ", 10) .. "?? " .. k .. " ??</i>\n"
+                                end
+                            end
+                        end
+                        responseBody = responseBody .. [[</pre>
+                                <hr>
+                                <div align="right"><i>]] .. serverSoftware .. [[ at ]] .. os.date() .. [[</i></div>
+                              </body>
+                            </html>]]
+                    end
+                    responseHeaders["Content-Type"] = "text/html"
+                else
+                    return self._errorHandlers[403.2](method, path, headers)
+                end
+            elseif attributes.mode == "directory" then
+                return self._errorHandlers[403.2](method, path, headers)
+            end
+        end
     else
     -- even though it's an allowed method, there is no built in support for it...
         return self._errorHandlers[405](method, path, headers)
     end
+
+    if method == "HEAD" then responseBody = "" end -- in case it was dynamic and code gave us a body
+    return responseBody, responseCode, responseHeaders
 end
 
 local objectMethods = {}
@@ -822,7 +833,7 @@ end
 ---  * The access-list table is a list of tests which are evaluated in order.  The first test which matches a given request determines whether or not the request is accepted or rejected.
 ---  * Each entry in the access-list table is also a table with the following format:
 ---    * { 'header', 'value', isPattern, isAccepted }
----      * header     - a string value matching the name of a header.  While the header name must match exactly, the comparison is case-insensitive (i.e. "X-Client-IP" and "x-client-ip" will both match the actual header name used, which is "X-Client-Ip").
+---      * header     - a string value matching the name of a header.  While the header name must match exactly, the comparison is case-insensitive (i.e. "X-Remote-addr" and "x-remote-addr" will both match the actual header name used, which is "X-Remote-Addr").
 ---      * value      - a string value specifying the value to compare the header key's value to.
 ---      * isPattern  - a boolean indicating whether or not the header key's value should be compared to `value` as a pattern match (true) -- see Lua documentation 6.4.1, `help.lua._man._6_4_1` in the console, or as an exact match (false)
 ---      * isAccepted - a boolean indicating whether or not a match should be accepted (true) or rejected (false)
@@ -833,11 +844,19 @@ end
 ---  * The tests are performed in order; if you wich to allow one IP address in a range, but reject all others, you should list the accepted IP addresses first. For example:
 ---     ~~~
 ---     {
----        { 'X-Client-IP', '192.168.1.100',  false, true },  -- accept requests from 192.168.1.100
----        { 'X-Client-IP', '^192%.168%.1%.', true,  false }, -- reject all others from the 192.168.1 subnet
----        { '*',           '*',              '*',   true }   -- accept all other requests
+---        { 'X-Remote-Addr', '192.168.1.100',  false, true },  -- accept requests from 192.168.1.100
+---        { 'X-Remote-Addr', '^192%.168%.1%.', true,  false }, -- reject all others from the 192.168.1 subnet
+---        { '*',             '*',              '*',   true }   -- accept all other requests
 ---     }
 ---     ~~~
+---
+---  * Most of the headers available are provided by the requesting web browser, so the exact headers available will vary.  You can find some information about common HTTP request headers at: https://en.wikipedia.org/wiki/List_of_HTTP_header_fields.
+---
+---  * The following headers are inserted automatically by `hs.httpserver` and are probably the most useful for use in an access list:
+---    * X-Remote-Addr - the remote IPv4 or IPv6 address of the machine making the request,
+---    * X-Remote-Port - the TCP port of the remote machine where the request originated.
+---    * X-Server-Addr - the server IPv4 or IPv6 address that the web server received the request from.  For machines with multiple interfaces, this will allow you to determine which interface the request was received on.
+---    * X-Server-Port - the TCP port of the web server that received the request.
 objectMethods.accessList = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of access requirements")
@@ -941,15 +960,16 @@ end
 --- Variable
 --- Accessed as `object._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
 ---
---- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition.  To allow for both types, this module uses the string representation of the error code as its keys.  In addition, the key "default" is used for error codes which do not have a defined function.
+--- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition. In addition, the key "default" is used for error codes which do not have a defined function.
 ---
 --- Built in handlers exist for the following error codes:
----  * "403"   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
----  * "403.2" - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
----  * "404"   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
----  * "405"   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
+---  * 403   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
+---  * 403.2 - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
+---  * 404   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
+---  * 405   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
+---  * 500   - Internal Server Error, a catch-all for server side problems that prevent a page from being returned.  Commonly when CGI scripts fail for some reason.
 ---
---- The "default" key specifies a "500" error, which indicates a "Internal Server Error", in this case because an error condition occurred for which there is no handler.
+--- The "default" key also specifies a 500 error, in this case because an error condition occurred for which there is no handler. The content of the message returned indicates the actual error code that was intended.
 ---
 --- You can provide your own handler by specifying a function for the desired error condition.  The function should expect three arguments:
 ---  * method  - the method for the HTTP request
@@ -990,7 +1010,8 @@ end
 ---
 --- There are some functions and conventions used within this module which can simplify generating appropriate content within your custom functions.  Currently, you should review the module source, but a companion document describing these functions and conventions is expected to follow in the near future.
 ---
---- Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support, so even if you set other methods to `true`, they will return a statuc code of 405 (Method Not Supported).  You must provide your own function, at present, if you wish to support additional methods.
+--- Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support for static pages; even if you set other methods to `true`, they will return a status code of 405 (Method Not Supported) if the request does not invoke a CGI file for dynamic content.
+---
 --- A companion module supporting the methods required for WebDAV is being considered.
 
 

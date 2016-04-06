@@ -74,7 +74,7 @@ Notes:
  * The access-list table is a list of tests which are evaluated in order.  The first test which matches a given request determines whether or not the request is accepted or rejected.
  * Each entry in the access-list table is also a table with the following format:
    * { 'header', 'value', isPattern, isAccepted }
-     * header     - a string value matching the name of a header.  While the header name must match exactly, the comparison is case-insensitive (i.e. "X-Client-IP" and "x-client-ip" will both match the actual header name used, which is "X-Client-Ip").
+     * header     - a string value matching the name of a header.  While the header name must match exactly, the comparison is case-insensitive (i.e. "X-Remote-addr" and "x-remote-addr" will both match the actual header name used, which is "X-Remote-Addr").
      * value      - a string value specifying the value to compare the header key's value to.
      * isPattern  - a boolean indicating whether or not the header key's value should be compared to `value` as a pattern match (true) -- see Lua documentation 6.4.1, `help.lua._man._6_4_1` in the console, or as an exact match (false)
      * isAccepted - a boolean indicating whether or not a match should be accepted (true) or rejected (false)
@@ -85,11 +85,19 @@ Notes:
  * The tests are performed in order; if you wich to allow one IP address in a range, but reject all others, you should list the accepted IP addresses first. For example:
     ~~~
     {
-       { 'X-Client-IP', '192.168.1.100',  false, true },  -- accept requests from 192.168.1.100
-       { 'X-Client-IP', '^192%.168%.1%.', true,  false }, -- reject all others from the 192.168.1 subnet
-       { '*',           '*',              '*',   true }   -- accept all other requests
+       { 'X-Remote-Addr', '192.168.1.100',  false, true },  -- accept requests from 192.168.1.100
+       { 'X-Remote-Addr', '^192%.168%.1%.', true,  false }, -- reject all others from the 192.168.1 subnet
+       { '*',             '*',              '*',   true }   -- accept all other requests
     }
     ~~~
+
+ * Most of the headers available are provided by the requesting web browser, so the exact headers available will vary.  You can find some information about common HTTP request headers at: https://en.wikipedia.org/wiki/List_of_HTTP_header_fields.
+
+ * The following headers are inserted automatically by `hs.httpserver` and are probably the most useful for use in an access list:
+   * X-Remote-Addr - the remote IPv4 or IPv6 address of the machine making the request,
+   * X-Remote-Port - the TCP port of the remote machine where the request originated.
+   * X-Server-Addr - the server IPv4 or IPv6 address that the web server received the request from.  For machines with multiple interfaces, this will allow you to determine which interface the request was received on.
+   * X-Server-Port - the TCP port of the web server that received the request.
 
 - - -
 
@@ -364,15 +372,16 @@ hsminweb._errorHandlers
 ~~~
 Accessed as `object._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
 
-HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition.  To allow for both types, this module uses the string representation of the error code as its keys.  In addition, the key "default" is used for error codes which do not have a defined function.
+HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition. In addition, the key "default" is used for error codes which do not have a defined function.
 
 Built in handlers exist for the following error codes:
- * "403"   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
- * "403.2" - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
- * "404"   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
- * "405"   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
+ * 403   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
+ * 403.2 - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
+ * 404   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
+ * 405   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
+ * 500   - Internal Server Error, a catch-all for server side problems that prevent a page from being returned.  Commonly when CGI scripts fail for some reason.
 
-The "default" key specifies a "500" error, which indicates a "Internal Server Error", in this case because an error condition occurred for which there is no handler.
+The "default" key also specifies a 500 error, in this case because an error condition occurred for which there is no handler. The content of the message returned indicates the actual error code that was intended.
 
 You can provide your own handler by specifying a function for the desired error condition.  The function should expect three arguments:
  * method  - the method for the HTTP request
@@ -417,7 +426,8 @@ If you assign `false` to a method, then any request utilizing that method will r
 
 There are some functions and conventions used within this module which can simplify generating appropriate content within your custom functions.  Currently, you should review the module source, but a companion document describing these functions and conventions is expected to follow in the near future.
 
-Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support, so even if you set other methods to `true`, they will return a statuc code of 405 (Method Not Supported).  You must provide your own function, at present, if you wish to support additional methods.
+Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support for static pages; even if you set other methods to `true`, they will return a status code of 405 (Method Not Supported) if the request does not invoke a CGI file for dynamic content.
+
 A companion module supporting the methods required for WebDAV is being considered.
 
 ### Module Constants
