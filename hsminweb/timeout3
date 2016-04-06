@@ -22,8 +22,8 @@
 scriptName="${0##*/}"
 
 declare -i DEFAULT_TIMEOUT=30
-declare -i DEFAULT_INTERVAL=5
-declare -i DEFAULT_DELAY=3
+declare -i DEFAULT_INTERVAL=1
+declare -i DEFAULT_DELAY=1
 
 # Timeout.
 declare -i timeout=DEFAULT_TIMEOUT
