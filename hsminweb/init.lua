@@ -25,7 +25,7 @@
 --   [X] access list/general header check for go ahead?
 --   [X] CGI Variables
 --   [X] CGI file types, check executable extensions
---   [ ] can CGI script change working directory to CGI file's directory?
+--   [X] can CGI script change working directory to CGI file's directory?
 --   [-] Hammerspoon aware pages (files, functions?)
 --       [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
 --       [ ] Decode query strings
@@ -343,7 +343,13 @@ local webServerHandler = function(self, method, path, headers, body)
 
             local out, stat, typ, rc = "** no output **", false, "** unknown **", -1
 
+            local targetWD = self._documentRoot .. "/" .. table.concat(pathParts.pathComponents, "/", 2, #pathParts.pathComponents - 1)
+            local oldWD = fs.currentDir()
+            fs.chdir(targetWD)
+
             out, stat, typ, rc = hs.execute("/bin/cat " .. tempFileName .. "input | /usr/bin/env -i PATH=\"/usr/bin:/bin:/usr/sbin:/sbin\" " .. scriptWrapper .. " -t " .. tostring(scriptTimeout) .. " " .. tempFileName .. " 2> " .. tempFileName .. "err")
+
+            fs.chdir(oldWD)
 
             if stat then
                 responseStatus = 200
