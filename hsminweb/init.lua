@@ -24,44 +24,41 @@
 --   [X] verify read access to file
 --   [X] access list/general header check for go ahead?
 --   [X] CGI Variables
+--   [X] CGI support PATH_INFO
 --   [X] CGI file types, check executable extensions
 --   [X] can CGI script change working directory to CGI file's directory?
---   [-] Hammerspoon aware pages (files, functions?)
---       [ ] embedded lua/SSI in regular html? check out http://keplerproject.github.io/cgilua/
---       [ ] Decode query strings
---       [ ] Decode form POST data
---   [ ] Allow adding alternate POST encodings (JSON)
 --   [X] add type validation, or at least wrap setters so we can reset internals when they fail
 --   [X] documentation
 --   [X] proper content-type detection for GET
+--   [X] logging? access logging optionally to string, error to module logger instance, needs documenting
+--   [ ] SSI?  will need a way to verify text content or specific header check
+--   [-] Hammerspoon aware pages (files, functions?)
+--       [ ] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
+--       [ ] Decode query strings
+--       [ ] Decode form POST data
+--       [ ] Allow adding alternate POST encodings (JSON)
+--   [ ] support per-dir, in addition to per-server settings?
 --
---   [ ] helpers for custom functions/handlers
---       [ ] common headers
+--   [-] helpers for custom functions/handlers
+--       [ ] document headers._ support table
+--       [-] common headers
 --       [ ] function to get CGI-like variables?
 --       [ ] query/body parsing like Hammerspoon/cgilua support?
---
---   [ ] common/default response headers? Would simplify error functions...
---   [ ] wrap webServerHandler so we can do SSI?  will need a way to verify text content or specific header check
+--       [X] common/default response headers? Would simplify error functions...
 --
 --   [ ] should things like directory index code be a function so it can be overridden?
 --       [ ] custom headers/footers? (auto include head/tail files if exist?)
 --
---   [ ] support per-dir, in addition to per-server settings?
---
---   [ ] support PATH_INFO?  Not directly supported by hs.http.urlParts (i.e. NSURLComponents), so we'd have to roll our own... see how Apache handles it
---
---   [ ] logging?
 --   [ ] additional response headers?
 --   [ ] Additional errors to add?
 --
 --   [ ] basic/digest auth via lua only?
 --   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
---
 --   [ ] For full WebDav support, some other methods may also require a body
 --
 
 local USERDATA_TAG          = "hs._asm.hsminweb"
-local VERSION               = "0.0.2"
+local VERSION               = "0.0.3"
 
 local DEFAULT_ScriptTimeout = 30
 local scriptWrapper         = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."timeout3"
@@ -75,10 +72,8 @@ local nethost    = require("hs.network.host")
 local hshost     = require("hs.host")
 
 local serverAdmin    = os.getenv("USER") .. "@" .. hshost.localizedName()
-local serverSoftware = USERDATA_TAG:gsub("^hs%._asm%.", "") .. "/" .. VERSION
-
-local log  = require("hs.logger").new(serverSoftware, "debug")
-module.log = log
+local serverSoftware = USERDATA_TAG:gsub("^hs%._asm%.", "") .. "/" .. VERSION .. " (OSX)"
+local log            = require("hs.logger").new(USERDATA_TAG:gsub("^hs%._asm%.", ""), "debug")
 
 local HTTPdateFormatString = "!%a, %d %b %Y %T GMT"
 local HTTPformattedDate    = function(x) return os.date(HTTPdateFormatString, x or os.time()) end
@@ -87,6 +82,18 @@ local shallowCopy = function(t1)
     local t2 = {}
     for k, v in pairs(t1) do t2[k] = v end
     return t2
+end
+
+local modifyHeaders = function(headerTbl, modifiersTbl)
+    local tmpTable = shallowCopy(headerTbl)
+    for k, v in pairs(modifiersTbl) do
+        if v then
+            tmpTable[k] = v
+        else
+            tmpTable[k] = nil
+        end
+    end
+    return tmpTable
 end
 
 local directoryIndex = {
@@ -99,28 +106,29 @@ local cgiExtensions = {
 
 local errorHandlers = setmetatable({
 -- https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
-    [403] = function(method, path, headers)
-        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    [403] = function(method, path, h)
+        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 403, h._.minimalHTMLResponseHeaders
     end,
 
-    [403.2] = function(method, path, headers)
-        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 403, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    [403.2] = function(method, path, h)
+        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, " .. h._.pathParts.standardizedURL .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 403, h._.minimalHTMLResponseHeaders
     end,
 
-    [404] = function(method, path, headers)
-        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 404, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    [404] = function(method, path, h)
+--         log.wf("404: %s", hs.inspect(h._))
+        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, " .. h._.pathParts.standardizedURL .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 404, h._.minimalHTMLResponseHeaders
     end,
 
-    [405] = function(method, path, headers)
-        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, http" .. (headers._SSL and "s" or "") .. "://" .. headers.Host .. path .. ".<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    [405] = function(method, path, h)
+        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, " .. h._.pathParts.standardizedURL .. ".<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 405, h._.minimalHTMLResponseHeaders
     end,
 
-    [500] = function(method, path, headers)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>An internal server error occurred.  Check the Hammerspoon console for possible log messages which may contain more details.<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 405, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    [500] = function(method, path, h)
+        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>An internal server error occurred.  Check the Hammerspoon console for possible log messages which may contain more details.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 405, h._.minimalHTMLResponseHeaders
     end,
 
-    default = function(code, method, path, headers)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. os.date() .. "</i></div></body></html>", 500, { Server = serverSoftware .. " (OSX)", ["Content-Type"] = "text/html" }
+    default = function(code, method, path, h)
+        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 500, h._.minimalHTMLResponseHeaders
     end,
 }, {
     __index = function(_, key)
@@ -149,13 +157,107 @@ local supportedMethods = {
     UNLOCK    = false,
 }
 
+local RFC3986getURLParts = function(resourceLocator)
+    local parts = {}
+
+    parts["URL"] = resourceLocator
+    -- we need to parse the URL to make sure we handle the path part correctly (the OS X internals follow RFC1808, but modern web browsers follow the newer RFC3986, which obsoletes 1808, plus we need the / character on path components to more easily detect when to throw 301; however for resolving .. and ., this is easier than doing it ourselves
+    parts["standardizedURL"] = http.urlParts(resourceLocator).standardizedURL
+
+    local stillNeedsParsing = resourceLocator
+    local scheme
+    if stillNeedsParsing:sub(1,1):match("%w") then
+        scheme = stillNeedsParsing:match("^(%w[%w%d%+%-%.]*):"):lower()
+        if scheme then stillNeedsParsing = stillNeedsParsing:sub(#scheme + 2) end
+    elseif stillNeedsParsing:sub(1,1) == "/" then
+        scheme = ""
+    end
+    if scheme then
+        parts["scheme"] = scheme
+    else
+        error("invalid scheme specified")
+    end
+    parts["resourceSpecifier"] = stillNeedsParsing
+
+    local authority
+    if stillNeedsParsing:sub(1,2) == "//" then
+        authority = stillNeedsParsing:match("^//([^/%?#]*)")
+        if authority then stillNeedsParsing = stillNeedsParsing:sub(#authority + 3) end
+    elseif stillNeedsParsing:sub(1,1):match("[%w/%d_]") then
+        authority = ""
+    end
+
+    if authority then
+        if authority ~= "" then
+            local userInfo, hostInfo = authority:match("^(.*)@([^@]*)$") -- last @ separates user:pass@host:port
+            if not userInfo then
+                userInfo = ""
+                hostInfo = authority
+            end
+            if userInfo ~= "" then
+                local user, pass = userInfo:match("^([^:]*):(.*)$") -- first : separates user:pass
+                if not user then
+                    user = userInfo
+                    pass = nil
+                end
+                parts["user"] = user
+                parts["password"] = pass
+            end
+            if hostInfo ~= "" then
+                local host, port = hostInfo:match("^(.*):([^:]*)$") -- last : separates host:port
+                if host then
+                    port = tonumber(port)
+                else
+                    host = hostInfo
+                    port = nil
+                end
+                parts["host"] = host
+                parts["port"] = port
+            end
+        end
+    else
+        error("invalid authority specified")
+    end
+
+    local lastPathComponent, path, pathComponents, pathExtension = "", "", {}, ""
+
+    local pathPartOnly, theRest = stillNeedsParsing:match("^([^#%?]*)([#%?]?.*)$")
+    if pathPartOnly ~= "" then
+        -- unlike internal version used by hs.http.urlParts, keep "/" attached to path components... keeps us from missing lone "/", especially when figuring out PATH_INFO
+        for k in pathPartOnly:gmatch("([^/]*/?)") do
+            local component = k:gsub("%%[0-9a-fA-F][0-9a-fA-F]", function(val) return string.char(tonumber(val:sub(2,3), 16)) end)
+            table.insert(pathComponents, component)
+        end
+        while (pathComponents[#pathComponents] == "") do table.remove(pathComponents) end
+        lastPathComponent = pathComponents[#pathComponents]
+        local possibleExtension = lastPathComponent:match("^.*%.([^/]+)/?$")
+        if possibleExtension then pathExtension = possibleExtension end
+        path              = pathPartOnly:gsub("%%[0-9a-fA-F][0-9a-fA-F]", function(val) return string.char(tonumber(val:sub(2,3), 16)) end)
+        stillNeedsParsing = theRest
+    end
+    parts["lastPathComponent"] = lastPathComponent
+    parts["path"]              = path
+    parts["pathComponents"]    = pathComponents
+    parts["pathExtension"]     = pathExtension
+
+    local query, fragment = stillNeedsParsing:match("^%??([^#]*)(.*)$")
+    if query ~= ""   then parts["query"] = query end
+    if #fragment > 0 then parts["fragment"] = fragment:sub(2) end
+
+    return parts
+end
+
 local verifyAccess = function(aclTable, headers)
     local accessGranted = false
     local headerMap = {}
-    for k, v in pairs(headers) do headerMap[k:upper()] = k end
+
+    -- the dash and the underline get changed so friggen often depending upon context... just make
+    -- the access-list comparisons agnostic about them as well as case.
+
+    for k, v in pairs(headers) do headerMap[k:upper():gsub("-","_")] = k end
 
     for i, v in ipairs(aclTable) do
-        local headerToCheck = v[1]:upper()
+        local headerToCheck = v[1]:upper():gsub("-","_")
         local valueToCheck  = v[2]
         local isPattern     = v[3]
         local desiredResult = v[4]
@@ -194,55 +296,129 @@ end
 local webServerHandler = function(self, method, path, headers, body)
     method = method:upper()
 
-    -- to help make proper URL in error functions
-    headers._SSL = self._ssl and true or false
+-- Allow some internally determined stuff to be passed around to various support functions
+    headers._ = {
+        SSL            = self._ssl and true or false,
+        serverAdmin    = self._serverAdmin,
+        serverSoftware = serverSoftware,
+        pathParts      = RFC3986getURLParts((self._ssl and "https" or "http") .. "://" .. headers.Host .. path),
+        modifyHeaders  = modifyHeaders,
+        queryDate      = HTTPformattedDate(),
+    }
+
+    headers._.minimalResponseHeaders = {
+        ["Server"]        = serverSoftware,
+        ["Last-Modified"] = headers._.queryDate,
+    }
+    headers._.minimalHTMLResponseHeaders = modifyHeaders(headers._.minimalResponseHeaders, {
+        ["Content-Type"]  = "text/html",
+    })
 
     if self._accessList and not verifyAccess(self._accessList, headers) then
         return self._errorHandlers[403](method, path, headers)
     end
 
+-- Check if the method is supported
     local action = self._supportedMethods[method]
     if not action then return self._errorHandlers[405](method, path, headers) end
 
--- if the method is a function, we make no assumptions -- the function gets the raw input
+    -- if the method is a function, we make no assumptions -- the function gets the raw input
     if type(action) == "function" then
     -- allow the action to ignore the request by returning false or nil to fall back to built-in methods
         local responseBody, responseCode, responseHeaders = action(self, method, path, headers, body)
         if responseBody then
             responseCode    = responseCode or 200
-            responseHeaders = responseHeaders or {}
-            responseHeaders["Server"]        = responseHeaders["Server"]        or serverSoftware .. " (OSX)"
-            responseHeaders["Last-Modified"] = responseHeaders["Last-Modified"] or HTTPformattedDate()
+            responseHeaders = responseHeaders or headers._.minimalResponseHeaders
             return responseBody, responseCode, responseHeaders
         end
     end
 
--- otherwise, figure out what specific file/directory is being targetted
+-- Since we're actually dealing with a file, figure out what specific file/directory is being targetted
+    local pathParts  = headers._.pathParts
+    local testingPath = self._documentRoot
 
-    local pathParts  = http.urlParts((self._ssl and "https" or "http") .. "://" .. headers.Host .. path)
+    -- 301 if no path and no initial "/"... not sure this is necessary since testing with curl has curl fixing this before sending the request, but not sure if all browsers/web-getter-thingies do that or not, so we take care of it jic
+    if #pathParts.pathComponents == 0 then
+        local newLoc = pathParts.scheme .. "://" .. headers.Host .. "/"
+        if pathParts.query    then newLoc = newLoc .. "?" .. pathParts.query end
+        if pathParts.fragment then newLoc = newLoc .. "#" .. pathParts.fragment end
+        return "", 301, modifyHeaders(headers._.minimalHTMLResponseHeaders, { ["Location"] = newLoc })
+    end
+
+    for i = 1, #pathParts.pathComponents, 1 do
+        testingPath = testingPath .. pathParts.pathComponents[i]
+        local testAttr = fs.attributes(testingPath)
+        if not testAttr then testAttr = fs.attributes(testingPath:sub(1, #testingPath - 1)) end
+        if testAttr then
+            if i ~= #pathParts.pathComponents then
+                if testAttr.mode == "file" then
+                    if self._cgiEnabled then
+                        local testExtension = pathParts.pathComponents[i]:match("^.*%.([^%.]+)/$") or ""
+                        local testIsCGI = false
+                        for i, v in ipairs(self._cgiExtensions) do
+                            if v == testExtension then
+                                testIsCGI = true
+                                break
+                            end
+                        end
+                        if testIsCGI then -- we got a PATH_INFO situation
+                            local realPathPart = table.concat(pathParts.pathComponents, "", 1, i)
+                            realPathPart = realPathPart:sub(1, #realPathPart - 1)
+                            local pathInfoPart = "/" .. table.concat(pathParts.pathComponents, "", i + 1)
+                            local newURL = pathParts.scheme .. "://" .. headers.Host .. realPathPart
+                            if pathParts.query then newURL = newURL .. "?" .. pathParts.query end
+                            if pathParts.fragment then newURL = newURL .. "#" .. pathParts.fragment end
+                            headers._.pathParts = RFC3986getURLParts(newURL)
+                            pathParts = headers._.pathParts
+                            pathParts.pathInfo = pathInfoPart
+                            break
+                        else -- returning 404 because it's not a cgi file
+                            return self._errorHandlers[404](method, path, headers)
+                        end
+                    else -- returning 404 because it's a file where a directory should be and cgi is disabled
+                        return self._errorHandlers[404](method, path, headers)
+                    end
+                end -- dir at this point is ok
+            else
+                if testAttr.mode == "directory" then
+                    if pathParts.pathComponents[i]:sub(#pathParts.pathComponents[i]) ~= "/" then
+                        -- 301 because last directory component doesn't end with a "/"
+                        local newLoc = pathParts.scheme .. "://" .. headers.Host .. pathParts.path .. "/"
+                        if pathParts.query    then newLoc = newLoc .. "?" .. pathParts.query end
+                        if pathParts.fragment then newLoc = newLoc .. "#" .. pathParts.fragment end
+                        return "", 301, modifyHeaders(headers._.minimalHTMLResponseHeaders, { ["Location"] = newLoc })
+                    end
+                end -- file at this point is ok
+            end
+        else -- 404 because some component of path doesn't really exist
+            return self._errorHandlers[404](method, path, headers)
+        end
+    end
+
     local targetFile = self._documentRoot .. pathParts.path
-    local attributes = fs.attributes(targetFile)
-    if not attributes then return self._errorHandlers[404](method, path, headers) end
 
+    local attributes = fs.attributes(targetFile)
+
+    -- check if an index file for the directory exists
     if attributes.mode == "directory" and self._directoryIndex then
-        if type(self._directoryIndex) ~= "table" then
-            log.wf("directoryIndex: expected table, found %s", type(self._directoryIndex))
-        else
-            for i, v in ipairs(self._directoryIndex) do
-                local attr = fs.attributes(targetFile .. "/" .. v)
-                if attr and attr.mode == "file" then
-                    attributes = attr
-                    pathParts = http.urlParts((self._ssl and "https" or "http") .. "://" .. headers.Host .. pathParts.path .. "/" .. v .. (pathParts.query and ("?" .. pathParts.query) or ""))
-                    targetFile = targetFile .. "/" .. v
-                    break
-                elseif attr then
-                    log.wf("default directoryIndex %s for %s is not a file; skipping", v, targetFile)
-                end
+        for i, v in ipairs(self._directoryIndex) do
+            local attr = fs.attributes(targetFile .. v)
+            if attr and attr.mode == "file" then
+                targetFile = targetFile .. v
+                attributes = attr
+                local newURL = pathParts.scheme .. "://" .. headers.Host .. pathParts.path .. v
+                if pathParts.query then newURL = newURL .. "?" .. pathParts.query end
+                if pathParts.fragment then newURL = newURL .. "#" .. pathParts.fragment end
+                headers._.pathParts = RFC3986getURLParts(newURL)
+                pathParts = headers._.pathParts
+                break
+            elseif attr then
+                log.wf("default directoryIndex %s for %s is not a file; skipping", v, pathParts.standardizedURL)
             end
         end
     end
 
--- check extension and see if it's an executable CGI
+    -- check extension and see if it's an executable CGI
     local itBeCGI = false
     if pathParts.pathExtension and self._cgiEnabled then
         for i, v in ipairs(self._cgiExtensions) do
@@ -258,11 +434,11 @@ local webServerHandler = function(self, method, path, headers, body)
     local responseBody, responseCode, responseHeaders = "", 200, {}
 
     responseHeaders["Last-Modified"] = HTTPformattedDate(attributes.modified)
-    responseHeaders["Server"]        = serverSoftware .. " (OSX)"
+    responseHeaders["Server"]        = serverSoftware
 
     if itBeDynamic then
     -- target is dynamically generated
-        responseHeaders["Last-Modified"] = HTTPformattedDate()
+        responseHeaders["Last-Modified"] = headers._.queryDate
 
         -- per https://tools.ietf.org/html/rfc3875
         local CGIVariables = {
@@ -270,15 +446,15 @@ local webServerHandler = function(self, method, path, headers, body)
             CONTENT_TYPE      = headers["Content-Type"],
             CONTENT_LENGTH    = headers["Content-Length"],
             GATEWAY_INTERFACE = "CGI/1.1",
---                 PATH_INFO         = , -- path portion after script (e.g. ../info.php/path/info/portion)
---                 PATH_TRANSLATED   = , -- see below
+            PATH_INFO         = pathParts.pathInfo,
+--             PATH_TRANSLATED   = , -- see below
             QUERY_STRING      = pathParts.query,
             REQUEST_METHOD    = method,
             REQUEST_SCHEME    = pathParts.scheme,
             REMOTE_ADDR       = headers["X-Remote-Addr"],
             REMOTE_PORT       = headers["X-Remote-Port"],
---                 REMOTE_HOST       = , -- see below
---                 REMOTE_IDENT      = , -- we don't support IDENT protocol
+--             REMOTE_HOST       = , -- see below
+--             REMOTE_IDENT      = , -- we don't support IDENT protocol
             REMOTE_USER       = self:password() and "" or nil,
             SCRIPT_NAME       = pathParts.path,
             SERVER_ADMIN      = serverAdmin,
@@ -306,8 +482,8 @@ local webServerHandler = function(self, method, path, headers, body)
         -- Request headers per rfc2875
         for k, v in pairs(headers) do
             local k2 = k:upper():gsub("-", "_")
-            -- skip Authorization related headers (per rfc2875) and _SSL internally used flag
-            if not ({ ["AUTHORIZATION"] = 1, ["PROXY-AUTHORIZATION"] = 1, ["_SSL"] = 1 })[k2] then
+            -- skip Authorization related headers (per rfc2875) and _ internally used table
+            if not ({ ["AUTHORIZATION"] = 1, ["PROXY-AUTHORIZATION"] = 1, ["_"] = 1 })[k2] then
                 CGIVariables["HTTP_" .. k2] = v
             end
         end
@@ -343,7 +519,7 @@ local webServerHandler = function(self, method, path, headers, body)
 
             local out, stat, typ, rc = "** no output **", false, "** unknown **", -1
 
-            local targetWD = self._documentRoot .. "/" .. table.concat(pathParts.pathComponents, "/", 2, #pathParts.pathComponents - 1)
+            local targetWD = self._documentRoot .. "/" .. table.concat(pathParts.pathComponents, "", 2, #pathParts.pathComponents - 1)
             local oldWD = fs.currentDir()
             fs.chdir(targetWD)
 
@@ -375,7 +551,7 @@ local webServerHandler = function(self, method, path, headers, body)
                 end
             else
                 local errOutput = "** no stderr **"
-                local errf = ioopen(tempFileName .. "err", "rb")
+                local errf = io.open(tempFileName .. "err", "rb")
                 if errf then
                     errOut = errf:read("a")
                     errf:close()
@@ -443,7 +619,7 @@ local webServerHandler = function(self, method, path, headers, body)
                         end
                         responseBody = responseBody .. [[</pre>
                                 <hr>
-                                <div align="right"><i>]] .. serverSoftware .. [[ at ]] .. os.date() .. [[</i></div>
+                                <div align="right"><i>]] .. serverSoftware .. [[ at ]] .. headers._.queryDate .. [[</i></div>
                               </body>
                             </html>]]
                     end
@@ -461,6 +637,16 @@ local webServerHandler = function(self, method, path, headers, body)
     end
 
     if method == "HEAD" then responseBody = "" end -- in case it was dynamic and code gave us a body
+    return responseBody, responseCode, responseHeaders
+end
+
+local webServerHandlerWrapper = function(self, method, path, headers, body)
+    local queryDate = os.date("[%d/%b/%Y:%T %z]", os.time())
+    local responseBody, responseCode, responseHeaders = webServerHandler(self, method, path, headers, body)
+    if self._queryLogging then
+        -- more or less match Apache common format ( "%h %l %u %t \"%r\" %>s %b" ), in case anyone wants to parse it out... should we allow customizations?
+        self._accessLog = self._accessLog .. string.format("%s - - %s \"%s %s HTTP/1.1\" %d %s\n", headers["X-Remote-Addr"], queryDate, method:upper(), path:gsub("%?.*$", ""), responseCode, ((#responseBody == 0) and "-" or tostring(#responseBody)))
+    end
     return responseBody, responseCode, responseHeaders
 end
 
@@ -516,7 +702,7 @@ end
 ---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.name  = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
+    assert(type(args[1]) == "nil" or type(args[1]) == "string", "argument must be string")
     if args.n > 0 then
         if self._server then
             self._server:setName(args[1])
@@ -545,7 +731,7 @@ end
 ---  * this module is an extension to the Hammerspoon core module `hs.httpserver`, so it has the limitations regarding server passwords. See the documentation for `hs.httpserver.setPassword` (`help.hs.httpserver.setPassword` in the Hammerspoon console).
 objectMethods.password = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
+    assert(type(args[1]) == "nil" or type(args[1]) == "string", "argument must be string")
     if args.n > 0 then
         if self._server then
             self._server:setPassword(args[1])
@@ -600,7 +786,7 @@ end
 ---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.documentRoot = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be string")
+    assert(type(args[1]) == "nil" or type(args[1]) == "string", "argument must be string")
     if args.n > 0 then
         self._documentRoot = args[1]
         return self
@@ -624,7 +810,7 @@ end
 ---  * this module is an extension to the Hammerspoon core module `hs.httpserver`, so it has the considerations regarding SSL. See the documentation for `hs.httpserver.new` (`help.hs.httpserver.new` in the Hammerspoon console).
 objectMethods.ssl = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
     if args.n > 0 then
         if not self._server then
             self._ssl = args[1]
@@ -651,7 +837,7 @@ end
 ---  * this flag can only be changed when the server is not running (i.e. the [hs._asm.hsminweb:start](#start) method has not yet been called, or the [hs._asm.hsminweb:stop](#stop) method is called first.)
 objectMethods.bonjour = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
     if args.n > 0 then
         if not self._bonjour then
             self._bonjour = args[1]
@@ -678,7 +864,7 @@ end
 ---  * if this value is false, then an attempt to retrieve a URL specifying a directory that does not contain a default file as identified by one of the entries in the [hs._asm.hsminweb:directoryIndex](#directoryIndex) list will result in a "403.2" error.
 objectMethods.allowDirectory = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
     if args.n > 0 then
         self._allowDirectory = args[1]
         return self
@@ -702,12 +888,36 @@ end
 ---  * Currently DNS lookups are (optionally) performed for CGI scripts, but may be added for other purposes in the future (logging, etc.).
 objectMethods.dnsLookup = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
     if args.n > 0 then
         self._dnsLookup = args[1]
         return self
     else
         return self._dnsLookup
+    end
+end
+
+--- hs._asm.hsminweb:queryLogging([flag]) -> hsminwebTable | current-value
+--- Method
+--- Get or set the whether or not requests to this web server are logged.
+---
+--- Parameters:
+---  * flag - an optional boolean, defaults to false, indicating whether or not query requests are logged.
+---
+--- Returns:
+---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+---
+--- Notes:
+---  * If logging is enabled, an Apache common style log entry is appended to [self._accesslog](#_accessLog) for each request made to the web server.
+---  * Error messages during content generation are always logged to the Hammerspoon console via the `hs.logger` instance saved to [hs._asm.hsminweb.log](#log).
+objectMethods.queryLogging = function(self, ...)
+    local args = table.pack(...)
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
+    if args.n > 0 then
+        self._queryLogging = args[1]
+        return self
+    else
+        return self._queryLogging
     end
 end
 
@@ -725,7 +935,7 @@ end
 ---  * Files listed in this table are checked in order, so the first matched is served.  If no file match occurs, then the server will return a generated list of the files in the directory, or a "403.2" error, depending upon the value controlled by [hs._asm.hsminweb:allowDirectory](#allowDirectory).
 objectMethods.directoryIndex = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be a table of index file names")
+    assert(type(args[1]) == "nil" or type(args[1]) == "table", "argument must be a table of index file names")
     if args.n > 0 then
         self._directoryIndex = args[1]
         return self
@@ -745,7 +955,7 @@ end
 ---  * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
 objectMethods.cgiEnabled = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "boolean"), "argument must be boolean")
+    assert(type(args[1]) == "nil" or type(args[1]) == "boolean", "argument must be boolean")
     if args.n > 0 then
         self._cgiEnabled = args[1]
         return self
@@ -768,7 +978,7 @@ end
 ---  * this list is ignored if [hs._asm.hsminweb:cgiEnabled](#cgiEnabled) is not also set to true.
 objectMethods.cgiExtensions = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of file extensions")
+    assert(type(args[1]) == "nil" or type(args[1]) == "table", "argument must be table of file extensions")
     if args.n > 0 then
         self._cgiExtensions = args[1]
         return self
@@ -791,7 +1001,7 @@ end
 ---  * This extension is checked after the extensions given to [hs._asm.hsminweb:cgiExtensions](#cgiExtensions); this means that if the same extension set by this method is also in the CGI extensions list, then the file will be interpreted as a CGI script and ignore this setting.
 objectMethods.inHammerspoonExtension = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "string"), "argument must be a file extension")
+    assert(type(args[1]) == "nil" or type(args[1]) == "string", "argument must be a file extension")
     if args.n > 0 then
         self._inHammerspoonExtension = args[1]
         return self
@@ -865,7 +1075,7 @@ end
 ---    * X-Server-Port - the TCP port of the web server that received the request.
 objectMethods.accessList = function(self, ...)
     local args = table.pack(...)
-    assert(type(args[1]) == "nil" or type(args[1] == "table"), "argument must be table of access requirements")
+    assert(type(args[1]) == "nil" or type(args[1]) == "table", "argument must be table of access requirements")
     if args.n > 0 then
         self._accessList = args[1]
         return self
@@ -888,7 +1098,7 @@ objectMethods.start = function(self)
         self._ssl     = self._ssl or false
         self._bonjour = (type(self._bonjour) == "nil") and true or self._bonjour
         self._server  = httpserver.new(self._ssl, self._bonjour):setCallback(function(...)
-            return webServerHandler(self, ...)
+            return webServerHandlerWrapper(self, ...)
         end)
 
         if self._port                 then self._server:setPort(self._port) end
@@ -949,8 +1159,12 @@ module.new = function(documentRoot)
         _directoryIndex   = shallowCopy(directoryIndex),
         _cgiExtensions    = shallowCopy(cgiExtensions),
 
+        _serverAdmin    = serverAdmin,
+
         _errorHandlers    = setmetatable({}, { __index = errorHandlers }),
         _supportedMethods = setmetatable({}, { __index = supportedMethods }),
+
+        _accessLog        = "",
     }
 
     -- make it easy to see which methods are supported
@@ -962,9 +1176,19 @@ module.new = function(documentRoot)
     return setmetatable(instance, mt_table)
 end
 
+--- hs._asm.hsminweb._serverAdmin
+--- Variable
+--- Accessed as `self._serverAdmin`.  A string containing the administrator for the web server.  Defaults to the currently logged in user's short form username and the computer's localized name as returned by `hs.host.localizedName()` (e.g. "user@computer").
+---
+--- This value is often used in error messages or on error pages indicating a point of contact for administrative help.  It can be accessed from within helper functions as `headers._.serverAdmin`.
+
+--- hs._asm.hsminweb._accessLog
+--- Variable
+--- Accessed as `self._accessLog`.  If query logging is enabled for the web server, an Apache style common log entry will be appended to this string for each request.  See [hs._asm.hsminweb:queryLogging](#queryLogging).
+
 --- hs._asm.hsminweb._errorHandlers
 --- Variable
---- Accessed as `object._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
+--- Accessed as `self._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
 ---
 --- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition. In addition, the key "default" is used for error codes which do not have a defined function.
 ---
@@ -991,7 +1215,7 @@ end
 
 --- hs._asm.hsminweb._supportMethods
 --- Variable
---- Accessed as `object._supportMethods[method]`.  A table whose keyed entries specify whether or not a specified HTTP method is supported by this server.
+--- Accessed as `self._supportMethods[method]`.  A table whose keyed entries specify whether or not a specified HTTP method is supported by this server.
 ---
 --- The default methods supported internally are:
 ---  * HEAD - an HTTP method which verifies whether or not a resource is available and it's last modified date
@@ -1012,7 +1236,7 @@ end
 ---  * code    - a 3 digit integer specifying the HTTP Response status (see https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
 ---  * headers - a table containing any headers which should be included in the HTTP response.  If `Server` or `Last-Modified` are not present, they will be provided automatically.
 ---
---- If you assign `false` to a method, then any request utilizing that method will return a status of 405 (Method Not Supported).  E.g. `object._supportMethods["POST"] = false` will prevent the POST method from being supported.
+--- If you assign `false` to a method, then any request utilizing that method will return a status of 405 (Method Not Supported).  E.g. `self._supportMethods["POST"] = false` will prevent the POST method from being supported.
 ---
 --- There are some functions and conventions used within this module which can simplify generating appropriate content within your custom functions.  Currently, you should review the module source, but a companion document describing these functions and conventions is expected to follow in the near future.
 ---
@@ -1036,5 +1260,41 @@ module.dateFormatString = HTTPdateFormatString
 --- Returns:
 ---  * the time indicated as a string in the format expected for HTTP communications as described in RFC 822, updated by RFC 1123.
 module.formattedDate    = HTTPformattedDate
+
+--- hs._asm.hsminweb.urlParts(url) -> table
+--- Function
+--- Parse the specified URL into it's constituant parts.
+---
+--- Parameters:
+---  * url - the url to parse
+---
+--- Returns:
+---  * a table containing the constituant parts of the provided url.  The table will contain one or more of the following key-value pairs:
+---    * fragment           - the anchor name a URL refers to within an HTML document.  Appears after '#' at the end of a URL.  Note that not all web clients include this in an HTTP request since its normal purpose is to indicate where to scroll to within a page after the content has been retrieved.
+---    * host               - the host name portion of the URL, if any
+---    * lastPathComponent  - the last component of the path portion of the URL
+---    * password           - the password specified in the URL.  Note that this is not the password that would be entered when using Basic or Digest authentication; rather it is a password included in the URL itself -- for security reasons, use of this field has been deprecated in most situations and modern browsers will often prompt for confirmation before allowing URL's which contain a password to be transmitted.
+---    * path               - the full path specified in the URL
+---    * pathComponents     - an array containing the path components as individual strings.  Components which specify a sub-directory of the path will end with a "/" character.
+---    * pathExtension      - if the final component of the path refers to a file, the file's extension, if any.
+---    * port               - the port specified in the URL, if any
+---    * query              - the portion of the URL after a '?' character, if any; used to contain query information often from a form submitting it's input with the GET method.
+---    * resourceSpecifier  - the portion of the URL after the scheme
+---    * scheme             - the URL scheme; for web traffic, this will be "http" or "https"
+---    * standardizedURL    - the URL with any path components of ".." or "." normalized.  The use of ".." that would cause the URL to refer to something preceding its root is simply removed.
+---    * URL                - the URL as it was provided to this function (no changes)
+---    * user               - the user name specified in the URL.  Note that this is not the user name that would be entered when using Basic or Digest authentication; rather it is a user name included in the URL itself -- for security reasons, use of this field has been deprecated in most situations and modern browsers will often prompt for confirmation before allowing URL's which contain a user name to be transmitted.
+---
+--- Notes:
+---  * This function differs from the similar function `hs.http.urlParts` in a few ways:
+---    * To simplify the logic used by this module to determine if a request for a directory is properly terminated with a "/", the path components returned by this function do not remove this character from the component, if present.
+---    * Some extraneous or duplicate keys have been removed.
+---    * This function is patterned after RFC 3986 while `hs.http.urlParts` uses OS X API functions which are patterned after RFC 1808. RFC 3986 obsoletes 1808.  The primary distinction that affects this module is in regards to `parameters` for path components in the URI -- RFC 3986 disallows them in schema based URI's (like the URL's that are used for web based traffic).
+module.urlParts = RFC3986getURLParts
+
+--- hs._asm.hsminweb.log
+--- Variable
+--- The `hs.logger` instance for the `hs._asm.hsminweb` module. See the documentation for `hs.logger` for more information.
+module.log = log
 
 return module

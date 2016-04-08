@@ -55,6 +55,40 @@ Parameters:
 Returns:
  * the time indicated as a string in the format expected for HTTP communications as described in RFC 822, updated by RFC 1123.
 
+- - -
+
+<a name="urlParts"></a>
+~~~lua
+hsminweb.urlParts(url) -> table
+~~~
+Parse the specified URL into it's constituant parts.
+
+Parameters:
+ * url - the url to parse
+
+Returns:
+ * a table containing the constituant parts of the provided url.  The table will contain one or more of the following key-value pairs:
+   * fragment           - the anchor name a URL refers to within an HTML document.  Appears after '#' at the end of a URL.  Note that not all web clients include this in an HTTP request since its normal purpose is to indicate where to scroll to within a page after the content has been retrieved.
+   * host               - the host name portion of the URL, if any
+   * lastPathComponent  - the last component of the path portion of the URL
+   * password           - the password specified in the URL.  Note that this is not the password that would be entered when using Basic or Digest authentication; rather it is a password included in the URL itself -- for security reasons, use of this field has been deprecated in most situations and modern browsers will often prompt for confirmation before allowing URL's which contain a password to be transmitted.
+   * path               - the full path specified in the URL
+   * pathComponents     - an array containing the path components as individual strings.  Components which specify a sub-directory of the path will end with a "/" character.
+   * pathExtension      - if the final component of the path refers to a file, the file's extension, if any.
+   * port               - the port specified in the URL, if any
+   * query              - the portion of the URL after a '?' character, if any; used to contain query information often from a form submitting it's input with the GET method.
+   * resourceSpecifier  - the portion of the URL after the scheme
+   * scheme             - the URL scheme; for web traffic, this will be "http" or "https"
+   * standardizedURL    - the URL with any path components of ".." or "." normalized.  The use of ".." that would cause the URL to refer to something preceding its root is simply removed.
+   * URL                - the URL as it was provided to this function (no changes)
+   * user               - the user name specified in the URL.  Note that this is not the user name that would be entered when using Basic or Digest authentication; rather it is a user name included in the URL itself -- for security reasons, use of this field has been deprecated in most situations and modern browsers will often prompt for confirmation before allowing URL's which contain a user name to be transmitted.
+
+Notes:
+ * This function differs from the similar function `hs.http.urlParts` in a few ways:
+   * To simplify the logic used by this module to determine if a request for a directory is properly terminated with a "/", the path components returned by this function do not remove this character from the component, if present.
+   * Some extraneous or duplicate keys have been removed.
+   * This function is patterned after RFC 3986 while `hs.http.urlParts` uses OS X API functions which are patterned after RFC 1808. RFC 3986 obsoletes 1808.  The primary distinction that affects this module is in regards to `parameters` for path components in the URI -- RFC 3986 disallows them in schema based URI's (like the URL's that are used for web based traffic).
+
 ### Module Methods
 
 <a name="accessList"></a>
@@ -299,6 +333,24 @@ Notes:
 
 - - -
 
+<a name="queryLogging"></a>
+~~~lua
+hsminweb:queryLogging([flag]) -> hsminwebTable | current-value
+~~~
+Get or set the whether or not requests to this web server are logged.
+
+Parameters:
+ * flag - an optional boolean, defaults to false, indicating whether or not query requests are logged.
+
+Returns:
+ * the hsminwebTable object if a parameter is provided, or the current value if no parameter is specified.
+
+Notes:
+ * If logging is enabled, an Apache common style log entry is appended to [self._accesslog](#_accessLog) for each request made to the web server.
+ * Error messages during content generation are always logged to the Hammerspoon console via the `hs.logger` instance saved to [hs._asm.hsminweb.log](#log).
+
+- - -
+
 <a name="scriptTimeout"></a>
 ~~~lua
 hsminweb:scriptTimeout([integer]) -> hsminwebTable | current-value
@@ -366,11 +418,19 @@ Notes:
 
 ### Module Variables
 
+<a name="_accessLog"></a>
+~~~lua
+hsminweb._accessLog
+~~~
+Accessed as `self._accessLog`.  If query logging is enabled for the web server, an Apache style common log entry will be appended to this string for each request.  See [hs._asm.hsminweb:queryLogging](#queryLogging).
+
+- - -
+
 <a name="_errorHandlers"></a>
 ~~~lua
 hsminweb._errorHandlers
 ~~~
-Accessed as `object._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
+Accessed as `self._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
 
 HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition. In addition, the key "default" is used for error codes which do not have a defined function.
 
@@ -397,11 +457,21 @@ In either case, the function should return three values:
 
 - - -
 
+<a name="_serverAdmin"></a>
+~~~lua
+hsminweb._serverAdmin
+~~~
+Accessed as `self._serverAdmin`.  A string containing the administrator for the web server.  Defaults to the currently logged in user's short form username and the computer's localized name as returned by `hs.host.localizedName()` (e.g. "user@computer").
+
+This value is often used in error messages or on error pages indicating a point of contact for administrative help.  It can be accessed from within helper functions as `headers._.serverAdmin`.
+
+- - -
+
 <a name="_supportMethods"></a>
 ~~~lua
 hsminweb._supportMethods
 ~~~
-Accessed as `object._supportMethods[method]`.  A table whose keyed entries specify whether or not a specified HTTP method is supported by this server.
+Accessed as `self._supportMethods[method]`.  A table whose keyed entries specify whether or not a specified HTTP method is supported by this server.
 
 The default methods supported internally are:
  * HEAD - an HTTP method which verifies whether or not a resource is available and it's last modified date
@@ -422,13 +492,20 @@ The function should return one or three values:
  * code    - a 3 digit integer specifying the HTTP Response status (see https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
  * headers - a table containing any headers which should be included in the HTTP response.  If `Server` or `Last-Modified` are not present, they will be provided automatically.
 
-If you assign `false` to a method, then any request utilizing that method will return a status of 405 (Method Not Supported).  E.g. `object._supportMethods["POST"] = false` will prevent the POST method from being supported.
+If you assign `false` to a method, then any request utilizing that method will return a status of 405 (Method Not Supported).  E.g. `self._supportMethods["POST"] = false` will prevent the POST method from being supported.
 
 There are some functions and conventions used within this module which can simplify generating appropriate content within your custom functions.  Currently, you should review the module source, but a companion document describing these functions and conventions is expected to follow in the near future.
 
 Common HTTP request methods can be found at https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods and https://en.wikipedia.org/wiki/WebDAV.  Currently, only HEAD, GET, and POST have built in support for static pages; even if you set other methods to `true`, they will return a status code of 405 (Method Not Supported) if the request does not invoke a CGI file for dynamic content.
 
 A companion module supporting the methods required for WebDAV is being considered.
+
+- - -
+<a name="log"></a>
+~~~lua
+hsminweb.log
+~~~
+The `hs.logger` instance for the `hs._asm.hsminweb` module. See the documentation for `hs.logger` for more information.
 
 ### Module Constants
 
