@@ -15,7 +15,6 @@
 
 --
 -- Planned Features
---
 --   [X] object based approach
 --   [X] custom error pages
 --   [X] functions for methods
@@ -31,37 +30,40 @@
 --   [X] documentation
 --   [X] proper content-type detection for GET
 --   [X] logging? access logging optionally to string, error to module logger instance, needs documenting
---   [ ] SSI?  will need a way to verify text content or specific header check
---   [-] Hammerspoon aware pages (files, functions?)
---       [ ] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
+--   [ ] Hammerspoon aware pages (files, functions?)
+--       [-] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
 --       [ ] Decode query strings
 --       [ ] Decode form POST data
 --       [ ] Allow adding alternate POST encodings (JSON)
---   [ ] support per-dir, in addition to per-server settings?
 --
 --   [-] helpers for custom functions/handlers
 --       [ ] document headers._ support table
 --       [-] common headers
---       [ ] function to get CGI-like variables?
+--       [X] table for CGI-like variables?
 --       [ ] query/body parsing like Hammerspoon/cgilua support?
 --       [X] common/default response headers? Would simplify error functions...
 --
---   [ ] should things like directory index code be a function so it can be overridden?
---       [ ] custom headers/footers? (auto include head/tail files if exist?)
---
+-- Review to determine if basic support is sufficiently "correct"
 --   [ ] additional response headers?
 --   [ ] Additional errors to add?
 --
+-- Would like to see how hard these would be... maybe only for Hammerspoon/embedded Lua supported pages
 --   [ ] basic/digest auth via lua only?
 --   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
 --   [ ] For full WebDav support, some other methods may also require a body
 --
+-- Not until requested/needed
+--   [ ] SSI?  will need a way to verify text content or specific header check
+--   [ ] support per-dir, in addition to per-server settings?
+--   [ ] should things like directory index code be a function so it can be overridden?
+--       [ ] custom headers/footers? (auto include head/tail files if exist?)
 
 local USERDATA_TAG          = "hs._asm.hsminweb"
 local VERSION               = "0.0.3"
 
 local DEFAULT_ScriptTimeout = 30
 local scriptWrapper         = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."timeout3"
+local cgiluaCompat          = require(USERDATA_TAG .. ".cgilua_compatibility_functions")
 
 local module     = {}
 
@@ -104,31 +106,167 @@ local cgiExtensions = {
     "cgi", "pl"
 }
 
+-- This table is from various sources, including (but probably not limited to):
+--    "Official" list at https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+--    KeplerProject's wsapi at https://github.com/keplerproject/wsapi
+--    IIS additions from https://support.microsoft.com/en-us/kb/943891
+--
+-- Actually, only 400+ are error conditions, but this is the complete list for reference
+local statusCodes = {
+    ["100"] = "Continue",
+    ["101"] = "Switching Protocols",
+    ["200"] = "OK",
+    ["201"] = "Created",
+    ["202"] = "Accepted",
+    ["203"] = "Non-Authoritative Information",
+    ["204"] = "No Content",
+    ["205"] = "Reset Content",
+    ["206"] = "Partial Content",
+    ["300"] = "Multiple Choices",
+    ["301"] = "Moved Permanently",
+    ["302"] = "Found",
+    ["303"] = "See Other",
+    ["304"] = "Not Modified",
+    ["305"] = "Use Proxy",
+    ["307"] = "Temporary Redirect",
+    ["400"] = "Bad Request",
+      ["400.1"]   = "Invalid Destination Header",
+      ["400.2"]   = "Invalid Depth Header",
+      ["400.3"]   = "Invalid If Header",
+      ["400.4"]   = "Invalid Overwrite Header",
+      ["400.5"]   = "Invalid Translate Header",
+      ["400.6"]   = "Invalid Request Body",
+      ["400.7"]   = "Invalid Content Length",
+      ["400.8"]   = "Invalid Timeout",
+      ["400.9"]   = "Invalid Lock Token",
+      ["400.10"]  = "Invalid XFF header",
+      ["400.11"]  = "Invalid WebSocket request",
+      ["400.601"] = "Bad client request (ARR)",
+      ["400.602"] = "Invalid time format (ARR)",
+      ["400.603"] = "Parse range error (ARR)",
+      ["400.604"] = "Client gone (ARR)",
+      ["400.605"] = "Maximum number of forwards (ARR)",
+      ["400.606"] = "Asynchronous competition error (ARR)",
+    ["401"] = "Unauthorized",
+      ["401.1"] = "Logon failed",
+      ["401.2"] = "Logon failed due to server configuration",
+      ["401.3"] = "Unauthorized due to ACL on resource",
+      ["401.4"] = "Authorization failed by filter",
+      ["401.5"] = "Authorization failed by ISAPI/CGI application",
+    ["402"] = "Payment Required",
+    ["403"] = "Forbidden",
+      ["403.1"]   = "Execute access forbidden",
+      ["403.2"]   = "Read access forbidden",
+      ["403.3"]   = "Write access forbidden",
+      ["403.4"]   = "SSL required",
+      ["403.5"]   = "SSL 128 required",
+      ["403.6"]   = "IP address rejected",
+      ["403.7"]   = "Client certificate required",
+      ["403.8"]   = "Site access denied",
+      ["403.9"]   = "Forbidden: Too many clients are trying to connect to the web server",
+      ["403.10"]  = "Forbidden: web server is configured to deny Execute access",
+      ["403.11"]  = "Forbidden: Password has been changed",
+      ["403.12"]  = "Mapper denied access",
+      ["403.13"]  = "Client certificate revoked",
+      ["403.14"]  = "Directory listing denied",
+      ["403.15"]  = "Forbidden: Client access licenses have exceeded limits on the web server",
+      ["403.16"]  = "Client certificate is untrusted or invalid",
+      ["403.17"]  = "Client certificate has expired or is not yet valid",
+      ["403.18"]  = "Cannot execute requested URL in the current application pool",
+      ["403.19"]  = "Cannot execute CGI applications for the client in this application pool",
+      ["403.20"]  = "Forbidden: Passport logon failed",
+      ["403.21"]  = "Forbidden: Source access denied",
+      ["403.22"]  = "Forbidden: Infinite depth is denied",
+      ["403.502"] = "Forbidden: Too many requests from the same client IP; Dynamic IP Restriction limit reached",
+    ["404"] = "Not Found",
+      ["404.0"]  = "Not Found",
+      ["404.1"]  = "Site Not Found",
+      ["404.2"]  = "ISAPI or CGI restriction",
+      ["404.3"]  = "MIME type restriction",
+      ["404.4"]  = "No handler configured",
+      ["404.5"]  = "Denied by request filtering configuration",
+      ["404.6"]  = "Verb denied",
+      ["404.7"]  = "File extension denied",
+      ["404.8"]  = "Hidden namespace",
+      ["404.9"]  = "File attribute hidden",
+      ["404.10"] = "Request header too long",
+      ["404.11"] = "Request contains double escape sequence",
+      ["404.12"] = "Request contains high-bit characters",
+      ["404.13"] = "Content length too large",
+      ["404.14"] = "Request URL too long",
+      ["404.15"] = "Query string too long",
+      ["404.16"] = "DAV request sent to the static file handler",
+      ["404.17"] = "Dynamic content mapped to the static file handler via a wildcard MIME mapping",
+      ["404.18"] = "Querystring sequence denied",
+      ["404.19"] = "Denied by filtering rule",
+      ["404.20"] = "Too Many URL Segments",
+    ["405"] = "Method Not Allowed",
+    ["406"] = "Not Acceptable",
+    ["407"] = "Proxy Authentication Required",
+    ["408"] = "Request Time-out",
+    ["409"] = "Conflict",
+    ["410"] = "Gone",
+    ["411"] = "Length Required",
+    ["412"] = "Precondition Failed",
+    ["413"] = "Request Entity Too Large",
+    ["414"] = "Request-URI Too Large",
+    ["415"] = "Unsupported Media Type",
+    ["416"] = "Requested range not satisfiable",
+    ["417"] = "Expectation Failed",
+    ["500"] = "Internal Server Error",
+      ["500.0"]   = "Module or ISAPI error occurred",
+      ["500.11"]  = "Application is shutting down on the web server",
+      ["500.12"]  = "Application is busy restarting on the web server",
+      ["500.13"]  = "Web server is too busy",
+      ["500.15"]  = "Direct requests for Global.asax are not allowed",
+      ["500.19"]  = "Configuration data is invalid",
+      ["500.21"]  = "Module not recognized",
+      ["500.22"]  = "An ASP.NET httpModules configuration does not apply in Managed Pipeline mode",
+      ["500.23"]  = "An ASP.NET httpHandlers configuration does not apply in Managed Pipeline mode",
+      ["500.24"]  = "An ASP.NET impersonation configuration does not apply in Managed Pipeline mode",
+      ["500.50"]  = "A rewrite error occurred during RQ_BEGIN_REQUEST notification handling",
+      ["500.51"]  = "A rewrite error occurred during GL_PRE_BEGIN_REQUEST notification handling",
+      ["500.52"]  = "A rewrite error occurred during RQ_SEND_RESPONSE notification handling",
+      ["500.53"]  = "A rewrite error occurred during RQ_RELEASE_REQUEST_STATE notification handling",
+      ["500.100"] = "Internal ASP error",
+    ["501"] = "Not Implemented",
+    ["502"] = "Bad Gateway",
+      ["502.1"] = "CGI application timeout",
+      ["502.2"] = "Bad gateway: Premature Exit",
+      ["502.3"] = "Bad Gateway: Forwarder Connection Error (ARR)",
+      ["502.4"] = "Bad Gateway: No Server (ARR)",
+      ["502.5"] = "WebSocket failure (ARR)",
+      ["502.6"] = "Forwarded request failure (ARR)",
+      ["502.7"] = "Execute request failure (ARR)",
+    ["503"] = "Service Unavailable",
+      ["503.0"] = "Application pool unavailable",
+      ["503.2"] = "Concurrent request limit exceeded",
+      ["503.3"] = "ASP.NET queue full",
+    ["504"] = "Gateway Time-out",
+    ["505"] = "HTTP Version not supported",
+}
+
 local errorHandlers = setmetatable({
--- https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
-    [403] = function(method, path, h)
-        return "<html><head><title>Forbidden</title><head><body><H1>HTTP/1.1 403 Forbidden</H1><hr/><div align=\"right\"><i>" .. serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 403, h._.minimalHTMLResponseHeaders
-    end,
-
-    [403.2] = function(method, path, h)
-        return "<html><head><title>Read Access is Forbidden</title><head><body><H1>HTTP/1.1 403.2 Read Access is Forbidden</H1><br/>Read access for the requested URL, " .. h._.pathParts.standardizedURL .. ", is forbidden.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 403, h._.minimalHTMLResponseHeaders
-    end,
-
-    [404] = function(method, path, h)
---         log.wf("404: %s", hs.inspect(h._))
-        return "<html><head><title>Object Not Found</title><head><body><H1>HTTP/1.1 404 Object Not Found</H1><br/>The requested URL, " .. h._.pathParts.standardizedURL .. ", was not found on this server.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 404, h._.minimalHTMLResponseHeaders
-    end,
-
-    [405] = function(method, path, h)
-        return "<html><head><title>Method Not Allowed</title><head><body><H1>HTTP/1.1 405 Method Not Allowed</H1><br/>The requested method, " .. method .. ", is not supported by this server or for the requested URL, " .. h._.pathParts.standardizedURL .. ".<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 405, h._.minimalHTMLResponseHeaders
-    end,
-
-    [500] = function(method, path, h)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>An internal server error occurred.  Check the Hammerspoon console for possible log messages which may contain more details.<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 405, h._.minimalHTMLResponseHeaders
-    end,
-
     default = function(code, method, path, h)
-        return "<html><head><title>Internal Server Error</title><head><body><H1>HTTP/1.1 500 Internal Server Error</H1><br/>Error code " .. tostring(code) .. " has no handler<br/><hr/><div align=\"right\"><i>" .. h._.serverSoftware .. " at " .. h._.queryDate .. "</i></div></body></html>", 500, h._.minimalHTMLResponseHeaders
+        if type(code) == "number" then code = tostring(code) end
+        local intendedCode = code
+        local codeLabel = statusCodes[code]
+        if tonumber(code) < 400 or not codeLabel then code, codeLabel = "500", statusCodes["500"] end
+
+        local output = "<html><head><title>" .. codeLabel .. "</title></head><body><body><H1>HTTP/1.1 " .. code .. " " .. codeLabel .. "</H1><br/><br/>"
+
+        if code ~= intendedCode then
+            if tonumber(intendedCode) > 399 then
+                output = output .. "Error code " .. intendedCode .. " is unrecognized and has no handler<br/>"
+            else
+                local statusLabel = statusCodes[intendedCode] or "** Unrecognized Status Code **"
+                output = output .. "Status code ".. intendedCode .. ", " .. statusLabel .. ", does not specify an error condition<br/>"
+            end
+        end
+
+        output = output .. "<hr/><div align=\"right\"><i>" .. tostring(h and h._ and h._.serverSoftware) .. " at " .. tostring(h and h._ and h._.queryDate) .. "</i></div></body></html>"
+
+        return output, math.floor(code), (h and h._ and h._.minimalHTMLResponseHeaders or {})
     end,
 }, {
     __index = function(_, key)
@@ -156,6 +294,20 @@ local supportedMethods = {
     LOCK      = false,
     UNLOCK    = false,
 }
+
+local objectMethods = {}
+local mt_table = {
+    __passwords = {},
+    __luaCaches = {},
+    __tostrings = {},
+    __index     = objectMethods,
+    __metatable = objectMethods, -- getmetatable should only list the available methods
+    __type      = USERDATA_TAG,
+}
+
+mt_table.__tostring  = function(_)
+    return mt_table.__type .. ": " .. _:name() .. ":" .. tostring(_:port()) .. ", " .. (mt_table.__tostrings[_] or "* unbound -- this is unsupported *")
+end
 
 local RFC3986getURLParts = function(resourceLocator)
     local parts = {}
@@ -352,15 +504,21 @@ local webServerHandler = function(self, method, path, headers, body)
         if testAttr then
             if i ~= #pathParts.pathComponents then
                 if testAttr.mode == "file" then
-                    if self._cgiEnabled then
+                    if self._cgiEnabled or self._luaTemplateExtension then
                         local testExtension = pathParts.pathComponents[i]:match("^.*%.([^%.]+)/$") or ""
                         local testIsCGI = false
-                        for i, v in ipairs(self._cgiExtensions) do
-                            if v == testExtension then
-                                testIsCGI = true
-                                break
+                        if self._cgiEnabled then
+                            for i, v in ipairs(self._cgiExtensions) do
+                                if v == testExtension then
+                                    testIsCGI = true
+                                    break
+                                end
                             end
                         end
+                        if not testIsCGI and self._luaTemplateExtension then
+                            testIsCGI = (self._luaTemplateExtension == testExtension)
+                        end
+
                         if testIsCGI then -- we got a PATH_INFO situation
                             local realPathPart = table.concat(pathParts.pathComponents, "", 1, i)
                             realPathPart = realPathPart:sub(1, #realPathPart - 1)
@@ -372,7 +530,7 @@ local webServerHandler = function(self, method, path, headers, body)
                             pathParts = headers._.pathParts
                             pathParts.pathInfo = pathInfoPart
                             break
-                        else -- returning 404 because it's not a cgi file
+                        else -- returning 404 because it's not a cgi file, and thus it's file where a directory should be
                             return self._errorHandlers[404](method, path, headers)
                         end
                     else -- returning 404 because it's a file where a directory should be and cgi is disabled
@@ -429,7 +587,7 @@ local webServerHandler = function(self, method, path, headers, body)
         end
     end
 
-    local itBeDynamic = itBeCGI or (self._inHammerspoonExtension and pathParts.pathExtension and self._inHammerspoonExtension == pathParts.pathExtension)
+    local itBeDynamic = itBeCGI or (self._luaTemplateExtension and pathParts.pathExtension and self._luaTemplateExtension == pathParts.pathExtension)
 
     local responseBody, responseCode, responseHeaders = "", 200, {}
 
@@ -570,8 +728,110 @@ local webServerHandler = function(self, method, path, headers, body)
             end
 
         else
-        -- do the in Hammerspoon lua file thing
-            -- decode query and/or body
+            local finput = io.open(targetFile, "rb")
+            if not finput then return self._errorHandlers[403.2](method, path, headers) end
+            local workingBody = finput:read("a")
+            finput:close()
+
+            -- some UTF8 encoded files include the UTF8 BOM (byte order mark) at the beginning of the file, even though this is recommended against for UTF8; lua doesn't like these characters, so remove them if necessary
+            if workingBody:sub(1,3) == "\xEF\xBB\xBF" then workingBody = workingBody:sub(4) end
+
+            local translatedCopy = mt_table.__luaCaches[self][workingBody]
+            if not translatedCopy then
+                local out = function(s, i, f)
+                    if type(s) ~= "string" then s = tostring(s) end
+                    s = s:sub(i, f or -1)
+                    if s == "" then return s end
+                    -- we could use `%q' here, but this way we have better control
+                    s = s:gsub("([\\\n\'])", "\\%1")
+                    -- substitute '\r' by '\'+'r' and let `loadstring' reconstruct it
+                    s = s:gsub("\r", "\\r")
+                    return string.format(" %s('%s'); ", "cgilua.put", s)
+                end
+
+                -- in an effort to attempt to maintain compatibility with CGILua, we should expect/allow the same things in a source file...
+                workingBody = workingBody:gsub("^#![^\n]+\n", "")
+
+                -- compatibility with earlier versions...
+                -- translates $| lua-var |$
+                workingBody = workingBody:gsub("$|(.-)|%$", "<?lua = %1 ?>")
+                -- translates <!--$$ lua-code $$-->
+                workingBody = workingBody:gsub("<!%-%-$$(.-)$$%-%->", "<?lua %1 ?>")
+                -- translates <% lua-code %>
+                workingBody = workingBody:gsub("<%%(.-)%%>", "<?lua %1 ?>")
+
+                local res = {}
+                local start = 1   -- start of untranslated part in `s'
+                while true do
+                    local ip, fp, target, exp, code = workingBody:find("<%?(%w*)[ \t]*(=?)(.-)%?>", start)
+                    if not ip then break end
+                    table.insert(res, out(workingBody, start, ip-1))
+                    if target ~= "" and target ~= "lua" then
+                        -- not for Lua; pass whole instruction to the output
+                        table.insert(res, out(workingBody, ip, fp))
+                    else
+                        if exp == "=" then   -- expression?
+                            table.insert(res, string.format(" %s(%s);", "cgilua.put", code))
+                        else  -- command
+                            table.insert(res, string.format(" %s ", code))
+                        end
+                    end
+                    start = fp + 1
+                end
+                table.insert(res, out(source, start))
+                translatedCopy = table.concat(res)
+                mt_table.__luaCaches[self][workingBody] = translatedCopy
+            end
+
+-- decode query and/or body
+            -- setup the library of CGILua compatibility functions for the function environment
+
+            local _parent = {
+                self         = self,
+                log          = log,
+                request      = {
+                    method  = method,
+                    path    = path,
+                    headers = headers
+                },
+                response     = {
+                    body    = responseBody,
+                    code    = responseCode,
+                    headers = responseHeaders,
+                },
+                CGIVariables = CGIVariables,
+            }
+
+            local M = {}
+            for k, v in pairs(cgiluaCompat) do
+                if type(v) == "function" then
+                    M[k] = function(...) return v(_parent, ...) end
+                elseif type(v) == "table" then
+                    M[k] = shallowCopy(v)
+                else
+                    M[k] = v
+                end
+            end
+--             M.POST =
+--             M.QUERY =
+--             what else?
+
+            local env = { cgilua = M, print = M.print, write = M.put }
+            setmetatable(env, { __index = _G, __newindex = _G })
+            local f, err = load(translatedCopy, "@" .. targetFile:match("^.-/?([^/]+)$"), "bt", env)
+            if not f then
+                log.ef("Embedded Lua error: %s", debug.traceback(err))
+                return self._errorHandlers[500](method, path, headers)
+            end
+            local ok, err = pcall(f) -- do actual lua processing
+            if not ok then
+                log.ef("Embedded Lua error: %s", debug.traceback(err))
+                return self._errorHandlers[500](method, path, headers)
+            end
+
+            responseBody    = _parent.response.body
+            responseCode    = _parent.response.code
+            responseHeaders = _parent.response.headers
         end
 
     elseif ({ ["HEAD"] = 1, ["GET"] = 1, ["POST"] = 1 })[method] then
@@ -648,19 +908,6 @@ local webServerHandlerWrapper = function(self, method, path, headers, body)
         self._accessLog = self._accessLog .. string.format("%s - - %s \"%s %s HTTP/1.1\" %d %s\n", headers["X-Remote-Addr"], queryDate, method:upper(), path:gsub("%?.*$", ""), responseCode, ((#responseBody == 0) and "-" or tostring(#responseBody)))
     end
     return responseBody, responseCode, responseHeaders
-end
-
-local objectMethods = {}
-local mt_table = {
-    __passwords = {},
-    __tostrings = {},
-    __index     = objectMethods,
-    __metatable = objectMethods, -- getmetatable should only list the available methods
-    __type      = USERDATA_TAG,
-}
-
-mt_table.__tostring  = function(_)
-    return mt_table.__type .. ": " .. _:name() .. ":" .. tostring(_:port()) .. ", " .. (mt_table.__tostrings[_] or "* unbound -- this is unsupported *")
 end
 
 --- hs._asm.hsminweb:port([port]) -> hsminwebTable | current-value
@@ -987,7 +1234,7 @@ objectMethods.cgiExtensions = function(self, ...)
     end
 end
 
---- hs._asm.hsminweb:inHammerspoonExtension([string]) -> hsminwebTable | current-value
+--- hs._asm.hsminweb:luaTemplateExtension([string]) -> hsminwebTable | current-value
 --- Method
 --- Get or set the extension of files which contain Lua code which should be executed within Hammerspoon to provide the results to an HTTP request.
 ---
@@ -999,14 +1246,14 @@ end
 ---
 --- Notes:
 ---  * This extension is checked after the extensions given to [hs._asm.hsminweb:cgiExtensions](#cgiExtensions); this means that if the same extension set by this method is also in the CGI extensions list, then the file will be interpreted as a CGI script and ignore this setting.
-objectMethods.inHammerspoonExtension = function(self, ...)
+objectMethods.luaTemplateExtension = function(self, ...)
     local args = table.pack(...)
     assert(type(args[1]) == "nil" or type(args[1]) == "string", "argument must be a file extension")
     if args.n > 0 then
-        self._inHammerspoonExtension = args[1]
+        self._luaTemplateExtension = args[1]
         return self
     else
-        return self._inHammerspoonExtension
+        return self._luaTemplateExtension
     end
 end
 
@@ -1172,6 +1419,7 @@ module.new = function(documentRoot)
 
     -- save tostring(instance) since we override it, but I like the address so it looks more "formal" in the console...
     mt_table.__tostrings[instance] = tostring(instance)
+    mt_table.__luaCaches[instance] = {}
 
     return setmetatable(instance, mt_table)
 end
@@ -1190,28 +1438,19 @@ end
 --- Variable
 --- Accessed as `self._errorHandlers[errorCode]`.  A table whose keyed entries specify the function to generate the error response page for an HTTP error.
 ---
---- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition. In addition, the key "default" is used for error codes which do not have a defined function.
+--- HTTP uses a three digit numeric code for error conditions.  Some servers have introduced subcodes, which are appended as a decimal added to the error condition.
 ---
---- Built in handlers exist for the following error codes:
----  * 403   - Forbidden, usually used when authentication is required, but no authentication token exists or an invalid token is used
----  * 403.2 - Read Access Forbidden, usually specified when a file is not readable by the server, or directory indexing is not allowed and no default file exists for a URL specifying a directory
----  * 404   - Object Not Found, usually indicating that the URL specifies a non-existant destination or file
----  * 405   - Method Not Supported, indicating that the HTTP request specified a method not supported by the web server
----  * 500   - Internal Server Error, a catch-all for server side problems that prevent a page from being returned.  Commonly when CGI scripts fail for some reason.
----
---- The "default" key also specifies a 500 error, in this case because an error condition occurred for which there is no handler. The content of the message returned indicates the actual error code that was intended.
----
---- You can provide your own handler by specifying a function for the desired error condition.  The function should expect three arguments:
+--- You can assign your own handler to customize the response for a specific error code by specifying a function for the desired error condition as the value keyed to the error code as a string key in this table.  The function should expect three arguments:
 ---  * method  - the method for the HTTP request
 ---  * path    - the full path, including any GET query items
 ---  * headers - a table containing key-value pairs for the HTTP request headers
 ---
---- If you override the default handler, the function should expect four arguments:  the error code as a string, followed by the same three arguments defined above.
+--- If you override the default handler, "default", the function should expect four arguments instead:  the error code as a string, followed by the same three arguments defined above.
 ---
 --- In either case, the function should return three values:
 ---  * body    - the content to be returned, usually HTML for a basic error description page
 ---  * code    - a 3 digit integer specifying the HTTP Response status (see https://en.wikipedia.org/wiki/List_of_HTTP_status_codes)
----  * headers - a table containing any headers which should be included in the HTTP response.  Usually this will just be an empty table (e.g. {})
+---  * headers - a table containing any headers which should be included in the HTTP response.
 
 --- hs._asm.hsminweb._supportMethods
 --- Variable
@@ -1296,5 +1535,29 @@ module.urlParts = RFC3986getURLParts
 --- Variable
 --- The `hs.logger` instance for the `hs._asm.hsminweb` module. See the documentation for `hs.logger` for more information.
 module.log = log
+
+--- hs._asm.statusCodes
+--- Constant
+--- HTTP Response Status Codes
+---
+--- This table contains a list of common HTTP status codes identified from various sources (see Notes below). Because some web servers append a subcode after the official HTTP status codes, the keys in this table are the string representation of the numeric code so a distinction can be made between numerically "identical" keys (for example, "404.1" and "404.10").  You can reference this table with a numeric key, however, and it will be converted to its string representation internally.
+---
+--- Notes:
+---  * The keys and labels in this table have been combined from a variety of sources including, but not limited to:
+---    * "Official" list at https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+---    * KeplerProject's wsapi at https://github.com/keplerproject/wsapi
+---    * IIS additions from https://support.microsoft.com/en-us/kb/943891
+---  * This table has metatable additions which allow you to review its contents from the Hammerspoon console by typing `hs._asm.hsminweb.statusCodes`
+module.statusCodes = setmetatable(statusCodes, {
+    __tostring = function(_)
+        local outputList = {}
+        for k, v in pairs(_) do table.insert(outputList, string.format("%-7s %s", k, v)) end
+        table.sort(outputList, function(a, b) return a:sub(1,7) < b:sub(1,7) end)
+        return table.concat(outputList, "\n")
+    end,
+    __index = function(_, k)
+        return rawget(_, tostring(k)) or nil
+    end,
+})
 
 return module

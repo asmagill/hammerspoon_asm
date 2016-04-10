@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Modified from code at
-#    http://www.bashcookbook.com/bashinfo/source/bash-4.0/examples/scripts/timeout3
+# 2016-04-08 :: Modified from original to inclue the source URL for this script:
+#     http://www.bashcookbook.com/bashinfo/source/bash-4.0/examples/scripts/timeout3
 #
-#   Changed timeout defaults
+# LICENSE.timeout3 source URL: http://www.bashcookbook.com/bashinfo/source/COPYING
 
 # The Bash shell script executes a command with a time-out.
 # Upon time-out expiration SIGTERM (15) is sent to the process. If the signal
@@ -21,7 +21,7 @@
 
 scriptName="${0##*/}"
 
-declare -i DEFAULT_TIMEOUT=30
+declare -i DEFAULT_TIMEOUT=9
 declare -i DEFAULT_INTERVAL=1
 declare -i DEFAULT_DELAY=1
 
