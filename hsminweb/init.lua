@@ -59,7 +59,7 @@
 --       [ ] custom headers/footers? (auto include head/tail files if exist?)
 
 local USERDATA_TAG          = "hs._asm.hsminweb"
-local VERSION               = "0.0.3"
+local VERSION               = "0.0.4"
 
 local DEFAULT_ScriptTimeout = 30
 local scriptWrapper         = package.searchpath(USERDATA_TAG, package.path):match("^(/.*/).*%.lua$").."timeout3"
@@ -622,6 +622,7 @@ local webServerHandler = function(self, method, path, headers, body)
             SERVER_PROTOCOL   = "HTTP/1.1",
             SERVER_SOFTWARE   = serverSoftware,
         }
+
         if CGIVariables.PATH_INFO then
             CGIVariables.PATH_TRANSLATED = self._documentRoot .. CGIVariables.PATH_INFO
         end
@@ -786,7 +787,7 @@ local webServerHandler = function(self, method, path, headers, body)
 -- decode query and/or body
             -- setup the library of CGILua compatibility functions for the function environment
 
-            local _parent = {
+            local _parent = setmetatable({
                 self         = self,
                 log          = log,
                 request      = {
@@ -800,9 +801,26 @@ local webServerHandler = function(self, method, path, headers, body)
                     headers = responseHeaders,
                 },
                 CGIVariables = CGIVariables,
-            }
+                _tmpfiles    = {},
+            }, {
+                __gc = function(_)
+                    for i, v in ipairs(_.tmpfiles) do
+                        _.tmpfiles[i] = nil
+                        if io.type(a) == "file" then -- as opposed to "closed file"
+                            v.file:close()
+                        end
+                        local __, err = os.remove(v.name)
+                        if __ then log.e(err) end
+                    end
+                end,
+            })
 
-            local M = {}
+            local M = setmetatable({}, {
+                __index = function(_, k)
+                    log.wf("CGILua compatibility function %s not implemented, returning nil", k)
+                    return nil
+                end
+            })
             for k, v in pairs(cgiluaCompat) do
                 if type(v) == "function" then
                     M[k] = function(...) return v(_parent, ...) end
@@ -812,11 +830,21 @@ local webServerHandler = function(self, method, path, headers, body)
                     M[k] = v
                 end
             end
+
+            -- documentation for these is in the cgilua_compatibility_functions.lua file to keep them logically organized
+            M.script_path  = CGIVariables["SCRIPT_FILENAME"]
+            M.script_pdir, M.script_file = M.script_path:match("^(.-)([^:/\\]*)$")
+
+            M.script_vpath = CGIVariables["PATH_INFO"] or "/"
+            M.script_vdir = M.script_vpath:match("^(.-)[^:/\\]*$")
+
+            M.urlpath      = CGIVariables["SCRIPT_NAME"]
+
 --             M.POST =
 --             M.QUERY =
 --             what else?
 
-            local env = { cgilua = M, print = M.print, write = M.put }
+            local env = { cgilua = M, print = M.print, write = M.put, hsminweb = _parent }
             setmetatable(env, { __index = _G, __newindex = _G })
             local f, err = load(translatedCopy, "@" .. targetFile:match("^.-/?([^/]+)$"), "bt", env)
             if not f then

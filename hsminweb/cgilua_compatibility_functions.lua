@@ -79,22 +79,184 @@ end
 ---  * By default, messages logged with this method will appear in the Hammerspoon console and are available in the `hs.logger` history.
 cgilua.errorlog = function(_parent, string) _parent.log.e(string) end
 
--- Candidates for inclusion
+
+--- hs._asm.hsminweb.cgilua.tmp_path
+--- Variable
+--- The directory used by `cgilua.tmpfile`
+---
+--- This variable contains the location where temporary files should be created.  Defaults to the user's temporary directory as returned by `hs.fs.temporaryDirectory`.
+cgilua.tmp_path = require"hs.fs".temporaryDirectory():match("^(.*)/")
+
+--- hs._asm.hsminweb.cgilua.tmpname() -> string
+--- Function
+--- Returns a temporary file name used by `cgilua.tmpfile`.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * a temporary filename, without the path.
+---
+--- Notes:
+---  * This function uses `hs.host.globallyUniqueString` to generate a unique file name.
+cgilua.tmpname = function()
+    return "lua_" .. require"hs.host".globallyUniqueString()
+end
+
+
+--- hs._asm.hsminweb.cgilua.tmpfile([dir], [namefunction]) -> file[, err]
+--- Function
+--- Returns the file handle to a temporary file for writing, or nil and an error message if the file could not be created for any reason.
+---
+--- Parameters:
+---  * dir          - the system directory where the temporary file should be created.  Defaults to `cgilua.tmp_path`.
+---  * namefunction - an optional function used to generate unique file names for use as temporary files.  Defaults to `cgilua.tmpname`.
+---
+--- Returns:
+---  * the created file's handle or nil and an error message if the file could not be created.
+---
+--- Notes:
+---  * The file is automatically deleted when the HTTP request has been completed, so if you need for the data to persist, make sure to `io.flush` or `io.close` the file handle yourself and copy the file to a more permanent location.
+cgilua.tmpfile = function(_parent, dir, namefunction)
+    dir = dir or cgilua.tmp_path
+    namefunction = namefunction or cgilua.tmpname
+    local tempname = namefunction()
+    local filename = dir.."/"..tempname
+    local file, err = io.open(filename, "w+b")
+    if file then
+        table.insert(_parent.tmpfiles, {name = filename, file = file})
+    end
+    return file, err
+end
+
+--- hs._asm.hsminweb.cgilua.servervariable(varname) -> string
+--- Function
+--- Returns a string with the value of the CGI environment variable correspoding to varname.
+---
+--- Parameters:
+---  * varname - the name of the CGI variable to get the value of.
+---
+--- Returns:
+---  * the value of the CGI variable as a string, or nil if no such variable exists.
+---
+--- Notes:
+---  * CGI Variables include server defined values commonly shared with CGI scripts and the HTTP request headers from the web request.  The server variables include the following (note that depending upon the request and type of resource the URL refers to, not all values may exist for every request):
+---    * "AUTH_TYPE"         - If the server supports user authentication, and the script is protected, this is the protocol-specific authentication method used to validate the user.
+---    * "CONTENT_LENGTH"    - The length of the content itself as given by the client.
+---    * "CONTENT_TYPE"      - For queries which have attached information, such as HTTP POST and PUT, this is the content type of the data.
+---    * "DOCUMENT_ROOT"     - the real directory on the server that corresponds to a DOCUMENT_URI of "/".  This is the first directory which contains files or sub-directories which are served by the web server.
+---    * "DOCUMENT_URI"      - the path portion of the HTTP URL requested
+---    * "GATEWAY_INTERFACE" - The revision of the CGI specification to which this server complies. Format: CGI/revision
+---    * "PATH_INFO"         - The extra path information, as given by the client. In other words, scripts can be accessed by their virtual pathname, followed by extra information at the end of this path. The extra information is sent as PATH_INFO. This information should be decoded by the server if it comes from a URL before it is passed to the CGI script.
+---    * "PATH_TRANSLATED"   - The server provides a translated version of PATH_INFO, which takes the path and does any virtual-to-physical mapping to it.
+---    * "QUERY_STRING"      - The information which follows the "?" in the URL which referenced this script. This is the query information. It should not be decoded in any fashion. This variable should always be set when there is query information, regardless of command line decoding.
+---    * "REMOTE_ADDR"       - The IP address of the remote host making the request.
+---    * "REMOTE_HOST"       - The hostname making the request. If the server does not have this information, it should set REMOTE_ADDR and leave this unset.
+---    * "REMOTE_IDENT"      - If the HTTP server supports RFC 931 identification, then this variable will be set to the remote user name retrieved from the server. Usage of this variable should be limited to logging only.
+---    * "REMOTE_USER"       - If the server supports user authentication, and the script is protected, this is the username they have authenticated as.
+---    * "REQUEST_METHOD"    - The method with which the request was made. For HTTP, this is "GET", "HEAD", "POST", etc.
+---    * "REQUEST_TIME"      - the time the server received the request represented as the number of seconds since 00:00:00 UTC on 1 January 1970.  Usable with `os.date` to provide the date and time in whatever format you require.
+---    * "REQUEST_URI"       - the DOCUMENT_URI with any query string present in the request appended.  Usually this corresponds to the URL without the scheme or host information.
+---    * "SCRIPT_FILENAME"   - the actual path to the script being executed.
+---    * "SCRIPT_NAME"       - A virtual path to the script being executed, used for self-referencing URLs.
+---    * "SERVER_NAME"       - The server's hostname, DNS alias, or IP address as it would appear in self-referencing URLs.
+---    * "SERVER_PORT"       - The port number to which the request was sent.
+---    * "SERVER_PROTOCOL"   - The name and revision of the information protcol this request came in with. Format: protocol/revision
+---    * "SERVER_SOFTWARE"   - The name and version of the web server software answering the request (and running the gateway). Format: name/version
+---
+--- * The HTTP Request header names are prefixed with "HTTP_", converted to all uppercase, and have all hyphens converted into underscores.  Common headers (converted to their CGI format) might include, but are not limited to:
+---    * HTTP_ACCEPT, HTTP_ACCEPT_ENCODING, HTTP_ACCEPT_LANGUAGE, HTTP_CACHE_CONTROL, HTTP_CONNECTION, HTTP_DNT, HTTP_HOST, HTTP_USER_AGENT
+---  * This server also defines the following (which are replicated in the CGI variables above, so those should be used for portability):
+---    * HTTP_X_REMOTE_ADDR, HTTP_X_REMOTE_PORT, HTTP_X_SERVER_ADDR, HTTP_X_SERVER_PORT
+---  * A list of common request headers and their definitions can be found at https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
+cgilua.servervariable = function(_parent, varname)
+    return _parent.CGIVariables[varname]
+end
+
+--- hs._asm.hsminweb.cgilua.splitonlast(path) -> directory, file
+--- Function
+--- Returns two strings with the "directory path" and "file" parts of the given path string splitted on the last separator ("/" or "\").
+---
+--- Parameters:
+---  * path - the path to split
+---
+--- Returns:
+---  * the directory path, the file
+---
+--- Notes:
+---  * This function used to be called cgilua.splitpath and still can be accessed by this name for compatibility reasons. cgilua.splitpath may be deprecated in future versions.
+cgilua.splitonlast  = function(_parent, path) return match(path,"^(.-)([^:/\\]*)$") end
+cgilua.splitpath    = cgilua.splitonlast -- compatibility with previous versions
+
+--- hs._asm.hsminweb.cgilua.splitfirst(path) -> path component, path remainder
+--- Function
+--- Returns two strings with the "first directory" and the "remaining paht" of the given path string splitted on the first separator ("/" or "\").
+---
+--- Parameters:
+---  * path - the path to split
+---
+--- Returns:
+---  * the first directory, the remainder of the path
+cgilua.splitonfirst = function(_parent, path) return match(path, "^/([^:/\\]*)(.*)") end
+
+-- Variable's defined per use at runtime, but logically belong within the cgilua submodule for documentation purposes...
+
+--- hs._asm.hsminweb.cgilua.script_path
+--- Variable
+--- The actual path of the running script. Equivalent to the CGI environment variable SCRIPT_FILENAME.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+--- hs._asm.hsminweb.cgilua.script_file
+--- Variable
+--- The file name of the running script. Obtained from cgilua.script_path.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+--- hs._asm.hsminweb.cgilua.script_pdir
+--- Variable
+--- The directory of the running script. Obtained from cgilua.script_path.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+--- hs._asm.hsminweb.cgilua.script_vpath
+--- Variable
+--- Equivalent to the CGI environment variable PATH_INFO or "/", if no PATH_INFO is set.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+--- hs._asm.hsminweb.cgilua.script_vdir
+--- Variable
+--- If PATH_INFO represents a directory (i.e. ends with "/"), then this is equal to `cgilua.script_vpath`.  Otherwise, this contains the directory portion of `cgilua.script_vpath`.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+--- hs._asm.hsminweb.cgilua.urlpath
+--- Variable
+--- The name of the script as requested in the URL. Equivalent to the CGI environment variable SCRIPT_NAME.
+---
+--- Notes:
+---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
+
+
+
+
+
+-- Candidates being considered for inclusion
 --     cgilua.contentheader (type, subtype)
 --     cgilua.header (header, value)
 --     cgilua.htmlheader ()
 --     cgilua.redirect (url, args)
 
+--     cgilua.lp.include (filename[, env]) (see doif when implementing this)
+
 --     cgilua.mkabsoluteurl (path)
 --     cgilua.mkurlpath (script [, args])
---     cgilua.script_file
---     cgilua.script_path
---     cgilua.script_pdir
---     cgilua.script_vdir
---     cgilua.script_vpath
---     cgilua.servervariable (varname)
---     cgilua.tmp_path
---     cgilua.urlpath
 
 --     cgilua.urlcode.encodetable (table)
 --     cgilua.urlcode.escape (string)
@@ -105,10 +267,6 @@ cgilua.errorlog = function(_parent, string) _parent.log.e(string) end
 --     cgilua.doif (filepath)
 --     cgilua.doscript (filepath)
 --     cgilua.pack (...)
---     cgilua.splitfirst (path)
---     cgilua.splitonlast (path)
---     cgilua.tmpfile (dir[, namefunction])
---     cgilua.tmpname ()
 
 --     cgilua.authentication.check (username, passwd)
 --     cgilua.authentication.checkURL ()
