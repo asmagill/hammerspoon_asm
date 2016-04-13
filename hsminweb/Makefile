@@ -18,6 +18,7 @@ all: verify $(SOFILE)
 
 install: verify install-lua
 	install -m 0755 timeout3 $(PREFIX)/hs/_asm/$(MODULE)
+	cp -r hsdocs $(PREFIX)/hs/_asm/$(MODULE)
 
 verify: $(LUAFILE)
 	hash lua-5.3 >& /dev/null && luac-5.3 -p $(LUAFILE) && echo "Passed"
@@ -33,6 +34,7 @@ clean:
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
+	rm -v -fr $(PREFIX)/hs/_asm/$(MODULE)/hsdocs
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify install install-lua

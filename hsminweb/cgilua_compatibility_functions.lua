@@ -5,7 +5,14 @@
 --- Because of the close integration with Hammerspoon and the hs._asm.hsminweb module that I am attempting to provide with this, I decided that it was easier to "replicate" the functionality of some of the CGILua functions, rather than attempt to bridge the differences between how CGILua and Hammerspoon/this module handle their implementation of the HTTP protocol.
 ---
 --- I may revisit the idea of using CGILua more directly in the future.  In the meantime, the goal of this file is to provide most of the same functionality that CGILua does to template files. Any differences in the results or errors are most likely due to my code and you should direct all error reports or code change suggestions to the hs._asm.hsminweb github repository at https://github.com/asmagill/hammerspoon_asm, rather than the Kepler Project.
-
+---
+--- #### Style Note:
+---
+--- If you compare this to the actual CGILua code, you'll see that even when I've copied a function almost exactly, I've un-done the optimizations where functions in the global scope are stored as local variables.
+---
+--- I favor readability over performance.  If I were coding on an embedded system (I have, but not in Lua), I would probably care about this more; but Hammerspoon runs on fairly modern Macintosh computers. I did a little digging and came across this, although their testing was done on an iPhone: http://www.ludicroussoftware.com/blog/2011/11/01/local-v--table-functions/
+---
+--- Now I'm not saying that this sort of optimization isn't useful in the right places, but for a few ms, I'd rather spend my time looking at readable code, rather than try to remember without looking it up if `_open` is something I assigned or is it really `io.open`... or is `unpack` shorthand for `table.unpack` or `string.unpack`?
 
 -- Per the CGILua license at http://keplerproject.github.io/cgilua/license.html, portions of this file may be covered under the following license:
 --
@@ -124,7 +131,7 @@ cgilua.tmpfile = function(_parent, dir, namefunction)
     local filename = dir.."/"..tempname
     local file, err = io.open(filename, "w+b")
     if file then
-        table.insert(_parent.tmpfiles, {name = filename, file = file})
+        table.insert(_parent._tmpfiles, {name = filename, file = file})
     end
     return file, err
 end
@@ -243,53 +250,236 @@ cgilua.splitonfirst = function(_parent, path) return match(path, "^/([^:/\\]*)(.
 --- Notes:
 ---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
 
+cgilua.seterrorhandler = function(_parent, f)
+    local tf = type(f)
+    if tf == "function" then
+        _parent.cgiluaENV.cgilua._errorhandler = f
+    elseif tf == "nil" then
+        _parent.cgiluaENV.cgilua._errorhandler = debug.traceback
+    else
+        error(string.format("Invalid type: expected `function', got `%s'", tf), 3)
+    end
+end
+
+cgilua.doscript = function(_parent, filename)
+    local f, err = loadfile(filename, "bt", _parent.cgiluaENV)
+    if not f then
+        error(string.format("Cannot execute '%s'. Exiting.\n%s", filename, err), 3)
+    else
+        local results = { xpcall(f, _parent.cgiluaENV.cgilua._errorhandler) }
+        local ok = table.remove(results, 1)
+        if ok then
+            if #results == 0 then results = { true } end
+            return table.unpack(results)
+        else
+            error(table.unpack(results), 3)
+        end
+    end
+end
+
+cgilua.doif = function(_parent, filename)
+        if not filename then return end    -- no file
+        local f, err = io.open(filename)
+        if not f then return nil, err end    -- no file (or unreadable file)
+        f:close()
+        return cgilua.doscript(_parent, filename)
+end
+
+cgilua.contentheader = function(_parent, mainType, subType)
+    _parent.response.headers["Content-Type"] = tostring(mainType) .. "/" .. tostring(subType)
+end
+
+cgilua.htmlheader = function(_parent)
+    _parent.response.headers["Content-Type"] = "text/html"
+end
+
+cgilua.header = function(_parent, key, value)
+     _parent.response.headers[key] = value
+end
+
+cgilua.redirect = function(_parent, url, args)
+    if not url:find("^https?:") then
+        if url:find("^/") then
+            url = _parent.CGIVariables.REQUEST_SCHEME .. "://" .. _parent.CGIVariables.HTTP_HOST .. url
+        else
+            url = _parent.CGIVariables.REQUEST_SCHEME .. "://" .. _parent.CGIVariables.HTTP_HOST .. table.concat(_parent.request.headers._.pathComponents, "/", 1, _parent.request.headers._.pathComponents - 1) .. url
+        end
+    end
+    local params = ""
+    if args then
+        params = "?" .. cgilua.urlcode.encodetable(_parent, args)
+    end
+    _parent.response.code = 307
+    _parent.response.headers["Location"] = url .. params
+end
+
+cgilua.mkabsoluteurl = function(_parent, path, protocol)
+    protocol = protocol or "http"
+    if path:sub(1,1) ~= '/' then
+        path = '/'..path
+    end
+    return string.format("%s://%s:%s%s",
+        protocol,
+        _parent.CGIVariables.SERVER_NAME,
+        _parent.CGIVariables.SERVER_PORT,
+        path)
+end
+
+cgilua.mkurlpath = function(_parent, script, args)
+    local params = ""
+    if args then
+        params = "?" .. cgilua.urlcode.encodetable(_parent, args)
+    end
+    if script:sub(1,1) == '/' or _parent.cgiluaENV.cgilua.script_vdir == '/' then
+        return script .. params
+    else
+        return _parent.cgiluaENV.cgilua.script_vdir .. script .. params
+    end
+end
 
 
+cgilua.urlcode = {}
+
+cgilua.urlcode.escape = function(_parent, str)
+    return (str:gsub("\n", "\r\n"):gsub("([^0-9a-zA-Z ])", function(_) return string.format("%%%02X", string.byte(_)) end):gsub(" ", "+"))
+end
+
+cgilua.urlcode.unescape = function(_parent, str)
+    return (str:gsub("+", " "):gsub("%%(%x%x)", function(_) return string.char(tonumber(_, 16)) end):gsub("\r\n", "\n"))
+end
+
+cgilua.urlcode.encodetable = function(_parent, args)
+    if args == nil or next(args) == nil then return "" end
+    local results = {}
+    for k, v in pairs(args) do
+        if type(v) ~= "table" then v = { v } end
+        for _, v2 in ipairs(v) do
+            table.insert(results, cgilua.urlcode.escape(_parent, k) .. "=" .. cgilua.urlcode.escape(_parent, v2))
+        end
+    end
+    return table.concat(results, "&")
+end
+
+cgilua.urlcode.insertfield = function(_parent, args, name, value)
+    if not args[name] then
+        args[name] = value
+    else
+        local t = type(args[name])
+        if t ~= "table" then
+            args[name] = {
+              args[name],
+              value,
+            }
+        else
+            table.insert(args[name], value)
+        end
+    end
+end
+
+cgilua.urlcode.parsequery = function(_parent, query, args)
+    if type(query) == "string" then
+        query:gsub("([^&=]+)=([^&=]*)&?",
+            function(key, val)
+                cgilua.urlcode.insertfield(_parent, args, cgilua.urlcode.unescape(_parent, key), cgilua.urlcode.unescape(_parent, val))
+            end)
+    end
+end
+
+local out = function(s, i, f)
+    if type(s) ~= "string" then s = tostring(s) end
+    s = s:sub(i, f or -1)
+    if s == "" then return s end
+    -- we could use `%q' here, but this way we have better control
+    s = s:gsub("([\\\n\'])", "\\%1")
+    -- substitute '\r' by '\'+'r' and let `loadstring' reconstruct it
+    s = s:gsub("\r", "\\r")
+    return string.format(" %s('%s'); ", "cgilua.put", s)
+end
+
+cgilua.lp = {}
+
+cgilua.lp.translate = function(_parent, source)
+    -- in an effort to attempt to maintain compatibility with CGILua, we should expect/allow the same things in a source file...
+    source = source:gsub("^#![^\n]+\n", "")
+
+    -- compatibility with earlier versions...
+    -- translates $| lua-var |$
+    source = source:gsub("$|(.-)|%$", "<?lua = %1 ?>")
+    -- translates <!--$$ lua-code $$-->
+    source = source:gsub("<!%-%-$$(.-)$$%-%->", "<?lua %1 ?>")
+    -- translates <% lua-code %>
+    source = source:gsub("<%%(.-)%%>", "<?lua %1 ?>")
+
+    local res = {}
+    local start = 1   -- start of untranslated part in `s'
+    while true do
+        local ip, fp, target, exp, code = source:find("<%?(%w*)[ \t]*(=?)(.-)%?>", start)
+        if not ip then break end
+        table.insert(res, out(source, start, ip-1))
+        if target ~= "" and target ~= "lua" then
+            -- not for Lua; pass whole instruction to the output
+            table.insert(res, out(source, ip, fp))
+        else
+            if exp == "=" then   -- expression?
+                table.insert(res, string.format(" %s(%s);", "cgilua.put", code))
+            else  -- command
+                table.insert(res, string.format(" %s ", code))
+            end
+        end
+        start = fp + 1
+    end
+    table.insert(res, out(source, start))
+    return table.concat(res)
+end
+
+cgilua.lp.compile = function(_parent, string, chunkname, env)
+    local s = _parent.translations[string]
+    if not s then
+          s = cgilua.lp.translate(_parent, string)
+          _parent.translations[string] = s
+    end
+    local f, err = load(s, chunkname, "bt", env or _parent.cgiluaENV)
+    if not f then error(err, 3) end
+    return f
+end
+
+cgilua.lp.include = function(_parent, filename, env)
+    -- read the whole contents of the file
+    local fh = assert(io.open(filename))
+    local src = fh:read("a")
+    fh:close()
+
+    if src:sub(1,3) == "\xEF\xBB\xBF" then src = src:sub(4) end
+    -- translates the file into a function
+    local prog = cgilua.lp.compile(_parent, src, '@'..filename, env or _parent.cgiluaENV)
+    prog()
+end
 
 
--- Candidates being considered for inclusion
---     cgilua.contentheader (type, subtype)
---     cgilua.header (header, value)
---     cgilua.htmlheader ()
---     cgilua.redirect (url, args)
+--  -      cgilua.contentheader (type, subtype)
+--  -      cgilua.header (header, value)
+--  -      cgilua.htmlheader ()
+--  -      cgilua.redirect (url, args)
 
---     cgilua.lp.include (filename[, env]) (see doif when implementing this)
+--  -      cgilua.mkabsoluteurl (path)
+--  -      cgilua.mkurlpath (script [, args])
 
---     cgilua.mkabsoluteurl (path)
---     cgilua.mkurlpath (script [, args])
+--  -      cgilua.lp.compile (string)
+--  -      cgilua.lp.include (filename[, env])
+--  -      cgilua.lp.translate (string)
 
---     cgilua.urlcode.encodetable (table)
---     cgilua.urlcode.escape (string)
---     cgilua.urlcode.insertfield (args, name, value)
---     cgilua.urlcode.parsequery (query, args)
---     cgilua.urlcode.unescape (string)
+--  -      cgilua.seterrorhandler (func)
 
---     cgilua.doif (filepath)
---     cgilua.doscript (filepath)
---     cgilua.pack (...)
+-- ?       cgilua.addclosefunction (func)      -- maybe as wrapper invoked by webServerHandler?
+-- ?       cgilua.addopenfunction (func)       -- maybe as wrapper invoked by webServerHandler?
 
---     cgilua.authentication.check (username, passwd)
---     cgilua.authentication.checkURL ()
---     cgilua.authentication.configure (options, methods)
---     cgilua.authentication.logoutURL ()
---     cgilua.authentication.refURL ()
---     cgilua.authentication.username ()
+--  -      cgilua.urlcode.encodetable (table)
+--  -      cgilua.urlcode.escape (string)
+--  -      cgilua.urlcode.insertfield (args, name, value)
+--  -      cgilua.urlcode.parsequery (query, args)
+--  -      cgilua.urlcode.unescape (string)
 
---     cgilua.cookies.get (name)
---     cgilua.cookies.set (name, value[, options])
---     cgilua.cookies.sethtml (name, value[, options])
---     cgilua.cookies.delete (name[, options])
-
---     cgilua.serialize (table, outfunc[, indent[, prefix]])
-
---     cgilua.session.close ()
---     cgilua.session.data
---     cgilua.session.delete (id)
---     cgilua.session.destroy ()
---     cgilua.session.load (id)
---     cgilua.session.new ()
---     cgilua.session.open ()
---     cgilua.session.save (id, data)
---     cgilua.session.setsessiondir (path)
+--  -      cgilua.doif (filepath)
+--  -      cgilua.doscript (filepath)
 
 return cgilua

@@ -30,11 +30,15 @@
 --   [X] documentation
 --   [X] proper content-type detection for GET
 --   [X] logging? access logging optionally to string, error to module logger instance, needs documenting
---   [ ] Hammerspoon aware pages (files, functions?)
+--   [-] Hammerspoon aware pages (files, functions?)
 --       [-] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
---       [ ] Decode query strings
---       [ ] Decode form POST data
---       [ ] Allow adding alternate POST encodings (JSON)
+--       [-] document cgilua stuff
+--       [X] Decode query strings
+--       [-] Decode form POST data
+--       [-] Allow adding alternate POST encodings (JSON)
+--
+--   [ ] Remake README.md
+--   [ ] Add browser with hs.webview to hsdocs
 --
 --   [-] helpers for custom functions/handlers
 --       [ ] document headers._ support table
@@ -42,6 +46,7 @@
 --       [X] table for CGI-like variables?
 --       [ ] query/body parsing like Hammerspoon/cgilua support?
 --       [X] common/default response headers? Would simplify error functions...
+--   [ ] document _allowRenderTranslations and _logBadTranslations
 --
 -- Review to determine if basic support is sufficiently "correct"
 --   [ ] additional response headers?
@@ -49,10 +54,10 @@
 --
 -- Would like to see how hard these would be... maybe only for Hammerspoon/embedded Lua supported pages
 --   [ ] basic/digest auth via lua only?
---   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
 --   [ ] For full WebDav support, some other methods may also require a body
 --
 -- Not until requested/needed
+--   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
 --   [ ] SSI?  will need a way to verify text content or specific header check
 --   [ ] support per-dir, in addition to per-server settings?
 --   [ ] should things like directory index code be a function so it can be overridden?
@@ -295,6 +300,14 @@ local supportedMethods = {
     UNLOCK    = false,
 }
 
+local textWithLineNumbers = function(theText, lineNum, lineSep)
+    lineNum = lineNum or 1
+    lineSep = lineSep or ": "
+    local max = lineNum
+    theText:gsub("\n", function(_) max = max + 1 ; return _ end)
+    return string.format("%" .. #tostring(max) .. "d%s%s", lineNum, lineSep, (theText:gsub("\n", function(_) lineNum = lineNum + 1 ; return string.format("%s%" .. #tostring(max) .. "d%s", _, lineNum, lineSep) end)))
+end
+
 local objectMethods = {}
 local mt_table = {
     __passwords = {},
@@ -327,7 +340,7 @@ local RFC3986getURLParts = function(resourceLocator)
     if scheme then
         parts["scheme"] = scheme
     else
-        error("invalid scheme specified")
+        error("invalid scheme specified", 3)
     end
     parts["resourceSpecifier"] = stillNeedsParsing
 
@@ -368,7 +381,7 @@ local RFC3986getURLParts = function(resourceLocator)
             end
         end
     else
-        error("invalid authority specified")
+        error("invalid authority specified", 3)
     end
 
     local lastPathComponent, path, pathComponents, pathExtension = "", "", {}, ""
@@ -733,62 +746,16 @@ local webServerHandler = function(self, method, path, headers, body)
             if not finput then return self._errorHandlers[403.2](method, path, headers) end
             local workingBody = finput:read("a")
             finput:close()
-
             -- some UTF8 encoded files include the UTF8 BOM (byte order mark) at the beginning of the file, even though this is recommended against for UTF8; lua doesn't like these characters, so remove them if necessary
             if workingBody:sub(1,3) == "\xEF\xBB\xBF" then workingBody = workingBody:sub(4) end
 
-            local translatedCopy = mt_table.__luaCaches[self][workingBody]
-            if not translatedCopy then
-                local out = function(s, i, f)
-                    if type(s) ~= "string" then s = tostring(s) end
-                    s = s:sub(i, f or -1)
-                    if s == "" then return s end
-                    -- we could use `%q' here, but this way we have better control
-                    s = s:gsub("([\\\n\'])", "\\%1")
-                    -- substitute '\r' by '\'+'r' and let `loadstring' reconstruct it
-                    s = s:gsub("\r", "\\r")
-                    return string.format(" %s('%s'); ", "cgilua.put", s)
-                end
-
-                -- in an effort to attempt to maintain compatibility with CGILua, we should expect/allow the same things in a source file...
-                workingBody = workingBody:gsub("^#![^\n]+\n", "")
-
-                -- compatibility with earlier versions...
-                -- translates $| lua-var |$
-                workingBody = workingBody:gsub("$|(.-)|%$", "<?lua = %1 ?>")
-                -- translates <!--$$ lua-code $$-->
-                workingBody = workingBody:gsub("<!%-%-$$(.-)$$%-%->", "<?lua %1 ?>")
-                -- translates <% lua-code %>
-                workingBody = workingBody:gsub("<%%(.-)%%>", "<?lua %1 ?>")
-
-                local res = {}
-                local start = 1   -- start of untranslated part in `s'
-                while true do
-                    local ip, fp, target, exp, code = workingBody:find("<%?(%w*)[ \t]*(=?)(.-)%?>", start)
-                    if not ip then break end
-                    table.insert(res, out(workingBody, start, ip-1))
-                    if target ~= "" and target ~= "lua" then
-                        -- not for Lua; pass whole instruction to the output
-                        table.insert(res, out(workingBody, ip, fp))
-                    else
-                        if exp == "=" then   -- expression?
-                            table.insert(res, string.format(" %s(%s);", "cgilua.put", code))
-                        else  -- command
-                            table.insert(res, string.format(" %s ", code))
-                        end
-                    end
-                    start = fp + 1
-                end
-                table.insert(res, out(source, start))
-                translatedCopy = table.concat(res)
-                mt_table.__luaCaches[self][workingBody] = translatedCopy
-            end
-
 -- decode query and/or body
-            -- setup the library of CGILua compatibility functions for the function environment
 
+            -- setup the library of CGILua compatibility functions for the function environment
             local _parent = setmetatable({
+                id           = hshost.globallyUniqueString(),
                 self         = self,
+                translations = mt_table.__luaCaches[self],
                 log          = log,
                 request      = {
                     method  = method,
@@ -798,14 +765,16 @@ local webServerHandler = function(self, method, path, headers, body)
                 response     = {
                     body    = responseBody,
                     code    = responseCode,
-                    headers = responseHeaders,
+                    headers = modifyHeaders(responseHeaders, {
+                                  ["Content-Type"] = "text/html",
+                              }),
                 },
                 CGIVariables = CGIVariables,
                 _tmpfiles    = {},
             }, {
                 __gc = function(_)
-                    for i, v in ipairs(_.tmpfiles) do
-                        _.tmpfiles[i] = nil
+                    for i, v in ipairs(_._tmpfiles) do
+                        _._tmpfiles[i] = nil
                         if io.type(a) == "file" then -- as opposed to "closed file"
                             v.file:close()
                         end
@@ -825,41 +794,94 @@ local webServerHandler = function(self, method, path, headers, body)
                 if type(v) == "function" then
                     M[k] = function(...) return v(_parent, ...) end
                 elseif type(v) == "table" then
-                    M[k] = shallowCopy(v)
+                    M[k] = {}
+                    for k2, v2 in pairs(v) do
+                        if type(v2) == "function" then
+                            M[k][k2] = function(...) return v2(_parent, ...) end
+                        else
+                            M[k][k2] = v2
+                        end
+                    end
                 else
                     M[k] = v
                 end
             end
 
+            -- can't assign in cgilua_compatibility_functions because debug.traceback is a function but it's one we don't want to wrap with a preceding _parent argument
+            M._errorhandler = debug.traceback
+
             -- documentation for these is in the cgilua_compatibility_functions.lua file to keep them logically organized
             M.script_path  = CGIVariables["SCRIPT_FILENAME"]
             M.script_pdir, M.script_file = M.script_path:match("^(.-)([^:/\\]*)$")
 
-            M.script_vpath = CGIVariables["PATH_INFO"] or "/"
+            M.script_vpath = CGIVariables["PATH_INFO"] or CGIVariables["SCRIPT_NAME"]
             M.script_vdir = M.script_vpath:match("^(.-)[^:/\\]*$")
 
             M.urlpath      = CGIVariables["SCRIPT_NAME"]
 
---             M.POST =
---             M.QUERY =
---             what else?
+            M.QUERY = {}
+            cgiluaCompat.urlcode.parsequery(_parent, CGIVariables["QUERY_STRING"], M.QUERY)
+            M.POST = {}
+            if method == "POST" then
+                local contentType = CGIVariables["CONTENT_TYPE"]
+                if not contentType then return self._errorHandlers[400](method, path, headers) end
+                if contentType == "x-www-form-urlencoded" then
+                    cgiluaCompat.urlcode.parsequery(_parent, body, M.POST)
+                elseif contentType == "multipart/form-data" then
+
+                elseif contentType == "application/json" then
+                    for k, v in pairs(require"hs.json".decode(body)) do
+                        cgiluaCompat.urlcode.insertfield(_parent, M.POST, k, v)
+                    end
+                elseif contentType == "application/xml" or contentType == "text/xml" or contentType ==  "text/plain" then
+                    table.insert(M.POST, body)
+                else
+                    return self._errorHandlers[415](method, path, headers)
+                end
+
+            end
 
             local env = { cgilua = M, print = M.print, write = M.put, hsminweb = _parent }
-            setmetatable(env, { __index = _G, __newindex = _G })
-            local f, err = load(translatedCopy, "@" .. targetFile:match("^.-/?([^/]+)$"), "bt", env)
-            if not f then
-                log.ef("Embedded Lua error: %s", debug.traceback(err))
-                return self._errorHandlers[500](method, path, headers)
-            end
-            local ok, err = pcall(f) -- do actual lua processing
-            if not ok then
-                log.ef("Embedded Lua error: %s", debug.traceback(err))
-                return self._errorHandlers[500](method, path, headers)
-            end
+            _parent.cgiluaENV = env
+            setmetatable(env, {
+            -- this allows "global" vars to be created for sharing between included files without polluting the real global space, while falling through to the real global space for built in functions, hs stuff, etc.
+                __index    = _G,
+                __newindex = function(_, k, v) rawset(_, k, v) end,
+            })
 
-            responseBody    = _parent.response.body
-            responseCode    = _parent.response.code
-            responseHeaders = _parent.response.headers
+            if not (self._allowRenderTranslations and CGIVariables["PATH_INFO"] == "/_translation") then
+                local f, err = xpcall(cgiluaCompat.lp.compile, debug.traceback, _parent, workingBody, '@' .. targetFile, env)
+                if not f then
+                    log.ef("HTML-Templated-Lua translation error: %s", err)
+                    if self._logBadTranslations then
+                        log.vf("\n%s", textWithLineNumbers(_parent.translations[workingBody]))
+                    end
+                    return self._errorHandlers[500](method, path, headers)
+                else
+                    f = err -- the actual function returned when we use the xpcall
+                end
+
+                local oldWD = fs.currentDir()
+                fs.chdir(M.script_pdir)
+                local ok, err = xpcall(f, debug.traceback)
+                fs.chdir(oldWD)
+
+                if not ok then
+                    log.ef("HTML-Templated-Lua render error: %s", err)
+                    if self._logPageErrorTranslations then
+                        log.vf("\n%s", textWithLineNumbers(_parent.translations[workingBody]))
+                    end
+                    return self._errorHandlers[500](method, path, headers)
+                end
+
+                responseBody    = _parent.response.body
+                responseCode    = _parent.response.code
+                responseHeaders = _parent.response.headers
+            else
+                responseBody    = textWithLineNumbers(cgiluaCompat.lp.translate(_parent, workingBody))
+                responseCode    = 200
+                responseHeaders["Content-Type"] = "text/plain"
+            end
         end
 
     elseif ({ ["HEAD"] = 1, ["GET"] = 1, ["POST"] = 1 })[method] then
@@ -930,7 +952,15 @@ end
 
 local webServerHandlerWrapper = function(self, method, path, headers, body)
     local queryDate = os.date("[%d/%b/%Y:%T %z]", os.time())
-    local responseBody, responseCode, responseHeaders = webServerHandler(self, method, path, headers, body)
+    local responseBody, responseCode, responseHeaders
+    local answers = { xpcall(webServerHandler, debug.traceback, self, method, path, headers, body) }
+    local ok = table.remove(answers, 1)
+    if not ok then
+        log.ef("Server Handler Error: %s", table.unpack(answers))
+        responseBody, responseCode, responseHeaders = self._errorHandlers[500](method, path, headers)
+    else
+        responseBody, responseCode, responseHeaders = table.unpack(answers)
+    end
     if self._queryLogging then
         -- more or less match Apache common format ( "%h %l %u %t \"%r\" %>s %b" ), in case anyone wants to parse it out... should we allow customizations?
         self._accessLog = self._accessLog .. string.format("%s - - %s \"%s %s HTTP/1.1\" %d %s\n", headers["X-Remote-Addr"], queryDate, method:upper(), path:gsub("%?.*$", ""), responseCode, ((#responseBody == 0) and "-" or tostring(#responseBody)))
