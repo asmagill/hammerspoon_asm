@@ -39,6 +39,7 @@
 --
 --   [ ] Remake README.md
 --   [ ] Add browser with hs.webview to hsdocs
+--   [ ] Add way to render template/cgi to file
 --
 --   [-] helpers for custom functions/handlers
 --       [ ] document headers._ support table
@@ -814,8 +815,11 @@ local webServerHandler = function(self, method, path, headers, body)
             M.script_path  = CGIVariables["SCRIPT_FILENAME"]
             M.script_pdir, M.script_file = M.script_path:match("^(.-)([^:/\\]*)$")
 
-            M.script_vpath = CGIVariables["PATH_INFO"] or CGIVariables["SCRIPT_NAME"]
-            M.script_vdir = M.script_vpath:match("^(.-)[^:/\\]*$")
+            M.script_vpath = CGIVariables["SCRIPT_NAME"]
+            M.script_vdir  = M.script_vpath:match("^(.-)[^:/\\]*$")
+
+            M.script_pipath = CGIVariables["PATH_INFO"] or "/"
+            M.script_pidir  = M.script_pipath:match("^(.-)[^:/\\]*$")
 
             M.urlpath      = CGIVariables["SCRIPT_NAME"]
 
@@ -867,7 +871,7 @@ local webServerHandler = function(self, method, path, headers, body)
                 fs.chdir(oldWD)
 
                 if not ok then
-                    log.ef("HTML-Templated-Lua render error: %s", err)
+                    log.ef("HTML-Templated-Lua execution error: %s", err)
                     if self._logPageErrorTranslations then
                         log.vf("\n%s", textWithLineNumbers(_parent.translations[workingBody]))
                     end
