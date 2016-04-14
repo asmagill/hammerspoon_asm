@@ -1,6 +1,7 @@
 <html>
-  <%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
-  <!-- <%= "--",">" %>
+<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
+<!-- <%= "--",">" %>
+
   <%
       cgilua.lp.include("common.lp")
 
@@ -35,14 +36,13 @@
       <table class="api-documentation-overview">
         <% for i, mod in ipairs(documentation) do %>
           <tr>
-            <td><a href="<%= cgilua.mkabsoluteurl(cgilua.mkurlpath("module.lp", { q = mod.name })) %>"><%= mod.name %></a></td>
-       <!-- for the handfull of description lines that use styles, the slowdown on index.lp isn't worth it -->
-            <td><%= mod.desc %></td>
+            <td><a href="<%= cgilua.mkurlpath("module.lp/" .. mod.name) %>"><%= mod.name %></a></td>
+            <td><%= gfmConvert(mod.desc) %></td>
           </tr>
         <% end %>
       </table>
     </section>
   </body>
 
-  <%= "<","!--" %> -->
+<%= "<","!--" %> -->
 </html>

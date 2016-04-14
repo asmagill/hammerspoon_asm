@@ -1,9 +1,16 @@
 <html>
-  <%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
-  <!-- <%= "--",">" %>
+<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
+<!-- <%= "--",">" %>
+
   <%
       cgilua.lp.include("common.lp")
-      local lookingFor = cgilua.QUERY.q
+      local lookingFor, jumpTo = cgilua.script_pipath:match("^/([^/%.]+%.[^/]+)/?([^/]*)$")
+      if not lookingFor then
+          lookingFor = cgilua.QUERY.q
+      else
+          lookingFor = lookingFor:gsub("%.html$", "") -- fix for some coded links in docs between modules
+      end
+
       local mod = {
           desc = "Module documentation not found",
           doc = "Module documentation not found\n\nThe requested module does not appear to have any documentation in the set available to this web site.",
@@ -18,7 +25,15 @@
               end
           end
       end
-  %>
+
+      if jumpTo ~= "" then %>
+        <script type="text/javascript">
+          addEvent(window, 'load', function() {
+            var top = document.getElementById('<%= jumpTo %>').offsetTop;
+            window.scrollTo(0, top);
+          });
+        </script>
+  <%  end  %>
 
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -31,12 +46,12 @@
       table { width: 100% ; border: 1px solid #0; text-align: left; }
       section > table table td { width: 0; }
     </style>
-    <link rel="stylesheet" href="docs.css" type="text/css" media="screen" />
+    <link rel="stylesheet" href="<%= cgilua.mkurlpath("docs.css") %>" type="text/css" media="screen" />
   </head>
 
   <body>
     <header>
-      <h1><a href="index.lp">docs</a> &raquo; <%= mod.name %></h1>
+      <h1><a href="<%= cgilua.mkurlpath("index.lp") %>">docs</a> &raquo; <%= mod.name %></h1>
       <%= gfmConvert(mod.doc) %>
     </header>
     <h3>API Overview</h3>
@@ -104,5 +119,5 @@
     %>
   </body>
 
-  <%= "<","!--" %> -->
+<%= "<","!--" %> -->
 </html>
