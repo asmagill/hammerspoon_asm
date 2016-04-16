@@ -4,11 +4,28 @@
 
   <%
       cgilua.lp.include("common.lp")
-      local lookingFor, jumpTo = cgilua.script_pipath:match("^/([^/%.]+%.[^/]+)/?([^/]*)$")
-      if not lookingFor then
+      local modNames = {}
+      for i, v in ipairs(documentation) do
+          modNames[v.name] = true
+      end
+
+      -- allow /module[/function] at end of URL
+      local lookingFor, jumpTo = cgilua.script_pipath:match("^/([^/]*)/?([^/]*)$")
+      if (not lookingFor or lookingFor == "") and cgilua.QUERY.q then
+      -- allow ?q=module[.function] at end of URL (standard GET query)
           lookingFor = cgilua.QUERY.q
-      else
-          lookingFor = lookingFor:gsub("%.html$", "") -- fix for some coded links in docs between modules
+      end
+      if not modNames[lookingFor] then
+          -- if not found, try without html extension (this is used in some places to link to another module in the Dash docs
+          if modNames[lookingFor:gsub("%.html$", "")] then
+              lookingFor = lookingFor:gsub("%.html$", "") -- fix for some coded links in docs between modules
+          elseif not jumpTo or jumpTo == "" then
+          -- otherwise, assuming no existing function portion, try treating the last item of the module name as the function portion
+              local p1, p2 = lookingFor:match("^(.+)[%.:]([^%.:]*)$")
+              if modNames[p1] then
+                  lookingFor, jumpTo = p1, p2
+              end
+          end
       end
 
       local mod = {
