@@ -39,7 +39,10 @@
   local markdownCommand = "/usr/local/bin/markdown -f autolink,githubtags,fencedcode"
 
   -- The Ruby gem used has the MKDEXT_LAX_SPACING enabled by default; the others do not, so comment this out if you use the Ruby github-markdown gem:
-  local mimic_LAX_SPACING = true
+  local MIMIC_LAX_SPACING = true
+
+  -- Not all of the markdown tools recognize triple backticks as a fenced code indicator
+  local MIMIC_TRIPLE_BACKTICK_IS_FENCE = true
 
   gfmConvert = function(theText, simple)
       -- gfmConvert is not local because we want our caller to have access... the cgilua wrapper makes sure this goes into _ENV, rather than _G.
@@ -50,8 +53,12 @@
 
       if not simple and markdownCommand and fs.attributes(markdownCommand:match("^([^ ]*)")) then
 
-          if mimic_LAX_SPACING then
+          if MIMIC_LAX_SPACING then
               theText = theText:gsub("([^\r\n])(\r?\n)([ \t]*%*)", "%1%2\n%3")
+          end
+
+          if MIMIC_TRIPLE_BACKTICK_IS_FENCE then
+              theText = theText:gsub("(\n[ ]*)```", "%1\n~~~")
           end
 
           local tempFileName = fs.temporaryDirectory() .. "/" .. hshost.globallyUniqueString()
@@ -90,8 +97,10 @@
               (theText:gsub("%[([^%]\r\n]+)%]%(#([^%)\r\n]+)%)", "`%1`")
                       :gsub("<", "&lt;")
                       :gsub(">", "&gt;")
-                      :gsub("\n", lineEnding)
+                      :gsub("([^`])```([^`].-[^`])```([^`]?)", "%1<code>%2</code>%3")
+                      :gsub("(\n[ ]*)~~~([^~].-)(\n[ ]*)~~~([^~])", "%1<pre>%2%3</pre>%4")
                       :gsub("(\n[ ]+)", function(_) return _:gsub(" ", "&nbsp;&nbsp;") end)
+                      :gsub("\n", lineEnding)
               ) .. "</" .. blockType .. ">"
 
           if not hsminweb.self._loggedMarkdownSuggestion then
