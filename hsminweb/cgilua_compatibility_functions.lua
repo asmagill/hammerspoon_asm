@@ -354,16 +354,14 @@ end
 --- Sends the headers to force a redirection to the given URL adding the parameters in table args to the new URL.
 ---
 --- Parameters:
----  * url
----  * args
+---  * url  - the URL the browser should be redirected to
+---  * args - an optional table which should have key-value pairs that will be encoded to form a valid URL (see [cgilua.urlcode.encodetable](#encodetable).
 ---
 --- Returns:
 ---  * None
 ---
 --- Notes:
 ---  * This function should generally be followed by a `return` in your lua template page as no additional processing or output should occur when a request is to be redirected.
-The first argument (url) is the URL the browser should be redirected to; the second one (args) is an optional table which could have pairs name = value that will be encoded to form a valid URL (see function cgilua.urlcode.encodetable).
-Returns nothing.
 cgilua.redirect = function(_parent, url, args)
     if not url:find("^https?:") then
         if url:find("^/") then
