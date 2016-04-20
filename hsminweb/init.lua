@@ -815,11 +815,8 @@ local webServerHandler = function(self, method, path, headers, body)
             M.script_path  = CGIVariables["SCRIPT_FILENAME"]
             M.script_pdir, M.script_file = M.script_path:match("^(.-)([^:/\\]*)$")
 
-            M.script_vpath = CGIVariables["SCRIPT_NAME"]
+            M.script_vpath = CGIVariables["PATH_INFO"] or "/"
             M.script_vdir  = M.script_vpath:match("^(.-)[^:/\\]*$")
-
-            M.script_pipath = CGIVariables["PATH_INFO"] or "/"
-            M.script_pidir  = M.script_pipath:match("^(.-)[^:/\\]*$")
 
             M.urlpath      = CGIVariables["SCRIPT_NAME"]
 

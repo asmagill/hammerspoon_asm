@@ -203,14 +203,12 @@ cgilua.splitpath    = cgilua.splitonlast -- compatibility with previous versions
 ---  * path - the path to split
 ---
 --- Returns:
----  * the first directory, the remainder of the path
+---  * the first directory component, the remainder of the path
 cgilua.splitonfirst = function(_parent, path) return match(path, "^/([^:/\\]*)(.*)") end
-
--- Variable's defined per use at runtime, but logically belong within the cgilua submodule for documentation purposes...
 
 --- hs._asm.hsminweb.cgilua.script_path
 --- Variable
---- The actual path of the running script. Equivalent to the CGI environment variable SCRIPT_FILENAME.
+--- The system path of the running script. Equivalent to the CGI environment variable SCRIPT_FILENAME.
 ---
 --- Notes:
 ---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
@@ -250,17 +248,20 @@ cgilua.splitonfirst = function(_parent, path) return match(path, "^/([^:/\\]*)(.
 --- Notes:
 ---  * CGILua supports being invoked through a URL that amounts to set of chained paths and script names; this is not necessary for this module, so these variables may differ somewhat from a true CGILua installation; the intent of the variable has been maintained as closely as I can determine at present.  If this changes, so will this documentation.
 
-cgilua.seterrorhandler = function(_parent, f)
-    local tf = type(f)
-    if tf == "function" then
-        _parent.cgiluaENV.cgilua._errorhandler = f
-    elseif tf == "nil" then
-        _parent.cgiluaENV.cgilua._errorhandler = debug.traceback
-    else
-        error(string.format("Invalid type: expected `function', got `%s'", tf), 3)
-    end
-end
 
+--- hs._asm.hsminweb.cgilua.doscript(filename) -> results
+--- Function
+--- Executes a lua file (given by filepath).
+---
+--- Parameters:
+---  * filepath - the file to interpret as Lua code
+---
+--- Returns:
+---  * the values returned by the execution, or nil followed by an error message if the file does not exists.
+---
+--- Notes:
+---  * If the file does not exist, an Internal Server error is returned to the client and an error is logged to the Hammerspoon console.
+---  * During the processing of the web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
 cgilua.doscript = function(_parent, filename)
     local f, err = loadfile(filename, "bt", _parent.cgiluaENV)
     if not f then
@@ -277,6 +278,19 @@ cgilua.doscript = function(_parent, filename)
     end
 end
 
+--- hs._asm.hsminweb.cgilua.doif(filename) -> results
+--- Function
+--- Executes a lua file (given by filepath) if it exists.
+---
+--- Parameters:
+---  * filepath - the file to interpret as Lua code
+---
+--- Returns:
+---  * the values returned by the execution, or nil followed by an error message if the file does not exists.
+---
+--- Notes:
+---  * This function only interprets the file if it exists; if the file does not exist, it returns an error to the calling code (not the web client)
+---  * During the processing of the web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
 cgilua.doif = function(_parent, filename)
         if not filename then return end    -- no file
         local f, err = io.open(filename)
@@ -285,24 +299,77 @@ cgilua.doif = function(_parent, filename)
         return cgilua.doscript(_parent, filename)
 end
 
+--- hs._asm.hsminweb.cgilua.contentheader(maintype, subtype) -> none
+--- Function
+--- Sets the HTTP response type for the content being generated to maintype/subtype.
+---
+--- Parameters:
+---  * maintype - the primary content type (e.g. "text")
+---  * subtype  - the sub-type for the content (e.g. "plain")
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * This sets the `Content-Type` header field for the HTTP response being generated.  This will override any previous setting, including the default of "text/html".
 cgilua.contentheader = function(_parent, mainType, subType)
     _parent.response.headers["Content-Type"] = tostring(mainType) .. "/" .. tostring(subType)
 end
 
+--- hs._asm.hsminweb.cgilua.htmlheader() -> none
+--- Function
+--- Sets the HTTP response type to "text/html"
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * This sets the `Content-Type` header field for the HTTP response being generated to "text/html".  This is the default value, so generally you should not need to call this function unless you have previously changed it with the [cgilua.contentheader](#contentheader) function.
 cgilua.htmlheader = function(_parent)
     _parent.response.headers["Content-Type"] = "text/html"
 end
 
+--- hs._asm.hsminweb.cgilua.header(key, value) -> none
+--- Function
+--- Sets the HTTP response header `key` to `value`
+---
+--- Parameters:
+---  * key - the HTTP response header to set a value to.  This should be a string.
+---  * value - the value for the header.  This should be a string or a value representable as a string.
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * You should not use this function to set the value for the "Content-Type" key; instead use [cgilua.contentheader](#contentheader) or [cgilua.htmlheader](#htmlheader).
 cgilua.header = function(_parent, key, value)
      _parent.response.headers[key] = value
 end
 
+--- hs._asm.hsminweb.cgilua.redirect(url, [args]) -> none
+--- Function
+--- Sends the headers to force a redirection to the given URL adding the parameters in table args to the new URL.
+---
+--- Parameters:
+---  * url
+---  * args
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * This function should generally be followed by a `return` in your lua template page as no additional processing or output should occur when a request is to be redirected.
+The first argument (url) is the URL the browser should be redirected to; the second one (args) is an optional table which could have pairs name = value that will be encoded to form a valid URL (see function cgilua.urlcode.encodetable).
+Returns nothing.
 cgilua.redirect = function(_parent, url, args)
     if not url:find("^https?:") then
         if url:find("^/") then
             url = _parent.CGIVariables.REQUEST_SCHEME .. "://" .. _parent.CGIVariables.HTTP_HOST .. url
         else
-            url = _parent.CGIVariables.REQUEST_SCHEME .. "://" .. _parent.CGIVariables.HTTP_HOST .. table.concat(_parent.request.headers._.pathComponents, "/", 1, _parent.request.headers._.pathComponents - 1) .. url
+            url = _parent.CGIVariables.REQUEST_SCHEME .. "://" .. _parent.CGIVariables.HTTP_HOST .. "/" .. table.concat(_parent.request.headers._.pathParts.pathComponents, "/", 2, #_parent.request.headers._.pathParts.pathComponents - 1) .. url
         end
     end
     local params = ""
@@ -330,10 +397,11 @@ cgilua.mkurlpath = function(_parent, script, args)
     if args then
         params = "?" .. cgilua.urlcode.encodetable(_parent, args)
     end
-    if script:sub(1,1) == '/' or _parent.cgiluaENV.cgilua.script_vdir == '/' then
+    local urldir = _parent.cgiluaENV.cgilua.urlpath:match("^(.-)[^:/\\]*$")
+    if script:sub(1,1) == '/' or urldir == '/' then
         return script .. params
     else
-        return _parent.cgiluaENV.cgilua.script_vdir .. script .. params
+        return urldir .. script .. params
     end
 end
 
@@ -456,9 +524,6 @@ cgilua.lp.include = function(_parent, filename, env)
 end
 
 
---  -      cgilua.contentheader (type, subtype)
---  -      cgilua.header (header, value)
---  -      cgilua.htmlheader ()
 --  -      cgilua.redirect (url, args)
 
 --  -      cgilua.mkabsoluteurl (path)
@@ -468,18 +533,10 @@ end
 --  -      cgilua.lp.include (filename[, env])
 --  -      cgilua.lp.translate (string)
 
---  -      cgilua.seterrorhandler (func)
-
--- ?       cgilua.addclosefunction (func)      -- maybe as wrapper invoked by webServerHandler?
--- ?       cgilua.addopenfunction (func)       -- maybe as wrapper invoked by webServerHandler?
-
 --  -      cgilua.urlcode.encodetable (table)
 --  -      cgilua.urlcode.escape (string)
 --  -      cgilua.urlcode.insertfield (args, name, value)
 --  -      cgilua.urlcode.parsequery (query, args)
 --  -      cgilua.urlcode.unescape (string)
-
---  -      cgilua.doif (filepath)
---  -      cgilua.doscript (filepath)
 
 return cgilua

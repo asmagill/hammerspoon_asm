@@ -5,6 +5,11 @@
   <%
       cgilua.lp.include("common.lp")
 
+      if cgilua.script_vpath ~= "/" then
+          cgilua.redirect("module.lp" .. cgilua.script_vpath)
+          return
+      end
+
       local f = io.open("index.md")
       local indexMD = "<i>Header file, index.md, not present</i>"
       if f then
@@ -21,7 +26,7 @@
       a:hover { text-decoration: underline; }
       th, td { border: 1px solid #ccc; padding: 5px 10px; text-align: left; vertical-align: top; }
     </style>
-    <link rel="stylesheet" href="docs.css" type="text/css" media="screen" />
+    <link rel="stylesheet" href="<%= cgilua.mkurlpath("docs.css") %>" type="text/css" media="screen" />
   </head>
 
   <body>
@@ -31,7 +36,6 @@
     </header>
     <section><%= gfmConvert(indexMD) %></section>
     <section>
-    <!-- tables suck., I know, but it's fast to code -->
       <h3>API documentation</h3>
       <table class="api-documentation-overview">
         <% for i, mod in ipairs(documentation) do %>
