@@ -23,6 +23,7 @@ module.start = function()
                          "index.html", "index.lp",
                      }:start()
     end
+    return module
 end
 
 module.stop = function()
@@ -32,6 +33,7 @@ module.stop = function()
         module.server:stop()
         module.server = nil
     end
+    return module
 end
 
 return module

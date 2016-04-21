@@ -2,9 +2,7 @@
 ---
 --- Minimalist Web Server for Hammerspoon
 ---
---- Note that his module is in development; not all methods described here are fully functional yet.  Others may change slightly during development, so be aware, if you choose to start using this module, that things may change somewhat before it stabilizes.
----
---- This module aims to be a minimal, but reasonably functional, web server for use within Hammerspoon.  Expanding upon the Hammerspoon module, `hs.httpserver`, this module adds support for serving static pages stored at a specified document root as well as serving dynamic content from user defined functions, lua files interpreted within the Hammerspoon environment, and external executables which support the CGI/1.1 framework.
+--- This module aims to be a minimal, but (mostly) standards-compliant web server for use within Hammerspoon.  Expanding upon the Hammerspoon module, `hs.httpserver`, this module adds support for serving static pages stored at a specified document root as well as serving dynamic content from user defined functions, lua files interpreted within the Hammerspoon environment, and external executables which support the CGI/1.1 framework.
 ---
 --- This module aims to provide a fully functional, and somewhat extendable, web server foundation, but will never replace a true dedicated web server application.  Some limitations include:
 ---  * It is single threaded within the Hammerspoon environment and can only serve one resource at a time
@@ -12,6 +10,13 @@
 ---  * All document requests and responses are handled in memory only -- because of this, maximum resource size is limited to what you are willing to allow Hammerspoon to consume and memory limitations of your computer.
 ---
 --- While some of these limitations may be mitigated to an extent in the future with additional modules and additions to `hs.httpserver`, Hammerspoon's web serving capabilities will never replace a dedicated web server when volume or speed is required.
+---
+--- An example web site is provided in the `hsdocs` folder.  This web site can serve documentation for Hammerspoon dynamically generated from the json file included with the Hammerspoon application for internal documentation.  It serves as a basic example of what is possible with this module.
+---
+--- You can start this web server by typing the following into your Hammerspoon console:
+--- `require("hs._asm.hsminweb.hsdocs").start()`
+---
+--- Now, type `http://localhost:12345/` into your web browser.  The markdown conversion is still rough, but the documentation should be presented in a format similar to that as provided in the Hammerspoon docset for Dash.
 
 --
 -- Planned Features
@@ -31,13 +36,15 @@
 --   [X] proper content-type detection for GET
 --   [X] logging? access logging optionally to string, error to module logger instance, needs documenting
 --   [-] Hammerspoon aware pages (files, functions?)
---       [-] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
---       [-] document cgilua stuff
+--       [X] embedded lua in regular html? check out http://keplerproject.github.io/cgilua/
+--       [X] document cgilua stuff
 --       [X] Decode query strings
 --       [-] Decode form POST data
 --       [-] Allow adding alternate POST encodings (JSON)
 --
---   [ ] Remake README.md
+--   [ ] Rename for inclusion with hs.httpserver in core for documentation
+--
+--   [X] Remake README.md
 --   [ ] Add browser with hs.webview to hsdocs
 --   [ ] Add way to render template/cgi to file
 --
@@ -55,7 +62,8 @@
 --
 -- Would like to see how hard these would be... maybe only for Hammerspoon/embedded Lua supported pages
 --   [ ] basic/digest auth via lua only?
---   [ ] For full WebDav support, some other methods may also require a body
+--   [ ] minimal WebDAV support?
+--   [ ] For WebDav support, some other methods may also require a body... (i.e. additions to hs.httpserver)
 --
 -- Not until requested/needed
 --   [ ] cookie support? other than passing to/from dynamic pages, do we need to do anything?
@@ -753,10 +761,9 @@ local webServerHandler = function(self, method, path, headers, body)
 -- decode query and/or body
 
             -- setup the library of CGILua compatibility functions for the function environment
-            local _parent = setmetatable({
+            local _parent = {
                 id           = hshost.globallyUniqueString(),
-                self         = self,
-                translations = mt_table.__luaCaches[self],
+                server       = self,
                 log          = log,
                 request      = {
                     method  = method,
@@ -772,18 +779,7 @@ local webServerHandler = function(self, method, path, headers, body)
                 },
                 CGIVariables = CGIVariables,
                 _tmpfiles    = {},
-            }, {
-                __gc = function(_)
-                    for i, v in ipairs(_._tmpfiles) do
-                        _._tmpfiles[i] = nil
-                        if io.type(a) == "file" then -- as opposed to "closed file"
-                            v.file:close()
-                        end
-                        local __, err = os.remove(v.name)
-                        if __ then log.e(err) end
-                    end
-                end,
-            })
+            }
 
             local M = setmetatable({}, {
                 __index = function(_, k)
@@ -843,7 +839,24 @@ local webServerHandler = function(self, method, path, headers, body)
             end
 
             local env = { cgilua = M, print = M.print, write = M.put, hsminweb = _parent }
-            _parent.cgiluaENV = env
+            setmetatable(_parent, {
+                __index = function(_, k)
+                -- this is done to minimize the chances of a lua template file accidentally breaking things...
+                    if k == "__luaCached_translations" then return mt_table.__luaCaches[self] end
+                    if k == "__luaInternal_cgiluaENV" then return env end
+                end,
+                __gc = function(_)
+                    for i, v in ipairs(_._tmpfiles) do
+                        _._tmpfiles[i] = nil
+                        if io.type(v.file) == "file" then -- as opposed to "closed file"
+                            v.file:close()
+                        end
+                        local __, err = os.remove(v.name)
+                        if __ then log.e(err) end
+                    end
+                end,
+            })
+
             setmetatable(env, {
             -- this allows "global" vars to be created for sharing between included files without polluting the real global space, while falling through to the real global space for built in functions, hs stuff, etc.
                 __index    = _G,
@@ -855,7 +868,7 @@ local webServerHandler = function(self, method, path, headers, body)
                 if not f then
                     log.ef("HTML-Templated-Lua translation error: %s", err)
                     if self._logBadTranslations then
-                        log.vf("\n%s", textWithLineNumbers(_parent.translations[workingBody]))
+                        log.vf("\n%s", textWithLineNumbers(_parent.__luaCached_translations[workingBody]))
                     end
                     return self._errorHandlers[500](method, path, headers)
                 else
@@ -870,7 +883,7 @@ local webServerHandler = function(self, method, path, headers, body)
                 if not ok then
                     log.ef("HTML-Templated-Lua execution error: %s", err)
                     if self._logPageErrorTranslations then
-                        log.vf("\n%s", textWithLineNumbers(_parent.translations[workingBody]))
+                        log.vf("\n%s", textWithLineNumbers(_parent.__luaCached_translations[workingBody]))
                     end
                     return self._errorHandlers[500](method, path, headers)
                 end
@@ -1595,7 +1608,7 @@ module.urlParts = RFC3986getURLParts
 --- The `hs.logger` instance for the `hs._asm.hsminweb` module. See the documentation for `hs.logger` for more information.
 module.log = log
 
---- hs._asm.statusCodes
+--- hs._asm.hsminweb.statusCodes
 --- Constant
 --- HTTP Response Status Codes
 ---

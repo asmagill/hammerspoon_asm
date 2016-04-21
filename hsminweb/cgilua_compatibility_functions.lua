@@ -4,15 +4,7 @@
 ---
 --- Because of the close integration with Hammerspoon and the hs._asm.hsminweb module that I am attempting to provide with this, I decided that it was easier to "replicate" the functionality of some of the CGILua functions, rather than attempt to bridge the differences between how CGILua and Hammerspoon/this module handle their implementation of the HTTP protocol.
 ---
---- I may revisit the idea of using CGILua more directly in the future.  In the meantime, the goal of this file is to provide most of the same functionality that CGILua does to template files. Any differences in the results or errors are most likely due to my code and you should direct all error reports or code change suggestions to the hs._asm.hsminweb github repository at https://github.com/asmagill/hammerspoon_asm, rather than the Kepler Project.
----
---- #### Style Note:
----
---- If you compare this to the actual CGILua code, you'll see that even when I've copied a function almost exactly, I've un-done the optimizations where functions in the global scope are stored as local variables.
----
---- I favor readability over performance.  If I were coding on an embedded system (I have, but not in Lua), I would probably care about this more; but Hammerspoon runs on fairly modern Macintosh computers. I did a little digging and came across this, although their testing was done on an iPhone: http://www.ludicroussoftware.com/blog/2011/11/01/local-v--table-functions/
----
---- Now I'm not saying that this sort of optimization isn't useful in the right places, but for a few ms, I'd rather spend my time looking at readable code, rather than try to remember without looking it up if `_open` is something I assigned or is it really `io.open`... or is `unpack` shorthand for `table.unpack` or `string.unpack`?
+--- The goal of this file is to provide most of the same functionality that CGILua does to template files. Any differences in the results or errors are most likely due to my code and you should direct all error reports or code change suggestions to the hs._asm.hsminweb github repository at https://github.com/asmagill/hammerspoon_asm, rather than the Kepler Project.
 
 -- Per the CGILua license at http://keplerproject.github.io/cgilua/license.html, portions of this file may be covered under the following license:
 --
@@ -120,7 +112,7 @@ end
 ---  * namefunction - an optional function used to generate unique file names for use as temporary files.  Defaults to `cgilua.tmpname`.
 ---
 --- Returns:
----  * the created file's handle or nil and an error message if the file could not be created.
+---  * the created file's handle and the filename or nil and an error message if the file could not be created.
 ---
 --- Notes:
 ---  * The file is automatically deleted when the HTTP request has been completed, so if you need for the data to persist, make sure to `io.flush` or `io.close` the file handle yourself and copy the file to a more permanent location.
@@ -132,6 +124,7 @@ cgilua.tmpfile = function(_parent, dir, namefunction)
     local file, err = io.open(filename, "w+b")
     if file then
         table.insert(_parent._tmpfiles, {name = filename, file = file})
+        err = filename
     end
     return file, err
 end
@@ -261,13 +254,13 @@ cgilua.splitonfirst = function(_parent, path) return match(path, "^/([^:/\\]*)(.
 ---
 --- Notes:
 ---  * If the file does not exist, an Internal Server error is returned to the client and an error is logged to the Hammerspoon console.
----  * During the processing of the web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
+---  * During the processing of a web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
 cgilua.doscript = function(_parent, filename)
-    local f, err = loadfile(filename, "bt", _parent.cgiluaENV)
+    local f, err = loadfile(filename, "bt", _parent.__luaInternal_cgiluaENV)
     if not f then
         error(string.format("Cannot execute '%s'. Exiting.\n%s", filename, err), 3)
     else
-        local results = { xpcall(f, _parent.cgiluaENV.cgilua._errorhandler) }
+        local results = { xpcall(f, _parent.__luaInternal_cgiluaENV.cgilua._errorhandler) }
         local ok = table.remove(results, 1)
         if ok then
             if #results == 0 then results = { true } end
@@ -290,7 +283,7 @@ end
 ---
 --- Notes:
 ---  * This function only interprets the file if it exists; if the file does not exist, it returns an error to the calling code (not the web client)
----  * During the processing of the web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
+---  * During the processing of a web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
 cgilua.doif = function(_parent, filename)
         if not filename then return end    -- no file
         local f, err = io.open(filename)
@@ -354,8 +347,8 @@ end
 --- Sends the headers to force a redirection to the given URL adding the parameters in table args to the new URL.
 ---
 --- Parameters:
----  * url  - the URL the browser should be redirected to
----  * args - an optional table which should have key-value pairs that will be encoded to form a valid URL (see [cgilua.urlcode.encodetable](#encodetable).
+---  * url  - the URL the client should be redirected to
+---  * args - an optional table which should have key-value pairs that will be encoded to form a valid query at the end of the URL (see [cgilua.urlcode.encodetable](#encodetable).
 ---
 --- Returns:
 ---  * None
@@ -378,54 +371,131 @@ cgilua.redirect = function(_parent, url, args)
     _parent.response.headers["Location"] = url .. params
 end
 
-cgilua.mkabsoluteurl = function(_parent, path, protocol)
-    protocol = protocol or "http"
+--- hs._asm.hsminweb.cgilua.mkabsoluteurl(uri) -> string
+--- Function
+--- Returns an absolute URL for the given URI by prepending the path with the scheme, hostname, and port of this web server.
+---
+--- Parameters:
+---  * URI - A path to a resource served by this web server.  A "/" will be prepended to the path if it is not present.
+---
+--- Returns:
+---  * An absolute URL for the given path of the form "scheme://hostname:port/path" where `scheme` will be either "http" or "https", and the hostname and port will match that of this web server.
+---
+--- Notes:
+---  * If you wish to append query items to the path or expand a relative path into it's full path, see [cgilua.mkurlpath](#mkurlpath).
+cgilua.mkabsoluteurl = function(_parent, path)
     if path:sub(1,1) ~= '/' then
         path = '/'..path
     end
     return string.format("%s://%s:%s%s",
-        protocol,
+        _parent.CGIVariables.REQUEST_SCHEME,
         _parent.CGIVariables.SERVER_NAME,
         _parent.CGIVariables.SERVER_PORT,
         path)
 end
 
+--- hs._asm.hsminweb.cgilua.mkurlpath(uri, [args]) -> string
+--- Function
+--- Creates a full document URI from a partial URI, including query arguments if present.
+---
+--- Parameters:
+---  * uri  - the full or partial URI (path and file component of a URL) of the document
+---  * args - an optional table which should have key-value pairs that will be encoded to form a valid query at the end of the URI (see [cgilua.urlcode.encodetable](#encodetable).
+---
+--- Returns:
+---  * A full URI including any query arguments, if present.
+---
+--- Notes:
+---  * This function is intended to be used in conjunction with [cgilua.mkabsoluteurl](#mkabsoluteurl) to generate a full URL.  If the `uri` provided does not begin with a "/", then the current directory path is prepended to the uri and any query arguments are appended.
+---  * e.g. `cgilua.mkabsoluteurl(cgiurl.mkurlpath("file.lp", { key = value, ... }))` will return a full URL specifying the file `file.lp` in the current directory with the specified key-value pairs as query arguments.
 cgilua.mkurlpath = function(_parent, script, args)
     local params = ""
     if args then
         params = "?" .. cgilua.urlcode.encodetable(_parent, args)
     end
-    local urldir = _parent.cgiluaENV.cgilua.urlpath:match("^(.-)[^:/\\]*$")
-    if script:sub(1,1) == '/' or urldir == '/' then
+    local urldir = _parent.__luaInternal_cgiluaENV.cgilua.urlpath:match("^(.-)[^:/\\]*$")
+    if script:sub(1,1) == '/' then
         return script .. params
     else
         return urldir .. script .. params
     end
 end
 
+--- === hs._asm.hsminweb.cgilua.urlcode ===
+---
+--- Support functions for the CGILua compatibility module for encoding and decoding URL components in accordance with RFC 3986.
 
 cgilua.urlcode = {}
 
+--- hs._asm.hsminweb.cgilua.urlcode.escape(string) -> string
+--- Function
+--- URL encodes the provided string, making it safe as a component within a URL.
+---
+--- Parameters:
+---  * string - the string to encode
+---
+--- Returns:
+---  * a string with non-alphanumeric characters percent encoded and spaces converted into "+" as per RFC 3986.
+---
+--- Notes:
+---  * this function assumes that the provided string is a single component and URL encodes *all* non-alphanumeric characters.  Do not use this function to generate a URL query string -- use [cgilua.urlcode.encodetable](#encodetable).
 cgilua.urlcode.escape = function(_parent, str)
     return (str:gsub("\n", "\r\n"):gsub("([^0-9a-zA-Z ])", function(_) return string.format("%%%02X", string.byte(_)) end):gsub(" ", "+"))
 end
 
+--- hs._asm.hsminweb.cgilua.urlcode.unescape(string) -> string
+--- Function
+--- Removes any URL encoding in the provided string.
+---
+--- Parameters:
+---  * string - the string to decode
+---
+--- Returns:
+---  * a string with all "+" characters converted to spaces and all percent encoded sequences converted to their ascii equivalents.
 cgilua.urlcode.unescape = function(_parent, str)
     return (str:gsub("+", " "):gsub("%%(%x%x)", function(_) return string.char(tonumber(_, 16)) end):gsub("\r\n", "\n"))
 end
 
+
+--- hs._asm.hsminweb.cgilua.urlcode.encodetable(table) -> string
+--- Function
+--- Encodes the table of key-value pairs as a query string suitable for inclusion in a URL.
+---
+--- Parameters:
+---  * table - a table of key-value pairs to be converted into a query string
+---
+--- Returns:
+---  * a query string as specified in RFC 3986.
+---
+--- Notes:
+---  * the string will be of the form: "key1=value1&key2=value2..." where all of the keys and values are properly escaped using [cgilua.urlcode.escape](#escape).  If you are crafting a URL by hand, the result of this function should be appended to the end of the URL after a "?" character to specify where the query string begins.
 cgilua.urlcode.encodetable = function(_parent, args)
     if args == nil or next(args) == nil then return "" end
     local results = {}
     for k, v in pairs(args) do
         if type(v) ~= "table" then v = { v } end
         for _, v2 in ipairs(v) do
-            table.insert(results, cgilua.urlcode.escape(_parent, k) .. "=" .. cgilua.urlcode.escape(_parent, v2))
+            table.insert(results, cgilua.urlcode.escape(_parent, tostring(k)) .. "=" .. cgilua.urlcode.escape(_parent, tostring(v2)))
         end
     end
     return table.concat(results, "&")
 end
 
+--- hs._asm.hsminweb.cgilua.urlcode.insertfield(table, key, value) -> none
+--- Function
+--- Inserts the specified key and value into the table of key-value pairs.
+---
+--- Parameters:
+---  * table - the table of arguments being built
+---  * key   - the key name
+---  * value - the value to assign to the key specified
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * If the key already exists in the table, its value is converted to a table (if it isn't already) and the new value is added to the end of the array of values for the key.
+---  * This function is used internally by [cgilua.urlcode.parsequery](#parsequery) or can be used to prepare a table of key-value pairs for [cgilua.urlcode.encodetable](#encodetable).
 cgilua.urlcode.insertfield = function(_parent, args, name, value)
     if not args[name] then
         args[name] = value
@@ -442,6 +512,20 @@ cgilua.urlcode.insertfield = function(_parent, args, name, value)
     end
 end
 
+--- hs._asm.hsminweb.cgilua.urlcode.parsequery(query, table) -> none
+--- Function
+--- Parse the query string and store the key-value pairs in the provided table.
+---
+--- Parameters:
+---  * query - a URL encoded query string, either from a URL or from the body of a POST request encoded in the "x-www-form-urlencoded" format.
+---  * table - the table to add the key-value pairs to
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+---  * The specification allows for the same key to be assigned multiple values in an encoded string, but does not specify the behavior; by convention, web servers assign these multiple values to the same key in an array (table).  This function follows that convention.  This is most commonly used by forms which allow selecting multiple options via check boxes or in a selection list.
+---  * This function uses [cgilua.urlcode.insertfield](#insertfield) to build the key-value table.
 cgilua.urlcode.parsequery = function(_parent, query, args)
     if type(query) == "string" then
         query:gsub("([^&=]+)=([^&=]*)&?",
@@ -462,8 +546,33 @@ local out = function(s, i, f)
     return string.format(" %s('%s'); ", "cgilua.put", s)
 end
 
+--- === hs._asm.hsminweb.cgilua.lp ===
+---
+--- Support functions for the CGILua compatibility module for including and translating Lua template pages into Lua code for execution within the Hammerspoon environment to provide dynamic content for http requests.
+---
+--- The most commonly used function is likely to be [cgilua.lp.include](#include), which allows including a template driven file during rendering so that common code can be reused more easily.  While passing in your own environment table for upvalues is possible, this is not recommended for general use because the default environment passed to each included file ensures that all server variables and the CGILua compatibility functions are available with the same names, and any new non-local (i.e. "global") variable defined are shared with the calling environment and not shared with the Hammerspoon global environment.
+---
+--- If your template file requires the ability to create variables in the Hammerspoon global environment, access the global environment directly through `_G`.
+---
+--- Note that the above considerations only apply to creating new "global" variables.  Any currently defined global variables (for example, the `hs` table where Hammerspoon module functions are stored) are available within the template file as long as no local or CGILua environment variable shares the same name (e.g. `_G["hs"]` and `hs` refer to the same table.
+---
+--- See the documentation for the [cgilua.lp.include](#include) for more information.
+
 cgilua.lp = {}
 
+--- hs._asm.hsminweb.cgilua.lp.translate(source) -> luaCode
+--- Function
+--- Converts the specified Lua template source into Lua code executable within the Hammerspoon environment.
+---
+--- Parameters:
+---  * source - a string containing the contents of a Lua/HTML template to be converted into true Lua code
+---
+--- Returns:
+---  * The lua code corresponding to the provided source which can be fed into the `load` lua builtin to generate a Lua function.
+---
+--- Notes:
+---  * This function is used internally by [cgilua.lp.include](#include), and probably won't be useful unless you want to translate a dynamically generated template -- which has security implications, depending upon what inputs you use to generate this template, because the resulting Lua code will execute within your Hammerspoon environment.  Be very careful about your inputs if you choose to ignore this warning.
+---  * To ensure that the translated code has access to the `cgilua` support functions, pass `_ENV` as the environment argument to the `load` lua builtin; otherwise any output generated by the resulting function will be sent to the Hammerspoon console and not included in the HTTP response sent back to the client.
 cgilua.lp.translate = function(_parent, source)
     -- in an effort to attempt to maintain compatibility with CGILua, we should expect/allow the same things in a source file...
     source = source:gsub("^#![^\n]+\n", "")
@@ -498,17 +607,69 @@ cgilua.lp.translate = function(_parent, source)
     return table.concat(res)
 end
 
+--- hs._asm.hsminweb.cgilua.lp.compile(source, name, [env]) -> function
+--- Function
+--- Converts the specified Lua template source into a Lua function.
+---
+--- Parameters:
+---  * source - a string containing the contents of a Lua/HTML template to be converted into a function
+---  * name   - a label used in an error message if execution of the returned function results in a run-time error
+---  * env    - an optional table specifying the environment to be used by the lua builtin function `load` when converting the source into a function.  By default, the function will inherit its caller's environment.
+---
+--- Returns:
+---  * A lua function which should take no arguments.
+---
+--- Notes:
+---  * The source provided is first compared to a stored cache of previously translated templates and will re-use an existing translation if the template has been seen before.  If the source is unique, [cgilua.lp.translate](#translate) is called on the template source.
+---  * This function is used internally by [cgilua.lp.include](#include), and probably won't be useful unless you want to translate a dynamically generated template -- which has security implications, depending upon what inputs you use to generate this template, because the resulting Lua code will execute within your Hammerspoon environment.  Be very careful about your inputs if you choose to ignore this warning.
 cgilua.lp.compile = function(_parent, string, chunkname, env)
-    local s = _parent.translations[string]
+    local s = _parent.__luaCached_translations[string]
     if not s then
           s = cgilua.lp.translate(_parent, string)
-          _parent.translations[string] = s
+          _parent.__luaCached_translations[string] = s
     end
-    local f, err = load(s, chunkname, "bt", env or _parent.cgiluaENV)
+    local f, err = load(s, chunkname, "bt", env or _parent.__luaInternal_cgiluaENV)
     if not f then error(err, 3) end
     return f
 end
 
+--- hs._asm.hsminweb.cgilua.lp.include(file, [env]) -> none
+--- Function
+--- Includes the template specified by the `file` parameter.
+---
+--- Parameters:
+---  * file - a string containing the file system path to the template to include.
+---  * env  - an optional table specifying the environment to be used by the included template.  By default, the template will inherit its caller's environment.
+---
+--- Returns:
+---  * None
+---
+--- Notes:
+--- * This function is called by the web server to process the template specified by the requested URL.  Subsequent invocations of this function can be used to include common or re-used code from other template files and will be included in-line where the `cgilua.lp.include` function is invoked in the originating template.
+---  * During the processing of a web request, the local directory is temporarily changed to match the local directory of the path of the file being served, as determined by the URL of the request.  This is usually different than the Hammerspoon default directory which corresponds to the directory which contains the `init.lua` file for Hammerspoon.
+---
+--- * The default template environment provides the following:
+---   * the `__index` metamethod points to the `_G` environment variable in the Hammerspoon Lua instance; this means that any global variable in the Hammerspoon environment is available to the lua code in a template file.
+---   * the `__newindex` metamethod points to a function which creates new "global" variables in the template files environment; this means that if a template includes another template file, and that second template file creates a "global" variable, that new variable will be available in the environment of the calling template, but will not be shared with the Hammerspoon global variable space;  "global" variables created in this manner will be released when the HTTP request is completed.
+---
+---   * `print` is overridden so that its output is streamed into the response body to be returned when the web request completes.  It follows the traditional pattern of the `print` builtin function: multiple arguments are separated by a tab character, the output is terminated with a new-line character, non-string arguments are converted to strings via the `tostring` builtin function.
+---   * `write` is defined as an alternative to `print` and differs in the following ways from the `print` function described above:  no intermediate tabs or newline are included in the output streamed to the response body.
+---   * `cgilua` is defined as a table containing all of the functions included in this support sub-module.
+---   * `hsminweb` is defined as a table which contains the following tables which may be of use:
+---     * CGIVariables - a table containing key-value pairs of the same data available through the [cgilua.servervariable](#servervariable) function.
+---     * id           - a string, generated via `hs.host.globallyUniqueString`, unique to this specific HTTP request.
+---     * log          - a table/object representing the `hs._asm.hsminweb` instance of `hs.logger`.  This can be used to log messages to the Hammerspoon console as described in the documentation for `hs.logger`.
+---     * request      - a table containing data representing the details of the HTTP request as it was made by the web client to the server.  The following keys are commonly found:
+---       * headers - a table containing key-value pairs representing the headers included in the HTTP request; unlike the values available through [cgilua.servervariable](#servervariable) or found in `CGIVariables`, these are available in their raw form.
+---         * this table also contains a table with the key "_".  This table contains functions and data used internally, and is described more fully in a supporting document (TBD).  It is targeted primarily at custom functions designed for use with `hs._asm.hsminweb` directly and should not generally be necessary for Lua template files.
+---       * method  - the method of the HTTP request, most commonly "GET" or "POST"
+---       * path    - the path portion of the requested URL.
+---     * response     - a table containing data representing the response being formed for the response to the HTTP request.  This is generally handled for you by the `cgilua` support functions, but for special cases, you can modify it directly; this should contain only the following keys:
+---       * body    - a string containing the response body.  As the lua template outputs content, this string is appended to.
+---       * code    - an integer representing the currently expected response code for the HTTP request.
+---       * headers - a table containing key-value pairs of the currently defined response headers
+---     * server       - a reference to the table/object representing the web server instance serving this HTTP request.
+---     * _tmpfiles    - used internally to track temporary files used in the completion of this HTTP request; do not modify directly.
 cgilua.lp.include = function(_parent, filename, env)
     -- read the whole contents of the file
     local fh = assert(io.open(filename))
@@ -517,24 +678,8 @@ cgilua.lp.include = function(_parent, filename, env)
 
     if src:sub(1,3) == "\xEF\xBB\xBF" then src = src:sub(4) end
     -- translates the file into a function
-    local prog = cgilua.lp.compile(_parent, src, '@'..filename, env or _parent.cgiluaENV)
+    local prog = cgilua.lp.compile(_parent, src, '@'..filename, env or _parent.__luaInternal_cgiluaENV)
     prog()
 end
-
-
---  -      cgilua.redirect (url, args)
-
---  -      cgilua.mkabsoluteurl (path)
---  -      cgilua.mkurlpath (script [, args])
-
---  -      cgilua.lp.compile (string)
---  -      cgilua.lp.include (filename[, env])
---  -      cgilua.lp.translate (string)
-
---  -      cgilua.urlcode.encodetable (table)
---  -      cgilua.urlcode.escape (string)
---  -      cgilua.urlcode.insertfield (args, name, value)
---  -      cgilua.urlcode.parsequery (query, args)
---  -      cgilua.urlcode.unescape (string)
 
 return cgilua
