@@ -1,7 +1,7 @@
 --
 -- This is an example web server which serves dynamically generated Hammerspoon documentation
 --
--- It's rough, but serves as an example of using lua in templates with `hs._asm.hsminweb`
+-- It's rough, but serves as an example of using lua in templates with `hs.httpserver.hsminweb`
 --
 
 local module = {}

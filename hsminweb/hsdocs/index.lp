@@ -1,5 +1,5 @@
 <html>
-<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
+<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs.httpserver.hsminweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
 <!-- <%= "--",">" %>
 
   <%
@@ -16,6 +16,9 @@
           indexMD = f:read("a")
           f:close()
       end
+
+    -- what follows is from ../scripts/docs/templates/index.html.erb
+
   %>
 
   <head>

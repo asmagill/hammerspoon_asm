@@ -23,6 +23,11 @@
         return inputString
     end
 
+    -- an example of defining a "global" variable... it should show up in the output of _ENV in
+    -- the rendered output of the page.
+
+    i_am_global = "to the template, but not Hammerspoon"
+
     -- the line after <body> prints a reasonably clean error message to the browser if template
     -- support is not enabled, but is suppressed if it is.  As with the bracketing of lua
     -- code blocks with the HTML comment tags, it is not necessary for this to work.
@@ -30,7 +35,7 @@
 %>-->
 
 <body>
-<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
+<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs.httpserver.hsminweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
 <!-- <%= "--",">" %>
 
 <b>_ENV overview</b>

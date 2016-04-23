@@ -1,5 +1,5 @@
 <html>
-<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs._asm.minweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
+<%= "<","!--" %><div align="center"><i><font color="#f00">Requires hs.httpserver.hsminweb:luaTemplateExtension("lp") to be enabled for your web server</font></i></div><%= "--",">" %>
 <!-- <%= "--",">" %>
 
   <%
@@ -8,6 +8,17 @@
       for i, v in ipairs(documentation) do
           modNames[v.name] = true
       end
+
+      -- the following code looks for the module to display as either part of URL PATH_INFO or as a
+      -- query item.  The following URLs are supported:
+
+      --  * http://server:port/.../module.lp?q=<module>
+      --  * http://server:port/.../module.lp/<module>
+
+      -- The following will also "jump" to the specified function in the rendered output
+      --  * http://server:port/.../module.lp?q=<module>.<function>
+      --  * http://server:port/.../module.lp/<module>/<function>
+      --  * http://server:port/.../module.lp/<module>.<function>
 
       -- allow /module[/function] at end of URL
       local lookingFor, jumpTo = cgilua.script_vpath:match("^/([^/]*)/?([^/]*)$")
@@ -50,7 +61,10 @@
             window.scrollTo(0, top);
           });
         </script>
-  <%  end  %>
+  <%  end
+
+    -- what follows is from ../scripts/docs/templates/ext.html.erb
+%>
 
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
