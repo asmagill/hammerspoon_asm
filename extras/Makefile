@@ -24,9 +24,10 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=clang
-EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -F /System/Library/PrivateFrameworks
+EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
-LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS) -framework AddressBook -framework ContactsUI -framework login -framework SceneKit -framework MapKit
+LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
+# -framework AddressBook -framework ContactsUI -framework SceneKit -framework MapKit
 
 DOC_SOURCES = $(LUAFILE) $(OBJCFILE)
 

@@ -1,14 +1,13 @@
 @import Cocoa ;
 @import Carbon ;
 @import LuaSkin ;
-@import AddressBook ;
+// @import AddressBook ;
 @import SystemConfiguration ;
 #import "LuaSkinThread.h"
-@import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
-@import SceneKit;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
-@import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
-@import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
-
+// @import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
+// @import SceneKit;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
+// @import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
+// @import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
 
 #import <netdb.h>
 
@@ -86,56 +85,11 @@ static int threadInfo(lua_State *L) {
     return 1 ;
 }
 
-static int addressbookGroups(__unused lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
-    [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
-    return 1 ;
-}
-
-static int testNSValueEncodings(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
-    NSValue *theRect  = [NSValue valueWithRect:NSMakeRect(0,1,2,3)] ;
-    NSValue *thePoint = [NSValue valueWithPoint:NSMakePoint(4,5)] ;
-    NSValue *theSize  = [NSValue valueWithSize:NSMakeSize(6,7)] ;
-    NSValue *theRange = [NSValue valueWithRange:NSMakeRange(8,9)] ;
-    NSValue *vector3  = [NSValue valueWithSCNVector3:SCNVector3Make(1,2,3)] ;
-    NSValue *vector4  = [NSValue valueWithSCNVector4:SCNVector4Make(4,3,2,1)] ;
-    NSValue *location = [NSValue valueWithMKCoordinate:CLLocationCoordinate2DMake(41.8369, -87.6847)] ;
-
-    typedef struct {  int i; double d; unsigned int ui; } otherStruct ;
-    otherStruct holder ;
-    holder.d = 95.7 ;
-    holder.i = -101 ;
-    holder.ui = 101 ;
-
-    NSValue *other = [NSValue valueWithBytes:&holder objCType:@encode(otherStruct)] ;
-
-    lua_newtable(L) ;
-    lua_newtable(L) ;
-    [skin pushNSObject:theRect  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "rect") ;
-    [skin pushNSObject:thePoint withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "point") ;
-    [skin pushNSObject:theSize  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "size") ;
-    [skin pushNSObject:theRange withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "range") ;
-    [skin pushNSObject:vector3  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "vector3") ;
-    [skin pushNSObject:vector4  withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "vector4") ;
-    [skin pushNSObject:location withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "location") ;
-    [skin pushNSObject:other    withOptions:LS_NSDescribeUnknownTypes] ; lua_setfield(L, -2, "other") ;
-    lua_setfield(L, -2, "raw") ;
-
-    lua_newtable(L) ;
-    lua_pushstring(L, [theRect objCType]) ;  lua_setfield(L, -2, "rect") ;
-    lua_pushstring(L, [thePoint objCType]) ; lua_setfield(L, -2, "point") ;
-    lua_pushstring(L, [theSize objCType]) ;  lua_setfield(L, -2, "size") ;
-    lua_pushstring(L, [theRange objCType]) ; lua_setfield(L, -2, "range") ;
-    lua_pushstring(L, [vector3 objCType]) ;  lua_setfield(L, -2, "vector3") ;
-    lua_pushstring(L, @encode(SCNVector3)) ; lua_setfield(L, -2, "vector3e") ;
-    lua_pushstring(L, [vector4 objCType]) ;  lua_setfield(L, -2, "vector4") ;
-    lua_pushstring(L, @encode(SCNVector4)) ; lua_setfield(L, -2, "vector4e") ;
-    lua_pushstring(L, [location objCType]) ; lua_setfield(L, -2, "location") ;
-    lua_pushstring(L, [other objCType]) ;    lua_setfield(L, -2, "other") ;
-    lua_setfield(L, -2, "objCType") ;
-    return 1 ;
-}
+// static int addressbookGroups(__unused lua_State *L) {
+//     LuaSkin *skin = LST_getLuaSkin();
+//     [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
+//     return 1 ;
+// }
 
 static int addressParserTesting(lua_State *L) {
     LuaSkin *skin = LST_getLuaSkin();
@@ -256,12 +210,24 @@ static int networkUserPreferences(lua_State *L) {
     return 1 ;
 }
 
-// http://stackoverflow.com/questions/1976520/lock-screen-by-api-in-mac-os-x/26492632#26492632
-extern int SACLockScreenImmediate();
-static int lockscreen(lua_State* L)
-{
-  lua_pushinteger(L, SACLockScreenImmediate()) ;
-  return 1 ;
+// // http://stackoverflow.com/questions/1976520/lock-screen-by-api-in-mac-os-x/26492632#26492632
+// extern int SACLockScreenImmediate();
+// static int lockscreen(lua_State* L)
+// {
+//   lua_pushinteger(L, SACLockScreenImmediate()) ;
+//   return 1 ;
+// }
+
+// I like this better... cleaner IMO, and doesn't require linking against a private framework
+// https://gist.github.com/cardi/3e2b527a2ec819d51916604528986e93
+// http://apple.stackexchange.com/questions/80058/lock-screen-command-one-liner
+
+static int lockscreen(__unused lua_State* L) {
+    NSBundle *bundle = [NSBundle bundleWithPath:@"/Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain.menu"];
+    Class principalClass = [bundle principalClass];
+    id instance = [[principalClass alloc] init];
+    [instance performSelector:@selector(_lockScreenMenuHit:) withObject:nil];
+    return 0;
 }
 
 static int nsvalueTest2(lua_State *L) {
@@ -335,9 +301,73 @@ static int testLabeledTable2(lua_State *L) {
     return 1;
 }
 
+static int hs_volumeInformation(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TBOOLEAN|LS_TOPTIONAL, LS_TBREAK];
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSMutableDictionary *volumeInfo = [[NSMutableDictionary alloc] init];
+
+    NSArray *urlResourceKeys = @[
+                                    NSURLVolumeLocalizedFormatDescriptionKey,
+                                    NSURLVolumeTotalCapacityKey,
+                                    NSURLVolumeAvailableCapacityKey,
+                                    NSURLVolumeResourceCountKey,
+                                    NSURLVolumeSupportsPersistentIDsKey,
+                                    NSURLVolumeSupportsSymbolicLinksKey,
+                                    NSURLVolumeSupportsHardLinksKey,
+                                    NSURLVolumeSupportsJournalingKey,
+                                    NSURLVolumeIsJournalingKey,
+                                    NSURLVolumeSupportsSparseFilesKey,
+                                    NSURLVolumeSupportsZeroRunsKey,
+                                    NSURLVolumeSupportsCaseSensitiveNamesKey,
+                                    NSURLVolumeSupportsCasePreservedNamesKey,
+                                    NSURLVolumeSupportsRootDirectoryDatesKey,
+                                    NSURLVolumeSupportsVolumeSizesKey,
+                                    NSURLVolumeSupportsRenamingKey,
+                                    NSURLVolumeSupportsAdvisoryFileLockingKey,
+                                    NSURLVolumeSupportsExtendedSecurityKey,
+                                    NSURLVolumeIsBrowsableKey,
+                                    NSURLVolumeMaximumFileSizeKey,
+                                    NSURLVolumeIsEjectableKey,
+                                    NSURLVolumeIsRemovableKey,
+                                    NSURLVolumeIsInternalKey,
+                                    NSURLVolumeIsAutomountedKey,
+                                    NSURLVolumeIsLocalKey,
+                                    NSURLVolumeIsReadOnlyKey,
+                                    NSURLVolumeCreationDateKey,
+                                    NSURLVolumeURLForRemountingKey,
+                                    NSURLVolumeUUIDStringKey,
+                                    NSURLVolumeNameKey,
+                                    NSURLVolumeLocalizedNameKey,
+                                ];
+
+    NSVolumeEnumerationOptions options = NSVolumeEnumerationSkipHiddenVolumes;
+
+    if (lua_type(L, 1) == LUA_TBOOLEAN && lua_toboolean(L, 1)) {
+        options = 0;
+    }
+
+    NSArray *URLs = [fileManager mountedVolumeURLsIncludingResourceValuesForKeys:urlResourceKeys options:options];
+
+    for (NSURL *url in URLs) {
+        id result = [url resourceValuesForKeys:urlResourceKeys error:nil] ;
+        if ([url path]) {
+                if (result) [volumeInfo setObject:result forKey:[url path]];
+                if ([url resourceValuesForKeys:urlResourceKeys error:nil])
+                        [volumeInfo setObject:[url resourceValuesForKeys:urlResourceKeys error:nil] forKey:[url path]];
+        }
+    }
+
+    [skin pushNSObject:volumeInfo];
+
+    return 1;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
+    {"volumeInformation",    hs_volumeInformation},
 
     {"lookup",               lookup},
 
@@ -347,9 +377,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"userDataToString",     ud_tostring},
     {"threadInfo",           threadInfo},
-    {"addressbookGroups",    addressbookGroups},
+//     {"addressbookGroups",    addressbookGroups},
 
-    {"testNSValue",          testNSValueEncodings},
     {"examineNSValue",       nsvalueTest2},
 
     {"SCPreferencesKeys",    getSCPreferencesKeys},
