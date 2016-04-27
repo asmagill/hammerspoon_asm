@@ -1,7 +1,7 @@
 hs._asm.hsminweb
 ================
 
-** 23-April-2016: Development on this module is temporarily suspended while it is being integrated directly into Hammerspoon to provide built in documentation.  Development here may resume for additional feature support, but primary functionality will be provided by Hammerspoon itself in the near future.**
+**23-April-2016: Development on this module is temporarily suspended while it is being integrated directly into Hammerspoon to provide built in documentation.  Development here may resume for additional feature support, but primary functionality will be provided by Hammerspoon itself in the near future.**
 
 
 *This documentation is preliminary and is subject to change.*
