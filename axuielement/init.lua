@@ -8,8 +8,6 @@ local USERDATA_TAG = "hs._asm.axuielement"
 local module       = require(USERDATA_TAG..".internal")
 local log          = require("hs.logger").new("axuielement","warning")
 module.log         = log
-module._registerLogForC(log)
-module._registerLogForC = nil
 
 require("hs.styledtext")
 
@@ -277,10 +275,12 @@ module.systemElementAtPosition = function(...)
     return module.systemWideElement():elementAtPosition(...)
 end
 
+local originalObjectIndex = object.__index
+
 object.__index = function(self, _)
     if type(_) == "string" then
         -- take care of the internally defined items first so we can get out of here quickly if its one of them
-        for k, v in pairs(object) do if _ == k then return v end end
+        if originalObjectIndex[_] then return originalObjectIndex[_] end
 
         -- Now for the dynamically generated methods...
 
@@ -304,7 +304,7 @@ object.__index = function(self, _)
         elseif _:match("^do") then
 
             -- check actions
-            for i, v in pairs(object.actionNames(self) or {}) do
+            for i, v in ipairs(object.actionNames(self) or {}) do
                 if v == formalName then
                     return function(self, ...) return object.performAction(self, formalName, ...) end
                 end
@@ -340,6 +340,42 @@ object.__index = function(self, _)
     else
         return nil
     end
+end
+
+object.__pairs = function(_)
+    local keys, k, v = {}, nil, nil
+    repeat
+        k, v = next(originalObjectIndex, k)
+        if k then keys[k] = true end
+    until not k
+
+     -- getters and setters for attributeNames
+    for i, v in ipairs(object.attributeNames(_) or {}) do
+        local partialName = v:match("^AX(.*)")
+        keys[partialName:sub(1,1):lower() .. partialName:sub(2)] = true
+        if object.isAttributeSettable(_, v) then
+            keys["set" .. partialName] = true
+        end
+    end
+
+    -- getters for paramaterizedAttributes
+    for i, v in ipairs(object.parameterizedAttributeNames(_) or {}) do
+        local partialName = v:match("^AX(.*)")
+        keys[partialName:sub(1,1):lower() .. partialName:sub(2)] = true
+    end
+
+    -- doers for actionNames
+    for i, v in ipairs(object.actionNames(_) or {}) do
+        local partialName = v:match("^AX(.*)")
+        keys["do" .. partialName] = true
+    end
+
+    return function(_, k)
+            local v
+            k, v = next(keys, k)
+            if k then v = _[k] end
+            return k, v
+        end, _, nil
 end
 
 object.__len = function(self)

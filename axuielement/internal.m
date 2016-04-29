@@ -12,19 +12,8 @@
 //              in lua by allowing table[userdata] to be used to test existence in a table rather than
 //              having to loop through and compare each time.
 
-#import <Cocoa/Cocoa.h>
-// #import <Carbon/Carbon.h>
-#import <LuaSkin/LuaSkin.h>
-#import "../hammerspoon.h"
-
-#import <CoreMedia/CoreMedia.h>
-#import <DiscRecording/DiscRecording.h>
-#import <GLKit/GLKit.h>
-#import <IOKit/hid/IOHIDLib.h>
-#import <LatentSemanticMapping/LatentSemanticMapping.h>
-#import <MediaToolbox/MediaToolbox.h>
-#import <OpenDirectory/OpenDirectory.h>
-#import <VideoToolbox/VideoToolbox.h>
+@import Cocoa ;
+@import LuaSkin ;
 
 // #import "AXTextMarker.h"
 
@@ -34,56 +23,6 @@ static int refTable = LUA_NOREF ;
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
 #define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
-
-#pragma mark - Errors and Logging and with hs.logger
-
-static int logFnRef = LUA_NOREF ;
-
-#define _cERROR   "ef"
-#define _cWARN    "wf"
-#define _cINFO    "f"
-#define _cDEBUG   "df"
-#define _cVERBOSE "vf"
-
-// allow this to be potentially unused in the module
-static int __unused log_to_console(lua_State *L, const char *level, NSString *theMessage) {
-    lua_Debug functionDebugObject, callerDebugObject ;
-    int status = lua_getstack(L, 0, &functionDebugObject) ;
-    status = status + lua_getstack(L, 1, &callerDebugObject) ;
-    NSString *fullMessage = nil ;
-    if (status == 2) {
-        lua_getinfo(L, "n", &functionDebugObject) ;
-        lua_getinfo(L, "Sl", &callerDebugObject) ;
-        fullMessage = [NSString stringWithFormat:@"%s - %@ (%d:%s)", functionDebugObject.name,
-                                                                     theMessage,
-                                                                     callerDebugObject.currentline,
-                                                                     callerDebugObject.short_src] ;
-    } else {
-        fullMessage = [NSString stringWithFormat:@"%s callback - %@", USERDATA_TAG,
-                                                                      theMessage] ;
-    }
-    // Except for Debug and Verbose, put it into the system logs, may help with troubleshooting
-    if (level[0] != 'd' && level[0] != 'v') CLS_NSLOG(@"%-2s:%s: %@", level, USERDATA_TAG, fullMessage) ;
-
-    // If hs.logger reference set, use it and the level will indicate whether the user sees it or not
-    // otherwise we print to the console for everything, just in case we forget to register.
-    if (logFnRef != LUA_NOREF) {
-        [[LuaSkin shared] pushLuaRef:refTable ref:logFnRef] ;
-        lua_getfield(L, -1, level) ; lua_remove(L, -2) ;
-    } else {
-        lua_getglobal(L, "print") ;
-    }
-
-    lua_pushstring(L, [fullMessage UTF8String]) ;
-    if (![[LuaSkin shared] protectedCallAndTraceback:1 nresults:0]) { return lua_error(L) ; }
-    return 0 ;
-}
-
-static int lua_registerLogForC(__unused lua_State *L) {
-    [[LuaSkin shared] checkArgs:LS_TTABLE, LS_TBREAK] ;
-    logFnRef = [[LuaSkin shared] luaRef:refTable] ;
-    return 0 ;
-}
 
 // allow this to be potentially unused in the module
 static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
@@ -144,7 +83,7 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
 }
 
 static int errorWrapper(lua_State *L, AXError err) {
-    log_to_console(L, _cDEBUG, [NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]) ;
+    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
     lua_pushnil(L) ;
     return 1 ;
 }
@@ -226,12 +165,6 @@ static int definedTypes(lua_State *L) {
     lua_pushstring(L, "CGPDFPage") ;             lua_seti(L, -2, (lua_Integer)CGPDFPageGetTypeID()) ;
     lua_pushstring(L, "CGPSConverter") ;         lua_seti(L, -2, (lua_Integer)CGPSConverterGetTypeID()) ;
     lua_pushstring(L, "CGShading") ;             lua_seti(L, -2, (lua_Integer)CGShadingGetTypeID()) ;
-    lua_pushstring(L, "CMBlockBuffer") ;         lua_seti(L, -2, (lua_Integer)CMBlockBufferGetTypeID()) ;
-    lua_pushstring(L, "CMBufferQueue") ;         lua_seti(L, -2, (lua_Integer)CMBufferQueueGetTypeID()) ;
-    lua_pushstring(L, "CMFormatDescription") ;   lua_seti(L, -2, (lua_Integer)CMFormatDescriptionGetTypeID()) ;
-    lua_pushstring(L, "CMMemoryPool") ;          lua_seti(L, -2, (lua_Integer)CMMemoryPoolGetTypeID()) ;
-    lua_pushstring(L, "CMSampleBuffer") ;        lua_seti(L, -2, (lua_Integer)CMSampleBufferGetTypeID()) ;
-    lua_pushstring(L, "CMSimpleQueue") ;         lua_seti(L, -2, (lua_Integer)CMSimpleQueueGetTypeID()) ;
     lua_pushstring(L, "FSFileOperation") ;       lua_seti(L, -2, (lua_Integer)FSFileOperationGetTypeID()) ;
     lua_pushstring(L, "FSFileSecurity") ;        lua_seti(L, -2, (lua_Integer)FSFileSecurityGetTypeID()) ;
     lua_pushstring(L, "MDItem") ;                lua_seti(L, -2, (lua_Integer)MDItemGetTypeID()) ;
@@ -246,34 +179,11 @@ static int definedTypes(lua_State *L) {
     lua_pushstring(L, "CVOpenGLTextureCache") ;  lua_seti(L, -2, (lua_Integer)CVOpenGLTextureCacheGetTypeID()) ;
     lua_pushstring(L, "CVPixelBuffer") ;         lua_seti(L, -2, (lua_Integer)CVPixelBufferGetTypeID()) ;
     lua_pushstring(L, "CVPixelBufferPool") ;     lua_seti(L, -2, (lua_Integer)CVPixelBufferPoolGetTypeID()) ;
-    lua_pushstring(L, "DRFile") ;                lua_seti(L, -2, (lua_Integer)DRFileGetTypeID()) ;
-    lua_pushstring(L, "DRFolder") ;              lua_seti(L, -2, (lua_Integer)DRFolderGetTypeID()) ;
-    lua_pushstring(L, "DRBurn") ;                lua_seti(L, -2, (lua_Integer)DRBurnGetTypeID()) ;
-    lua_pushstring(L, "DRDevice") ;              lua_seti(L, -2, (lua_Integer)DRDeviceGetTypeID()) ;
-    lua_pushstring(L, "DRErase") ;               lua_seti(L, -2, (lua_Integer)DREraseGetTypeID()) ;
-    lua_pushstring(L, "DRNotificationCenter") ;  lua_seti(L, -2, (lua_Integer)DRNotificationCenterGetTypeID()) ;
-    lua_pushstring(L, "DRTrack") ;               lua_seti(L, -2, (lua_Integer)DRTrackGetTypeID()) ;
-    lua_pushstring(L, "GLKMatrixStack") ;        lua_seti(L, -2, (lua_Integer)GLKMatrixStackGetTypeID()) ;
     lua_pushstring(L, "CGImageDestination") ;    lua_seti(L, -2, (lua_Integer)CGImageDestinationGetTypeID()) ;
     lua_pushstring(L, "CGImageMetadata") ;       lua_seti(L, -2, (lua_Integer)CGImageMetadataGetTypeID()) ;
     lua_pushstring(L, "CGImageMetadataTag") ;    lua_seti(L, -2, (lua_Integer)CGImageMetadataTagGetTypeID()) ;
     lua_pushstring(L, "CGImageSource") ;         lua_seti(L, -2, (lua_Integer)CGImageSourceGetTypeID()) ;
-    lua_pushstring(L, "IOHIDDevice") ;           lua_seti(L, -2, (lua_Integer)IOHIDDeviceGetTypeID()) ;
-    lua_pushstring(L, "IOHIDElement") ;          lua_seti(L, -2, (lua_Integer)IOHIDElementGetTypeID()) ;
-    lua_pushstring(L, "IOHIDManager") ;          lua_seti(L, -2, (lua_Integer)IOHIDManagerGetTypeID()) ;
-    lua_pushstring(L, "IOHIDQueue") ;            lua_seti(L, -2, (lua_Integer)IOHIDQueueGetTypeID()) ;
-    lua_pushstring(L, "IOHIDTransaction") ;      lua_seti(L, -2, (lua_Integer)IOHIDTransactionGetTypeID()) ;
-    lua_pushstring(L, "IOHIDValue") ;            lua_seti(L, -2, (lua_Integer)IOHIDValueGetTypeID()) ;
     lua_pushstring(L, "IOSurface") ;             lua_seti(L, -2, (lua_Integer)IOSurfaceGetTypeID()) ;
-    lua_pushstring(L, "LSMMap") ;                lua_seti(L, -2, (lua_Integer)LSMMapGetTypeID()) ;
-    lua_pushstring(L, "LSMText") ;               lua_seti(L, -2, (lua_Integer)LSMTextGetTypeID()) ;
-    lua_pushstring(L, "LSMResult") ;             lua_seti(L, -2, (lua_Integer)LSMResultGetTypeID()) ;
-    lua_pushstring(L, "MTAudioProcessingTap") ;  lua_seti(L, -2, (lua_Integer)MTAudioProcessingTapGetTypeID()) ;
-    lua_pushstring(L, "ODContext") ;             lua_seti(L, -2, (lua_Integer)ODContextGetTypeID()) ;
-    lua_pushstring(L, "ODNode") ;                lua_seti(L, -2, (lua_Integer)ODNodeGetTypeID()) ;
-    lua_pushstring(L, "ODQuery") ;               lua_seti(L, -2, (lua_Integer)ODQueryGetTypeID()) ;
-    lua_pushstring(L, "ODRecord") ;              lua_seti(L, -2, (lua_Integer)ODRecordGetTypeID()) ;
-    lua_pushstring(L, "ODSession") ;             lua_seti(L, -2, (lua_Integer)ODSessionGetTypeID()) ;
     lua_pushstring(L, "CMSDecoder") ;            lua_seti(L, -2, (lua_Integer)CMSDecoderGetTypeID()) ;
     lua_pushstring(L, "CMSEncoder") ;            lua_seti(L, -2, (lua_Integer)CMSEncoderGetTypeID()) ;
     lua_pushstring(L, "SecAccess") ;             lua_seti(L, -2, (lua_Integer)SecAccessGetTypeID()) ;
@@ -299,12 +209,57 @@ static int definedTypes(lua_State *L) {
 
     lua_pushstring(L, "SecTrust") ;              lua_seti(L, -2, (lua_Integer)SecTrustGetTypeID()) ;
     lua_pushstring(L, "SecTrustedApplication") ; lua_seti(L, -2, (lua_Integer)SecTrustedApplicationGetTypeID()) ;
-    lua_pushstring(L, "VTFrameSilo") ;           lua_seti(L, -2, (lua_Integer)VTFrameSiloGetTypeID()) ;
-    lua_pushstring(L, "VTMultiPassStorage") ;    lua_seti(L, -2, (lua_Integer)VTMultiPassStorageGetTypeID()) ;
 
 // Crashes... crap.
 //     lua_pushstring(L, "AXTextMarker") ;          lua_seti(L, -2, (lua_Integer)wkGetAXTextMarkerTypeID()) ;
 //     lua_pushstring(L, "AXTextMarkerRange") ;     lua_seti(L, -2, (lua_Integer)wkGetAXTextMarkerRangeTypeID()) ;
+
+// add @import CoreMedia ;
+//     lua_pushstring(L, "CMBufferQueue") ;         lua_seti(L, -2, (lua_Integer)CMBufferQueueGetTypeID()) ;
+//     lua_pushstring(L, "CMMemoryPool") ;          lua_seti(L, -2, (lua_Integer)CMMemoryPoolGetTypeID()) ;
+//     lua_pushstring(L, "CMSimpleQueue") ;         lua_seti(L, -2, (lua_Integer)CMSimpleQueueGetTypeID()) ;
+
+// add @import DiscRecording ;
+//     lua_pushstring(L, "DRFile") ;                lua_seti(L, -2, (lua_Integer)DRFileGetTypeID()) ;
+//     lua_pushstring(L, "DRFolder") ;              lua_seti(L, -2, (lua_Integer)DRFolderGetTypeID()) ;
+//     lua_pushstring(L, "DRBurn") ;                lua_seti(L, -2, (lua_Integer)DRBurnGetTypeID()) ;
+//     lua_pushstring(L, "DRDevice") ;              lua_seti(L, -2, (lua_Integer)DRDeviceGetTypeID()) ;
+//     lua_pushstring(L, "DRErase") ;               lua_seti(L, -2, (lua_Integer)DREraseGetTypeID()) ;
+//     lua_pushstring(L, "DRNotificationCenter") ;  lua_seti(L, -2, (lua_Integer)DRNotificationCenterGetTypeID()) ;
+//     lua_pushstring(L, "DRTrack") ;               lua_seti(L, -2, (lua_Integer)DRTrackGetTypeID()) ;
+
+// add @import GLKit ;
+//     lua_pushstring(L, "GLKMatrixStack") ;        lua_seti(L, -2, (lua_Integer)GLKMatrixStackGetTypeID()) ;
+
+// add @import IOKit.hid ;
+//     lua_pushstring(L, "IOHIDDevice") ;           lua_seti(L, -2, (lua_Integer)IOHIDDeviceGetTypeID()) ;
+//     lua_pushstring(L, "IOHIDElement") ;          lua_seti(L, -2, (lua_Integer)IOHIDElementGetTypeID()) ;
+//     lua_pushstring(L, "IOHIDManager") ;          lua_seti(L, -2, (lua_Integer)IOHIDManagerGetTypeID()) ;
+//     lua_pushstring(L, "IOHIDQueue") ;            lua_seti(L, -2, (lua_Integer)IOHIDQueueGetTypeID()) ;
+//     lua_pushstring(L, "IOHIDTransaction") ;      lua_seti(L, -2, (lua_Integer)IOHIDTransactionGetTypeID()) ;
+//     lua_pushstring(L, "IOHIDValue") ;            lua_seti(L, -2, (lua_Integer)IOHIDValueGetTypeID()) ;
+
+// add @import LatentSemanticMapping ;
+//     lua_pushstring(L, "LSMMap") ;                lua_seti(L, -2, (lua_Integer)LSMMapGetTypeID()) ;
+//     lua_pushstring(L, "LSMText") ;               lua_seti(L, -2, (lua_Integer)LSMTextGetTypeID()) ;
+//     lua_pushstring(L, "LSMResult") ;             lua_seti(L, -2, (lua_Integer)LSMResultGetTypeID()) ;
+
+// add @import MediaToolbox ;
+//     lua_pushstring(L, "MTAudioProcessingTap") ;  lua_seti(L, -2, (lua_Integer)MTAudioProcessingTapGetTypeID()) ;
+
+// add @import OpenDirectory ;
+//     lua_pushstring(L, "ODContext") ;             lua_seti(L, -2, (lua_Integer)ODContextGetTypeID()) ;
+//     lua_pushstring(L, "ODNode") ;                lua_seti(L, -2, (lua_Integer)ODNodeGetTypeID()) ;
+//     lua_pushstring(L, "ODQuery") ;               lua_seti(L, -2, (lua_Integer)ODQueryGetTypeID()) ;
+//     lua_pushstring(L, "ODRecord") ;              lua_seti(L, -2, (lua_Integer)ODRecordGetTypeID()) ;
+//     lua_pushstring(L, "ODSession") ;             lua_seti(L, -2, (lua_Integer)ODSessionGetTypeID()) ;
+
+// add @import VideoToolbox ;
+//     lua_pushstring(L, "CMBlockBuffer") ;         lua_seti(L, -2, (lua_Integer)CMBlockBufferGetTypeID()) ;
+//     lua_pushstring(L, "CMFormatDescription") ;   lua_seti(L, -2, (lua_Integer)CMFormatDescriptionGetTypeID()) ;
+//     lua_pushstring(L, "CMSampleBuffer") ;        lua_seti(L, -2, (lua_Integer)CMSampleBufferGetTypeID()) ;
+//     lua_pushstring(L, "VTFrameSilo") ;           lua_seti(L, -2, (lua_Integer)VTFrameSiloGetTypeID()) ;
+//     lua_pushstring(L, "VTMultiPassStorage") ;    lua_seti(L, -2, (lua_Integer)VTMultiPassStorageGetTypeID()) ;
 
 #pragma clang diagnostic pop
     return 1 ;
@@ -413,7 +368,7 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
           } else {
               typeLabel = [NSString stringWithFormat:@"unrecognized type: %lu", theType] ;
           }
-          log_to_console(L, _cWARN, typeLabel) ;
+          [skin logWarn:typeLabel];
           lua_pop(L, 2) ; // the table and the result of lua_rawget
           lua_pushstring(L, [typeLabel UTF8String]) ;
       }
@@ -1318,7 +1273,6 @@ static luaL_Reg moduleLib[] = {
     {"applicationElement",       getApplicationElement},
     {"applicationElementForPID", getApplicationElementForPID},
 
-    {"_registerLogForC",         lua_registerLogForC},
     {NULL,                       NULL}
 } ;
 
