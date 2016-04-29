@@ -483,22 +483,14 @@ object.elementSearch = function(self, searchParameters, isPattern, includeParent
         end
     end
 
-    return setmetatable(results, {
-        __index = {
-            elementSearch = object.elementSearch
-        }
-    })
+    return setmetatable(results, hs.getObjectMetatable(USERDATA_TAG .. ".elementSearchTable"))
 end
 
-local internalHolderForGetAllChildElements = object.getAllChildElements
-
-object.getAllChildElements = function(...)
-    return setmetatable(internalHolderForGetAllChildElements(...), {
-        __index = {
-            elementSearch = object.elementSearch
-        }
-    })
-end
+-- store this in the registry so we can easily set it both from Lua and from C functions
+debug.getregistry()[USERDATA_TAG .. ".elementSearchTable"] = {
+    __type  = USERDATA_TAG .. ".elementSearchTable",
+    __index = { elementSearch = object.elementSearch }
+}
 
 -- Return Module Object --------------------------------------------------
 

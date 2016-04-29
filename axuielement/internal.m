@@ -1,11 +1,6 @@
 // TODO: Notifications/Observers?
-//
 //       clean up browse?
 //       document
-//       switch userdata to struct or nsobject so we can use udRef counter like in hs.speech to allow the
-//              same axuielement to return the same userdata each time to facilitate duplicate detection
-//              in lua by allowing table[userdata] to be used to test existence in a table rather than
-//              having to loop through and compare each time.
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -848,13 +843,13 @@ static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParen
                             getAllAXUIElements_searchHamster(value, includeParents, results) ;
                         }
                     } else {
-                        errorWrapper([[LuaSkin shared] L], errorState) ;
+                        [LuaSkin logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
                     }
                     if (value) CFRelease(value) ;
                 }
             }
         } else {
-            errorWrapper([[LuaSkin shared] L], errorState) ;
+            [LuaSkin logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
         }
         if (attributeNames) CFRelease(attributeNames) ;
     } /* else {
@@ -865,19 +860,54 @@ static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParen
 
 static int getAllAXUIElements(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    switch (lua_gettop(L)) {
+        case 1:  [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ; break ;
+        case 2:  [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TFUNCTION, LS_TBREAK] ; break ;
+        default: [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN, LS_TFUNCTION, LS_TBREAK] ; break ;
+    }
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     BOOL includeParents = NO ;
-    if (lua_gettop(L) == 2) includeParents = (BOOL)lua_toboolean(L, 2) ;
-    CFMutableArrayRef results     = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
-    getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
-    CFIndex arraySize = CFArrayGetCount(results) ;
-    lua_newtable(L) ;
-    for (CFIndex i = 0 ; i < arraySize ; i++) {
-        pushAXUIElement(L, CFArrayGetValueAtIndex(results, i)) ;
-        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    BOOL usesCallback   = NO ;
+    if (lua_type(L, 2) == LUA_TBOOLEAN) includeParents = (BOOL)lua_toboolean(L, 2) ;
+    if (lua_type(L, lua_gettop(L)) == LUA_TFUNCTION) usesCallback = YES ;
+
+    CFMutableArrayRef results = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
+    if (usesCallback) {
+        lua_pushvalue(L, lua_gettop(L)) ;
+        int callbackRef = [skin luaRef:refTable] ;
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [skin pushLuaRef:refTable ref:callbackRef] ;
+                CFIndex arraySize = CFArrayGetCount(results) ;
+                lua_newtable(L) ;
+                for (CFIndex i = 0 ; i < arraySize ; i++) {
+                    pushAXUIElement(L, CFArrayGetValueAtIndex(results, i)) ;
+                    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                }
+                luaL_getmetatable(L, USERDATA_TAG ".elementSearchTable") ;
+                lua_setmetatable(L, -2) ;
+                CFRelease(results) ;
+                if (![skin protectedCallAndTraceback:1 nresults:0]) {
+                    [skin logError:[NSString stringWithFormat:@"%s:callback error:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+                    lua_pop(L, 1) ;
+                }
+                [skin luaUnref:refTable ref:callbackRef] ;
+            });
+        });
+        lua_pushboolean(L, YES) ;
+    } else {
+        getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
+        CFIndex arraySize = CFArrayGetCount(results) ;
+        lua_newtable(L) ;
+        for (CFIndex i = 0 ; i < arraySize ; i++) {
+            pushAXUIElement(L, CFArrayGetValueAtIndex(results, i)) ;
+            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+        luaL_getmetatable(L, USERDATA_TAG ".elementSearchTable") ;
+        lua_setmetatable(L, -2) ;
+        CFRelease(results) ;
     }
-    CFRelease(results) ;
     return 1 ;
 }
 
