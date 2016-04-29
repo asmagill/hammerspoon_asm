@@ -23,7 +23,7 @@ ALLFILES += $(SOFILE)
 .SUFFIXES: .m .so
 
 #CC=cc
-CC=clang
+CC=@clang
 EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
@@ -39,7 +39,7 @@ all: verify $(SOFILE)
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Passed"); else echo "Skipping Lua Verification"; fi
+	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
 
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
@@ -55,7 +55,7 @@ markdown:
 	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
 clean:
-	rm -v -rf $(SOFILE) *.dSYM
+	rm -rf $(SOFILE) *.dSYM
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
