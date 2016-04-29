@@ -1,9 +1,4 @@
 // TODO: Notifications/Observers?
-//     * in init.lua, __init should limit returned functions to actual names defined for element -- constants are suggestions/basics
-//     * in init.lua, add methods() to generate list of "psuedo functions" for element
-//     * in init.lua, add "do" prefix to actions
-//     * in init.lua, suffix for parameterizedAttributes
-//     * search for element of type/role/subrole for element?  what about lists/multiple?
 //
 //       clean up browse?
 //       document
@@ -20,17 +15,7 @@
 #define USERDATA_TAG "hs._asm.axuielement"
 static int refTable = LUA_NOREF ;
 
-// #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
-// #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
 #define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
-
-// allow this to be potentially unused in the module
-static int __unused my_lua_error(lua_State *L, NSString *theMessage) {
-    lua_Debug functionDebugObject ;
-    lua_getstack(L, 0, &functionDebugObject) ;
-    lua_getinfo(L, "n", &functionDebugObject) ;
-    return luaL_error(L, [[NSString stringWithFormat:@"%s:%s - %@", USERDATA_TAG, functionDebugObject.name, theMessage] UTF8String]) ;
-}
 
 #pragma mark - Support Functions
 
@@ -83,7 +68,7 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
 }
 
 static int errorWrapper(lua_State *L, AXError err) {
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"AXError %d: %s", err, AXErrorAsString(err)]] ;
+    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, err, AXErrorAsString(err)]] ;
     lua_pushnil(L) ;
     return 1 ;
 }
@@ -368,7 +353,7 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
           } else {
               typeLabel = [NSString stringWithFormat:@"unrecognized type: %lu", theType] ;
           }
-          [skin logWarn:typeLabel];
+          [skin logWarn:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, typeLabel]];
           lua_pop(L, 2) ; // the table and the result of lua_rawget
           lua_pushstring(L, [typeLabel UTF8String]) ;
       }
@@ -402,12 +387,13 @@ static lua_Integer countn (lua_State *L, int idx) {
 static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary *seen) {
     LuaSkin *skin = [LuaSkin shared] ;
     int index = lua_absindex(L, idx) ;
-    NSLog(@"lua_toCFType: idx:%d abs:%d top:%d abstop:%d", idx, index, lua_gettop(L), lua_absindex(L, lua_gettop(L))) ;
+//     NSLog(@"lua_toCFType: idx:%d abs:%d top:%d abstop:%d", idx, index, lua_gettop(L), lua_absindex(L, lua_gettop(L))) ;
 
     CFTypeRef value = kCFNull ;
 
     if ([seen objectForKey:[NSValue valueWithPointer:lua_topointer(L, index)]]) {
-        my_lua_error(L, @"multiple references to same table not currently supported for conversion") ;
+        [skin logWarn:[NSString stringWithFormat:@"%s:multiple references to same table not currently supported for conversion", USERDATA_TAG]] ;
+        return kCFNull ;
         // once I figure out (a) if we want to support this,
         //                   (b) if we should add a flag like we do for LuaSkin's NS version,
         //               and (c) the best way to store a CFTypeRef in an NSDictionary
@@ -512,7 +498,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                     value = (__bridge_retained CFDateRef)[rfc3339DateFormatter dateFromString:[skin toNSObjectAtIndex:-1]] ;
                 } else {
                     lua_pop(L, 1) ;
-                    my_lua_error(L, @"invalid date format specified for conversion") ;
+                    [skin logError:[NSString stringWithFormat:@"%s:invalid date format specified for conversion", USERDATA_TAG]] ;
                     return kCFNull ;
                 }
                 lua_pop(L, 1) ;
@@ -549,12 +535,12 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                 value = CFRetain(get_axuielementref(L, 1, USERDATA_TAG)) ;
             } else {
                 lua_pop(L, -1) ;
-                my_lua_error(L, @"unrecognized userdata is not supported for conversion") ;
+                [skin logError:[NSString stringWithFormat:@"%s:unrecognized userdata is not supported for conversion", USERDATA_TAG]] ;
                 return kCFNull ;
             }
         } else if (theType != LUA_TNIL) { // value already set to kCFNull, no specific match necessary
             lua_pop(L, -1) ;
-            my_lua_error(L, [NSString stringWithFormat:@"type %s not supported for conversion", lua_typename(L, theType)]) ;
+            [skin logError:[NSString stringWithFormat:@"%s:type %s not supported for conversion", USERDATA_TAG, lua_typename(L, theType)]] ;
             return kCFNull ;
         }
     }
@@ -760,7 +746,7 @@ static int getElementAtPosition(lua_State *L) {
             x = (float)lua_tonumber(L, 2) ;
             y = (float)lua_tonumber(L, 3) ;
         } else {
-            return my_lua_error(L, @"point table or x and y as numbers expected") ;
+            return luaL_error(L, "point table or x and y as numbers expected") ;
         }
         AXUIElementRef value ;
         AXError errorState = AXUIElementCopyElementAtPosition(theRef, x, y, &value) ;
@@ -771,7 +757,7 @@ static int getElementAtPosition(lua_State *L) {
         }
         if (value) CFRelease(value) ;
     } else {
-        return my_lua_error(L, @"must be application or systemWide element") ;
+        return luaL_error(L, "must be application or systemWide element") ;
     }
     return 1 ;
 }

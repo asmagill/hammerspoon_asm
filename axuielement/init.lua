@@ -446,7 +446,7 @@ object.matches = function(self, searchParameters, isPattern)
                 local partialAnswer = false
                 for i2, v2 in ipairs(v) do
                     if type(v2) == "string" then
-                        partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and result:match(v2))
+                        partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and result and result:match(v2))
                     elseif type(v2) == "number" or type(v2) == "boolean" or getmetatable(v2) == hs.getObjectMetatable(USERDATA_TAG) then
                         partialAnswer = partialAnswer or (result == v2)
                     else
