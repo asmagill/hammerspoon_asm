@@ -97,11 +97,7 @@ examine_axuielement = function(element, showParent, depth, seen)
     depth = depth or 1
     local result
 
-    if getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
-        for i,v in pairs(seen) do
-            if i == element then return v end
-        end
-    end
+    if getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) and seen[element] then return seen[element] end
 
     if depth > 0 and getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
         result = {
@@ -177,9 +173,7 @@ elementSearchHamster = function(element, searchParameters, isPattern, includePar
 -- check an AXUIElement and its attributes
 
     if getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
-        for k, v in pairs(seen) do
-            if k == element then return results end
-        end
+        if seen[element] then return results end
         seen[element] = true
 
     -- first check if this element itself belongs in the result set
@@ -446,7 +440,7 @@ object.matches = function(self, searchParameters, isPattern)
                 local partialAnswer = false
                 for i2, v2 in ipairs(v) do
                     if type(v2) == "string" then
-                        partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and result and result:match(v2))
+                        partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and (type(result) == "string") and result:match(v2))
                     elseif type(v2) == "number" or type(v2) == "boolean" or getmetatable(v2) == hs.getObjectMetatable(USERDATA_TAG) then
                         partialAnswer = partialAnswer or (result == v2)
                     else

@@ -13,18 +13,33 @@
 // #import "AXTextMarker.h"
 
 #define USERDATA_TAG "hs._asm.axuielement"
-static int refTable = LUA_NOREF ;
-
+static int                    refTable = LUA_NOREF ;
+static CFMutableDictionaryRef knownAXUIElements ;
 #define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions
 
 static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
-    AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef)) ;
-    *thePtr = CFRetain(theElement) ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    CFNumberRef refAsCFNumber = CFDictionaryGetValue(knownAXUIElements, theElement) ;
+    if (refAsCFNumber) {
+//         [skin logWarn:@"known AXUIElement Hit"] ;
+        int refAsInt ;
+        CFNumberGetValue(refAsCFNumber, kCFNumberIntType, &refAsInt) ;
+        [skin pushLuaRef:refTable ref:refAsInt] ;
+        CFRelease(refAsCFNumber);
+    } else {
+        AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef)) ;
+        *thePtr = CFRetain(theElement) ;
+        luaL_getmetatable(L, USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
+        lua_pushvalue(L, -1) ;
+        int newRefAsInt = [skin luaRef:refTable];
+        CFNumberRef newRefAsCFNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &newRefAsInt);
+        CFDictionarySetValue(knownAXUIElements, theElement, newRefAsCFNumber);
+        CFRelease(newRefAsCFNumber);
+    }
 
-    luaL_getmetatable(L, USERDATA_TAG) ;
-    lua_setmetatable(L, -2) ;
     return 1 ;
 }
 
@@ -250,33 +265,35 @@ static int definedTypes(lua_State *L) {
     return 1 ;
 }
 
-// Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've
-// found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether
-// or not to delve deeper, either, so...
+// Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether or not to delve deeper, either, so... should be safe in CFDictionary and CFArray, since they toll-free bridge; don't use for others -- fails for setting with AXUIElementRef as key, at least...
 
 // CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
 // AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
 // AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
 static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
     LuaSkin *skin = [LuaSkin shared] ;
-    if ([alreadySeen objectForKey:(__bridge id)theItem]) {
-        lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ;
-        return 1 ;
-    }
 
     CFTypeID theType = CFGetTypeID(theItem) ;
     if      (theType == CFArrayGetTypeID()) {
+        if (alreadySeen[(__bridge id)theItem]) {
+            [skin pushLuaRef:refTable ref:[alreadySeen[(__bridge id)theItem] intValue]] ;
+            return 1 ;
+        }
         lua_newtable(L) ;
-        [alreadySeen setObject:[NSNumber numberWithInt:luaL_ref(L, LUA_REGISTRYINDEX)] forKey:(__bridge id)theItem] ;
-        lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ; // put it back on the stack
+        alreadySeen[(__bridge id)theItem] = [NSNumber numberWithInt:[skin luaRef:refTable]] ;
+        [skin pushLuaRef:refTable ref:[alreadySeen[(__bridge id)theItem] intValue]] ; // put it back on the stack
         for(id thing in (__bridge NSArray *)theItem) {
             pushCFTypeHamster(L, (__bridge CFTypeRef)thing, alreadySeen) ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else if (theType == CFDictionaryGetTypeID()) {
+        if (alreadySeen[(__bridge id)theItem]) {
+            [skin pushLuaRef:refTable ref:[alreadySeen[(__bridge id)theItem] intValue]] ;
+            return 1 ;
+        }
         lua_newtable(L) ;
-        [alreadySeen setObject:[NSNumber numberWithInt:luaL_ref(L, LUA_REGISTRYINDEX)] forKey:(__bridge id)theItem] ;
-        lua_rawgeti(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:(__bridge id)theItem] intValue]) ; // put it back on the stack
+        alreadySeen[(__bridge id)theItem] = [NSNumber numberWithInt:[skin luaRef:refTable]] ;
+        [skin pushLuaRef:refTable ref:[alreadySeen[(__bridge id)theItem] intValue]] ; // put it back on the stack
         NSArray *keys = [(__bridge NSDictionary *)theItem allKeys] ;
         NSArray *values = [(__bridge NSDictionary *)theItem allValues] ;
         for (unsigned long i = 0 ; i < [keys count] ; i++) {
@@ -361,10 +378,11 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
 }
 
 static int pushCFTypeToLua(lua_State *L, CFTypeRef theItem) {
+    LuaSkin *skin = [LuaSkin shared];
     NSMutableDictionary *alreadySeen = [[NSMutableDictionary alloc] init] ;
     pushCFTypeHamster(L, theItem, alreadySeen) ;
     for (id entry in alreadySeen) {
-        luaL_unref(L, LUA_REGISTRYINDEX, [[alreadySeen objectForKey:entry] intValue]) ;
+        [skin luaUnref:refTable ref:[alreadySeen[entry] intValue]] ;
     }
     return 1 ;
 }
@@ -391,7 +409,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
 
     CFTypeRef value = kCFNull ;
 
-    if ([seen objectForKey:[NSValue valueWithPointer:lua_topointer(L, index)]]) {
+    if (seen[[NSValue valueWithPointer:lua_topointer(L, index)]]) {
         [skin logWarn:[NSString stringWithFormat:@"%s:multiple references to same table not currently supported for conversion", USERDATA_TAG]] ;
         return kCFNull ;
         // once I figure out (a) if we want to support this,
@@ -503,7 +521,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                 }
                 lua_pop(L, 1) ;
             } else {                            // real CFDictionary or CFArray
-              [seen setObject:@(YES) forKey:[NSValue valueWithPointer:lua_topointer(L, index)]] ;
+              seen[[NSValue valueWithPointer:lua_topointer(L, index)]] = @(YES) ;
               if (luaL_len(L, index) == countn(L, index)) { // CFArray
                   CFMutableArrayRef holder = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
                   for (lua_Integer i = 0 ; i < luaL_len(L, index) ; i++ ) {
@@ -851,9 +869,7 @@ static int getAllAXUIElements(lua_State *L) {
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
     BOOL includeParents = NO ;
     if (lua_gettop(L) == 2) includeParents = (BOOL)lua_toboolean(L, 2) ;
-//     CFArrayRef seenObjects = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks) ;
     CFMutableArrayRef results     = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks) ;
-//     getAllAXUIElements_searchHamster(theRef, includeParents, &results, &seenObjects) ;
     getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
     CFIndex arraySize = CFArrayGetCount(results) ;
     lua_newtable(L) ;
@@ -861,7 +877,6 @@ static int getAllAXUIElements(lua_State *L) {
         pushAXUIElement(L, CFArrayGetValueAtIndex(results, i)) ;
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
-//     CFRelease(seenObjects) ;
     CFRelease(results) ;
     return 1 ;
 }
@@ -1213,7 +1228,16 @@ static int userdata_tostring(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFNumberRef refAsCFNumber = CFDictionaryGetValue(knownAXUIElements, theRef) ;
+    if (refAsCFNumber) {
+        int refAsInt ;
+        CFNumberGetValue(refAsCFNumber, kCFNumberIntType, &refAsInt) ;
+        [skin luaUnref:refTable ref:refAsInt] ;
+        CFRelease(refAsCFNumber);
+        CFDictionaryRemoveValue(knownAXUIElements, theRef);
+    }
     CFRelease(theRef) ;
     lua_pushnil(L) ;
     lua_setmetatable(L, 1) ;
@@ -1227,9 +1251,29 @@ static int userdata_eq(lua_State* L) {
     return 1 ;
 }
 
-// static int meta_gc(lua_State* __unused L) {
-//     return 0 ;
-// }
+static void metaGCHelper(__unused const void *key, const void *value, __unused void *context ) {
+    LuaSkin *skin = [LuaSkin shared];
+    lua_State *L = [skin L];
+    int refAsInt ;
+    CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &refAsInt) ;
+    lua_pushcfunction(L, userdata_gc);
+    [skin pushLuaRef:refTable ref:refAsInt];
+    lua_pcall(L, 1, 0, 0);
+}
+
+static int meta_gc(lua_State* __unused L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    CFIndex count = CFDictionaryGetCount(knownAXUIElements);
+    if (count > 0) {
+        [skin logWarn:[NSString stringWithFormat:@"%s:knownAXUIElements has count %ld in module __gc", USERDATA_TAG, count]];
+        CFDictionaryApplyFunction(knownAXUIElements, metaGCHelper, NULL);
+        CFDictionaryRemoveAllValues(knownAXUIElements);
+    }
+    CFRelease(knownAXUIElements) ;
+    knownAXUIElements = nil ;
+    refTable = LUA_NOREF ;
+    return 0 ;
+}
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
@@ -1262,18 +1306,20 @@ static luaL_Reg moduleLib[] = {
     {NULL,                       NULL}
 } ;
 
-// // Metatable for module, if needed
-// static const luaL_Reg module_metaLib[] = {
-//     {"__gc", meta_gc},
-//     {NULL,   NULL}
-// } ;
+// Metatable for module, if needed
+static const luaL_Reg module_metaLib[] = {
+    {"__gc", meta_gc},
+    {NULL,   NULL}
+} ;
 
 int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
-                                             metaFunctions:nil    // or module_metaLib
+                                             metaFunctions:module_metaLib
                                            objectFunctions:userdata_metaLib] ;
+
+    knownAXUIElements = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks) ;
 
 // For reference, since the object __init wrapper in init.lua and the keys for elementSearch don't
 // actually use them in case the user wants to use an Application defined attribute or action not
