@@ -39,7 +39,7 @@ all: verify $(SOFILE)
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	(hash lua-5.3 >& /dev/null && luac-5.3 -p $(LUAFILE) && echo "Passed") || (echo "Skipping")
+	if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Passed"); else echo "Skipping Lua Verification"; fi
 
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
