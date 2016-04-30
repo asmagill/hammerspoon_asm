@@ -10,6 +10,7 @@ LUAFILE  = ${wildcard *.lua}
 HEADERS  = ${wildcard *.h}
 
 SOFILE  := $(OBJCFILE:.m=.so)
+# SOFILE  := internal.so
 DEBUG_CFLAGS ?= -g
 
 # special vars for uninstall
@@ -22,25 +23,29 @@ ALLFILES += $(SOFILE)
 .SUFFIXES: .m .so
 
 #CC=cc
-CC=clang
+CC=@clang
 EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(SOFILE)
 
-.m.so: $(HEADERS)
+.m.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+
+# internal.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	luac-5.3 -p $(LUAFILE) && echo "Passed"
+	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
 
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
 	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+# 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
@@ -50,11 +55,12 @@ markdown:
 	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
 clean:
-	rm -v -rf $(SOFILE) *.dSYM
+	rm -rf $(SOFILE) *.dSYM
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+# 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify install install-objc install-lua
