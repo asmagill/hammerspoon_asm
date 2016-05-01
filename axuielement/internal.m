@@ -78,7 +78,10 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
 }
 
 static int errorWrapper(lua_State *L, AXError err) {
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, err, AXErrorAsString(err)]] ;
+    luaL_where(L, 0) ;
+    const char *where = lua_tostring(L, -1) ;
+    [LuaSkin logVerbose:[NSString stringWithFormat:@"%s.%s AXError %d: %s", USERDATA_TAG, where, err, AXErrorAsString(err)]] ;
+    lua_pop(L, 1) ;
     lua_pushnil(L) ;
     return 1 ;
 }
@@ -643,6 +646,8 @@ static int getActionDescription(lua_State *L) {
     AXError errorState = AXUIElementCopyActionDescription(theRef, (__bridge CFStringRef)action, &description) ;
     if (errorState == kAXErrorSuccess) {
         [skin pushNSObject:(__bridge NSString *)description] ;
+    } else if (errorState == kAXErrorNoValue) {
+        lua_pushnil(L) ;
     } else {
         errorWrapper(L, errorState) ;
     }
@@ -659,6 +664,8 @@ static int getAttributeValue(lua_State *L) {
     AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)attribute, &value) ;
     if (errorState == kAXErrorSuccess) {
         pushCFTypeToLua(L, value) ;
+    } else if (errorState == kAXErrorNoValue) {
+        lua_pushnil(L) ;
     } else {
         errorWrapper(L, errorState) ;
     }
@@ -785,6 +792,8 @@ static int getParameterizedAttributeValue(lua_State *L) {
     AXError errorState = AXUIElementCopyParameterizedAttributeValue(theRef, (__bridge CFStringRef)attribute, parameter, &value) ;
     if (errorState == kAXErrorSuccess) {
         pushCFTypeToLua(L, value) ;
+    } else if (errorState == kAXErrorNoValue) {
+        lua_pushnil(L) ;
     } else {
         errorWrapper(L, errorState) ;
     }
@@ -843,13 +852,15 @@ static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParen
                             getAllAXUIElements_searchHamster(value, includeParents, results) ;
                         }
                     } else {
-                        [LuaSkin logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
+                        if (errorState != kAXErrorNoValue) {
+                            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d for %@: %s", USERDATA_TAG, errorState, name, AXErrorAsString(errorState)]] ;
+                        }
                     }
                     if (value) CFRelease(value) ;
                 }
             }
         } else {
-            [LuaSkin logDebug:[NSString stringWithFormat:@"%s:AXError %d: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
+            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d getting attribute names: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
         }
         if (attributeNames) CFRelease(attributeNames) ;
     } /* else {

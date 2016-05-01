@@ -489,7 +489,12 @@ end
 -- store this in the registry so we can easily set it both from Lua and from C functions
 debug.getregistry()[USERDATA_TAG .. ".elementSearchTable"] = {
     __type  = USERDATA_TAG .. ".elementSearchTable",
-    __index = { elementSearch = object.elementSearch }
+    __index = { elementSearch = object.elementSearch },
+    __tostring = function(_)
+        local results = ""
+        for i, v in ipairs(_) do results = results..string.format("%d\t%s\n", i, tostring(v)) end
+        return results
+    end,
 }
 
 -- Return Module Object --------------------------------------------------
