@@ -1,8 +1,8 @@
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
-#import <SystemConfiguration/SystemConfiguration.h>
+@import Cocoa ;
+@import LuaSkin ;
+@import SystemConfiguration ;
 
-#define USERDATA_TAG    "hs.network.preferences"
+#define USERDATA_TAG    "hs._asm.preferences"
 static int              refTable          = LUA_NOREF;
 static dispatch_queue_t preferencesQueue = nil ;
 
@@ -297,7 +297,7 @@ static const luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 };
 
-int luaopen_hs_network_preferencesinternal(lua_State* __unused L) {
+int luaopen_hs__asm_preferences_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
 // Use this some of your functions return or act on a specific object unique to this module
     refTable = [skin registerLibraryWithObject:USERDATA_TAG

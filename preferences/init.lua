@@ -2,8 +2,8 @@
 ---
 --- Stuff about the module
 
-local USERDATA_TAG  = "hs.network.preferences"
-local module        = require(USERDATA_TAG.."internal")
+local USERDATA_TAG  = "hs._asm.preferences"
+local module        = require(USERDATA_TAG..".internal")
 
 -- private variables and methods -----------------------------------------
 
