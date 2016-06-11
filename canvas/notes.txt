@@ -1,0 +1,131 @@
+// Want to add tracking rectangle to this and/or hs.drawing https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/EventOverview/TrackingAreaObjects/TrackingAreaObjects.html
+
+cnvs.new({screen-rect}, [{defaults?}])
++    :delete()
++    :show()
++    :hide()
++    :topLeft()
++    :size()
++    :frame()
++    :clickCallback()
++    :clickActivating()
++    :alpha()
++    :orderAbove()
++    :orderBelow()
++    :behavior()
++    :level()
++    :wantsLayer()
+
+    :elements([array]) -- array of objects, defined as follows:
+
+When assigning (will not be returned this way when converting back into Lua table), the following can be given as percentage (e.g. "#%") -- should they be when absoluteX is false, and actual point values when absoluteX is true?
+    x=, y= will be canvas.[xy] + #% of canvas.[wh]
+    h=, w= will be #% of canvas.[wh]
+
+object = "line"
+      "start"       = { x=, y= }                              // default { 0, 0 }
+      "end"         = { x=, y= }                              // default { cnvs.w, cnvs.h }
+      "stroke"      = boolean                                 // default true
+      "strokeColor" = { color }                               // default [NSColor blackColor]
+      "strokeWidth" = width                                   // default [NSBezierPath defaultLineWidth]
+
+object = "rectangle"
+      "rect"             = { x=, y=, h=, w= }                 // default { 0, 0, cnvs.h, cnvs.w }
+      "roundedRectRadii" = { xRadius=, yRadius= }             // default { 0, 0 }
+      "stroke"           = boolean                            // default true
+      "strokeColor"      = { color }                          // default [NSColor blackColor]
+      "strokeWidth"      = width                              // default [NSBezierPath defaultLineWidth]
+      "fill"             = boolean                            // default true
+      "fillColor"        = { color }                          // default [NSColor redColor]
+      "fillGradient"     = { startColor=, endColor=, angle= } // default { , , 0 }
+
+object = "circle"
+      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
+      "stroke"       = boolean                                // default true
+      "strokeColor"  = { color }                              // default [NSColor blackColor]
+      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
+      "fill"         = boolean                                // default true
+      "fillColor"    = { color }                              // default [NSColor redColor]
+      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
+
+object = "arc" (convenience constructor; not used when converting canvas back to Lua table)
+      "center"       = { x=, y= }                             // default { cnvs.w / 2, cnvs.h / 2 }
+      "radius"       = length                                 // default min(cnvs.w / 2, cnvs.h / 2)
+      "startAngle"   = degree                                 // default 0
+      "endAngle"     = degree                                // default 360
+      "stroke"       = boolean                                // default true
+      "strokeColor"  = { color }                              // default [NSColor blackColor]
+      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
+      "fill"         = boolean                                // default true
+      "fillColor"    = { color }                              // default [NSColor redColor]
+      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
+
+object = "ellipticalArc"
+      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
+      "startAngle"   = degree                                 // default 0
+      "endAngle"     = degree                                 // default 360
+      "stroke"       = boolean                                // default true
+      "strokeColor"  = { color }                              // default [NSColor blackColor]
+      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
+      "fill"         = boolean                                // default true
+      "fillColor"    = { color }                              // default [NSColor redColor]
+      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
+
+object = "text"
+      "rect"      = { x=, y=, h=, w= }                        // default { 0, 0, cnvs.h, cnvs.w }
+      "text"      = string / styledtextObject                 // default ""
+      "textFont"  = fontName                                  // default [NSFont systemFontOfSize: 27]
+      "textStyle" = { alignment=, linebreak= }                // default { "natural", "wordwrap" }
+      "textColor" = { color }                                 // default [NSColor colorWithCalibratedWhite:1.0 alpha:1.0]
+
+object = "image"
+      "rect"            = { x=, y=, h=, w= }                  // default { 0, 0, cnvs.h, cnvs.w }
+      "image"           = hs.image object                     // default nil
+      "imageFrameStyle" = frameStyle                          // default "none"
+      "imageAlignment"  = imageAlignment                      // default "center"
+      "imageAnimates"   = boolean                             // default true
+      "imageScaling"    = scalingType                         // default "scalePropertionally"
+      "imageRotation"   = degree                              // default 0, deprecated -- use transformation
+
+-- ?? --
+object = "lines" (allow open/closed)
+object = "curves" (allow open/closed)
+
+object = "point"? -- If you want to draw a single pixel, you need to specify a rectangle that is the size of a single pixel, then fill it in. For the pixel at (x,y), you would want a rectangle with origin of (x-0.5,y-0.5) and a size of (1,1).
+
+object = "compound" -- maybe useful for clipping, not so much otherwise...
+
+  all allow the following keys:
+      "id"                 = arbitrary string or number ; defaults to index position in element array
+      "absolutePosition"   = boolean // default false -- whether or not to move when canvas resized
+      "absoluteSize"       = boolean // default false -- whether ot not to scale when canvas resized
+      "mouseDownCallback"  = function(canvas, elementID, "down")       // default nil
+      "mouseUpCallback"    = function(canvas, elementID, "up")         // default nil
+      "mouseEnterCallback" = function(canvas, elementID, "enter")      // default nil
+      "mouseExitCallback"  = function(canvas, elementID, "exit")       // default nil
+      "mouseMoveCallback"  = function(canvas, elementID, "move", x, y) // default nil
+
+      "lineDash"
+      "capStyle"
+      "joinStyle"
+      "miterLimit"
+      "flatness"
+      "flatten"?
+
+      "compositeRule"              // default nil (inherit canvas default)
+      "transformations"            // default nil (no transformations); array? of matrix transformations to apply in order
+
+      -- primarily useful for compound, lines, curves, and clippingRegion
+      "reversePath"        = boolean                                   // default false
+      "windingRule"        =                                           // default "NSNonZeroWindingRule"
+
+
+object = "clippingRegion"
+      "clipObject" = <regular object type>
+      .. remaining elements as appropriate; probably only rect and basic type matter ..
+
+object = "resetClippingRegion"     // resets clipping region to canvas bounds
+      .. no other attributes necessary/used ..
+
+    -- need to figure out compositing, absolutePosition/Size, clipping, transformation and object types
+

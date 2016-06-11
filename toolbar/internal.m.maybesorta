@@ -221,9 +221,15 @@ static NSMenu *createCoreSearchFieldMenu() {
     return attached ;
 }
 
-// TODO ? if validate of data method added, use here during construction
-
 - (BOOL)addToolbarDefinitionAtIndex:(int)idx {
+    return [self addToolbarDefinitionAtIndex:idx asPartOfGroup:NO] ;
+}
+
+// FIXME if validate of data method added, use here during construction
+// FIXME switch to groupMembers approach for groups and remove array checking; validate groupMember ID's after construction, since they might not exist until constructor done.
+//       How to specify if grouped items in/not in allowedIdentifiers if use new method?
+
+- (BOOL)addToolbarDefinitionAtIndex:(int)idx asPartOfGroup:(BOOL)inGroup {
     LuaSkin   *skin      = [LuaSkin shared] ;
     lua_State *L         = [skin L] ;
     idx = lua_absindex(L, idx) ;
@@ -244,8 +250,10 @@ static NSMenu *createCoreSearchFieldMenu() {
     }
 
     // Get fields that aren't modifiable after construction
-    BOOL included   = (lua_getfield(L, idx, "default") == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, -1) : YES ;
-    BOOL selectable = (lua_getfield(L, idx, "selectable") == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, -1) : NO ;
+    BOOL included   = (lua_getfield(L, idx, "default") == LUA_TBOOLEAN) ?
+                                             (BOOL)lua_toboolean(L, -1) : (!inGroup ? YES : NO) ;
+    BOOL selectable = (lua_getfield(L, idx, "selectable") == LUA_TBOOLEAN) ?
+                                                (BOOL)lua_toboolean(L, -1) : NO ;
     lua_pop(L, 2) ;
 
     // default to enabled
@@ -257,6 +265,7 @@ static NSMenu *createCoreSearchFieldMenu() {
     // If it's built-in, we already have what we need, and if it isn't...
     if (![builtinToolbarItems containsObject:identifier]) {
         NSMutableDictionary *toolbarItem     = [[NSMutableDictionary alloc] init] ;
+//         NSMutableDictionary *groupHolder ;
 
         lua_pushnil(L);  /* first key */
         while (lua_next(L, idx) != 0) { /* uses 'key' (at index -2) and 'value' (at index -1) */
@@ -271,6 +280,14 @@ static NSMenu *createCoreSearchFieldMenu() {
                         _fnRefDictionary[identifier] = @([skin luaRef:refTable]) ;
                     }
                 }
+//             } else if (lua_type(L, -2) == LUA_TNUMBER && lua_isinteger(L, -2) && !inGroup) {
+//                 if (!groupHolder) groupHolder = [[NSMutableDictionary alloc] init] ; // only alloc if needed
+//                 if (![self addToolbarDefinitionAtIndex:-1 asPartOfGroup:YES]) {
+//                     [skin logWarn:[NSString stringWithFormat:@"%s:malformed item in group %@", USERDATA_TAG, identifier]] ;
+//                     lua_pop(L, 2) ;
+//                     return NO ;
+//                 }
+//                 groupHolder[@(lua_tointeger(L, -2) - 1)] = identifier ;
             } else {
                 [skin logWarn:[NSString stringWithFormat:@"%s:non-string keys not allowed for toolbar item %@ definition", USERDATA_TAG, identifier]] ;
                 lua_pop(L, 2) ;
@@ -279,6 +296,30 @@ static NSMenu *createCoreSearchFieldMenu() {
             /* removes 'value'; keeps 'key' for next iteration */
             lua_pop(L, 1);
         }
+
+//         if (groupHolder) {
+//             NSMutableArray *groupArray = [[NSMutableArray alloc] init] ;
+//             for (unsigned int i = 0 ; i < [groupHolder count] ; i++) {
+//                 NSArray *groupItem = groupHolder[@(i)] ;
+//                 if (groupItem) {
+//                     [groupArray addObject:groupItem] ;
+//                 } else {
+//                     [skin logWarn:[NSString stringWithFormat:@"%s:malformed group, must be a non-sparse array of items within toolbar item %@ definition", USERDATA_TAG, identifier]] ;
+//                     return NO ;
+//                 }
+//             }
+//             toolbarItem[@"groupMembers"] = groupArray ;
+//
+//             // remove some items from a group that just get in the way later
+//             for (NSString *keyName in keysToKeepFromGroupDefinition) {
+//                 if (toolbarItem[keyName]) {
+//                     if ([keyName isEqualToString:@"fn"]) {
+//                         [skin luaUnref:refTable ref:[toolbarItem[keyName] intValue]] ;
+//                     }
+//                     [toolbarItem removeObjectForKey:keyName] ;
+//                 }
+//             }
+//         }
 
         if (!toolbarItem[@"label"]) toolbarItem[@"label"] = identifier ;
         if (toolbarItem[@"allowedAlone"]) {
@@ -293,7 +334,7 @@ static NSMenu *createCoreSearchFieldMenu() {
     // by adjusting _allowedIdentifiers out here, we allow builtin items, even if we don't exactly
     // advertise them, plus we may add support for duplicate id's at some point if someone comes up with
     // a reason...
-    if (![_allowedIdentifiers containsObject:identifier] && allowedAlone)
+    if (![_allowedIdentifiers containsObject:identifier] && allowedAlone) // && !inGroup)
         [_allowedIdentifiers addObject:identifier] ;
     if (included)
         [_defaultIdentifiers addObject:identifier] ;
@@ -316,20 +357,17 @@ static NSMenu *createCoreSearchFieldMenu() {
              withViewResize:YES] ;
 }
 
-// TODO ? separate validation of data from apply to live/create new item ? may be cleaner...
+// FIXME separate validation of data from apply to live item so modify function works both for active and inactive items
 
 - (void)updateToolbarItem:(NSToolbarItem *)item
            withDictionary:(NSMutableDictionary *)itemDefinition
            withViewResize:(BOOL)resizeView {
-    if ([itemDefinition count] == 0) return ;
-
     LuaSkin               *skin       = [LuaSkin shared] ;
     ASMToolbarSearchField *itemView   = (ASMToolbarSearchField *)item.view ;
     NSString              *identifier = item.itemIdentifier ;
 
     NSSize minSearchSize = [itemView isKindOfClass:[ASMToolbarSearchField class]] ? item.minSize : NSZeroSize ;
 
-// NSLog(@"enter updateToolbarItem with %@", itemDefinition) ;
     // need to take care of this first in case we need to create the searchfield view...
     id keyValue = itemDefinition[@"searchfield"] ;
     if (keyValue) {
@@ -364,9 +402,7 @@ static NSMenu *createCoreSearchFieldMenu() {
         }
     }
 
-// NSLog(@"past searchField") ;
     for (NSString *keyName in [itemDefinition allKeys]) {
-// NSLog(@"in keyLoop") ;
         keyValue = itemDefinition[keyName] ;
 
         if ([keyName isEqualToString:@"enable"]) {
@@ -597,17 +633,14 @@ static NSMenu *createCoreSearchFieldMenu() {
             [itemDefinition removeObjectForKey:keyName] ;
         }
     }
-// NSLog(@"past keyLoop") ;
+
     // if we weren't send the actual item's full dictionary, then this must be an update... update the item's full definition so that it's available for the configuration panel and for duplicate toolbars
     if (_itemDefDictionary[identifier] != itemDefinition) {
         [_itemDefDictionary[identifier] addEntriesFromDictionary:itemDefinition] ;
     }
-// NSLog(@"past dictionaryUpdate") ;
 }
 
 #pragma mark - NSToolbarDelegate stuff
-
-// FIXME needs to be re-written with fillinNewToolbarItem: doing the heavy lifting for groups and searchfields... this should be creation of top-level items only
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)identifier willBeInsertedIntoToolbar:(BOOL)flag {
     NSDictionary  *itemDefinition = _itemDefDictionary[identifier] ;
@@ -681,17 +714,17 @@ static NSMenu *createCoreSearchFieldMenu() {
 }
 
 - (NSArray *)toolbarAllowedItemIdentifiers:(__unused NSToolbar *)toolbar  {
-//     [LuaSkin logWarn:@"in toolbarAllowedItemIdentifiers"] ;
+    [LuaSkin logWarn:@"in toolbarAllowedItemIdentifiers"] ;
     return [_allowedIdentifiers array] ;
 }
 
 - (NSArray *)toolbarDefaultItemIdentifiers:(__unused NSToolbar *)toolbar {
-//     [LuaSkin logWarn:@"in toolbarDefaultItemIdentifiers"] ;
+    [LuaSkin logWarn:@"in toolbarDefaultItemIdentifiers"] ;
     return [_defaultIdentifiers array] ;
 }
 
 - (NSArray *)toolbarSelectableItemIdentifiers:(__unused NSToolbar *)toolbar {
-//     [LuaSkin logWarn:@"in toolbarSelectableItemIdentifiers"] ;
+    [LuaSkin logWarn:@"in toolbarSelectableItemIdentifiers"] ;
     return [_selectableIdentifiers array] ;
 }
 
@@ -896,6 +929,8 @@ static int attachToolbar(lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+// FIXME add method to inject new item into arrays
 
 /// hs._asm.toolbar:isAttached() -> boolean
 /// Method
