@@ -364,7 +364,33 @@ static int hs_volumeInformation(lua_State* L) {
     return 1;
 }
 
+static int boolTest(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+
+    lua_pushboolean(L, YES) ;
+    NSObject *yesObject = [skin toNSObjectAtIndex:-1] ;
+    lua_pushboolean(L, NO) ;
+    NSObject *noObject = [skin toNSObjectAtIndex:-1] ;
+    lua_pop(L, 2) ;
+
+    NSDictionary *testDictionary = @{ @"yes" : @(YES), @"no" : @(NO), } ;
+    lua_newtable(L) ;
+    [skin pushNSObject:testDictionary] ; lua_setfield(L, -2, "dictionary") ;
+    [skin pushNSObject:[[testDictionary objectForKey:@"yes"] className]] ; lua_setfield(L, -2, "yesClassName") ;
+    [skin pushNSObject:[[testDictionary objectForKey:@"no"] className]] ;  lua_setfield(L, -2, "noClassName") ;
+    lua_pushstring(L, [[testDictionary objectForKey:@"yes"] objCType]) ;   lua_setfield(L, -2, "yesObjCType") ;
+    lua_pushstring(L, [[testDictionary objectForKey:@"no"] objCType]) ;    lua_setfield(L, -2, "noObjCType") ;
+
+    [skin pushNSObject:[yesObject className]] ; lua_setfield(L, -2, "yesObjectClassName") ;
+    [skin pushNSObject:[noObject className]] ;  lua_setfield(L, -2, "noObjectClassName") ;
+    lua_pushstring(L, [(NSNumber *)yesObject objCType]) ;   lua_setfield(L, -2, "yesObjectObjCType") ;
+    lua_pushstring(L, [(NSNumber *)noObject objCType]) ;    lua_setfield(L, -2, "noObjectObjCType") ;
+
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
+    {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
     {"volumeInformation",    hs_volumeInformation},
