@@ -1,7 +1,27 @@
 hs._asm.toolbar
 ===============
 
-***Documentation out of date: expect updates soon which will include new group definition syntax and searchField support.***
+***Documentation out of date:***
+*Update 6/12/2016*
+
+Basically a rewrite of the module, which provides the following:
+
+* removal of almost all of the restrictions requiring item allowability, selectability, and member of the defaults needing to be set at construction -- they can be modified at any time, not just construction.
+* new items can be added to the known toolbar items programmatically at any time, not just construction.
+* partial NSSearchField supporting:
+  * callback on `enter` key
+  * optionally save search history
+  * add list of predefined values (searches) to search history menu
+  * resize input area (size taken up in toolbar)
+* revamped grouped item support -- old constructor removed in favor of key-value pair for `groupMembers`, which is a list of IDs which specify the members and their order in the group.  Membership can be changed after construction and items can be added in any order.
+
+Still pending:
+* documentation is out of date
+* if grouped item is being shown, additions and deletions aren't immediate... I think I know how to fix, so expect to see this soon
+* rethink of some of the methods since addition/removal now possible
+* more testing
+
+<hr>
 
 Create and manipulate toolbars which can be attached to the Hammerspoon console or hs.webview objects.
 

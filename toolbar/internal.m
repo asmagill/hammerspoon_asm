@@ -1219,16 +1219,19 @@ static int modifyToolbarItem(lua_State *L) {
     lua_pop(L, 1) ;
 
     NSMutableDictionary *newDict = [skin toNSObjectAtIndex:2] ;
-    if (toolbar.items) {
-        for (NSToolbarItem *item in toolbar.items) {
-            if ([item.itemIdentifier isEqualToString:identifier]) {
-                [toolbar updateToolbarItem:item withDictionary:newDict] ;
-                break ;
+    if ([newDict count] > 0) {
+        BOOL handled = NO ;
+        if (toolbar.items) {
+            for (NSToolbarItem *item in toolbar.items) {
+                if ([item.itemIdentifier isEqualToString:identifier]) {
+                    [toolbar updateToolbarItem:item withDictionary:newDict] ;
+                    handled = YES ;
+                    break ;
+                }
             }
         }
-    } else {
-        for (NSString *key in newDict) {
-            toolbar.itemDefDictionary[identifier][key] = newDict[key] ;
+        if (!handled) {
+            [toolbar.itemDefDictionary[identifier] addEntriesFromDictionary:newDict] ;
         }
     }
     lua_pushvalue(L, 1) ;
@@ -1293,7 +1296,7 @@ static int allowedToolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSToolbar *toolbar = [skin toNSObjectAtIndex:1] ;
-    [skin pushNSObject:toolbar.allowedIdentifiers] ;
+    [skin pushNSObject:[toolbar.allowedIdentifiers array]] ;
     return 1 ;
 }
 
@@ -1513,14 +1516,14 @@ static int injectIntoDictionary(lua_State *L) {
 
     if (lua_getfield(L, 2, "id") == LUA_TSTRING) {
         identifier = [skin toNSObjectAtIndex:-1] ;
+        lua_pushstring(L, "id") ;
+        lua_pushnil(L) ;
+        lua_rawset(L, 2) ;
     } else {
         lua_pop(L, 1) ;
         return luaL_error(L, "id must be present, and it must be a string") ;
     }
     lua_pop(L, 1) ;
-    lua_pushstring(L, "id") ;
-    lua_pushnil(L) ;
-    lua_rawset(L, 2) ;
 
     if (lua_getfield(L, 2, "fn") == LUA_TFUNCTION) {
         lua_pushvalue(L, -1) ;
@@ -1568,23 +1571,24 @@ static int injectIntoDictionary(lua_State *L) {
     lua_pop(L, 1) ;
 
     NSMutableDictionary *newDict = [skin toNSObjectAtIndex:2] ;
-//     [skin logWarn:[newDict debugDescription]] ;
-
-    if (toolbar.itemDefDictionary[identifier]) {
-        if (toolbar.items) {
-            for (NSToolbarItem *item in toolbar.items) {
-                if ([item.itemIdentifier isEqualToString:identifier]) {
-                    [toolbar updateToolbarItem:item withDictionary:newDict] ;
-                    break ;
+    if ([newDict count] > 0) {
+        if (toolbar.itemDefDictionary[identifier]) {
+            BOOL handled = NO ;
+            if (toolbar.items) {
+                for (NSToolbarItem *item in toolbar.items) {
+                    if ([item.itemIdentifier isEqualToString:identifier]) {
+                        [toolbar updateToolbarItem:item withDictionary:newDict] ;
+                        handled = YES ;
+                        break ;
+                    }
                 }
             }
-        } else {
-            for (NSString *key in newDict) {
-                toolbar.itemDefDictionary[identifier][key] = newDict[key] ;
+            if (!handled) {
+                [toolbar.itemDefDictionary[identifier] addEntriesFromDictionary:newDict] ;
             }
+        } else {
+            toolbar.itemDefDictionary[identifier] = newDict ;
         }
-    } else {
-        toolbar.itemDefDictionary[identifier] = newDict ;
     }
     lua_pushvalue(L, 1) ;
     return 1 ;
