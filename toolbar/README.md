@@ -1,6 +1,8 @@
 hs._asm.toolbar
 ===============
 
+***Documentation out of date: expect updates soon which will include new group definition syntax and searchField support.***
+
 Create and manipulate toolbars which can be attached to the Hammerspoon console or hs.webview objects.
 
 ### Toolbar Basics

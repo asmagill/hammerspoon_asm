@@ -22,9 +22,8 @@ static NSArray *keysToKeepFromGroupDefinition ;
 @end
 
 @interface ASMToolbarSearchField : NSSearchField
-@property (weak)     NSToolbarItem *toolbarItem ;
+@property (weak) NSToolbarItem *toolbarItem ;
 
-- (instancetype)init ;
 - (void)searchCallback:(NSMenuItem *)sender ;
 @end
 
@@ -211,7 +210,8 @@ static NSMenu *createCoreSearchFieldMenu() {
 }
 
 - (BOOL)validateToolbarItem:(NSToolbarItem *)theItem {
-    return [_enabledDictionary[theItem.itemIdentifier] boolValue] ;
+    // default to YES
+    return _enabledDictionary[theItem.itemIdentifier] ? [_enabledDictionary[theItem.itemIdentifier] boolValue] : YES ;
 }
 
 - (BOOL)isAttachedToWindow {
@@ -305,7 +305,7 @@ static NSMenu *createCoreSearchFieldMenu() {
 - (void)fillinNewToolbarItem:(NSToolbarItem *)item {
     [self updateToolbarItem:item
              withDictionary:_itemDefDictionary[item.itemIdentifier]
-             withViewResize:NO] ;
+                    inGroup:NO] ;
 }
 
 // called from modifyToolbarItem, so item dictionary should only be updates, and view should be resize should occur normally
@@ -313,24 +313,27 @@ static NSMenu *createCoreSearchFieldMenu() {
            withDictionary:(NSMutableDictionary *)itemDefinition {
     [self updateToolbarItem:item
              withDictionary:itemDefinition
-             withViewResize:YES] ;
+                    inGroup:NO] ;
 }
 
 // TODO ? separate validation of data from apply to live/create new item ? may be cleaner...
 
 - (void)updateToolbarItem:(NSToolbarItem *)item
            withDictionary:(NSMutableDictionary *)itemDefinition
-           withViewResize:(BOOL)resizeView {
-    if ([itemDefinition count] == 0) return ;
+                  inGroup:(BOOL)inGroup {
 
     LuaSkin               *skin       = [LuaSkin shared] ;
     ASMToolbarSearchField *itemView   = (ASMToolbarSearchField *)item.view ;
     NSString              *identifier = item.itemIdentifier ;
 
-    NSSize minSearchSize = [itemView isKindOfClass:[ASMToolbarSearchField class]] ? item.minSize : NSZeroSize ;
+    // handle empty update tables
+    if ([itemDefinition count] == 0) {
+        if (!item.label) item.label = identifier ;
+        return ;
+    }
 
 // NSLog(@"enter updateToolbarItem with %@", itemDefinition) ;
-    // need to take care of this first in case we need to create the searchfield view...
+    // need to take care of this first in case we need to create the searchfield view for later items...
     id keyValue = itemDefinition[@"searchfield"] ;
     if (keyValue) {
         if ([keyValue isKindOfClass:[NSNumber class]] && !strcmp(@encode(BOOL), [keyValue objCType])) {
@@ -342,7 +345,10 @@ static NSMenu *createCoreSearchFieldMenu() {
                         itemView.target      = self ;
                         itemView.action      = @selector(performCallback:) ;
                         item.view            = itemView ;
-                        minSearchSize        = itemView.frame.size ;
+                        if (!inGroup) {
+                            item.minSize = itemView.frame.size ;
+                            item.maxSize = itemView.frame.size ;
+                        }
                     } else {
                         [skin logWarn:[NSString stringWithFormat:@"%s:view for toolbar item %@ is not our searchfield... cowardly avoiding replacement", USERDATA_TAG, identifier]] ;
                     }
@@ -438,78 +444,91 @@ static NSMenu *createCoreSearchFieldMenu() {
                 [itemDefinition removeObjectForKey:keyName] ;
             }
 
-        } else if ([keyName isEqualToString:@"groupMembers"] && [item isKindOfClass:[NSToolbarItemGroup class]]) {
-            if ([keyValue isKindOfClass:[NSArray class]]) {
-                BOOL allGood = YES ;
-                for (NSString *lineItem in (NSArray *)keyValue) {
-                    if (![lineItem isKindOfClass:[NSString class]]) {
-                        allGood = NO ;
-                        break ;
-                    }
-                }
-                if (allGood) {
-
-// FIXME Put the following into a method so can be called from here and delegate?
-// Dumb ass... the delegate calls this... won't work as stands, though... the following only works for existing NSToolbarItemGroup... which won't exist for the first call by toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar: -- this needs to handle both -- existing or new, then clean up toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:... until then, groups are totally fubar.
-
-                    NSMutableArray *groupedItems = [[NSMutableArray alloc] init] ;
-                    for (NSString *memberIdentifier in (NSArray *)keyValue) {
-                        NSToolbarItem *memberItem = [[NSToolbarItem alloc] initWithItemIdentifier:memberIdentifier] ;
-                        memberItem.target  = self ;
-                        memberItem.action  = @selector(performCallback:) ;
-
-                        memberItem.enabled = [_enabledDictionary[memberIdentifier] boolValue] ;
-                        [self fillinNewToolbarItem:memberItem] ;
-                        [groupedItems addObject:memberItem] ;
-                    }
-                    ((NSToolbarItemGroup *)item).subitems = groupedItems ;
-                    // see "NSToolbarItemGroup is dumb" below... size of item views needs to be adjusted *after* adding them to the group...
-                    for (NSToolbarItem* tmpItem in ((NSToolbarItemGroup *)item).subitems) {
-                        if ([tmpItem.view isKindOfClass:[ASMToolbarSearchField class]]) {
-                            NSDictionary *tmpItemDictionary = _itemDefDictionary[tmpItem.itemIdentifier] ;
-                            ASMToolbarSearchField *searchView = (ASMToolbarSearchField *)tmpItem.view ;
-                            NSRect searchFieldFrame = searchView.frame ;
-                            tmpItem.minSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
-                            if (tmpItemDictionary[@"searchMaxWidth"]) {
-                                searchFieldFrame.size.width = [tmpItemDictionary[@"searchMaxWidth"] doubleValue] ;
-                                searchView.frame            = searchFieldFrame ;
-                            }
-                            tmpItem.maxSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
+        } else if ([keyName isEqualToString:@"groupMembers"]) {
+            if ([item isKindOfClass:[NSToolbarItemGroup class]] && !inGroup) {
+                if ([keyValue isKindOfClass:[NSArray class]]) {
+                    BOOL allGood = YES ;
+                    for (NSString *lineItem in (NSArray *)keyValue) {
+                        if (![lineItem isKindOfClass:[NSString class]]) {
+                            allGood = NO ;
+                            break ;
                         }
                     }
-                    // NSToolbarItemGroup is dumb...
-                    // see http://stackoverflow.com/questions/15949835/nstoolbaritemgroup-doesnt-work
-                    NSSize minSize = NSZeroSize;
-                    NSSize maxSize = NSZeroSize;
-                    for (NSToolbarItem* tmpItem in ((NSToolbarItemGroup *)item).subitems) {
-                        minSize.width += tmpItem.minSize.width;
-                        minSize.height = fmax(minSize.height, tmpItem.minSize.height);
-                        maxSize.width += tmpItem.maxSize.width;
-                        maxSize.height = fmax(maxSize.height, tmpItem.maxSize.height);
+                    if (allGood) {
+
+                        NSMutableArray *newSubitems    = [[NSMutableArray alloc] init] ;
+                        NSArray        *oldSubitems    = ((NSToolbarItemGroup *)item).subitems ? ((NSToolbarItemGroup *)item).subitems : @[ ] ;
+                        NSMutableArray *updateViews    = [[NSMutableArray alloc] init] ;
+
+                        for (NSString *memberIdentifier in (NSArray *)keyValue) {
+                            NSUInteger existingIndex = [oldSubitems indexOfObjectPassingTest:^(NSToolbarItem *obj, __unused NSUInteger idx, __unused BOOL *stop) {
+                                return [obj.itemIdentifier isEqualToString:memberIdentifier] ;
+                            }] ;
+                            NSToolbarItem *memberItem = (existingIndex != NSNotFound) ? oldSubitems[existingIndex] : [[NSToolbarItem alloc] initWithItemIdentifier:memberIdentifier] ;
+
+                            if (existingIndex == NSNotFound) {
+                                memberItem.target  = self ;
+                                memberItem.action  = @selector(performCallback:) ;
+                                memberItem.enabled = [_enabledDictionary[memberIdentifier] boolValue] ;
+                                [self updateToolbarItem:memberItem withDictionary:_itemDefDictionary[memberIdentifier] inGroup:YES] ;
+                                // See NSToolbarItemGroup is dumb below
+                                if ([memberItem.view isKindOfClass:[ASMToolbarSearchField class]]) {
+                                    [updateViews addObject:memberItem] ;
+                                }
+                            }
+                            [newSubitems addObject:memberItem] ;
+                        }
+                        ((NSToolbarItemGroup *)item).subitems = newSubitems ;
+
+                        // NSToolbarItemGroup is dumb...
+                        // see http://stackoverflow.com/questions/15949835/nstoolbaritemgroup-doesnt-work
+                        //
+                        // size of a sub-item's view needs to be adjusted *after* adding them to the group...
+                        for (NSToolbarItem* tmpItem in updateViews) {
+                            NSDictionary          *tmpItemDictionary = _itemDefDictionary[tmpItem.itemIdentifier] ;
+                            ASMToolbarSearchField *searchView        = (ASMToolbarSearchField *)tmpItem.view ;
+                            NSRect                 searchFieldFrame  = searchView.frame ;
+
+                            if (tmpItemDictionary[@"searchWidth"]) {
+                                searchFieldFrame.size.width = [tmpItemDictionary[@"searchWidth"] doubleValue] ;
+                            }
+                            tmpItem.minSize = searchFieldFrame.size ;
+                            tmpItem.maxSize = searchFieldFrame.size ;
+                        }
+
+                        // *and* it internally calculates the itemGroup's size wrong
+                        NSSize minSize = NSZeroSize;
+                        NSSize maxSize = NSZeroSize;
+                        for (NSToolbarItem* tmpItem in ((NSToolbarItemGroup *)item).subitems) {
+                            minSize.width += tmpItem.minSize.width;
+                            minSize.height = fmax(minSize.height, tmpItem.minSize.height);
+                            maxSize.width += tmpItem.maxSize.width;
+                            maxSize.height = fmax(maxSize.height, tmpItem.maxSize.height);
+                        }
+                        item.minSize = minSize;
+                        item.maxSize = maxSize;
+                    } else {
+                        [skin logWarn:[NSString stringWithFormat:@"%s:%@ for %@ must be an array of strings", USERDATA_TAG, keyName, identifier]] ;
+                        [itemDefinition removeObjectForKey:keyName] ;
                     }
-                    item.minSize = minSize;
-                    item.maxSize = maxSize;
-
-
                 } else {
-                    [skin logWarn:[NSString stringWithFormat:@"%s:%@ for %@ must be an array of strings", USERDATA_TAG, keyName, identifier]] ;
+                    [skin logWarn:[NSString stringWithFormat:@"%s:%@ for %@ must be an array", USERDATA_TAG, keyName, identifier]] ;
                     [itemDefinition removeObjectForKey:keyName] ;
                 }
             } else {
-                [skin logWarn:[NSString stringWithFormat:@"%s:%@ for %@ must be an array", USERDATA_TAG, keyName, identifier]] ;
-                [itemDefinition removeObjectForKey:keyName] ;
+                if (inGroup) {
+                    [skin logWarn:[NSString stringWithFormat:@"%s:%@ is in a group and cannot contain group members. Remove item from it's group first.", USERDATA_TAG, identifier]] ;
+                } else {
+                    [skin logWarn:[NSString stringWithFormat:@"%s:cannot convert currently visible toolbar item %@ into a toolbar group. Remove item from toolbar first.", USERDATA_TAG, identifier]] ;
+                }
             }
-
-
-        } else if ([keyName isEqualToString:@"searchMaxWidth"] && [itemView isKindOfClass:[ASMToolbarSearchField class]]) {
+        } else if ([keyName isEqualToString:@"searchWidth"] && [itemView isKindOfClass:[ASMToolbarSearchField class]]) {
             if ([keyValue isKindOfClass:[NSNumber class]]) {
-                // we only actually resize if this is a modify request... but the above test at least makes sure that what reaches the right code in toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar: is a number and not garbage
-                if (resizeView) {
+                if (!inGroup) {
                     NSRect fieldFrame     = itemView.frame ;
                     fieldFrame.size.width = [keyValue doubleValue] ;
-                    itemView.frame        = fieldFrame ;
-                    item.minSize          = minSearchSize ;
-                    item.maxSize          = NSMakeSize([keyValue doubleValue], minSearchSize.height) ;
+                    item.minSize          = fieldFrame.size ;
+                    item.maxSize          = fieldFrame.size ;
                 }
             } else {
                 [skin logWarn:[NSString stringWithFormat:@"%s:%@ for %@ must be a number", USERDATA_TAG, keyName, identifier]] ;
@@ -607,75 +626,23 @@ static NSMenu *createCoreSearchFieldMenu() {
 
 #pragma mark - NSToolbarDelegate stuff
 
-// FIXME needs to be re-written with fillinNewToolbarItem: doing the heavy lifting for groups and searchfields... this should be creation of top-level items only
-
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)identifier willBeInsertedIntoToolbar:(BOOL)flag {
     NSDictionary  *itemDefinition = _itemDefDictionary[identifier] ;
     NSToolbarItem *toolbarItem ;
 
     if (itemDefinition) {
         if (itemDefinition[@"groupMembers"]) {
-            NSToolbarItemGroup *toolbarItemGroup = [[NSToolbarItemGroup alloc] initWithItemIdentifier:identifier] ;
-            toolbarItemGroup.enabled = flag ? [_enabledDictionary[identifier] boolValue] : YES ;
-            [self fillinNewToolbarItem:toolbarItemGroup] ;
-            NSMutableArray *groupedItems = [[NSMutableArray alloc] init] ;
-            for (NSString *memberIdentifier in itemDefinition[@"groupMembers"]) {
-                NSToolbarItem *memberItem = [[NSToolbarItem alloc] initWithItemIdentifier:memberIdentifier] ;
-                memberItem.target  = toolbar ;
-                memberItem.action  = @selector(performCallback:) ;
-                memberItem.enabled = flag ? [_enabledDictionary[memberIdentifier] boolValue] : YES ;
-                [self fillinNewToolbarItem:memberItem] ;
-                [groupedItems addObject:memberItem] ;
-            }
-            toolbarItemGroup.subitems = groupedItems ;
-            // see "NSToolbarItemGroup is dumb" below... size of item views needs to be adjusted *after* adding them to the group...
-            for (NSToolbarItem* tmpItem in toolbarItemGroup.subitems) {
-                if ([tmpItem.view isKindOfClass:[ASMToolbarSearchField class]]) {
-                    NSDictionary *tmpItemDictionary = _itemDefDictionary[tmpItem.itemIdentifier] ;
-                    ASMToolbarSearchField *searchView = (ASMToolbarSearchField *)tmpItem.view ;
-                    NSRect searchFieldFrame = searchView.frame ;
-                    tmpItem.minSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
-                    if (tmpItemDictionary[@"searchMaxWidth"]) {
-                        searchFieldFrame.size.width = [tmpItemDictionary[@"searchMaxWidth"] doubleValue] ;
-                        searchView.frame            = searchFieldFrame ;
-                    }
-                    tmpItem.maxSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
-                }
-            }
-            // NSToolbarItemGroup is dumb...
-            // see http://stackoverflow.com/questions/15949835/nstoolbaritemgroup-doesnt-work
-            NSSize minSize = NSZeroSize;
-            NSSize maxSize = NSZeroSize;
-            for (NSToolbarItem* tmpItem in toolbarItemGroup.subitems) {
-                minSize.width += tmpItem.minSize.width;
-                minSize.height = fmax(minSize.height, tmpItem.minSize.height);
-                maxSize.width += tmpItem.maxSize.width;
-                maxSize.height = fmax(maxSize.height, tmpItem.maxSize.height);
-            }
-            toolbarItemGroup.minSize = minSize;
-            toolbarItemGroup.maxSize = maxSize;
-
-            toolbarItem = toolbarItemGroup ;
+            toolbarItem = (NSToolbarItem *)[[NSToolbarItemGroup alloc] initWithItemIdentifier:identifier] ;
         } else {
-            toolbarItem = [[NSToolbarItem alloc] initWithItemIdentifier:identifier] ;
+            toolbarItem         = [[NSToolbarItem alloc] initWithItemIdentifier:identifier] ;
             toolbarItem.target  = toolbar ;
             toolbarItem.action  = @selector(performCallback:) ;
-            toolbarItem.enabled = flag ? [_enabledDictionary[identifier] boolValue] : YES ;
-            [self fillinNewToolbarItem:toolbarItem] ;
-            if ([toolbarItem.view isKindOfClass:[ASMToolbarSearchField class]]) {
-                ASMToolbarSearchField *searchView = (ASMToolbarSearchField *)toolbarItem.view ;
-                NSRect searchFieldFrame = searchView.frame ;
-                toolbarItem.minSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
-                if (itemDefinition[@"searchMaxWidth"]) {
-                    searchFieldFrame.size.width = [itemDefinition[@"searchMaxWidth"] doubleValue] ;
-                    searchView.frame            = searchFieldFrame ;
-                }
-                toolbarItem.maxSize     = NSMakeSize(searchFieldFrame.size.width, searchFieldFrame.size.height) ;
-            }
         }
+        toolbarItem.enabled = flag ? [self validateToolbarItem:toolbarItem] : YES ;
+        [self fillinNewToolbarItem:toolbarItem] ;
     } else {
-        // shouldn't happen, but...
-        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar: invoked with non-existent identifier:%@", USERDATA_TAG, identifier]] ;
+        // may happen on a reload if toolbar autosave contains id's that were added after the toolbar was created but haven't been created yet since the reload
+        [LuaSkin logInfo:[NSString stringWithFormat:@"%s:toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar: invoked with non-existent identifier:%@", USERDATA_TAG, identifier]] ;
     }
     return toolbarItem ;
 }
@@ -757,10 +724,12 @@ static NSMenu *createCoreSearchFieldMenu() {
 - (instancetype)init {
     self = [super init] ;
     if (self) {
-        _toolbarItem = nil ;
         self.sendsWholeSearchString = YES ;
         self.sendsSearchStringImmediately = NO ;
         [self sizeToFit];
+
+        _toolbarItem = nil ;
+
         ((NSSearchFieldCell *)self.cell).searchMenuTemplate = createCoreSearchFieldMenu();
     }
     return self ;
@@ -1337,15 +1306,11 @@ static int allowedToolbarItems(__unused lua_State *L) {
 ///
 /// Returns:
 ///  * a table as an array of the current toolbar item identifiers.  Toolbar items which are in the overflow menu *are* included in this array.  See also [hs._asm.toolbar:visibleItems](#visibleItems) and [hs._asm.toolbar:allowedItems](#allowedItems).
-static int toolbarItems(lua_State *L) {
+static int toolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSToolbar *toolbar = [skin toNSObjectAtIndex:1] ;
-    lua_newtable(L) ;
-    for (NSToolbarItem *item in toolbar.items) {
-        [skin pushNSObject:[item itemIdentifier]] ;
-        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-    }
+    [skin pushNSObject:[toolbar.items valueForKey:@"itemIdentifier"]] ;
     return 1 ;
 }
 
@@ -1358,15 +1323,11 @@ static int toolbarItems(lua_State *L) {
 ///
 /// Returns:
 ///  * a table as an array of the currently visible toolbar item identifiers.  Toolbar items which are in the overflow menu are *not* included in this array.  See also [hs._asm.toolbar:items](#items) and [hs._asm.toolbar:allowedItems](#allowedItems).
-static int visibleToolbarItems(lua_State *L) {
+static int visibleToolbarItems(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSToolbar *toolbar = [skin toNSObjectAtIndex:1] ;
-    lua_newtable(L) ;
-    for (NSToolbarItem *item in [toolbar visibleItems]) {
-        [skin pushNSObject:[item itemIdentifier]] ;
-        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-    }
+    [skin pushNSObject:[toolbar.visibleItems valueForKey:@"itemIdentifier"]] ;
     return 1 ;
 }
 
@@ -1725,8 +1686,8 @@ static int pushNSToolbarItem(lua_State *L, id obj) {
 //     lua_pushboolean(L, value.autovalidates) ; lua_setfield(L, -2, "autovalidates") ;
 
     if ([value.view isKindOfClass:[ASMToolbarSearchField class]]) {
-        lua_pushnumber(L, [value minSize].width) ; lua_setfield(L, -2, "searchMinWidth") ;
-        lua_pushnumber(L, [value maxSize].width) ; lua_setfield(L, -2, "searchMaxWidth") ;
+//         lua_pushnumber(L, [value minSize].width) ; lua_setfield(L, -2, "searchMinWidth") ;
+        lua_pushnumber(L, [value maxSize].width) ; lua_setfield(L, -2, "searchWidth") ;
         [skin pushNSObject:[((ASMToolbarSearchField *)value.view) stringValue]] ;
         lua_setfield(L, -2, "searchText") ;
         lua_pushinteger(L, [[((ASMToolbarSearchField *)value.view) cell] maximumRecents]) ;
@@ -1735,6 +1696,13 @@ static int pushNSToolbarItem(lua_State *L, id obj) {
         lua_setfield(L, -2, "searchHistory") ;
         [skin pushNSObject:[[((ASMToolbarSearchField *)value.view) cell] recentsAutosaveName]] ;
         lua_setfield(L, -2, "searchHistoryAutoSaveName") ;
+
+        [skin pushNSObject:NSStringFromRect(((ASMToolbarSearchField *)value.view).frame)] ;
+        lua_setfield(L, -2, "searchFieldFrame") ;
+        [skin pushNSObject:NSStringFromSize(value.minSize)] ;
+        lua_setfield(L, -2, "itemMinSize") ;
+        [skin pushNSObject:NSStringFromSize(value.maxSize)] ;
+        lua_setfield(L, -2, "itemMaxSize") ;
     }
     return 1 ;
 }
