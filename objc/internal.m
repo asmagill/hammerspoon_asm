@@ -1,8 +1,8 @@
 #import "objc.h"
 
-#ifndef MACOSX
-#define MACOSX
-#endif
+// #ifndef MACOSX
+// #define MACOSX
+// #endif
 
 // Not sure why this is unpublished as it provides a proper mirror to objc_msgSendSuper
 @interface NSInvocation (unpublished)
@@ -424,7 +424,7 @@ static int invocator(lua_State *L) {
         case 'f': { // float
             float result ;
             [invocation getReturnValue:&result] ;
-            lua_pushnumber(L, result) ;
+            lua_pushnumber(L, (lua_Number)result) ;
         }   break ;
         case 'd': { // double
             double result ;

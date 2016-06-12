@@ -73,7 +73,7 @@ static int objc_method_getReturnType(lua_State *L) {
     const char      *result = method_copyReturnType(meth) ;
 
     lua_pushstring(L, result) ;
-    free((void *)result) ;
+    free((void *)(size_t)result) ;
     return 1 ;
 }
 
@@ -96,7 +96,7 @@ static int objc_method_getArgumentType(lua_State *L) {
     const char      *result = method_copyArgumentType(meth, (UInt)luaL_checkinteger(L, 2)) ;
 
     lua_pushstring(L, result) ;
-    free((void *)result) ;
+    free((void *)(size_t)result) ;
     return 1 ;
 }
 

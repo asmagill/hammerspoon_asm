@@ -23,16 +23,17 @@ ALLFILES += $(SOFILE)
 .SUFFIXES: .m .so
 
 #CC=cc
-CC=clang
-EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
-CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
+CC=@clang
+WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Wno-auto-import -Werror-implicit-function-declaration
+EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
+
+CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(SOFILE)
 
-# .m.so: $(HEADERS)
-# # 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-# 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+# .m.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 internal.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
@@ -40,7 +41,7 @@ internal.so: $(HEADERS) $(OBJCFILE)
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	luac-5.3 -p $(LUAFILE) && echo "Passed"
+	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
 
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
@@ -56,7 +57,7 @@ markdown:
 	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
 clean:
-	rm -v -rf $(SOFILE) *.dSYM
+	rm -rf $(SOFILE) *.dSYM
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}

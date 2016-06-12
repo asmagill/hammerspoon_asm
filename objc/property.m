@@ -69,7 +69,7 @@ static int objc_property_getAttributeValue(lua_State *L) {
     const char      *result = property_copyAttributeValue(prop, luaL_checkstring(L, 2)) ;
 
     lua_pushstring(L, result) ;
-    free((void *)result) ;
+    free((void *)(size_t)result) ;
     return 1 ;
 }
 

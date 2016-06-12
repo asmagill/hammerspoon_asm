@@ -9,8 +9,8 @@
 
  */
 @import Cocoa ;
-#import <stdlib.h>
-#import <math.h>
+@import Darwin.C.stdlib ;
+@import Darwin.C.math ;
 
 
 @interface OBJCTest : NSObject
