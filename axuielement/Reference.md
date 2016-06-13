@@ -36,38 +36,38 @@ axuielement = require("hs._asm.axuielement")
 
 
 ##### Module Constructors
-<a href="#applicationElement">axuielement.applicationElement(applicationObject) -> axuielementObject</a>
-<a href="#applicationElementForPID">axuielement.applicationElementForPID(pid) -> axuielementObject</a>
-<a href="#systemElementAtPosition">axuielement.systemElementAtPosition(x, y | { x, y }) -> axuielementObject</a>
-<a href="#systemWideElement">axuielement.systemWideElement() -> axuielementObject</a>
-<a href="#windowElement">axuielement.windowElement(windowObject) -> axuielementObject</a>
+* <a href="#applicationElement">axuielement.applicationElement(applicationObject) -> axuielementObject</a>
+* <a href="#applicationElementForPID">axuielement.applicationElementForPID(pid) -> axuielementObject</a>
+* <a href="#systemElementAtPosition">axuielement.systemElementAtPosition(x, y | { x, y }) -> axuielementObject</a>
+* <a href="#systemWideElement">axuielement.systemWideElement() -> axuielementObject</a>
+* <a href="#windowElement">axuielement.windowElement(windowObject) -> axuielementObject</a>
 
 ##### Module Methods
-<a href="#actionDescription">axuielement:actionDescription(action) -> string</a>
-<a href="#actionNames">axuielement:actionNames() -> table</a>
-<a href="#attributeNames">axuielement:attributeNames() -> table</a>
-<a href="#attributeValue">axuielement:attributeValue(attribute) -> value</a>
-<a href="#attributeValueCount">axuielement:attributeValueCount(attribute) -> integer</a>
-<a href="#dynamicMethods">axuielement:dynamicMethods([keyValueTable]) -> table</a>
-<a href="#elementAtPosition">axuielement:elementAtPosition(x, y | { x, y }) -> axuielementObject</a>
-<a href="#elementSearch">axuielement:elementSearch(matchCriteria, [isPattern], [includeParents]) -> table</a>
-<a href="#getAllChildElements">axuielement:getAllChildElements([parent], [callback]) -> table | axuielementObject</a>
-<a href="#isAttributeSettable">axuielement:isAttributeSettable(attribute) -> boolean</a>
-<a href="#matches">axuielement:matches(matchCriteria, [isPattern]) -> boolean</a>
-<a href="#parameterizedAttributeNames">axuielement:parameterizedAttributeNames() -> table</a>
-<a href="#parameterizedAttributeValue">axuielement:parameterizedAttributeValue(attribute, parameter) -> value</a>
-<a href="#performAction">axuielement:performAction(action) -> axuielement | false | nil</a>
-<a href="#pid">axuielement:pid() -> integer</a>
-<a href="#setAttributeValue">axuielement:setAttributeValue(attribute, value) -> axuielementObject | nil</a>
+* <a href="#actionDescription">axuielement:actionDescription(action) -> string</a>
+* <a href="#actionNames">axuielement:actionNames() -> table</a>
+* <a href="#attributeNames">axuielement:attributeNames() -> table</a>
+* <a href="#attributeValue">axuielement:attributeValue(attribute) -> value</a>
+* <a href="#attributeValueCount">axuielement:attributeValueCount(attribute) -> integer</a>
+* <a href="#dynamicMethods">axuielement:dynamicMethods([keyValueTable]) -> table</a>
+* <a href="#elementAtPosition">axuielement:elementAtPosition(x, y | { x, y }) -> axuielementObject</a>
+* <a href="#elementSearch">axuielement:elementSearch(matchCriteria, [isPattern], [includeParents]) -> table</a>
+* <a href="#getAllChildElements">axuielement:getAllChildElements([parent], [callback]) -> table | axuielementObject</a>
+* <a href="#isAttributeSettable">axuielement:isAttributeSettable(attribute) -> boolean</a>
+* <a href="#matches">axuielement:matches(matchCriteria, [isPattern]) -> boolean</a>
+* <a href="#parameterizedAttributeNames">axuielement:parameterizedAttributeNames() -> table</a>
+* <a href="#parameterizedAttributeValue">axuielement:parameterizedAttributeValue(attribute, parameter) -> value</a>
+* <a href="#performAction">axuielement:performAction(action) -> axuielement | false | nil</a>
+* <a href="#pid">axuielement:pid() -> integer</a>
+* <a href="#setAttributeValue">axuielement:setAttributeValue(attribute, value) -> axuielementObject | nil</a>
 
 ##### Module Constants
-<a href="#actions">axuielement.actions[]</a>
-<a href="#attributes">axuielement.attributes[]</a>
-<a href="#directions">axuielement.directions[]</a>
-<a href="#notifications">axuielement.notifications[]</a>
-<a href="#parameterizedAttributes">axuielement.parameterizedAttributes[]</a>
-<a href="#roles">axuielement.roles[]</a>
-<a href="#subroles">axuielement.subroles[]</a>
+* <a href="#actions">axuielement.actions[]</a>
+* <a href="#attributes">axuielement.attributes[]</a>
+* <a href="#directions">axuielement.directions[]</a>
+* <a href="#notifications">axuielement.notifications[]</a>
+* <a href="#parameterizedAttributes">axuielement.parameterizedAttributes[]</a>
+* <a href="#roles">axuielement.roles[]</a>
+* <a href="#subroles">axuielement.subroles[]</a>
 
 - - -
 
