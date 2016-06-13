@@ -1,8 +1,30 @@
---- === hs._asm.module ===
+--- === hs._asm.axuielement ===
 ---
---- Functions for module
+--- This module allows you to access the accessibility objects of running applications, their windows, menus, and other user interface elements that support the OS X accessibility API.
 ---
---- A description of module.
+--- This is very much a work in progress, so bugs and comments are welcome.
+---
+--- This module works through the use of axuielementObjects, which is the Hammerspoon representation for an accessibility object.  An accessibility object represents any object or component of an OS X application which can be manipulated through the OS X Accessibility API -- it can be an application, a window, a button, selected text, etc.  As such, it can only support those features and objects within an application that the application developers make available through the Accessibility API.
+---
+--- The basic methods available to determine what attributes and actions are available for a given object are described in this reference documentation.  In addition, the module will dynamically add methods for the attributes and actions appropriate to the object, but these will differ between object roles and applications -- again we are limited by what the target application developers provide us.
+---
+--- The dynamically generated methods will follow one of the following templates:
+---  * `object:*attribute*()`         - this will return the value for the specified attribute (see [hs._asm.axuielement:attributeValue](#attributeValue) for the generic function this is based on).
+---  * `object:set*attribute*(value)` - this will set the specified attribute to the given value (see [hs._asm.axuielement:setAttributeValue](#setAttributeValue) for the generic function this is based on).
+---  * `object:do*action*()`          - this request that the specified action is performed by the object (see [hs._asm.axuielement:performAction](#performAction) for the generic function this is based on).
+---
+--- Where *action* and *attribute* can be the formal Accessibility version of the attribute or action name (a string usually prefixed with "AX") or without the "AX" prefix.  When the prefix is left off, the first letter of the action or attribute can be uppercase or lowercase.
+---
+--- The module also dynamically supports treating the axuielementObject useradata as an array, to access it's children (i.e. `#object` will return a number, indicating the number of direct children the object has, and `object[1]` is equivalent to `object:children()[1]` or, more formally, `object:attributeValue("AXChildren")[1]`).
+---
+--- You can also treat the axuielementObject userdata as a table of key-value pairs to generate a list of the dynamically generated functions: `for k, v in pairs(object) do print(k, v) end` (this is essentially what [hs._asm.axuielement:dynamicMethods](#dynamicMethods) does).
+---
+---
+--- Limited support for parameterized attributes is provided, but is not yet complete.  This is expected to see updates in the future.
+---
+--- An object observer is also expected to be added to receive notifications; however as this overlaps with `hs.uielement`, exactly how this will be done is still being considered.
+---
+--- Examples are (will be soon) provided in a separate document.
 
 local USERDATA_TAG = "hs._asm.axuielement"
 local module       = require(USERDATA_TAG..".internal")
@@ -91,80 +113,6 @@ _makeConstantsTable = function(theTable)
     return results
 end
 
-local examine_axuielement
-examine_axuielement = function(element, showParent, depth, seen)
-    seen = seen or {}
-    depth = depth or 1
-    local result
-
-    if getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) and seen[element] then return seen[element] end
-
-    if depth > 0 and getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
-        result = {
-            actions = {},
-            attributes = {},
-            parameterizedAttributes = {},
-            pid = object.pid(element)
-        }
-        seen[element] = result
-
-    -- actions
-
-        if object.actionNames(element) then
-            for i,v in ipairs(object.actionNames(element)) do
-                result.actions[v] = object.actionDescription(element, v)
-            end
-        end
-
-    -- attributes
-
-        if object.attributeNames(element) then
-            for i,v in ipairs(object.attributeNames(element)) do
-                local value
-                if (v ~= module.attributes.general.parent and v ~= module.attributes.general.topLevelUIElement) or showParent then
-                    value = examine_axuielement(object.attributeValue(element, v), showParent, depth - 1, seen)
-                else
-                    value = "--parent:skipped"
-                end
-                if object.isAttributeSettable(element, v) == true then
-                    result.attributes[v] = {
-                        settable = true,
-                        value    = value
-                    }
-                else
-                    result.attributes[v] = value
-                end
-            end
-        end
-
-    -- parameterizedAttributes
-
-        if object.parameterizedAttributeNames(element) then
-            for i,v in ipairs(object.parameterizedAttributeNames(element)) do
-                -- for now, stick in the name until I have a better idea about what to do with them,
-                -- since the AXUIElement.h Reference doesn't appear to offer a way to enumerate the
-                -- parameters
-                table.insert(result.parameterizedAttributes, v)
-            end
-        end
-
-    elseif depth > 0 and type(element) == "table" then
-        result = {}
-        for k,v in pairs(element) do
-            result[k] = examine_axuielement(v, showParent, depth - 1, seen)
-        end
-    else
-        if type(element) == "table" then
-            result = "--table:max-depth-reached"
-        elseif getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
-            result = "--axuielement:max-depth-reached"
-        else
-            result = element
-        end
-    end
-    return result
-end
-
 local elementSearchHamster
 elementSearchHamster = function(element, searchParameters, isPattern, includeParents, seen)
     seen = seen or {}
@@ -243,38 +191,31 @@ module.attributes              = _makeConstantsTable(module.attributes)
 module.notifications           = _makeConstantsTable(module.notifications)
 module.directions              = _makeConstantsTable(module.directions)
 
-module.browse = function(xyzzy, showParent, depth)
-    if type(showParent) == "number" then showParent, depth = nil, showParent end
-    showParent = showParent or false
-    local theElement
-    -- seems deep enough for most apps and keeps us from a potential loop, though there
-    -- are protections against loops built in, so... maybe I'll remove it later
-    depth = depth or 100
-    if type(xyzzy) == "nil" then
-        theElement = module.systemWideElement()
-    elseif getmetatable(xyzzy) == hs.getObjectMetatable(USERDATA_TAG) then
-        theElement = xyzzy
-    elseif getmetatable(xyzzy) == hs.getObjectMetatable("hs.window") then
-        theElement = module.windowElement(xyzzy)
-    elseif getmetatable(xyzzy) == hs.getObjectMetatable("hs.application") then
-        theElement = module.applicationElement(xyzzy)
-    else
-        error("nil, "..USERDATA_TAG..", hs.window, or hs.application object expected", 2)
-    end
-
-    return examine_axuielement(theElement, showParent, depth, {})
-end
-
+--- hs._asm.axuielement.systemElementAtPosition(x, y | { x, y }) -> axuielementObject
+--- Constructor
+--- Returns the accessibility object at the specified position in top-left relative screen coordinates.
+---
+--- Parameters:
+---  * `x`, `y`   - the x and y coordinates of the screen location to test, provided as separate parameters
+---  * `{ x, y }` - the x and y coordinates of the screen location to test, provided as a point-table, like the one returned by `hs.mouse.getAbsolutePosition`.
+---
+--- Returns:
+---  * an axuielementObject for the object at the specified coordinates, or nil if no object could be identified.
+---
+--- Notes:
+---  * See also [hs._asm.axuielement:elementAtPosition](#elementAtPosition) -- this function is a shortcut for `hs._asm.axuielement.systemWideElement():elementAtPosition(...)`.
+---
+---  * This function does hit-testing based on window z-order (that is, layering). If one window is on top of another window, the returned accessibility object comes from whichever window is topmost at the specified location.
 module.systemElementAtPosition = function(...)
     return module.systemWideElement():elementAtPosition(...)
 end
 
-local originalObjectIndex = object.__index
+-- build up the "correct" object metatable methods
 
 object.__index = function(self, _)
     if type(_) == "string" then
         -- take care of the internally defined items first so we can get out of here quickly if its one of them
-        if originalObjectIndex[_] then return originalObjectIndex[_] end
+        if object[_] then return object[_] end
 
         -- Now for the dynamically generated methods...
 
@@ -337,11 +278,13 @@ object.__index = function(self, _)
 end
 
 object.__pairs = function(_)
-    local keys, k, v = {}, nil, nil
-    repeat
-        k, v = next(originalObjectIndex, k)
-        if k then keys[k] = true end
-    until not k
+    local keys = {}
+
+--     local k, v = nil, nil
+--     repeat
+--         k, v = next(object, k)
+--         if k then keys[k] = true end
+--     until not k
 
      -- getters and setters for attributeNames
     for i, v in ipairs(object.attributeNames(_) or {}) do
@@ -355,7 +298,7 @@ object.__pairs = function(_)
     -- getters for paramaterizedAttributes
     for i, v in ipairs(object.parameterizedAttributeNames(_) or {}) do
         local partialName = v:match("^AX(.*)")
-        keys[partialName:sub(1,1):lower() .. partialName:sub(2)] = true
+        keys[partialName:sub(1,1):lower() .. partialName:sub(2) .. "WithParameter"] = true
     end
 
     -- doers for actionNames
@@ -381,42 +324,54 @@ object.__len = function(self)
     end
 end
 
-object.methods = function(self)
+--- hs._asm.axuielement:dynamicMethods([keyValueTable]) -> table
+--- Method
+--- Returns a list of the dynamic methods (short cuts) created by this module for the object
+---
+--- Parameters:
+---  * `keyValueTable` - an optional boolean, default false, indicating whether or not the result should be an array or a table of key-value pairs.
+---
+--- Returns:
+---  * If `keyValueTable` is true, this method returns a table of key-value pairs with each key being the name of a dynamically generated method, and the value being the corresponding function.  Otherwise, this method returns an array of the dynamically generated method names.
+---
+--- Notes:
+---  * the dynamically generated methods are described more fully in the reference documentation header, but basically provide shortcuts for getting and setting attribute values as well as perform actions supported by the Accessibility object the axuielementObject represents.
+object.dynamicMethods = function(self, asKV)
     local results = {}
-
-    -- attributes
-    for i,v in ipairs(object.attributeNames(self) or {}) do
-        local shortName = v:match("^AX(.+)$")
-        local camelCaseName = shortName:sub(1,1):lower()..shortName:sub(2)
-        results[camelCaseName] = function(...) return object.attributeValue(self, v, ...) end
-        if object.isAttributeSettable(self, v) then
-            results["set"..shortName] = function(...) return object.setAttributeValue(self, v, ...) end
+    for k, v in pairs(self) do
+        if asKV then
+            results[k] = v
+        else
+            table.insert(results, k)
         end
     end
-
-    -- parameterizedAttributes
-    for i,v in ipairs(object.parameterizedAttributeNames(self) or {}) do
-        local shortName = v:match("^AX(.+)$")
-        local camelCaseName = shortName:sub(1,1):lower()..shortName:sub(2)
-        results[camelCaseName.."WithParameter"] = function(...) return object.parameterizedAttributeValue(self, v, ...) end
-    end
-
-    -- actions
-    for i,v in ipairs(object.actionNames(self) or {}) do
-        local shortName = v:match("^AX(.+)$")
-        local camelCaseName = shortName:sub(1,1):lower()..shortName:sub(2)
-        results["do"..shortName] = function(...) return object.performAction(self, v, ...) end
-    end
-
-    return results
+    if not asKV then table.sort(results) end
+    return _makeConstantsTable(results)
 end
 
--- searchParameters = {
---    attr1 = string | number | boolean | hs._asm.axuielement
---    attr2 = { acceptedTypes, ... }
--- }
--- keys are anded together -- all must be true to meet the criteria
--- table values are or'ed -- match any entry in array for this key to match
+--- hs._asm.axuielement:matches(matchCriteria, [isPattern]) -> boolean
+--- Method
+--- Returns true if the axuielementObject matches the specified criteria or false if it does not.
+---
+--- Paramters:
+---  * `matchCriteria` - the criteria to compare against the accessibility object
+---  * `isPattern`     - an optional boolean, default false, specifying whether or not the strings in the search criteria should be considered as Lua patterns (true) or as absolute string matches (false).
+---
+--- Returns:
+---  * true if the axuielementObject matches the criteria, false if it does not.
+---
+--- Notes:
+---  * if `isPattern` is specified and is true, all string comparisons are done with `string.match`.  See the Lua manual, section 6.4.1 (`help.lua._man._6_4_1` in the Hammerspoon console).
+---  * the `matchCriteria` must be one of the following:
+---    * a single string, specifying the AXRole value the axuielementObject's AXRole attribute must equal for the match to return true
+---    * an array of strings, specifying a list of AXRoles for which the match should return true
+---    * a table of key-value pairs specifying a more complex match criteria.  This table will be evaluated as follows:
+---      * each key-value pair is treated as a separate test and the object *must* match as true for all tests
+---      * each key is a string specifying an attribute to evaluate.  This attribute may be specified with its formal name (e.g. "AXRole") or the informal version (e.g. "role" or "Role").
+---      * each value may be a string, a number, a boolean, or an axuielementObject userdata object, or an array (table) of such.  If the value is an array, then the test will match as true if the object matches any of the supplied values for the attribute specified by the key.
+---        * Put another way: key-value pairs are "and'ed" together while the values for a specific key-value pair are "or'ed" together.
+---
+---  * This method is used by [hs._asm.axuielement:elementSearch](#elementSearch) to determine if the given object should be included it's result set.  As an optimization for the `elementSearch` method, the keys in the `matchCriteria` table may be provided as a function which takes one argument (the axuielementObject to query).  The return value of this function will be compared against the value(s) of the key-value pair as described above.  This is done to prevent dynamically re-creating the query for each comparison when the search set is large.
 object.matches = function(self, searchParameters, isPattern)
     isPattern = isPattern or false
     if type(searchParameters) == "string" or #searchParameters > 0 then searchParameters = { role = searchParameters } end
@@ -439,13 +394,15 @@ object.matches = function(self, searchParameters, isPattern)
                 if type(v) ~= "table" then v = { v } end
                 local partialAnswer = false
                 for i2, v2 in ipairs(v) do
-                    if type(v2) == "string" then
-                        partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and (type(result) == "string") and result:match(v2))
-                    elseif type(v2) == "number" or type(v2) == "boolean" or getmetatable(v2) == hs.getObjectMetatable(USERDATA_TAG) then
-                        partialAnswer = partialAnswer or (result == v2)
-                    else
-                        local dbg = debug.getinfo(2)
-                        log.wf("%s:%d: unable to compare type '%s' in searchParameters", dbg.short_src, dbg.currentline, type(v2))
+                    if type(v2) == type(result) then
+                        if type(v2) == "string" then
+                            partialAnswer = partialAnswer or (not isPattern and result == v2) or (isPattern and (type(result) == "string") and result:match(v2))
+                        elseif type(v2) == "number" or type(v2) == "boolean" or getmetatable(v2) == hs.getObjectMetatable(USERDATA_TAG) then
+                            partialAnswer = partialAnswer or (result == v2)
+                        else
+                            local dbg = debug.getinfo(2)
+                            log.wf("%s:%d: unable to compare type '%s' in searchParameters", dbg.short_src, dbg.currentline, type(v2))
+                        end
                     end
                     if partialAnswer then break end
                 end
@@ -459,6 +416,44 @@ object.matches = function(self, searchParameters, isPattern)
     return answer
 end
 
+--- hs._asm.axuielement:elementSearch(matchCriteria, [isPattern], [includeParents]) -> table
+--- Method
+--- Returns a table of axuielementObjects that match the specified criteria.  If this method is called for an axuielementObject, it will include all children of the element in its search.  If this method is called for a table of axuielementObjects, it will return the subset of the table that match the criteria.
+---
+--- Parameters:
+---  * `matchCriteria`  - the criteria to compare against the accessibility objects
+---  * `isPattern`      - an optional boolean, default false, specifying whether or not the strings in the search criteria should be considered as Lua patterns (true) or as absolute string matches (false).
+---  * `includeParents` - an optional boolean, default false, indicating that the parent of objects should be queried as well.  If you wish to specify this parameter, you *must* also specify the `isPattern` parameter.  This parameter is ignored if the method is called on a result set from a previous invocation of this method or [hs._asm.axuielement:getAllChildElements](#getAllChildElements).
+---
+--- Returns:
+---  * a table of axuielementObjects which match the specified criteria.  The table returned will include a metatable which allows calling this method on the result table for further narrowing the search.
+---
+--- Notes:
+---  * this method makes heavy use of the [hs._asm.axuielement:matches](#matches) method and pre-creates the necessary dynamic functions to optimize its search.
+---
+---  * You can use this method to retrieve all of the current axuielementObjects for an application as follows:
+--- ~~~
+--- ax = require"hs._asm.axuielement"
+--- elements = ax.applicationElement(hs.application("Safari")):elementSearch({})
+--- ~~~
+---  * Note that if you started from the window of an application, only the children of that window would be returned; you could force it to gather all of the objects for the application by using `:elementSearch({}, false, true)`.
+---  * However, this method of querying for all elements can be slow -- it is highly recommended that you use [hs._asm.axuielement:getAllChildElements](#getAllChildElements) instead, and ideally with a callback function.
+--- ~~~
+--- ax = require"hs._asm.axuielement"
+--- ax.applicationElement(hs.application("Safari")):getAllChildElements(function(t)
+---     elements = t
+---     print("done with query")
+--- end)
+--- ~~~
+---  * Whatever option you choose, you can use this method to narrow down the result set. This example will print the frame for each button that was present in Safari when the search occurred which has a description which starts with "min" (e.g. "minimize button") or "full" (e.g. "full screen button"):
+--- ~~~
+--- for i, v in ipairs(elements:elementSearch({
+---                                     role="AXButton",
+---                                     roleDescription = { "^min", "^full"}
+---                                 }, true)) do
+---     print(hs.inspect(v:frame()))
+--- end
+--- ~~~
 object.elementSearch = function(self, searchParameters, isPattern, includeParents)
     isPattern = isPattern or false
     includeParents = includeParents or false

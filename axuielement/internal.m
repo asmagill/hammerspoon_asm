@@ -18,7 +18,6 @@ static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
     LuaSkin *skin = [LuaSkin shared] ;
     CFNumberRef refAsCFNumber = CFDictionaryGetValue(knownAXUIElements, theElement) ;
     if (refAsCFNumber) {
-//         [skin logWarn:@"known AXUIElement Hit"] ;
         int refAsInt ;
         CFNumberGetValue(refAsCFNumber, kCFNumberIntType, &refAsInt) ;
         [skin pushLuaRef:refTable ref:refAsInt] ;
@@ -265,8 +264,6 @@ static int definedTypes(lua_State *L) {
 
 // Not sure if the alreadySeen trick is working here, but it hasn't crashed yet... of course I don't think I've found any loops that don't have a userdata object in-between that drops us back to Lua before deciding whether or not to delve deeper, either, so... should be safe in CFDictionary and CFArray, since they toll-free bridge; don't use for others -- fails for setting with AXUIElementRef as key, at least...
 
-// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
-// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
 // AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
 static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -300,53 +297,42 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
             lua_settable(L, -3) ;
         }
     } else if (theType == AXValueGetTypeID()) {
-        switch(AXValueGetType((AXValueRef)theItem)) {
-            case kAXValueCGPointType: {
-                CGPoint thePoint ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGPointType, &thePoint) ;
-                lua_newtable(L) ;
-                  lua_pushnumber(L, thePoint.x) ; lua_setfield(L, -2, "x") ;
-                  lua_pushnumber(L, thePoint.y) ; lua_setfield(L, -2, "y") ;
-                break ;
-            }
-            case kAXValueCGSizeType: {
-                CGSize theSize ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGSizeType, &theSize) ;
-                lua_newtable(L) ;
-                  lua_pushnumber(L, theSize.height) ; lua_setfield(L, -2, "h") ;
-                  lua_pushnumber(L, theSize.width) ;  lua_setfield(L, -2, "w") ;
-                break ;
-            }
-            case kAXValueCGRectType: {
-                CGRect theRect ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCGRectType, &theRect) ;
-                lua_newtable(L) ;
-                  lua_pushnumber(L, theRect.origin.x) ;    lua_setfield(L, -2, "x") ;
-                  lua_pushnumber(L, theRect.origin.y) ;    lua_setfield(L, -2, "y") ;
-                  lua_pushnumber(L, theRect.size.height) ; lua_setfield(L, -2, "h") ;
-                  lua_pushnumber(L, theRect.size.width) ;  lua_setfield(L, -2, "w") ;
-                break ;
-            }
-            case kAXValueCFRangeType: {
-                CFRange theRange ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueCFRangeType, &theRange) ;
-                lua_newtable(L) ;
-                  lua_pushinteger(L, theRange.location) ; lua_setfield(L, -2, "loc") ;
-                  lua_pushinteger(L, theRange.length) ;   lua_setfield(L, -2, "len") ;
-                break ;
-            }
-            case kAXValueAXErrorType: {
-                AXError theError ;
-                AXValueGetValue((AXValueRef)theItem, kAXValueAXErrorType, &theError) ;
-                lua_newtable(L) ;
-                  lua_pushinteger(L, theError) ;                 lua_setfield(L, -2, "_code") ;
-                  lua_pushstring(L, AXErrorAsString(theError)) ; lua_setfield(L, -2, "error") ;
-                break ;
-            }
-            case kAXValueIllegalType:
-            default:
-                lua_pushfstring(L, "unrecognized value type (%p)", theItem) ;
-                break ;
+        AXValueType valueType = AXValueGetType((AXValueRef)theItem) ;
+        if (valueType == kAXValueCGPointType) {
+            CGPoint thePoint ;
+            AXValueGetValue((AXValueRef)theItem, kAXValueCGPointType, &thePoint) ;
+            lua_newtable(L) ;
+              lua_pushnumber(L, thePoint.x) ; lua_setfield(L, -2, "x") ;
+              lua_pushnumber(L, thePoint.y) ; lua_setfield(L, -2, "y") ;
+        } else if (valueType == kAXValueCGSizeType) {
+            CGSize theSize ;
+            AXValueGetValue((AXValueRef)theItem, kAXValueCGSizeType, &theSize) ;
+            lua_newtable(L) ;
+              lua_pushnumber(L, theSize.height) ; lua_setfield(L, -2, "h") ;
+              lua_pushnumber(L, theSize.width) ;  lua_setfield(L, -2, "w") ;
+        } else if (valueType == kAXValueCGRectType) {
+            CGRect theRect ;
+            AXValueGetValue((AXValueRef)theItem, kAXValueCGRectType, &theRect) ;
+            lua_newtable(L) ;
+              lua_pushnumber(L, theRect.origin.x) ;    lua_setfield(L, -2, "x") ;
+              lua_pushnumber(L, theRect.origin.y) ;    lua_setfield(L, -2, "y") ;
+              lua_pushnumber(L, theRect.size.height) ; lua_setfield(L, -2, "h") ;
+              lua_pushnumber(L, theRect.size.width) ;  lua_setfield(L, -2, "w") ;
+        } else if (valueType == kAXValueCFRangeType) {
+            CFRange theRange ;
+            AXValueGetValue((AXValueRef)theItem, kAXValueCFRangeType, &theRange) ;
+            lua_newtable(L) ;
+              lua_pushinteger(L, theRange.location) ; lua_setfield(L, -2, "loc") ;
+              lua_pushinteger(L, theRange.length) ;   lua_setfield(L, -2, "len") ;
+        } else if (valueType == kAXValueAXErrorType) {
+            AXError theError ;
+            AXValueGetValue((AXValueRef)theItem, kAXValueAXErrorType, &theError) ;
+            lua_newtable(L) ;
+              lua_pushinteger(L, theError) ;                 lua_setfield(L, -2, "_code") ;
+              lua_pushstring(L, AXErrorAsString(theError)) ; lua_setfield(L, -2, "error") ;
+//         } else if (valueType == kAXValueIllegalType) {
+        } else {
+            lua_pushfstring(L, "unrecognized value type (%p)", theItem) ;
         }
     } else if (theType == CFAttributedStringGetTypeID()) [skin pushNSObject:(__bridge NSAttributedString *)theItem] ;
       else if (theType == CFNullGetTypeID())             [skin pushNSObject:(__bridge NSNull *)theItem] ;
@@ -397,13 +383,10 @@ static lua_Integer countn (lua_State *L, int idx) {
   return max ;
 }
 
-// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
-// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
 // AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
 static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary *seen) {
     LuaSkin *skin = [LuaSkin shared] ;
     int index = lua_absindex(L, idx) ;
-//     NSLog(@"lua_toCFType: idx:%d abs:%d top:%d abstop:%d", idx, index, lua_gettop(L), lua_absindex(L, lua_gettop(L))) ;
 
     CFTypeRef value = kCFNull ;
 
@@ -483,7 +466,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                 lua_pop(L, 2) ;
             } else if (hasStarts && hasEnds) {  // CFRange lua style
 // NOTE: Negative indexes and UTF8 as bytes can't be handled here without context.
-//       Maybe on lua side in wrapper functions.
+//       Maybe on lua side in wrapper functions?
                 lua_getfield(L, index, "starts") ;
                 lua_getfield(L, index, "ends") ;
                 lua_Integer starts = luaL_checkinteger(L, -2) ;
@@ -493,7 +476,7 @@ static CFTypeRef lua_toCFTypeHamster(lua_State *L, int idx, NSMutableDictionary 
                 lua_pop(L, 2) ;
             } else if (hasError) {              // AXError
                 lua_getfield(L, index, "_code") ;
-                AXError holder = (AXError)luaL_checkinteger(L, -1) ;
+                AXError holder = (AXError)(unsigned long long)luaL_checkinteger(L, -1) ;
                 value = AXValueCreate(kAXValueAXErrorType, &holder) ;
                 lua_pop(L, 1) ;
             } else if (hasURL) {                // CFURL
@@ -568,21 +551,102 @@ static CFTypeRef lua_toCFType(lua_State *L, int idx) {
     return lua_toCFTypeHamster(L, idx, seen) ;
 }
 
+static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParents, CFMutableArrayRef results) {
+    CFTypeID theRefType = CFGetTypeID(theRef) ;
+    if (theRefType == CFArrayGetTypeID()) {
+        CFIndex theRefCount = CFArrayGetCount(theRef) ;
+        for (CFIndex i = 0 ; i < theRefCount ; i++) {
+            CFTypeRef value = CFArrayGetValueAtIndex(theRef, i) ;
+            CFTypeID valueType = CFGetTypeID(value) ;
+            if ((valueType == CFArrayGetTypeID()) || (valueType == AXUIElementGetTypeID())) {
+                getAllAXUIElements_searchHamster(value, includeParents, results) ;
+            }
+        }
+    } else if (theRefType == AXUIElementGetTypeID()) {
+        if (CFArrayContainsValue(results, CFRangeMake(0, CFArrayGetCount(results)), theRef)) return ;
+        CFArrayAppendValue(results, theRef) ;
+        CFArrayRef attributeNames ;
+        AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
+        if (errorState == kAXErrorSuccess) {
+            for (id name in (__bridge NSArray *)attributeNames) {
+                if ((![name isEqualToString:(__bridge NSString *)kAXTopLevelUIElementAttribute] &&
+                    ![name isEqualToString:(__bridge NSString *)kAXParentAttribute]) || includeParents) {
+                    CFTypeRef value ;
+                    errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)name, &value) ;
+                    if (errorState == kAXErrorSuccess) {
+                        CFTypeID theType = CFGetTypeID(value) ;
+                        if ((theType == CFArrayGetTypeID()) || (theType == AXUIElementGetTypeID())) {
+                            getAllAXUIElements_searchHamster(value, includeParents, results) ;
+                        }
+                    } else {
+                        if (errorState != kAXErrorNoValue) {
+                            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d for %@: %s", USERDATA_TAG, errorState, name, AXErrorAsString(errorState)]] ;
+                        }
+                    }
+                    if (value) CFRelease(value) ;
+                }
+            }
+        } else {
+            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d getting attribute names: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
+        }
+        if (attributeNames) CFRelease(attributeNames) ;
+    } /* else {
+       * ignore it, not a type we care about
+    }  */
+    return ;
+}
+
 #pragma mark - Module Functions
 
+/// hs._asm.axuielement.windowElement(windowObject) -> axuielementObject
+/// Constructor
+/// Returns the accessibility object for the window specified by the `hs.window` object.
+///
+/// Parameters:
+///  * `windowObject` - the `hs.window` object for the window.
+///
+/// Returns:
+///  * an axuielementObject for the window specified
 static int getWindowElement(lua_State *L)      { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.window")) ; }
+
+/// hs._asm.axuielement.applicationElement(applicationObject) -> axuielementObject
+/// Constructor
+/// Returns the top-level accessibility object for the application specified by the `hs.application` object.
+///
+/// Parameters:
+///  * `applicationObject` - the `hs.application` object for the Application.
+///
+/// Returns:
+///  * an axuielementObject for the application specified
 static int getApplicationElement(lua_State *L) { return pushAXUIElement(L, get_axuielementref(L, 1, "hs.application")) ; }
 
+/// hs._asm.axuielement.systemWideElement() -> axuielementObject
+/// Constructor
+/// Returns an accessibility object that provides access to system attributes.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the axuielementObject for the system attributes
 static int getSystemWideElement(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
-//     return pushAXUIElement(L, AXUIElementCreateSystemWide()) ;
     AXUIElementRef value = AXUIElementCreateSystemWide() ;
     pushAXUIElement(L, value) ;
     CFRelease(value) ;
     return 1 ;
 }
 
+/// hs._asm.axuielement.applicationElementForPID(pid) -> axuielementObject
+/// Constructor
+/// Returns the top-level accessibility object for the application with the specified process ID.
+///
+/// Parameters:
+///  * `pid` - the process ID of the application.
+///
+/// Returns:
+///  * an axuielementObject for the application specified, or nil if it cannot be determined
 static int getApplicationElementForPID(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER, LS_TBREAK] ;
@@ -599,6 +663,18 @@ static int getApplicationElementForPID(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.axuielement:attributeNames() -> table
+/// Method
+/// Returns a list of all the attributes supported by the specified accessibility object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array of the names of all attributes supported by the axuielementObject
+///
+/// Notes:
+///  * Common attribute names can be found in the [hs._asm.axuielement.attributes](#attributes) tables; however, this method will list only those names which are supported by this object, and is not limited to just those in the referenced table.
 static int getAttributeNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -618,6 +694,18 @@ static int getAttributeNames(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:actionNames() -> table
+/// Method
+/// Returns a list of all the actions the specified accessibility object can perform.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array of the names of all actions supported by the axuielementObject
+///
+/// Notes:
+///  * Common action names can be found in the [hs._asm.axuielement.actions](#actions) table; however, this method will list only those names which are supported by this object, and is not limited to just those in the referenced table.
 static int getActionNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -637,6 +725,18 @@ static int getActionNames(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:actionDescription(action) -> string
+/// Method
+/// Returns a localized description of the specified accessibility object's action.
+///
+/// Parameters:
+///  * `action` - the name of the action, as specified by [hs._asm.axuielement:actionNames](#actionNames).
+///
+/// Returns:
+///  * a string containing a description of the object's action
+///
+/// Notes:
+///  * The action descriptions are provided by the target application; as such their accuracy and usefulness rely on the target application's developers.
 static int getActionDescription(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -655,6 +755,15 @@ static int getActionDescription(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:attributeValue(attribute) -> value
+/// Method
+/// Returns the value of an accessibility object's attribute.
+///
+/// Parameters:
+///  * `attribute` - the name of the attribute, as specified by [hs._asm.axuielement:attributeNames](#attributeNames).
+///
+/// Returns:
+///  * the current value of the attribute, or nil if the attribute has no value
 static int getAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -673,6 +782,15 @@ static int getAttributeValue(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:attributeValueCount(attribute) -> integer
+/// Method
+/// Returns the count of the array of an accessibility object's attribute value.
+///
+/// Parameters:
+///  * `attribute` - the name of the attribute, as specified by [hs._asm.axuielement:attributeNames](#attributeNames).
+///
+/// Returns:
+///  * the number of items in the value for the attribute, if it is an array, or nil if the value is not an array.
 static int getAttributeValueCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -688,6 +806,15 @@ static int getAttributeValueCount(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:parameterizedAttributeNames() -> table
+/// Method
+/// Returns a list of all the parameterized attributes supported by the specified accessibility object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array of the names of all parameterized attributes supported by the axuielementObject
 static int getParameterizedAttributeNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -707,6 +834,15 @@ static int getParameterizedAttributeNames(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:isAttributeSettable(attribute) -> boolean
+/// Method
+/// Returns whether the specified accessibility object's attribute can be modified.
+///
+/// Parameters:
+///  * `attribute` - the name of the attribute, as specified by [hs._asm.axuielement:attributeNames](#attributeNames).
+///
+/// Returns:
+///  * a boolean value indicating whether or not the value of the parameter can be modified.
 static int isAttributeSettable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -722,6 +858,15 @@ static int isAttributeSettable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:pid() -> integer
+/// Method
+/// Returns the process ID associated with the specified accessibility object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the process ID for the application to which the accessibility object ultimately belongs.
 static int getPid(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -736,6 +881,18 @@ static int getPid(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:performAction(action) -> axuielement | false | nil
+/// Method
+/// Requests that the specified accessibility object perform the specified action.
+///
+/// Parameters:
+///  * `action` - the name of the action, as specified by [hs._asm.axuielement:actionNames](#actionNames).
+///
+/// Returns:
+///  * if the requested action was accepted by the target, returns the axuielementObject; if the requested action was rejected, returns false, otherwise returns nil on error.
+///
+/// Notes:
+///  * The return value only suggests success or failure, but is not a guarantee.  The receiving application may have internal logic which prevents the action from occurring at this time for some reason, even though this method returns success (the axuielementObject).  Contrawise, the requested action may trigger a requirement for a response from the user and thus appear to time out, causing this method to return false or nil.
 static int performAction(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -743,7 +900,7 @@ static int performAction(lua_State *L) {
     NSString *action = [skin toNSObjectAtIndex:2] ;
     AXError errorState = AXUIElementPerformAction(theRef, (__bridge CFStringRef)action) ;
     if (errorState == kAXErrorSuccess) {
-        lua_pushboolean(L, YES) ;
+        lua_pushvalue(L, 1) ;
     } else if (errorState == kAXErrorCannotComplete) {
         lua_pushboolean(L, NO) ;
     } else {
@@ -752,6 +909,23 @@ static int performAction(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:elementAtPosition(x, y | { x, y }) -> axuielementObject
+/// Method
+/// Returns the accessibility object at the specified position in top-left relative screen coordinates.
+///
+/// Parameters:
+///  * `x`, `y`   - the x and y coordinates of the screen location to test, provided as separate parameters
+///  * `{ x, y }` - the x and y coordinates of the screen location to test, provided as a point-table, like the one returned by `hs.mouse.getAbsolutePosition`.
+///
+/// Returns:
+///  * an axuielementObject for the object at the specified coordinates, or nil if no object could be identified.
+///
+/// Notes:
+///  * This method can only be called on an axuielementObject that represents an application or the system-wide element (see [hs._asm.axuielement.systemWideElement](#systemWideElement)).
+///
+///  * This function does hit-testing based on window z-order (that is, layering). If one window is on top of another window, the returned accessibility object comes from whichever window is topmost at the specified location.
+///  * If this method is called on an axuielementObject representing an application, the search is restricted to the application.
+///  * If this method is called on an axuielementObject representing the system-wide element, the search is not restricted to any particular application.  See [hs._asm.axuielement.systemElementAtPosition](#systemElementAtPosition).
 static int getElementAtPosition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TTABLE, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -782,6 +956,19 @@ static int getElementAtPosition(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:parameterizedAttributeValue(attribute, parameter) -> value
+/// Method
+/// Returns the value of an accessibility object's parameterized attribute.
+///
+/// Parameters:
+///  * `attribute` - the name of the attribute, as specified by [hs._asm.axuielement:parameterizedAttributeNames](#parameterizedAttributeNames).
+///  * `parameter` - the parameter
+///
+/// Returns:
+///  * the current value of the parameterized attribute, or nil if it has no value
+///
+/// Notes:
+///  * Parameterized attribute support is still considered experimental and not fully supported yet.  Use with caution.
 static int getParameterizedAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TANY, LS_TBREAK] ;
@@ -802,11 +989,19 @@ static int getParameterizedAttributeValue(lua_State *L) {
     return 1 ;
 }
 
-// AXError AXUIElementSetAttributeValue ( AXUIElementRef element, CFStringRef attribute, CFTypeRef value) ;
-//
-// CFPropertyListRef types ( CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber.),
-// AXUIElementRef, AXValueRef, CFNullRef, CFAttributedStringRef, and CFURL min as per AXUIElement.h
-// AXTextMarkerRef, and AXTextMarkerRangeRef mentioned as well, but private, so... no joy for now.
+/// hs._asm.axuielement:setAttributeValue(attribute, value) -> axuielementObject | nil
+/// Method
+/// Sets the accessibility object's attribute to the specified value.
+///
+/// Parameters:
+///  * `attribute` - the name of the attribute, as specified by [hs._asm.axuielement:attributeNames](#attributeNames).
+///  * `value`     - the value to assign to the attribute
+///
+/// Returns:
+///  * the axuielementObject on success; nil if the attribute could not be set.
+///
+/// Notes:
+///  * This is still somewhat experimental and needs more testing; use with caution.
 static int setAttributeValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TANY, LS_TBREAK] ;
@@ -823,52 +1018,23 @@ static int setAttributeValue(lua_State *L) {
     return 1 ;
 }
 
-static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParents, CFMutableArrayRef results) {
-    CFTypeID theRefType = CFGetTypeID(theRef) ;
-    if (theRefType == CFArrayGetTypeID()) {
-        CFIndex theRefCount = CFArrayGetCount(theRef) ;
-        for (CFIndex i = 0 ; i < theRefCount ; i++) {
-            CFTypeRef value = CFArrayGetValueAtIndex(theRef, i) ;
-            CFTypeID valueType = CFGetTypeID(value) ;
-            if ((valueType == CFArrayGetTypeID()) || (valueType == AXUIElementGetTypeID())) {
-                getAllAXUIElements_searchHamster(value, includeParents, results) ;
-            }
-        }
-    } else if (theRefType == AXUIElementGetTypeID()) {
-        if (CFArrayContainsValue(results, CFRangeMake(0, CFArrayGetCount(results)), theRef)) return ;
-//         NSLog(@"appending to results(%ld): %@", CFArrayGetCount(results), theRef) ;
-        CFArrayAppendValue(results, theRef) ;
-        CFArrayRef attributeNames ;
-        AXError errorState = AXUIElementCopyAttributeNames(theRef, &attributeNames) ;
-        if (errorState == kAXErrorSuccess) {
-            for (id name in (__bridge NSArray *)attributeNames) {
-                if ((![name isEqualToString:(__bridge NSString *)kAXTopLevelUIElementAttribute] &&
-                    ![name isEqualToString:(__bridge NSString *)kAXParentAttribute]) || includeParents) {
-                    CFTypeRef value ;
-                    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)name, &value) ;
-                    if (errorState == kAXErrorSuccess) {
-                        CFTypeID theType = CFGetTypeID(value) ;
-                        if ((theType == CFArrayGetTypeID()) || (theType == AXUIElementGetTypeID())) {
-                            getAllAXUIElements_searchHamster(value, includeParents, results) ;
-                        }
-                    } else {
-                        if (errorState != kAXErrorNoValue) {
-                            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d for %@: %s", USERDATA_TAG, errorState, name, AXErrorAsString(errorState)]] ;
-                        }
-                    }
-                    if (value) CFRelease(value) ;
-                }
-            }
-        } else {
-            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d getting attribute names: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
-        }
-        if (attributeNames) CFRelease(attributeNames) ;
-    } /* else {
-       * ignore it, not a type we care about
-    }  */
-    return ;
-}
-
+/// hs._asm.axuielement:getAllChildElements([parent], [callback]) -> table | axuielementObject
+/// Method
+/// Query the accessibility object for all child objects (and their children...) and return them in a table.
+///
+/// Paramters:
+///  * `parent`   - an optional boolean, default false, indicating that the parent of objects should be queried as well.
+///  * `callback` - an optional function callback which will receive the results of the query.  If a function is provided, the query will be performed in a background thread, and this method will return immediately.
+///
+/// Returns:
+///  * If no function callback is provided, this method will return a table containing this element, and all of the children (and optionally parents) of this element.  If a function callback is provided, this method returns the axuielementObject.
+///
+/// Notes:
+///  * The table generated, either as the return value, or as the argument to the callback function, has the `hs._asm.axuielement.elementSearchTable` metatable assigned to it. See [hs._asm.axuielement:elementSearch](#elementSearch) for details on what this provides.
+///
+///  * If `parent` is true, this method in effect provides all available accessibility objects for the application the object belongs to (or the focused application, if using the system-wide object).
+///
+///  * If you do not provide a callback function, this method blocks Hammerspoon while it performs the query; such use is not recommended, especially if you set `parent` to true, as it can block for some time.
 static int getAllAXUIElements(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     switch (lua_gettop(L)) {
@@ -906,7 +1072,7 @@ static int getAllAXUIElements(lua_State *L) {
                 [skin luaUnref:refTable ref:callbackRef] ;
             });
         });
-        lua_pushboolean(L, YES) ;
+        lua_pushvalue(L, 1) ;
     } else {
         getAllAXUIElements_searchHamster(theRef, includeParents, results) ;
         CFIndex arraySize = CFArrayGetCount(results) ;
@@ -924,7 +1090,12 @@ static int getAllAXUIElements(lua_State *L) {
 
 #pragma mark - Module Constants
 
-
+/// hs._asm.axuielement.roles[]
+/// Constant
+/// A table of common accessibility object roles, provided for reference.
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
 static int pushRolesTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -988,6 +1159,12 @@ static int pushRolesTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement.subroles[]
+/// Constant
+/// A table of common accessibility object subroles, provided for reference.
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
 static int pushSubrolesTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1029,6 +1206,24 @@ static int pushSubrolesTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement.attributes[]
+/// Constant
+/// A table of common accessibility object attribute names, provided for reference. The names are grouped into the following subcategories (keys):
+///
+///  * `application`
+///  * `dock`
+///  * `general`
+///  * `matte`
+///  * `menu`
+///  * `misc`
+///  * `system`
+///  * `table`
+///  * `text`
+///  * `window`
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
+///  * the category name indicates the type of accessibility object likely to contain the member elements.
 static int pushAttributesTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1166,6 +1361,12 @@ static int pushAttributesTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement.parameterizedAttributes[]
+/// Constant
+/// A table of common accessibility object parameterized attribute names, provided for reference.
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
 static int pushParamaterizedAttributesTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1182,6 +1383,12 @@ static int pushParamaterizedAttributesTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement.actions[]
+/// Constant
+/// A table of common accessibility object action names, provided for reference.
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
 static int pushActionsTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1198,6 +1405,12 @@ static int pushActionsTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement.notifications[]
+/// Constant
+/// A table of accessibility object notification names, provided for reference.
+///
+/// Notes:
+///  * Notification support is currently not provided by this module, so this table is in anticipation of future additions.
 static int pushNotificationsTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1237,18 +1450,23 @@ static int pushNotificationsTable(lua_State *L) {
     return 1 ;
 }
 
-
+/// hs._asm.axuielement.directions[]
+/// Constant
+/// A table of common directions which may be specified as the value of an accessibility object property, provided for reference.
+///
+/// Notes:
+///  * this table is provided for reference only and is not intended to be comprehensive.
 static int pushDirectionsTable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
 // Orientations
-    [skin pushNSObject:(__bridge NSString *)kAXHorizontalOrientationValue] ; lua_setfield(L, -2, "HorizontalOrientation") ;
-    [skin pushNSObject:(__bridge NSString *)kAXVerticalOrientationValue] ; lua_setfield(L, -2, "VerticalOrientation") ;
-    [skin pushNSObject:(__bridge NSString *)kAXUnknownOrientationValue] ; lua_setfield(L, -2, "UnknownOrientation") ;
+    [skin pushNSObject:(__bridge NSString *)kAXHorizontalOrientationValue] ; lua_setfield(L, -2, "horizontalOrientation") ;
+    [skin pushNSObject:(__bridge NSString *)kAXVerticalOrientationValue] ;   lua_setfield(L, -2, "verticalOrientation") ;
+    [skin pushNSObject:(__bridge NSString *)kAXUnknownOrientationValue] ;    lua_setfield(L, -2, "unknownOrientation") ;
 // Sort directions
-    [skin pushNSObject:(__bridge NSString *)kAXAscendingSortDirectionValue] ; lua_setfield(L, -2, "AscendingSortDirection") ;
-    [skin pushNSObject:(__bridge NSString *)kAXDescendingSortDirectionValue] ; lua_setfield(L, -2, "DescendingSortDirection") ;
-    [skin pushNSObject:(__bridge NSString *)kAXUnknownSortDirectionValue] ; lua_setfield(L, -2, "UnknownSortDirection") ;
+    [skin pushNSObject:(__bridge NSString *)kAXAscendingSortDirectionValue] ;  lua_setfield(L, -2, "ascendingSortDirection") ;
+    [skin pushNSObject:(__bridge NSString *)kAXDescendingSortDirectionValue] ; lua_setfield(L, -2, "descendingSortDirection") ;
+    [skin pushNSObject:(__bridge NSString *)kAXUnknownSortDirectionValue] ;    lua_setfield(L, -2, "dnknownSortDirection") ;
     return 1 ;
 }
 
@@ -1263,7 +1481,7 @@ static int userdata_tostring(lua_State* L) {
     if (errorState == kAXErrorSuccess) {
         title = (__bridge NSString *)value ;
     }
-    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, theRef]] ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, (void *)(size_t)theRef]] ;
     if (value) CFRelease(value) ;
     return 1 ;
 }
@@ -1353,7 +1571,7 @@ static const luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 } ;
 
-int luaopen_hs__asm_axuielement_internal(lua_State* __unused L) {
+int luaopen_hs__asm_axuielement_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
