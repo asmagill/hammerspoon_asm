@@ -1,9 +1,36 @@
 Examples for `hs._asm.objc`
 ===========================
 
-This is a dumping ground for short snippets of what is possible with this module.  It's very experimental and basic, and unfortunately requires some features that have not quite made it into a core Hammerspoon release yet, but hopefully that will change with the next formal release... I'll update this as and when...
+This is a dumping ground for short snippets of what is possible with this module.
 
-Currently, you must be running a development version of Hammerspoon and have applied the in progress Pull Request #825 for full support.  Primarily this is required for the support of structures (specifically NSRect, in the example provided next).
+Sample of adding to the thread dictionary:
+
+~~~lua
+> o = require("hs._asm.objc")
+
+> d = o.class("NSThread")("mainThread")("threadDictionary")
+
+> d
+hs._asm.objc.id: __NSDictionaryM (0x7f9068c0e340)
+
+> inspect(d:value())
+{
+  NSAppleEventManagerHandlingStack = {},
+  NSParagraphArbitratorKey = "<NSParagraphArbitrator: 0x7f906b27bc60>"
+}
+
+> d("addObject:forKey:", o.class("NSString")("stringWithUTF8String:", "a test"), o.class("NSString")("stringWithUTF8String:", "testKey"))
+nil
+
+> inspect(d:value())
+{
+  NSAppleEventManagerHandlingStack = {},
+  NSParagraphArbitratorKey = "<NSParagraphArbitrator: 0x7f906b27bc60>",
+  testKey = "a test"
+}
+~~~
+
+Sample using structures to move the console:
 
 ~~~lua
 -- from within the Hammerspoon console, this moves the Console window
@@ -37,7 +64,7 @@ nil
 }
 ~~~
 
-The following does not require pull #825, but does require a development build if you wish to leave out the debugging messages (leave off the `hs.luaSkinLog.level = 4`)
+The following shows a little more detail about how methods are processed:
 
 ~~~lua
 > hs.luaSkinLog.level = 4 ; o = require("hs._asm.objc")
@@ -120,7 +147,7 @@ CPU |||                  18% Utilisation
 RAM |||||||||||||||||||  99% Used, .03GB Free
 Bat |||||||||||||||||||| 100% charged, 6269(mAh) Remain
 
--- we can't support pointers to objects/structs yet for the effectiveRange: portion of this
+-- we don't support pointers to objects/structs yet for the effectiveRange: portion of this
 -- method, but since it allows passing NULL (nil) to indicate that we don't care about it...
 > hs.inspect(attributedString("attributesAtIndex:effectiveRange:", 5, nil):value())
 {
