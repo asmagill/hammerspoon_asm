@@ -113,7 +113,7 @@ object = "compound" -- maybe useful for clipping, not so much otherwise...
       "flatten"?
 
       "compositeRule"              // default nil (inherit canvas default)
-      "transformations"            // default nil (no transformations); array? of matrix transformations to apply in order
+      "transformation"             // default nil (no transformations); struct as table ; use other functions to build, tbd
 
       -- primarily useful for compound, lines, curves, and clippingRegion
       "reversePath"        = boolean                                   // default false
@@ -129,3 +129,69 @@ object = "resetClippingRegion"     // resets clipping region to canvas bounds
 
     -- need to figure out compositing, absolutePosition/Size, clipping, transformation and object types
 
+
+*   - in validateElementAttribute
+ *  - in massage
+
+*-  type              - string:arc, circle, curve, ellipticalArc, image, line, oval, point, rectangle, resetClip, segments, text
+*-  absolutePosition  - boolean
+*-  absoluteSize      - boolean
+*-  addToClipRegion   - boolean
+*-  compositeRule     - string:clear, copy, sourceOver, sourceIn, sourceOut, sourceAtop, destinationOver, destinationIn, destinationOut, destinationAtop, XOR, plusDarker, plusLighter
+    id                - string | number
+*-  trackMouseDown    - boolean
+*-  trackMouseUp      - boolean
+*-  trackMouseEnter   - boolean
+*-  trackMouseExit    - boolean
+*-  trackMouseMove    - boolean
+    center            - point-table // may use string percentages
+    end               - point-table // may use string percentages
+*-  endAngle          - number
+*-  fill              - boolean
+**  fillColor         - color-table with __luaSkinType = "NSColor"
+?*  fillGradient      - { // rethink default and off
+                            startColor     = nil/color-table with __luaSkinType = "NSColor",
+                            endColor       = nil/color-table with __luaSkinType = "NSColor",
+                            angle          = number
+                            type           = string:linear, radial
+                            relativeCenter = point-table, constrained to [-1, 1]
+                        }
+*-  flatness          - number
+*-  flatten           - boolean
+    frame             - rect-table // may use string percentages
+*-  image             - hs.image
+*-  imageAlignment    - string:topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight
+*-  imageAnimates     - boolean
+*-  imageFrameStyle   - string:none, photo, bezel, groove, button
+*-  imageRotation     - number
+*-  imageScaling      - string:shrinkToFit, scaleToFit, none, scaleProportionally
+**  radius            - number // may use string percentages
+*-  reversePath       - boolean
+*   roundedRectRadii  - { xRadius = 0.0, yRadius = 0.0}
+    start             - point-table // may use string percentages
+*-  startAngle        - number
+*-  stroke            - boolean
+*-  strokeCapStyle    - string:butt, round, square
+**  strokeColor       - color-table with __luaSkinType = "NSColor"
+    strokeDashPattern - { number, ..., offset = number }
+*-  strokeJoinStyle   - string:miter, round, bevel
+*-  strokeMiterLimit  - number
+*-  strokeWidth       - number
+ -  text              - string | hs.styledtext
+**  textColor         - color-table with __luaSkinType = "NSColor"
+*-  textFont          - string
+*-  textSize          - number
+*-  textStyle         - {
+                            alignment = string:left, right, center, justified, natural
+                            lineBreak = string:wordWrap, charWrap, clip, truncateHead, truncateTail, truncateMiddle
+                         }
+**  transformation    - {
+                            m11 = number,
+                            m12 = number,
+                            m21 = number,
+                            m22 = number,
+                            tX = number,
+                            tY = number,
+                            __luaSkinType = "NSAffineTransform"
+                        } // need functions to build this
+*-  windingRule       - string:zero, odd

@@ -92,7 +92,7 @@ end
 
 module.compositeTypes = _makeConstantsTable(module.compositeTypes)
 
---- hs._asm.canvas:behaviorByLabels(behaviorTable) -> canvasObject | currentValue
+--- hs._asm.canvas:behaviorAsLabels(behaviorTable) -> canvasObject | currentValue
 --- Method
 --- Get or set the window behavior settings for the canvas object using labels defined in `hs.drawing.windowBehaviors`.
 ---
@@ -104,7 +104,7 @@ module.compositeTypes = _makeConstantsTable(module.compositeTypes)
 ---
 --- Notes:
 ---  * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See `hs.drawing.windowBehaviors` for more information.
-canvasMT.behaviorByLabels = function(obj, ...)
+canvasMT.behaviorAsLabels = function(obj, ...)
     local drawing = require"hs.drawing"
     local args = table.pack(...)
 
