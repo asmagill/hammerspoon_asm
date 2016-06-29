@@ -5,6 +5,9 @@
 @import Cocoa ;
 @import LuaSkin ;
 
+#import "application.h"
+#import "window.h"
+
 // #import "AXTextMarker.h"
 
 #define USERDATA_TAG "hs._asm.axuielement"
@@ -1088,6 +1091,72 @@ static int getAllAXUIElements(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.axuielement:asHSApplication() -> hs.application object | nil
+/// Method
+/// If the element referes to an application, return an `hs.application` object for the element.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * if the element refers to an application, return an `hs.application` object for the element ; otherwise return nil
+///
+/// Notes:
+///  * An element is considered an application by this method if it has an AXRole of AXApplication and has a process identifier (pid).
+static int axuielementToApplication(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFTypeRef value ;
+    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)@"AXRole", &value) ;
+    if ((errorState == kAXErrorSuccess) &&
+        (CFGetTypeID(value) == CFStringGetTypeID()) &&
+        ([(__bridge NSString *)value isEqualToString:(__bridge NSString *)kAXApplicationRole])) {
+        pid_t thePid ;
+        AXError errorState2 = AXUIElementGetPid(theRef, &thePid) ;
+        if (errorState2 == kAXErrorSuccess) {
+            if (!new_application(L, thePid)) lua_pushnil(L) ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    } else {
+        lua_pushnil(L) ;
+    }
+    if (value) CFRelease(value) ;
+    return 1 ;
+}
+
+/// hs._asm.axuielement:asHSWindow() -> hs.window object | nil
+/// Method
+/// If the element referes to a window, return an `hs.window` object for the element.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * if the element refers to a window, return an `hs.window` object for the element ; otherwise return nil
+///
+/// Notes:
+///  * An element is considered a window by this method if it has an AXRole of AXWindow.
+static int axuielementToWindow(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
+    CFTypeRef value ;
+    AXError errorState = AXUIElementCopyAttributeValue(theRef, (__bridge CFStringRef)@"AXRole", &value) ;
+    if ((errorState == kAXErrorSuccess) &&
+        (CFGetTypeID(value) == CFStringGetTypeID()) &&
+        ([(__bridge NSString *)value isEqualToString:(__bridge NSString *)kAXWindowRole])) {
+        new_window(L, theRef) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    if (value) CFRelease(value) ;
+
+    return 1 ;
+}
+
+
 #pragma mark - Module Constants
 
 /// hs._asm.axuielement.roles[]
@@ -1549,6 +1618,9 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementAtPosition",           getElementAtPosition},
     {"setAttributeValue",           setAttributeValue},
     {"getAllChildElements",         getAllAXUIElements},
+    {"asHSWindow",                  axuielementToWindow},
+    {"asHSApplication",             axuielementToApplication},
+
     {"__tostring",                  userdata_tostring},
     {"__eq",                        userdata_eq},
     {"__gc",                        userdata_gc},

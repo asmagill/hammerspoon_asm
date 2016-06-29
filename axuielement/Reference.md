@@ -45,6 +45,8 @@ axuielement = require("hs._asm.axuielement")
 ##### Module Methods
 * <a href="#actionDescription">axuielement:actionDescription(action) -> string</a>
 * <a href="#actionNames">axuielement:actionNames() -> table</a>
+* <a href="#asHSApplication">axuielement:asHSApplication() -> hs.application object | nil</a>
+* <a href="#asHSApplication">axuielement:asHSWindow() -> hs.window object | nil</a>
 * <a href="#attributeNames">axuielement:attributeNames() -> table</a>
 * <a href="#attributeValue">axuielement:attributeValue(attribute) -> value</a>
 * <a href="#attributeValueCount">axuielement:attributeValueCount(attribute) -> integer</a>
@@ -180,6 +182,40 @@ Returns:
 
 Notes:
  * Common action names can be found in the [hs._asm.axuielement.actions](#actions) table; however, this method will list only those names which are supported by this object, and is not limited to just those in the referenced table.
+
+- - -
+
+<a name="asHSApplication"></a>
+~~~lua
+axuielement:asHSApplication() -> hs.application object | nil
+~~~
+If the element referes to an application, return an `hs.application` object for the element.
+
+Parameters:
+ * None
+
+Returns:
+ * if the element refers to an application, return an `hs.application` object for the element ; otherwise return nil
+
+Notes:
+ * An element is considered an application by this method if it has an AXRole of AXApplication and has a process identifier (pid).
+
+- - -
+
+<a name="asHSWindow"></a>
+~~~lua
+axuielement:asHSWindow() -> hs.window object | nil
+~~~
+If the element referes to a window, return an `hs.window` object for the element.
+
+Parameters:
+ * None
+
+Returns:
+ * if the element refers to a window, return an `hs.window` object for the element ; otherwise return nil
+
+Notes:
+ * An element is considered a window by this method if it has an AXRole of AXWindow.
 
 - - -
 
