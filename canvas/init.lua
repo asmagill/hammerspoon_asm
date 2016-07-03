@@ -239,6 +239,120 @@ end
 ---  * See (hs._asm.canvas:isOccluded)[#isOccluded] for more details.
 canvasMT.isVisible = function(obj, ...) return not obj:isOccluded(...) end
 
+local elementMT = {
+    __e = setmetatable({}, { __mode="k" }),
+}
+
+elementMT.__index = function(_, k)
+    local obj = elementMT.__e[_]
+    if obj.field then
+        return obj.value[obj.field][k]
+    elseif obj.key then
+        if type(obj.value[k]) == "table" then
+            local newTable = {}
+            elementMT.__e[newTable] = { self = obj.self, index = obj.index, key = obj.key, value = obj.value, field = k }
+            return setmetatable(newTable, elementMT)
+        else
+            return obj.value[k]
+        end
+    else
+        local value = obj.self:elementAttribute(obj.index, k)
+        if type(value) == "table" then
+            local newTable = {}
+            elementMT.__e[newTable] = { self = obj.self, index = obj.index, key = k, value = value }
+            return setmetatable(newTable, elementMT)
+        else
+            return value
+        end
+    end
+end
+
+elementMT.__newindex = function(_, k, v)
+    local obj = elementMT.__e[_]
+    local key, value
+    if obj.field then
+        key = obj.key
+        obj.value[obj.field][k] = v
+        value = obj.value
+    elseif obj.key then
+        key = obj.key
+        obj.value[k] = v
+        value = obj.value
+    else
+        key = k
+        value = v
+    end
+    return obj.self:elementAttribute(obj.index, key, value)
+end
+
+elementMT.__pairs = function(_)
+    local obj = elementMT.__e[_]
+    local keys = {}
+    if obj.field then
+        keys = obj.value[obj.field]
+    elseif obj.key then
+        keys = obj.value
+    else
+        for i, k in ipairs(obj.self:elementKeys(obj.index)) do keys[k] = _[k] end
+    end
+    return function(_, k)
+            local v
+            k, v = next(keys, k)
+            return k, v
+        end, _, nil
+end
+
+elementMT.__len = function(_)
+    local obj = elementMT.__e[_]
+    local value
+    if obj.field then
+        value = obj.value[obj.field]
+    elseif obj.key then
+        value = obj.value
+    else
+        value = {}
+    end
+    return #value
+end
+
+canvasMT.__index = function(self, key)
+    if type(key) == "string" then
+        return canvasMT[key]
+    elseif type(key) == "number" and key > 0 and key <= self:elementCount() and math.tointeger(key) then
+        local newTable = {}
+        elementMT.__e[newTable] = { self = self, index = math.tointeger(key) }
+        return setmetatable(newTable, elementMT)
+    else
+        return nil
+    end
+end
+
+canvasMT.__newindex = function(self, key, value)
+    if type(key) == "number" and key > 0 and key <= (self:elementCount() + 1) and math.tointeger(key) then
+        if type(value) == "table" or type(value) == "nil" then
+            return self:assignElement(value, math.tointeger(key))
+        else
+            error("element definition must be a table", 2)
+        end
+    else
+        error("index invalid or out of bounds", 2)
+    end
+end
+
+canvasMT.__len = function(self)
+    return self:elementCount()
+end
+
+canvasMT.__pairs = function(self)
+    local keys = {}
+    for i = 1, self:elementCount(), 1 do keys[i] = self[i] end
+    return function(_, k)
+            local v
+            k, v = next(keys, k)
+            return k, v
+        end, self, nil
+end
+
 -- Return Module Object --------------------------------------------------
 
 return module

@@ -1,22 +1,51 @@
+    Add more types
+    Clean this up so it's accurate to the current
+    Canvas to hs.image
+    Can we optimize by only applying when value in canvas defaults or element?  how much would this help?
+    fill pattern?
+
 // Want to add tracking rectangle to this and/or hs.drawing https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/EventOverview/TrackingAreaObjects/TrackingAreaObjects.html
 
-cnvs.new({screen-rect}, [{defaults?}])
-+    :delete()
-+    :show()
-+    :hide()
-+    :topLeft()
-+    :size()
-+    :frame()
-+    :clickCallback()
-+    :clickActivating()
-+    :alpha()
-+    :orderAbove()
-+    :orderBelow()
-+    :behavior()
-+    :level()
-+    :wantsLayer()
 
-    :elements([array]) -- array of objects, defined as follows:
+
+
+rectangle, oval, ellipticalArc
+    "type"
+
++   "frame"
++   "roundedRectRadii"
+
+++  "absolutePosition"
+++  "absoluteSize"
+++  "compositeRule"
+++  "fill"
+++  "fillColor"
+++  "fillGradient"
+++  "fillGradientAngle"
+++  "fillGradientCenter"
+++  "fillGradientColors"
+++  "stroke"
+++  "strokeColor"
+++  "strokeWidth"
+++  "strokeCapStyle"
+++  "strokeJoinStyle"
+++  "strokeMiterLimit"
+++  "strokeDashPattern"
+
+ +  "flatness"
+ +  "flatten"
+
+ +  "addToClipRegion"
+ +  "reversePath"
+ +  "windingRule"
+
+    "id"
+    "trackMouseDown"
+    "trackMouseEnter"
+    "trackMouseExit"
+    "trackMouseMove"
+    "trackMouseUp"
+    "transformation"
 
 When assigning (will not be returned this way when converting back into Lua table), the following can be given as percentage (e.g. "#%") -- should they be when absoluteX is false, and actual point values when absoluteX is true?
     x=, y= will be canvas.[xy] + #% of canvas.[wh]
@@ -25,51 +54,28 @@ When assigning (will not be returned this way when converting back into Lua tabl
 object = "line"
       "start"       = { x=, y= }                              // default { 0, 0 }
       "end"         = { x=, y= }                              // default { cnvs.w, cnvs.h }
-      "stroke"      = boolean                                 // default true
-      "strokeColor" = { color }                               // default [NSColor blackColor]
-      "strokeWidth" = width                                   // default [NSBezierPath defaultLineWidth]
 
 object = "rectangle"
       "rect"             = { x=, y=, h=, w= }                 // default { 0, 0, cnvs.h, cnvs.w }
       "roundedRectRadii" = { xRadius=, yRadius= }             // default { 0, 0 }
-      "stroke"           = boolean                            // default true
-      "strokeColor"      = { color }                          // default [NSColor blackColor]
-      "strokeWidth"      = width                              // default [NSBezierPath defaultLineWidth]
-      "fill"             = boolean                            // default true
-      "fillColor"        = { color }                          // default [NSColor redColor]
-      "fillGradient"     = { startColor=, endColor=, angle= } // default { , , 0 }
+
+object = "oval"
+      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
 
 object = "circle"
-      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
-      "stroke"       = boolean                                // default true
-      "strokeColor"  = { color }                              // default [NSColor blackColor]
-      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
-      "fill"         = boolean                                // default true
-      "fillColor"    = { color }                              // default [NSColor redColor]
-      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
-
-object = "arc" (convenience constructor; not used when converting canvas back to Lua table)
       "center"       = { x=, y= }                             // default { cnvs.w / 2, cnvs.h / 2 }
       "radius"       = length                                 // default min(cnvs.w / 2, cnvs.h / 2)
-      "startAngle"   = degree                                 // default 0
-      "endAngle"     = degree                                // default 360
-      "stroke"       = boolean                                // default true
-      "strokeColor"  = { color }                              // default [NSColor blackColor]
-      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
-      "fill"         = boolean                                // default true
-      "fillColor"    = { color }                              // default [NSColor redColor]
-      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
 
 object = "ellipticalArc"
       "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
       "startAngle"   = degree                                 // default 0
       "endAngle"     = degree                                 // default 360
-      "stroke"       = boolean                                // default true
-      "strokeColor"  = { color }                              // default [NSColor blackColor]
-      "strokeWidth"  = width                                  // default [NSBezierPath defaultLineWidth]
-      "fill"         = boolean                                // default true
-      "fillColor"    = { color }                              // default [NSColor redColor]
-      "fillGradient" = { startColor=, endColor=, angle= }     // default { , , 0 }
+
+object = "arc"
+      "center"       = { x=, y= }                             // default { cnvs.w / 2, cnvs.h / 2 }
+      "radius"       = length                                 // default min(cnvs.w / 2, cnvs.h / 2)
+      "startAngle"   = degree                                 // default 0
+      "endAngle"     = degree                                // default 360
 
 object = "text"
       "rect"      = { x=, y=, h=, w= }                        // default { 0, 0, cnvs.h, cnvs.w }
