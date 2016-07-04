@@ -239,6 +239,11 @@ end
 ---  * See (hs._asm.canvas:isOccluded)[#isOccluded] for more details.
 canvasMT.isVisible = function(obj, ...) return not obj:isOccluded(...) end
 
+canvasMT.appendElements = function(obj, elementsArray)
+    for i,v in ipairs(elementsArray) do obj:insertElement(v) end
+    return obj
+end
+
 local elementMT = {
     __e = setmetatable({}, { __mode="k" }),
 }
@@ -256,7 +261,12 @@ elementMT.__index = function(_, k)
             return obj.value[k]
         end
     else
-        local value = obj.self:elementAttribute(obj.index, k)
+        local value
+        if obj.index == "_default" then
+            value = obj.self:canvasDefaultFor(k)
+        else
+            value = obj.self:elementAttribute(obj.index, k)
+        end
         if type(value) == "table" then
             local newTable = {}
             elementMT.__e[newTable] = { self = obj.self, index = obj.index, key = k, value = value }
@@ -282,7 +292,11 @@ elementMT.__newindex = function(_, k, v)
         key = k
         value = v
     end
-    return obj.self:elementAttribute(obj.index, key, value)
+    if obj.index == "_default" then
+        return obj.self:canvasDefaultFor(key, value)
+    else
+        return obj.self:elementAttribute(obj.index, key, value)
+    end
 end
 
 elementMT.__pairs = function(_)
@@ -293,7 +307,11 @@ elementMT.__pairs = function(_)
     elseif obj.key then
         keys = obj.value
     else
-        for i, k in ipairs(obj.self:elementKeys(obj.index)) do keys[k] = _[k] end
+        if obj.index == "_default" then
+            for i, k in ipairs(obj.self:canvasDefaultKeys()) do keys[k] = _[k] end
+        else
+            for i, k in ipairs(obj.self:elementKeys(obj.index)) do keys[k] = _[k] end
+        end
     end
     return function(_, k)
             local v
@@ -317,7 +335,13 @@ end
 
 canvasMT.__index = function(self, key)
     if type(key) == "string" then
-        return canvasMT[key]
+        if key == "_default" then
+            local newTable = {}
+            elementMT.__e[newTable] = { self = self, index = "_default" }
+            return setmetatable(newTable, elementMT)
+        else
+            return canvasMT[key]
+        end
     elseif type(key) == "number" and key > 0 and key <= self:elementCount() and math.tointeger(key) then
         local newTable = {}
         elementMT.__e[newTable] = { self = self, index = math.tointeger(key) }

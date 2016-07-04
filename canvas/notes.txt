@@ -1,203 +1,63 @@
     Add more types
-    Clean this up so it's accurate to the current
     Canvas to hs.image
-    Can we optimize by only applying when value in canvas defaults or element?  how much would this help?
-    fill pattern?
+    fill pattern? -- update hs.drawing.color
+    drop line and curve and just do segments?
+    point... needed?  thinking graphs here, but unit rectangles work just as well, or image/circle/?
+    merge canvases?
+    method to swap elements?
+    transform functions
+*   support shadows
+
+>> Can we optimize by only applying when value in canvas defaults or element?  how much would this help?
+The following are saved with the graphics context -- set them before iterating, then change only when set in actual element data (i.e. not inherited from defaults) See https://developer.apple.com/library/prerelease/content/documentation/Cocoa/Conceptual/CocoaDrawingGuide/GraphicsContexts/GraphicsContexts.html#//apple_ref/doc/uid/TP40003290-CH203-BCIHGDAH
+
+    NSBezierPath setDefaultLineWidth
+    NSBezierPath setDefaultLineJoinStyle
+    NSBezierPath setDefaultLineCapStyle
+    NSBezierPath setDefaultMiterLimit
+    NSBezierPath setDefaultFlatness
+    NSBezierPath setDefaultWindingRule **
+
+    NSGraphicsContext shouldAntialias
+    NSGraphicsContext compositingOperation
+    NSGraphicsContext imageInterpolation ??
+
+    NSShadow set
+    NSColor setFill
+    NSColor setStroke
+    NSFont set (sets name and size)
+
+    NSBezierPath addClip **
 
 // Want to add tracking rectangle to this and/or hs.drawing https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/EventOverview/TrackingAreaObjects/TrackingAreaObjects.html
 
+-- sample:
 
-
-
-rectangle, oval, ellipticalArc
-    "type"
-
-+   "frame"
-+   "roundedRectRadii"
-
-++  "absolutePosition"
-++  "absoluteSize"
-++  "compositeRule"
-++  "fill"
-++  "fillColor"
-++  "fillGradient"
-++  "fillGradientAngle"
-++  "fillGradientCenter"
-++  "fillGradientColors"
-++  "stroke"
-++  "strokeColor"
-++  "strokeWidth"
-++  "strokeCapStyle"
-++  "strokeJoinStyle"
-++  "strokeMiterLimit"
-++  "strokeDashPattern"
-
- +  "flatness"
- +  "flatten"
-
- +  "addToClipRegion"
- +  "reversePath"
- +  "windingRule"
-
-    "id"
-    "trackMouseDown"
-    "trackMouseEnter"
-    "trackMouseExit"
-    "trackMouseMove"
-    "trackMouseUp"
-    "transformation"
-
-When assigning (will not be returned this way when converting back into Lua table), the following can be given as percentage (e.g. "#%") -- should they be when absoluteX is false, and actual point values when absoluteX is true?
-    x=, y= will be canvas.[xy] + #% of canvas.[wh]
-    h=, w= will be #% of canvas.[wh]
-
-object = "line"
-      "start"       = { x=, y= }                              // default { 0, 0 }
-      "end"         = { x=, y= }                              // default { cnvs.w, cnvs.h }
-
-object = "rectangle"
-      "rect"             = { x=, y=, h=, w= }                 // default { 0, 0, cnvs.h, cnvs.w }
-      "roundedRectRadii" = { xRadius=, yRadius= }             // default { 0, 0 }
-
-object = "oval"
-      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
-
-object = "circle"
-      "center"       = { x=, y= }                             // default { cnvs.w / 2, cnvs.h / 2 }
-      "radius"       = length                                 // default min(cnvs.w / 2, cnvs.h / 2)
-
-object = "ellipticalArc"
-      "rect"         = { x=, y=, h=, w= }                     // default { 0, 0, cnvs.h, cnvs.w }
-      "startAngle"   = degree                                 // default 0
-      "endAngle"     = degree                                 // default 360
-
-object = "arc"
-      "center"       = { x=, y= }                             // default { cnvs.w / 2, cnvs.h / 2 }
-      "radius"       = length                                 // default min(cnvs.w / 2, cnvs.h / 2)
-      "startAngle"   = degree                                 // default 0
-      "endAngle"     = degree                                // default 360
-
-object = "text"
-      "rect"      = { x=, y=, h=, w= }                        // default { 0, 0, cnvs.h, cnvs.w }
-      "text"      = string / styledtextObject                 // default ""
-      "textFont"  = fontName                                  // default [NSFont systemFontOfSize: 27]
-      "textStyle" = { alignment=, linebreak= }                // default { "natural", "wordwrap" }
-      "textColor" = { color }                                 // default [NSColor colorWithCalibratedWhite:1.0 alpha:1.0]
-
-object = "image"
-      "rect"            = { x=, y=, h=, w= }                  // default { 0, 0, cnvs.h, cnvs.w }
-      "image"           = hs.image object                     // default nil
-      "imageFrameStyle" = frameStyle                          // default "none"
-      "imageAlignment"  = imageAlignment                      // default "center"
-      "imageAnimates"   = boolean                             // default true
-      "imageScaling"    = scalingType                         // default "scalePropertionally"
-      "imageRotation"   = degree                              // default 0, deprecated -- use transformation
-
--- ?? --
-object = "lines" (allow open/closed)
-object = "curves" (allow open/closed)
-
-object = "point"? -- If you want to draw a single pixel, you need to specify a rectangle that is the size of a single pixel, then fill it in. For the pixel at (x,y), you would want a rectangle with origin of (x-0.5,y-0.5) and a size of (1,1).
-
-object = "compound" -- maybe useful for clipping, not so much otherwise...
-
-  all allow the following keys:
-      "id"                 = arbitrary string or number ; defaults to index position in element array
-      "absolutePosition"   = boolean // default false -- whether or not to move when canvas resized
-      "absoluteSize"       = boolean // default false -- whether ot not to scale when canvas resized
-      "mouseDownCallback"  = function(canvas, elementID, "down")       // default nil
-      "mouseUpCallback"    = function(canvas, elementID, "up")         // default nil
-      "mouseEnterCallback" = function(canvas, elementID, "enter")      // default nil
-      "mouseExitCallback"  = function(canvas, elementID, "exit")       // default nil
-      "mouseMoveCallback"  = function(canvas, elementID, "move", x, y) // default nil
-
-      "lineDash"
-      "capStyle"
-      "joinStyle"
-      "miterLimit"
-      "flatness"
-      "flatten"?
-
-      "compositeRule"              // default nil (inherit canvas default)
-      "transformation"             // default nil (no transformations); struct as table ; use other functions to build, tbd
-
-      -- primarily useful for compound, lines, curves, and clippingRegion
-      "reversePath"        = boolean                                   // default false
-      "windingRule"        =                                           // default "NSNonZeroWindingRule"
-
-
-object = "clippingRegion"
-      "clipObject" = <regular object type>
-      .. remaining elements as appropriate; probably only rect and basic type matter ..
-
-object = "resetClippingRegion"     // resets clipping region to canvas bounds
-      .. no other attributes necessary/used ..
-
-    -- need to figure out compositing, absolutePosition/Size, clipping, transformation and object types
-
-
-*   - in validateElementAttribute
- *  - in massage
-
-*-  type              - string:arc, circle, curve, ellipticalArc, image, line, oval, point, rectangle, resetClip, segments, text
-*-  absolutePosition  - boolean
-*-  absoluteSize      - boolean
-*-  addToClipRegion   - boolean
-*-  compositeRule     - string:clear, copy, sourceOver, sourceIn, sourceOut, sourceAtop, destinationOver, destinationIn, destinationOut, destinationAtop, XOR, plusDarker, plusLighter
-    id                - string | number
-*-  trackMouseDown    - boolean
-*-  trackMouseUp      - boolean
-*-  trackMouseEnter   - boolean
-*-  trackMouseExit    - boolean
-*-  trackMouseMove    - boolean
-    center            - point-table // may use string percentages
-    end               - point-table // may use string percentages
-*-  endAngle          - number
-*-  fill              - boolean
-**  fillColor         - color-table with __luaSkinType = "NSColor"
-?*  fillGradient      - { // rethink default and off
-                            startColor     = nil/color-table with __luaSkinType = "NSColor",
-                            endColor       = nil/color-table with __luaSkinType = "NSColor",
-                            angle          = number
-                            type           = string:linear, radial
-                            relativeCenter = point-table, constrained to [-1, 1]
-                        }
-*-  flatness          - number
-*-  flatten           - boolean
-    frame             - rect-table // may use string percentages
-*-  image             - hs.image
-*-  imageAlignment    - string:topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight
-*-  imageAnimates     - boolean
-*-  imageFrameStyle   - string:none, photo, bezel, groove, button
-*-  imageRotation     - number
-*-  imageScaling      - string:shrinkToFit, scaleToFit, none, scaleProportionally
-**  radius            - number // may use string percentages
-*-  reversePath       - boolean
-*   roundedRectRadii  - { xRadius = 0.0, yRadius = 0.0}
-    start             - point-table // may use string percentages
-*-  startAngle        - number
-*-  stroke            - boolean
-*-  strokeCapStyle    - string:butt, round, square
-**  strokeColor       - color-table with __luaSkinType = "NSColor"
-    strokeDashPattern - { number, ..., offset = number }
-*-  strokeJoinStyle   - string:miter, round, bevel
-*-  strokeMiterLimit  - number
-*-  strokeWidth       - number
- -  text              - string | hs.styledtext
-**  textColor         - color-table with __luaSkinType = "NSColor"
-*-  textFont          - string
-*-  textSize          - number
-*-  textStyle         - {
-                            alignment = string:left, right, center, justified, natural
-                            lineBreak = string:wordWrap, charWrap, clip, truncateHead, truncateTail, truncateMiddle
-                         }
-**  transformation    - {
-                            m11 = number,
-                            m12 = number,
-                            m21 = number,
-                            m22 = number,
-                            tX = number,
-                            tY = number,
-                            __luaSkinType = "NSAffineTransform"
-                        } // need functions to build this
-*-  windingRule       - string:zero, odd
+c = require("hs._asm.canvas")
+a = c.new{x=100,y=100,h=500,w=500}:appendElements{ {
+    action = "build", padding = 0, type = "rectangle"
+  }, {
+    action = "build", padding = 0, radius = ".3", reversePath = true, type = "circle"
+  }, {
+    action = "clip", padding = 0, radius = ".1", type = "circle"
+  }, {
+    action = "fill",
+    fillColor = { alpha = 0.5, green = 1.0  },
+    frame = { x = "0", y = "0", h = ".75", w = ".75", },
+    type = "oval",
+    withShadow = true,
+  }, {
+    action = "fill",
+    center = { x = "0.625", y = "0.625" },
+    fillColor = { alpha = 0.5, red = 1.0  },
+    radius = ".375",
+    type = "circle",
+    withShadow = true,
+  }, {
+    type = "resetClip"
+  }, {
+    action = "fill",
+    fillColor = { alpha = 0.25, blue = 0.5, green = 0.5  },
+    frame = { h = 500.0, w = 500.0, x = 0.0, y = 0.0 },
+    type = "rectangle",
+  } }:show()
