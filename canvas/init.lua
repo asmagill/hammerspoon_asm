@@ -10,6 +10,7 @@
 
 local USERDATA_TAG = "hs._asm.canvas"
 local module       = require(USERDATA_TAG..".internal")
+module.matrix      = require(USERDATA_TAG..".matrix")
 local canvasMT     = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
