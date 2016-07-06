@@ -22,14 +22,15 @@ static NSDictionary *languageDictionary ;
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 @interface ASMCanvasWindow : NSPanel <NSWindowDelegate>
-@property             int                 selfRef ;
-@property (nonatomic) NSMutableDictionary *canvasDefaults ;
-@property (nonatomic) NSMutableArray      *elementList ;
+@property int                 selfRef ;
 @end
 
 @interface ASMCanvasView : NSView
-@property int clickDownRef;
-@property int clickUpRef;
+@property int                 clickDownRef;
+@property int                 clickUpRef;
+@property NSMutableDictionary *canvasDefaults ;
+@property NSMutableArray      *elementList ;
+@property NSAffineTransform   *canvasTransform ;
 @end
 
 typedef NS_ENUM(NSInteger, attributeValidity) {
@@ -325,66 +326,6 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : [[NSImage alloc] initWithSize:NSMakeSize(1.0, 1.0)],
             @"optionalFor" : @[ @"image" ],
         },
-        @"imageAlignment" : @{
-            @"class"       : @[ [NSString class] ],
-            @"luaClass"    : @"string",
-            @"values"      : @[
-                                   @"topLeft",
-                                   @"top",
-                                   @"topRight",
-                                   @"left",
-                                   @"center",
-                                   @"right",
-                                   @"bottomLeft",
-                                   @"bottom",
-                                   @"bottomRight",
-                             ],
-            @"nullable"    : @(YES),
-            @"default"     : @"center",
-            @"optionalFor" : @[ @"image" ],
-        },
-        @"imageAnimates" : @{
-            @"class"       : @[ [NSNumber class] ],
-            @"luaClass"    : @"boolean",
-            @"objCType"    : @(@encode(BOOL)),
-            @"nullable"    : @(YES),
-            @"default"     : @(YES),
-            @"optionalFor" : @[ @"image" ],
-        },
-        @"imageFrameStyle" : @{
-            @"class"       : @[ [NSString class] ],
-            @"luaClass"    : @"string",
-            @"values"      : @[
-                                   @"none",
-                                   @"photo",
-                                   @"bezel",
-                                   @"groove",
-                                   @"button",
-                             ],
-            @"nullable"    : @(YES),
-            @"default"     : @"none",
-            @"optionalFor" : @[ @"image" ],
-        },
-        @"imageRotation" : @{
-            @"class"       : @[ [NSNumber class] ],
-            @"luaClass"    : @"number",
-            @"nullable"    : @(YES),
-            @"default"     : @(0.0),
-            @"optionalFor" : @[ @"image" ],
-        },
-        @"imageScaling" : @{
-            @"class"       : @[ [NSString class] ],
-            @"luaClass"    : @"string",
-            @"values"      : @[
-                                   @"shrinkToFit",
-                                   @"scaleToFir",
-                                   @"none",
-                                   @"scaleProportionally",
-                             ],
-            @"nullable"    : @(YES),
-            @"default"     : @"scaleProportionally",
-            @"optionalFor" : @[ @"image" ],
-        },
         @"miterLimit" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"number",
@@ -515,7 +456,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"optionalFor" : PRIMITIVES,
         },
         @"text" : @{
-            @"class"       : @[ [NSString class], [NSAttributedString class] ],
+            @"class"       : @[ [NSString class], [NSNumber class], [NSAttributedString class] ],
             @"luaClass"    : @"string or hs.styledText object",
             @"default"     : @"",
             @"nullable"    : @(NO),
@@ -541,28 +482,6 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullalble"   : @(YES),
             @"default"     : @(27.0),
             @"optionalFor" : @[ @"text" ],
-        },
-        @"textStyle" : @{
-            @"class"         : @[ [NSDictionary class] ],
-            @"luaClass"      : @"table",
-            @"nullable"      : @(YES),
-            @"keys"          : @{
-                @"alignment" : @{
-                    @"class"    : @[ [NSString class] ],
-                    @"luaClass" : @"string",
-                    @"values"   : @[ @"left", @"right", @"center", @"justified", @"natural" ],
-                },
-                @"lineBreak" : @{
-                    @"class"    : @[ [NSString class] ],
-                    @"luaClass" : @"string",
-                    @"values"   : @[ @"wordWrap", @"charWrap", @"clip", @"truncateHead", @"truncateTail", @"truncateMiddle" ],
-                },
-            },
-            @"default"       : @{
-                                   @"alignment" : @"natural",
-                                   @"lineBreak" : @"wordWrap",
-                               },
-            @"optionalFor"   : @[ @"text" ],
         },
         @"trackMouseEnter" : @{
             @"class"       : @[ [NSNumber class] ],
@@ -838,7 +757,7 @@ static int userdata_gc(lua_State* L) ;
     LuaSkin *skin = [LuaSkin shared];
 
     if (!(isfinite(contentRect.origin.x) && isfinite(contentRect.origin.y) && isfinite(contentRect.size.height) && isfinite(contentRect.size.width))) {
-        [skin logError:[NSString stringWithFormat:@"%s:canvas with non-finite co-ordinates/size specified", USERDATA_TAG]];
+        [skin logError:[NSString stringWithFormat:@"%s: non-finite co-ordinates/size specified", USERDATA_TAG]];
         return nil;
     }
 
@@ -863,11 +782,389 @@ static int userdata_gc(lua_State* L) ;
         self.hidesOnDeactivate  = NO;
         self.animationBehavior  = NSWindowAnimationBehaviorNone;
         self.level              = NSScreenSaverWindowLevel;
-
-        _canvasDefaults = [[NSMutableDictionary alloc] init] ;
-        _elementList    = [[NSMutableArray alloc] init] ;
     }
     return self;
+}
+
+#pragma mark - NSWindowDelegate Methods
+
+- (BOOL)windowShouldClose:(id __unused)sender {
+    return NO;
+}
+
+#pragma mark - Window Animation Methods
+
+- (void)fadeIn:(NSTimeInterval)fadeTime {
+    [self setAlphaValue:0.0];
+    [self makeKeyAndOrderFront:nil];
+    [NSAnimationContext beginGrouping];
+      [[NSAnimationContext currentContext] setDuration:fadeTime];
+      [[self animator] setAlphaValue:1.0];
+    [NSAnimationContext endGrouping];
+}
+
+- (void)fadeOut:(NSTimeInterval)fadeTime andDelete:(BOOL)deleteCanvas {
+    [NSAnimationContext beginGrouping];
+#if __has_feature(objc_arc)
+      __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
+#else
+      __block ASMCanvasWindow *bself = self;
+#endif
+      [[NSAnimationContext currentContext] setDuration:fadeTime];
+      [[NSAnimationContext currentContext] setCompletionHandler:^{
+          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
+          ASMCanvasWindow *mySelf = bself ;
+          if (mySelf) {
+              if (deleteCanvas) {
+              LuaSkin *skin = [LuaSkin shared] ;
+                  lua_State *L = [skin L] ;
+                  lua_pushcfunction(L, userdata_gc) ;
+                  [skin pushLuaRef:refTable ref:mySelf.selfRef] ;
+                  if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+                      [skin logBreadcrumb:[NSString stringWithFormat:@"%s:error invoking _gc for delete (with fade) method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+                      lua_pop(L, 1) ;
+                      [mySelf close] ;  // the least we can do is close the canvas if an error occurs with __gc
+                  }
+              } else {
+                  [mySelf orderOut:nil];
+                  [mySelf setAlphaValue:1.0];
+              }
+          }
+      }];
+      [[self animator] setAlphaValue:0.0];
+    [NSAnimationContext endGrouping];
+}
+@end
+
+#pragma mark -
+@implementation ASMCanvasView
+- (instancetype)initWithFrame:(NSRect)frameRect {
+    self = [super initWithFrame:frameRect];
+    if (self) {
+        _clickDownRef    = LUA_NOREF;
+        _clickUpRef      = LUA_NOREF;
+        _canvasDefaults  = [[NSMutableDictionary alloc] init] ;
+        _elementList     = [[NSMutableArray alloc] init] ;
+        _canvasTransform = [NSAffineTransform transform] ;
+    }
+    return self;
+}
+
+- (BOOL)isFlipped { return YES; }
+
+- (BOOL)acceptsFirstMouse:(__unused NSEvent *)theEvent {
+    if (self.window == nil) return NO;
+    return !self.window.ignoresMouseEvents;
+}
+
+- (void)mouseDown:(NSEvent *)theEvent {
+    [NSApp preventWindowOrdering];
+    BOOL isDown = (theEvent.type == NSLeftMouseDown)  ||
+                  (theEvent.type == NSRightMouseDown) ||
+                  (theEvent.type == NSOtherMouseDown) ;
+    int callbackRef = isDown ? _clickDownRef : _clickUpRef ;
+
+    if (callbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared];
+        [skin pushLuaRef:refTable ref:callbackRef];
+        [skin pushLuaRef:refTable ref:((ASMCanvasWindow *)self.window).selfRef] ;
+        if (![skin protectedCallAndTraceback:1 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s:clickCallback %s callback error: %s",
+                                                      USERDATA_TAG,
+                                                      (isDown ? "mouseDown" : "mouseUp"),
+                                                      lua_tostring(skin.L, -1)]];
+            lua_pop(skin.L, 1) ;
+        }
+    }
+}
+
+- (void)rightMouseDown:(NSEvent *)theEvent { [self mouseDown:theEvent] ; }
+- (void)otherMouseDown:(NSEvent *)theEvent { [self mouseDown:theEvent] ; }
+- (void)mouseUp:(NSEvent *)theEvent        { [self mouseDown:theEvent] ; }
+- (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
+- (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
+
+- (void)drawRect:(__unused NSRect)rect {
+    NSDisableScreenUpdates() ;
+
+    NSGraphicsContext* gc = [NSGraphicsContext currentContext];
+    [gc saveGraphicsState];
+
+    [_canvasTransform concat] ;
+
+    [NSBezierPath setDefaultLineWidth:[[self getDefaultValueFor:@"strokeWidth" onlyIfSet:NO] doubleValue]] ;
+    [NSBezierPath setDefaultMiterLimit:[[self getDefaultValueFor:@"miterLimit" onlyIfSet:NO] doubleValue]] ;
+    [NSBezierPath setDefaultFlatness:[[self getDefaultValueFor:@"flatness" onlyIfSet:NO] doubleValue]] ;
+
+    NSString *LJS = [self getDefaultValueFor:@"strokeJoinStyle" onlyIfSet:NO] ;
+    [NSBezierPath setDefaultLineJoinStyle:[STROKE_JOIN_STYLES[LJS] unsignedIntValue]] ;
+
+    NSString *LCS = [self getDefaultValueFor:@"strokeCapStyle" onlyIfSet:NO] ;
+    [NSBezierPath setDefaultLineJoinStyle:[STROKE_CAP_STYLES[LCS] unsignedIntValue]] ;
+
+    NSString *WR = [self getDefaultValueFor:@"windingRule" onlyIfSet:NO] ;
+    [NSBezierPath setDefaultWindingRule:[WINDING_RULES[WR] unsignedIntValue]] ;
+
+    NSString *CS = [self getDefaultValueFor:@"compositeRule" onlyIfSet:NO] ;
+    gc.compositingOperation = [COMPOSITING_TYPES[CS] unsignedIntValue] ;
+
+    [[self getDefaultValueFor:@"antialias" onlyIfSet:NO] boolValue] ;
+    [[self getDefaultValueFor:@"fillColor" onlyIfSet:NO] setFill] ;
+    [[self getDefaultValueFor:@"strokeColor" onlyIfSet:NO] setStroke] ;
+
+    __block BOOL clippingModified = NO ;
+
+    __block NSBezierPath *renderPath ;
+    [_elementList enumerateObjectsUsingBlock:^(NSDictionary *element, NSUInteger idx, __unused BOOL *stop) {
+        NSBezierPath *elementPath ;
+        NSString     *elementType = element[@"type"] ;
+        NSString     *action      = [self getElementValueFor:@"action" atIndex:idx] ;
+
+        BOOL wasClippingChanged = NO ; // necessary to keep graphicsState stack properly ordered
+
+        [gc saveGraphicsState] ;
+
+        BOOL hasShadow = [[self getElementValueFor:@"withShadow" atIndex:idx] boolValue] ;
+        if (hasShadow) [(NSShadow *)[self getElementValueFor:@"shadow" atIndex:idx] set] ;
+
+        NSNumber *shouldAntialias = [self getElementValueFor:@"antialias" atIndex:idx onlyIfSet:YES] ;
+        if (shouldAntialias) gc.shouldAntialias = [shouldAntialias boolValue] ;
+
+        NSString *compositingString = [self getElementValueFor:@"compositeRule" atIndex:idx onlyIfSet:YES] ;
+        if (compositingString) gc.compositingOperation = [COMPOSITING_TYPES[compositingString] unsignedIntValue] ;
+
+        NSColor *fillColor = [self getElementValueFor:@"fillColor" atIndex:idx onlyIfSet:YES] ;
+        if (fillColor) [fillColor setFill] ;
+
+        NSColor *strokeColor = [self getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
+        if (strokeColor) [strokeColor setFill] ;
+
+        NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx onlyIfSet:YES] ;
+        if (elementTransform) [elementTransform concat] ;
+
+        NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+        NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                       [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+
+
+        if ([elementType isEqualToString:@"arc"]) {
+            NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
+            CGFloat cx = [center[@"x"] doubleValue] ;
+            CGFloat cy = [center[@"y"] doubleValue] ;
+            CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
+            NSPoint myCenterPoint = NSMakePoint(cx, cy) ;
+            elementPath = [NSBezierPath bezierPath];
+            CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
+            CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
+            BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
+            BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
+            if (arcLegs) [elementPath moveToPoint:myCenterPoint] ;
+            [elementPath appendBezierPathWithArcWithCenter:myCenterPoint
+                                                    radius:r
+                                                startAngle:startAngle
+                                                  endAngle:endAngle
+                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
+            ] ;
+            if (arcLegs) [elementPath lineToPoint:myCenterPoint] ;
+        } else
+        if ([elementType isEqualToString:@"circle"]) {
+            NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
+            CGFloat cx = [center[@"x"] doubleValue] ;
+            CGFloat cy = [center[@"y"] doubleValue] ;
+            CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
+            elementPath = [NSBezierPath bezierPath];
+            [elementPath appendBezierPathWithOvalInRect:NSMakeRect(cx - r, cy - r, r * 2, r * 2)] ;
+        } else
+        if ([elementType isEqualToString:@"ellipticalArc"]) {
+            CGFloat cx     = frameRect.origin.x + frameRect.size.width / 2 ;
+            CGFloat cy     = frameRect.origin.y + frameRect.size.height / 2 ;
+            CGFloat r      = frameRect.size.width / 2 ;
+
+            NSAffineTransform *moveTransform = [NSAffineTransform transform] ;
+            [moveTransform translateXBy:cx yBy:cy] ;
+            NSAffineTransform *scaleTransform = [NSAffineTransform transform] ;
+            [scaleTransform scaleXBy:1.0 yBy:(frameRect.size.height / frameRect.size.width)] ;
+            NSAffineTransform *finalTransform = [[NSAffineTransform alloc] initWithTransform:scaleTransform] ;
+            [finalTransform appendTransform:moveTransform] ;
+            elementPath = [NSBezierPath bezierPath];
+            CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
+            CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
+            BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
+            BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
+            if (arcLegs) [elementPath moveToPoint:NSZeroPoint] ;
+            [elementPath appendBezierPathWithArcWithCenter:NSZeroPoint
+                                                    radius:r
+                                                startAngle:startAngle
+                                                  endAngle:endAngle
+                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
+            ] ;
+            if (arcLegs) [elementPath lineToPoint:NSZeroPoint] ;
+            elementPath = [finalTransform transformBezierPath:elementPath] ;
+        } else
+        if ([elementType isEqualToString:@"image"]) {
+            if (![action isEqualTo:@"skip"]) {
+// to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
+                NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
+                if (theImage) [theImage drawInRect:frameRect] ;
+                elementPath = nil ; // shouldn't be necessary, but lets be explicit
+            }
+        } else
+        if ([elementType isEqualToString:@"text"]) {
+            if (![action isEqualTo:@"skip"]) {
+                id textEntry = [self getElementValueFor:@"text" atIndex:idx onlyIfSet:YES] ;
+                if (!textEntry) {
+                    textEntry = @"" ;
+                } else if([textEntry isKindOfClass:[NSNumber class]]) {
+                    textEntry = [(NSNumber *)textEntry stringValue] ;
+                }
+
+                if ([textEntry isKindOfClass:[NSString class]]) {
+                    NSString *myFont = [self getElementValueFor:@"textFont" atIndex:idx onlyIfSet:NO] ;
+                    NSNumber *mySize = [self getElementValueFor:@"textSize" atIndex:idx onlyIfSet:NO] ;
+                    NSDictionary *attributes = @{
+                        NSForegroundColorAttributeName : [self getElementValueFor:@"textColor" atIndex:idx onlyIfSet:NO],
+                        NSFontAttributeName            : [NSFont fontWithName:myFont size:[mySize doubleValue]],
+                    } ;
+                    [(NSString *)textEntry drawInRect:frameRect withAttributes:attributes] ;
+                } else {
+                    [(NSAttributedString *)textEntry drawInRect:frameRect] ;
+                }
+                elementPath = nil ; // shouldn't be necessary, but lets be explicit
+            }
+        } else
+        if ([elementType isEqualToString:@"oval"]) {
+            elementPath = [NSBezierPath bezierPath];
+            [elementPath appendBezierPathWithOvalInRect:frameRect] ;
+        } else
+        if ([elementType isEqualToString:@"rectangle"]) {
+            elementPath = [NSBezierPath bezierPath];
+            NSDictionary *roundedRect = [self getElementValueFor:@"roundedRectRadii" atIndex:idx] ;
+            [elementPath appendBezierPathWithRoundedRect:frameRect
+                                              xRadius:[roundedRect[@"xRadius"] doubleValue]
+                                              yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
+        } else
+//         if ([elementType isEqualToString:@"line"]) {
+//         } else
+//         if ([elementType isEqualToString:@"curve"]) {
+//         } else
+//         if ([elementType isEqualToString:@"point"]) {
+//         } else
+//         if ([elementType isEqualToString:@"segments"]) {
+//         } else
+        if ([elementType isEqualToString:@"resetClip"]) {
+            if (![action isEqualTo:@"skip"]) {
+                [gc restoreGraphicsState] ; // from beginning of enumeration
+                wasClippingChanged = YES ;
+                if (clippingModified) {
+                    [gc restoreGraphicsState] ; // from clip action
+                    clippingModified = NO ;
+                } else {
+                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - un-nested resetClip at index %lu", USERDATA_TAG, idx + 1]] ;
+                }
+                elementPath = nil ; // shouldn't be necessary, but lets be explicit
+            }
+        } else
+        {
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
+        }
+
+        if (elementPath) {
+            NSNumber *miterLimit = [self getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
+            if (miterLimit) elementPath.miterLimit = [miterLimit doubleValue] ;
+
+            NSNumber *flatness = [self getElementValueFor:@"flatness" atIndex:idx onlyIfSet:YES] ;
+            if (flatness) elementPath.flatness = [flatness doubleValue] ;
+
+            if ([[self getElementValueFor:@"flattenPath" atIndex:idx] boolValue]) {
+                elementPath = elementPath.bezierPathByFlatteningPath ;
+            }
+            if ([[self getElementValueFor:@"reversePath" atIndex:idx] boolValue]) {
+                elementPath = elementPath.bezierPathByReversingPath ;
+            }
+
+            NSString *windingRule = [self getElementValueFor:@"windingRule" atIndex:idx onlyIfSet:YES] ;
+            if (windingRule) elementPath.windingRule = [WINDING_RULES[windingRule] unsignedIntValue] ;
+
+            if (renderPath) {
+                [renderPath appendBezierPath:elementPath] ;
+            } else {
+                renderPath = elementPath ;
+            }
+
+            if ([action isEqualToString:@"clip"]) {
+                [gc restoreGraphicsState] ; // from beginning of enumeration
+                wasClippingChanged = YES ;
+                if (!clippingModified) {
+                    [gc saveGraphicsState] ;
+                    clippingModified = YES ;
+                }
+                [renderPath addClip] ;
+                renderPath = nil ;
+
+            } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
+                if ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"]) {
+                    NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
+                    if (![fillGradient isEqualToString:@"none"]) {
+                        NSDictionary *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
+                        NSColor      *startColor     = gradientColors[@"startColor"] ;
+                        NSColor      *endColor       = gradientColors[@"endColor"] ;
+                        if ([fillGradient isEqualToString:@"linear"]) {
+                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
+                            [gradient drawInBezierPath:renderPath angle:[[self getElementValueFor:@"fillGradientAngle" atIndex:idx] doubleValue]] ;
+                        } else if ([fillGradient isEqualToString:@"radial"]) {
+                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
+                            NSDictionary *centerPoint = [self getElementValueFor:@"fillGradientCenter" atIndex:idx] ;
+                            [gradient drawInBezierPath:renderPath
+                                relativeCenterPosition:NSMakePoint([centerPoint[@"x"] doubleValue], [centerPoint[@"y"] doubleValue])] ;
+                        }
+                    } else {
+                        [renderPath fill] ;
+                    }
+                }
+
+                if ([action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
+                    NSNumber *strokeWidth = [self getElementValueFor:@"strokeWidth" atIndex:idx onlyIfSet:YES] ;
+                    if (strokeWidth) renderPath.lineWidth  = [strokeWidth doubleValue] ;
+
+                    NSString *lineJoinStyle = [self getElementValueFor:@"strokeJoinStyle" atIndex:idx onlyIfSet:YES] ;
+                    if (lineJoinStyle) renderPath.lineJoinStyle = [STROKE_JOIN_STYLES[lineJoinStyle] unsignedIntValue] ;
+
+                    NSString *lineCapStyle = [self getElementValueFor:@"strokeCapStyle" atIndex:idx onlyIfSet:YES] ;
+                    if (lineCapStyle) renderPath.lineCapStyle = [STROKE_CAP_STYLES[lineCapStyle] unsignedIntValue] ;
+
+                    NSArray *strokeDashes = [self getElementValueFor:@"strokeDashPattern" atIndex:idx onlyIfSet:YES] ;
+                    if ([strokeDashes count] > 0) {
+                        NSUInteger count = [strokeDashes count] ;
+                        CGFloat    phase = [[self getElementValueFor:@"strokeDashPhase" atIndex:idx] doubleValue] ;
+                        CGFloat *pattern ;
+                        pattern = (CGFloat *)malloc(sizeof(CGFloat) * count) ;
+                        if (pattern) {
+                            for (NSUInteger i = 0 ; i < count ; i++) {
+                                pattern[i] = [strokeDashes[i] doubleValue] ;
+                            }
+                            [renderPath setLineDash:pattern count:(NSInteger)count phase:phase];
+                            free(pattern) ;
+                        }
+                    }
+
+                    [renderPath stroke] ;
+                }
+
+                renderPath = nil ;
+            } else if ([action isEqualToString:@"skip"]) {
+                renderPath = nil ;
+            } else if (![action isEqualToString:@"build"]) {
+                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized action %@ at index %lu", USERDATA_TAG, action, idx + 1]] ;
+            }
+        }
+        // to keep nesting correct, this was already done if we adjusted clipping this round
+        if (!wasClippingChanged) [gc restoreGraphicsState] ;
+    }] ;
+
+    if (clippingModified) [gc restoreGraphicsState] ; // balance our saves
+
+    [gc restoreGraphicsState];
+    NSEnableScreenUpdates() ;
 }
 
 // To facilitate the way frames and points are specified, we get our tables from lua with the LS_NSRawTables option... this forces rect-tables and point-tables to be just that - tables, but also prevents color tables, styledtext tables, and transform tables from being converted... so we add fixes for them here...
@@ -965,7 +1262,7 @@ static int userdata_gc(lua_State* L) ;
                 break ;
         }
     }
-    self.contentView.needsDisplay = true ;
+    self.needsDisplay = true ;
     return validityStatus ;
 }
 
@@ -1122,365 +1419,8 @@ static int userdata_gc(lua_State* L) ;
             [LuaSkin logWarn:@"unexpected validity status returned; notify developers"] ;
             break ;
     }
-    self.contentView.needsDisplay = true ;
+    self.needsDisplay = true ;
     return validityStatus ;
-}
-
-#pragma mark - NSWindowDelegate Methods
-
-- (BOOL)windowShouldClose:(id __unused)sender {
-    return NO;
-}
-
-#pragma mark - Window Animation Methods
-
-- (void)fadeIn:(NSTimeInterval)fadeTime {
-    [self setAlphaValue:0.0];
-    [self makeKeyAndOrderFront:nil];
-    [NSAnimationContext beginGrouping];
-      [[NSAnimationContext currentContext] setDuration:fadeTime];
-      [[self animator] setAlphaValue:1.0];
-    [NSAnimationContext endGrouping];
-}
-
-- (void)fadeOut:(NSTimeInterval)fadeTime andDelete:(BOOL)deleteCanvas {
-    [NSAnimationContext beginGrouping];
-#if __has_feature(objc_arc)
-      __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
-#else
-      __block ASMCanvasWindow *bself = self;
-#endif
-      [[NSAnimationContext currentContext] setDuration:fadeTime];
-      [[NSAnimationContext currentContext] setCompletionHandler:^{
-          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-          ASMCanvasWindow *mySelf = bself ;
-          if (mySelf) {
-              if (deleteCanvas) {
-              LuaSkin *skin = [LuaSkin shared] ;
-                  lua_State *L = [skin L] ;
-                  lua_pushcfunction(L, userdata_gc) ;
-                  [skin pushLuaRef:refTable ref:mySelf.selfRef] ;
-                  if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-                      [skin logBreadcrumb:[NSString stringWithFormat:@"%s:error invoking _gc for delete (with fade) method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
-                      lua_pop(L, 1) ;
-                      [mySelf close] ;  // the least we can do is close the canvas if an error occurs with __gc
-                  }
-              } else {
-                  [mySelf orderOut:nil];
-                  [mySelf setAlphaValue:1.0];
-              }
-          }
-      }];
-      [[self animator] setAlphaValue:0.0];
-    [NSAnimationContext endGrouping];
-}
-@end
-
-#pragma mark -
-@implementation ASMCanvasView
-- (instancetype)initWithFrame:(NSRect)frameRect {
-    self = [super initWithFrame:frameRect];
-    if (self) {
-        _clickDownRef    = LUA_NOREF;
-        _clickUpRef      = LUA_NOREF;
-    }
-    return self;
-}
-
-- (BOOL)isFlipped { return YES; }
-
-- (BOOL)acceptsFirstMouse:(__unused NSEvent *)theEvent {
-    if (self.window == nil) return NO;
-    return !self.window.ignoresMouseEvents;
-}
-
-- (void)mouseDown:(NSEvent *)theEvent {
-    [NSApp preventWindowOrdering];
-    BOOL isDown = (theEvent.type == NSLeftMouseDown)  ||
-                  (theEvent.type == NSRightMouseDown) ||
-                  (theEvent.type == NSOtherMouseDown) ;
-    int callbackRef = isDown ? _clickDownRef : _clickUpRef ;
-
-    if (callbackRef != LUA_NOREF) {
-        LuaSkin *skin = [LuaSkin shared];
-        [skin pushLuaRef:refTable ref:callbackRef];
-        [skin pushLuaRef:refTable ref:((ASMCanvasWindow *)self.window).selfRef] ;
-        if (![skin protectedCallAndTraceback:1 nresults:0]) {
-            [skin logError:[NSString stringWithFormat:@"%s:clickCallback %s callback error: %s",
-                                                      USERDATA_TAG,
-                                                      (isDown ? "mouseDown" : "mouseUp"),
-                                                      lua_tostring(skin.L, -1)]];
-            lua_pop(skin.L, 1) ;
-        }
-    }
-}
-
-- (void)rightMouseDown:(NSEvent *)theEvent { [self mouseDown:theEvent] ; }
-- (void)otherMouseDown:(NSEvent *)theEvent { [self mouseDown:theEvent] ; }
-- (void)mouseUp:(NSEvent *)theEvent        { [self mouseDown:theEvent] ; }
-- (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
-- (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
-
-- (void)drawRect:(__unused NSRect)rect {
-    NSDisableScreenUpdates() ;
-    ASMCanvasWindow *myWindow = (ASMCanvasWindow *)self.window ;
-
-    NSGraphicsContext* gc = [NSGraphicsContext currentContext];
-    [gc saveGraphicsState];
-
-    [NSBezierPath setDefaultLineWidth:[[myWindow getDefaultValueFor:@"strokeWidth" onlyIfSet:NO] doubleValue]] ;
-    [NSBezierPath setDefaultMiterLimit:[[myWindow getDefaultValueFor:@"miterLimit" onlyIfSet:NO] doubleValue]] ;
-    [NSBezierPath setDefaultFlatness:[[myWindow getDefaultValueFor:@"flatness" onlyIfSet:NO] doubleValue]] ;
-
-    NSString *LJS = [myWindow getDefaultValueFor:@"strokeJoinStyle" onlyIfSet:NO] ;
-    [NSBezierPath setDefaultLineJoinStyle:[STROKE_JOIN_STYLES[LJS] unsignedIntValue]] ;
-
-    NSString *LCS = [myWindow getDefaultValueFor:@"strokeCapStyle" onlyIfSet:NO] ;
-    [NSBezierPath setDefaultLineJoinStyle:[STROKE_CAP_STYLES[LCS] unsignedIntValue]] ;
-
-    NSString *WR = [myWindow getDefaultValueFor:@"windingRule" onlyIfSet:NO] ;
-    [NSBezierPath setDefaultWindingRule:[WINDING_RULES[WR] unsignedIntValue]] ;
-
-    NSString *CS = [myWindow getDefaultValueFor:@"compositeRule" onlyIfSet:NO] ;
-    gc.compositingOperation = [COMPOSITING_TYPES[CS] unsignedIntValue] ;
-
-    [[myWindow getDefaultValueFor:@"antialias" onlyIfSet:NO] boolValue] ;
-    [[myWindow getDefaultValueFor:@"fillColor" onlyIfSet:NO] setFill] ;
-    [[myWindow getDefaultValueFor:@"strokeColor" onlyIfSet:NO] setStroke] ;
-
-    __block BOOL clippingModified = NO ;
-
-    __block NSBezierPath *renderPath ;
-    [myWindow.elementList enumerateObjectsUsingBlock:^(NSDictionary *element, NSUInteger idx, __unused BOOL *stop) {
-        NSBezierPath *elementPath ;
-        NSString     *elementType = element[@"type"] ;
-
-        if ([elementType isEqualToString:@"arc"]) {
-            NSDictionary *center = [myWindow getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
-            CGFloat cx = [center[@"x"] doubleValue] ;
-            CGFloat cy = [center[@"y"] doubleValue] ;
-            CGFloat r  = [[myWindow getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
-            NSPoint myCenterPoint = NSMakePoint(cx, cy) ;
-            elementPath = [NSBezierPath bezierPath];
-            CGFloat startAngle = [[myWindow getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
-            CGFloat endAngle   = [[myWindow getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
-            BOOL    arcDir     = [[myWindow getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
-            BOOL    arcLegs    = [[myWindow getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
-            if (arcLegs) [elementPath moveToPoint:myCenterPoint] ;
-            [elementPath appendBezierPathWithArcWithCenter:myCenterPoint
-                                                    radius:r
-                                                startAngle:startAngle
-                                                  endAngle:endAngle
-                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
-            ] ;
-            if (arcLegs) [elementPath lineToPoint:myCenterPoint] ;
-        } else
-        if ([elementType isEqualToString:@"circle"]) {
-            NSDictionary *center = [myWindow getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
-            CGFloat cx = [center[@"x"] doubleValue] ;
-            CGFloat cy = [center[@"y"] doubleValue] ;
-            CGFloat r  = [[myWindow getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
-            elementPath = [NSBezierPath bezierPath];
-            [elementPath appendBezierPathWithOvalInRect:NSMakeRect(cx - r, cy - r, r * 2, r * 2)] ;
-        } else
-        if ([elementType isEqualToString:@"ellipticalArc"]) {
-            NSDictionary *frame = [myWindow getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-            NSRect  myRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                        [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
-            CGFloat cx     = myRect.origin.x + myRect.size.width / 2 ;
-            CGFloat cy     = myRect.origin.y + myRect.size.height / 2 ;
-            CGFloat r      = myRect.size.width / 2 ;
-
-            NSAffineTransform *moveTransform = [NSAffineTransform transform] ;
-            [moveTransform translateXBy:cx yBy:cy] ;
-            NSAffineTransform *scaleTransform = [NSAffineTransform transform] ;
-            [scaleTransform scaleXBy:1.0 yBy:(myRect.size.height / myRect.size.width)] ;
-            NSAffineTransform *finalTransform = [[NSAffineTransform alloc] initWithTransform:scaleTransform] ;
-            [finalTransform appendTransform:moveTransform] ;
-            elementPath = [NSBezierPath bezierPath];
-            CGFloat startAngle = [[myWindow getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
-            CGFloat endAngle   = [[myWindow getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
-            BOOL    arcDir     = [[myWindow getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
-            BOOL    arcLegs    = [[myWindow getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
-            if (arcLegs) [elementPath moveToPoint:NSZeroPoint] ;
-            [elementPath appendBezierPathWithArcWithCenter:NSZeroPoint
-                                                    radius:r
-                                                startAngle:startAngle
-                                                  endAngle:endAngle
-                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
-            ] ;
-            if (arcLegs) [elementPath lineToPoint:NSZeroPoint] ;
-            elementPath = [finalTransform transformBezierPath:elementPath] ;
-        } else
-//         if ([elementType isEqualToString:@"line"]) {
-//         } else
-//         if ([elementType isEqualToString:@"image"]) {
-//         } else
-//         if ([elementType isEqualToString:@"text"]) {
-//         } else
-        if ([elementType isEqualToString:@"oval"]) {
-            elementPath = [NSBezierPath bezierPath];
-            NSDictionary *frame = [myWindow getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-            [elementPath appendBezierPathWithOvalInRect:NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                                                 [frame[@"w"] doubleValue], [frame[@"h"] doubleValue])] ;
-        } else
-        if ([elementType isEqualToString:@"rectangle"]) {
-            elementPath = [NSBezierPath bezierPath];
-            NSDictionary *frame       = [myWindow getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-            NSDictionary *roundedRect = [myWindow getElementValueFor:@"roundedRectRadii" atIndex:idx] ;
-            [elementPath appendBezierPathWithRoundedRect:NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                                                 [frame[@"w"] doubleValue], [frame[@"h"] doubleValue])
-                                              xRadius:[roundedRect[@"xRadius"] doubleValue]
-                                              yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
-        } else
-//         if ([elementType isEqualToString:@"curve"]) {
-//         } else
-//         if ([elementType isEqualToString:@"point"]) {
-//         } else
-//         if ([elementType isEqualToString:@"segments"]) {
-//         } else
-        if ([elementType isEqualToString:@"resetClip"]) {
-            if (![[myWindow getElementValueFor:@"action" atIndex:idx] isEqualTo:@"skip"]) {
-                if (clippingModified) {
-                    [gc restoreGraphicsState] ;
-                    clippingModified = NO ;
-                } else {
-                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - un-nested resetClip at index %lu", USERDATA_TAG, idx]] ;
-                }
-                elementPath = nil ; // shouldn't be necessary, but lets be explicit
-            }
-        } else
-        {
-            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx]] ;
-        }
-
-        if (elementPath) {
-
-            NSAffineTransform *elementTransform = [myWindow getElementValueFor:@"transformation" atIndex:idx onlyIfSet:YES] ;
-            if (elementTransform) [elementPath transformUsingAffineTransform:elementTransform] ;
-
-            NSNumber *miterLimit = [myWindow getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
-            if (miterLimit) elementPath.miterLimit = [miterLimit doubleValue] ;
-
-            NSNumber *flatness = [myWindow getElementValueFor:@"flatness" atIndex:idx onlyIfSet:YES] ;
-            if (flatness) elementPath.flatness = [flatness doubleValue] ;
-
-            if ([[myWindow getElementValueFor:@"flattenPath" atIndex:idx] boolValue]) {
-                elementPath = elementPath.bezierPathByFlatteningPath ;
-            }
-            if ([[myWindow getElementValueFor:@"reversePath" atIndex:idx] boolValue]) {
-                elementPath = elementPath.bezierPathByReversingPath ;
-            }
-
-            NSString *windingRule = [myWindow getElementValueFor:@"windingRule" atIndex:idx onlyIfSet:YES] ;
-            if (windingRule) elementPath.windingRule = [WINDING_RULES[windingRule] unsignedIntValue] ;
-
-            if (renderPath) {
-                [renderPath appendBezierPath:elementPath] ;
-            } else {
-                renderPath = elementPath ;
-            }
-
-            NSString *action = [myWindow getElementValueFor:@"action" atIndex:idx] ;
-
-            if ([action isEqualToString:@"clip"]) {
-                if (!clippingModified) {
-                    [gc saveGraphicsState] ;
-                    clippingModified = YES ;
-                }
-                [renderPath addClip] ;
-                renderPath = nil ;
-
-            } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
-                [gc saveGraphicsState] ;
-
-                BOOL hasShadow = [[myWindow getElementValueFor:@"withShadow" atIndex:idx] boolValue] ;
-
-                NSNumber *shouldAntialias = [myWindow getElementValueFor:@"antialias" atIndex:idx onlyIfSet:YES] ;
-                if (shouldAntialias) gc.shouldAntialias = [shouldAntialias boolValue] ;
-
-                NSString *compositingString = [myWindow getElementValueFor:@"compositeRule" atIndex:idx onlyIfSet:YES] ;
-                if (compositingString) gc.compositingOperation = [COMPOSITING_TYPES[compositingString] unsignedIntValue] ;
-
-                if ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"]) {
-                    if (hasShadow) {
-                        [gc saveGraphicsState] ;
-                        [(NSShadow *)[myWindow getElementValueFor:@"shadow" atIndex:idx] set] ;
-                    }
-                    NSString     *fillGradient   = [myWindow getElementValueFor:@"fillGradient" atIndex:idx] ;
-                    if (![fillGradient isEqualToString:@"none"]) {
-                        NSDictionary *gradientColors = [myWindow getElementValueFor:@"fillGradientColors" atIndex:idx] ;
-                        NSColor      *startColor     = gradientColors[@"startColor"] ;
-                        NSColor      *endColor       = gradientColors[@"endColor"] ;
-                        if ([fillGradient isEqualToString:@"linear"]) {
-                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
-                            [gradient drawInBezierPath:renderPath angle:[[myWindow getElementValueFor:@"fillGradientAngle" atIndex:idx] doubleValue]] ;
-                        } else if ([fillGradient isEqualToString:@"radial"]) {
-                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
-                            NSDictionary *centerPoint = [myWindow getElementValueFor:@"fillGradientCenter" atIndex:idx] ;
-                            [gradient drawInBezierPath:renderPath
-                                relativeCenterPosition:NSMakePoint([centerPoint[@"x"] doubleValue], [centerPoint[@"y"] doubleValue])] ;
-                        }
-                    } else {
-                        NSColor *fillColor = [myWindow getElementValueFor:@"fillColor" atIndex:idx onlyIfSet:YES] ;
-                        if (fillColor) [fillColor setFill] ;
-                        [renderPath fill] ;
-                    }
-                    if (hasShadow) {
-                        [gc restoreGraphicsState] ;
-                    }
-                }
-
-                if ([action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
-                    if ([action isEqualToString:@"stroke"] && hasShadow) {
-// if we're only stroking, then go ahead with the shadow, but since the very next thing is to reset the
-// graphics state, we don't need to save it first
-//                        [gc saveGraphicsState] ;
-                        [(NSShadow *)[myWindow getElementValueFor:@"shadow" atIndex:idx] set] ;
-                    }
-                    NSNumber *strokeWidth = [myWindow getElementValueFor:@"strokeWidth" atIndex:idx onlyIfSet:YES] ;
-                    if (strokeWidth) renderPath.lineWidth  = [strokeWidth doubleValue] ;
-
-                    NSString *lineJoinStyle = [myWindow getElementValueFor:@"strokeJoinStyle" atIndex:idx onlyIfSet:YES] ;
-                    if (lineJoinStyle) renderPath.lineJoinStyle = [STROKE_JOIN_STYLES[lineJoinStyle] unsignedIntValue] ;
-
-                    NSString *lineCapStyle = [myWindow getElementValueFor:@"strokeCapStyle" atIndex:idx onlyIfSet:YES] ;
-                    if (lineCapStyle) renderPath.lineCapStyle = [STROKE_CAP_STYLES[lineCapStyle] unsignedIntValue] ;
-
-                    NSArray *strokeDashes = [myWindow getElementValueFor:@"strokeDashPattern" atIndex:idx onlyIfSet:YES] ;
-                    if ([strokeDashes count] > 0) {
-                        NSUInteger count = [strokeDashes count] ;
-                        CGFloat    phase = [[myWindow getElementValueFor:@"strokeDashPhase" atIndex:idx] doubleValue] ;
-                        CGFloat *pattern ;
-                        pattern = (CGFloat *)malloc(sizeof(CGFloat) * count) ;
-                        if (pattern) {
-                            for (NSUInteger i = 0 ; i < count ; i++) {
-                                pattern[i] = [strokeDashes[i] doubleValue] ;
-                            }
-                            [renderPath setLineDash:pattern count:(NSInteger)count phase:phase];
-                            free(pattern) ;
-                        }
-                    }
-
-                    NSColor *strokeColor = [myWindow getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
-                    if (strokeColor) [strokeColor setFill] ;
-                    [renderPath stroke] ;
-                }
-
-                [gc restoreGraphicsState] ;
-                renderPath = nil ;
-            } else if ([action isEqualToString:@"skip"]) {
-                renderPath = nil ;
-            } else if (![action isEqualToString:@"build"]) {
-                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized action %@ at index %lu", USERDATA_TAG, action, idx]] ;
-            }
-        }
-    }] ;
-
-    if (clippingModified) [gc restoreGraphicsState] ; // balance our saves
-
-    [gc restoreGraphicsState];
-    NSEnableScreenUpdates() ;
 }
 
 @end
@@ -1525,6 +1465,24 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+static int canvas_canvasTransformation(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:canvasView.canvasTransform] ;
+    } else {
+        NSAffineTransform *transform = [NSAffineTransform transform] ;
+        if (lua_type(L, 2) == LUA_TTABLE) transform = [skin luaObjectAtIndex:2 toClass:"NSAffineTransform"] ;
+        canvasView.canvasTransform = transform ;
+        canvasView.needsDisplay = true ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
 
 /// hs._asm.canvas:show([fadeInTime]) -> canvasObject
 /// Method
@@ -1714,6 +1672,8 @@ static int canvas_size(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+
     NSRect oldFrame = canvasWindow.frame;
 
     if (lua_gettop(L) == 1) {
@@ -1725,13 +1685,13 @@ static int canvas_size(lua_State *L) {
         CGFloat xFactor = newFrame.size.width / oldFrame.size.width ;
         CGFloat yFactor = newFrame.size.height / oldFrame.size.height ;
 
-        for (NSUInteger i = 0 ; i < [canvasWindow.elementList count] ; i++) {
-            NSNumber *absPos = [canvasWindow getElementValueFor:@"absolutePosition" atIndex:i] ;
-            NSNumber *absSiz = [canvasWindow getElementValueFor:@"absoluteSize" atIndex:i] ;
+        for (NSUInteger i = 0 ; i < [canvasView.elementList count] ; i++) {
+            NSNumber *absPos = [canvasView getElementValueFor:@"absolutePosition" atIndex:i] ;
+            NSNumber *absSiz = [canvasView getElementValueFor:@"absoluteSize" atIndex:i] ;
             if (absPos && absSiz) {
                 BOOL absolutePosition = absPos ? [absPos boolValue] : YES ;
                 BOOL absoluteSize     = absSiz ? [absSiz boolValue] : YES ;
-                NSMutableDictionary *attributeDefinition = canvasWindow.elementList[i] ;
+                NSMutableDictionary *attributeDefinition = canvasView.elementList[i] ;
                 if (!absolutePosition) {
                     [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
                         if ([(@[ @"center", @"end", @"frame", @"start"]) containsObject:keyName]) {
@@ -2068,13 +2028,14 @@ static int canvas_canvasDefaultFor(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
     NSString *keyName = [skin toNSObjectAtIndex:2] ;
 
     if (!languageDictionary[keyName]) {
         return luaL_argerror(L, 2, "unrecognized attribute name") ;
     }
 
-    id attributeDefault = [canvasWindow getDefaultValueFor:keyName onlyIfSet:NO] ;
+    id attributeDefault = [canvasView getDefaultValueFor:keyName onlyIfSet:NO] ;
     if (!attributeDefault) {
         return luaL_argerror(L, 2, "attribute has no default value") ;
     }
@@ -2084,7 +2045,7 @@ static int canvas_canvasDefaultFor(lua_State *L) {
     } else {
         id keyValue = [skin toNSObjectAtIndex:3 withOptions:LS_NSRawTables] ;
 
-        switch([canvasWindow setDefaultFor:keyName to:keyValue]) {
+        switch([canvasView setDefaultFor:keyName to:keyValue]) {
             case attributeValid:
             case attributeNulling:
                 break ;
@@ -2110,7 +2071,8 @@ static int canvas_insertElementAtIndex(lua_State *L) {
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    NSUInteger      elementCount  = [canvasWindow.elementList count] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
@@ -2121,12 +2083,12 @@ static int canvas_insertElementAtIndex(lua_State *L) {
     if ([element isKindOfClass:[NSDictionary class]]) {
         NSString *elementType = element[@"type"] ;
         if (elementType && [ALL_TYPES containsObject:elementType]) {
-            [canvasWindow.elementList insertObject:[[NSMutableDictionary alloc] init] atIndex:(NSUInteger)tablePosition] ;
+            [canvasView.elementList insertObject:[[NSMutableDictionary alloc] init] atIndex:(NSUInteger)tablePosition] ;
             [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
                 // skip type in here to minimize the need to copy in defaults just to be overwritten
-                if (![keyName isEqualTo:@"type"]) [canvasWindow setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue] ;
+                if (![keyName isEqualTo:@"type"]) [canvasView setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue] ;
             }] ;
-            [canvasWindow setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
+            [canvasView setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
         } else {
             return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid element; type required and must be one of %@", [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
         }
@@ -2134,7 +2096,7 @@ static int canvas_insertElementAtIndex(lua_State *L) {
         return luaL_argerror(L, 2, "invalid element definition; must contain key-value pairs");
     }
 
-    canvasWindow.contentView.needsDisplay = true ;
+    canvasView.needsDisplay = true ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -2145,16 +2107,17 @@ static int canvas_removeElementAtIndex(lua_State *L) {
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    NSUInteger      elementCount  = [canvasWindow.elementList count] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 2) ? (lua_tointeger(L, 2) - 1) : (NSInteger)elementCount - 1 ;
 
     if (tablePosition < 0 || tablePosition >= (NSInteger)elementCount) {
         return luaL_argerror(L, 2, "index out of bounds") ;
     }
 
-    [canvasWindow.elementList removeObjectAtIndex:(NSUInteger)tablePosition] ;
+    [canvasView.elementList removeObjectAtIndex:(NSUInteger)tablePosition] ;
 
-    canvasWindow.contentView.needsDisplay = true ;
+    canvasView.needsDisplay = true ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -2167,10 +2130,13 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
                     LS_TANY | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
     NSString        *keyName      = [skin toNSObjectAtIndex:3] ;
 
-    NSUInteger      elementCount  = [canvasWindow.elementList count] ;
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = lua_tointeger(L, 2) - 1 ;
+
+    BOOL            resolvePercentages = NO ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
         return luaL_argerror(L, 2, "index out of bounds") ;
@@ -2178,18 +2144,25 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
 
     if (!languageDictionary[keyName]) {
         if (lua_gettop(L) == 3) {
-            lua_pushnil(L) ;
-            return 1 ;
+            // check if keyname ends with _raw, if so we get with converted numeric values
+            if ([keyName hasSuffix:@"_raw"]) {
+                keyName = [keyName substringWithRange:NSMakeRange(0, [keyName length] - 4)] ;
+                if (languageDictionary[keyName]) resolvePercentages = YES ;
+            }
+            if (!resolvePercentages) {
+                lua_pushnil(L) ;
+                return 1 ;
+            }
         } else {
             return luaL_argerror(L, 3, "unrecognized attribute name") ;
         }
     }
 
     if (lua_gettop(L) == 3) {
-        [skin pushNSObject:[canvasWindow getElementValueFor:keyName atIndex:(NSUInteger)tablePosition]] ;
+        [skin pushNSObject:[canvasView getElementValueFor:keyName atIndex:(NSUInteger)tablePosition resolvePercentages:resolvePercentages onlyIfSet:NO]] ;
     } else {
         id keyValue = [skin toNSObjectAtIndex:4 withOptions:LS_NSRawTables] ;
-        switch([canvasWindow setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue]) {
+        switch([canvasView setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue]) {
             case attributeValid:
             case attributeNulling:
                 lua_pushvalue(L, 1) ;
@@ -2210,7 +2183,8 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    NSUInteger      elementCount  = [canvasWindow.elementList count] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = lua_tointeger(L, 2) - 1 ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
@@ -2218,9 +2192,9 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
     }
     NSUInteger indexPosition = (NSUInteger)tablePosition ;
 
-    NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasWindow.elementList[indexPosition] allKeys]] ;
+    NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasView.elementList[indexPosition] allKeys]] ;
     if ((lua_gettop(L) == 3) && lua_toboolean(L, 3)) {
-        NSString *ourType = canvasWindow.elementList[indexPosition][@"type"] ;
+        NSString *ourType = canvasView.elementList[indexPosition][@"type"] ;
         [languageDictionary enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, NSDictionary *keyValue, __unused BOOL *stop) {
             if (keyValue[@"optionalFor"] && [keyValue[@"optionalFor"] containsObject:ourType]) {
                 [list addObject:keyName] ;
@@ -2235,7 +2209,8 @@ static int canvas_elementCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    lua_pushinteger(L, (lua_Integer)[canvasWindow.elementList count]) ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    lua_pushinteger(L, (lua_Integer)[canvasView.elementList count]) ;
     return 1 ;
 }
 
@@ -2259,16 +2234,17 @@ static int canvas_canvasDefaults(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
     if ((lua_gettop(L) == 2) && lua_toboolean(L, 2)) {
         lua_newtable(L) ;
         for (NSString *keyName in languageDictionary) {
-            id keyValue = [canvasWindow getDefaultValueFor:keyName onlyIfSet:NO] ;
+            id keyValue = [canvasView getDefaultValueFor:keyName onlyIfSet:NO] ;
             if (keyValue) {
                 [skin pushNSObject:keyValue] ; lua_setfield(L, -2, [keyName UTF8String]) ;
             }
         }
     } else {
-        [skin pushNSObject:canvasWindow.canvasDefaults withOptions:LS_NSDescribeUnknownTypes] ;
+        [skin pushNSObject:canvasView.canvasDefaults withOptions:LS_NSDescribeUnknownTypes] ;
     }
     return 1 ;
 }
@@ -2279,8 +2255,9 @@ static int canvas_canvasDefaultKeys(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
 
-    NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasWindow.canvasDefaults allKeys]] ;
+    NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasView.canvasDefaults allKeys]] ;
     if ((lua_gettop(L) == 3) && lua_toboolean(L, 3)) {
         [languageDictionary enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, NSDictionary *keyValue, __unused BOOL *stop) {
             if (keyValue[@"default"]) {
@@ -2297,7 +2274,8 @@ static int canvas_canvasElements(__unused lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    [skin pushNSObject:canvasWindow.elementList withOptions:LS_NSDescribeUnknownTypes] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    [skin pushNSObject:canvasView.elementList withOptions:LS_NSDescribeUnknownTypes] ;
     return 1 ;
 }
 
@@ -2308,8 +2286,9 @@ static int canvas_assignElementAtIndex(lua_State *L) {
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
 
-    NSUInteger      elementCount  = [canvasWindow.elementList count] ;
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
@@ -2318,7 +2297,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
 
     if (lua_isnil(L, 2)) {
         if (tablePosition == (NSInteger)elementCount - 1) {
-            [canvasWindow.elementList removeLastObject] ;
+            [canvasView.elementList removeLastObject] ;
         } else {
             return luaL_argerror(L, 3, "nil only valid for final element") ;
         }
@@ -2327,12 +2306,12 @@ static int canvas_assignElementAtIndex(lua_State *L) {
         if ([element isKindOfClass:[NSDictionary class]]) {
             NSString *elementType = element[@"type"] ;
             if (elementType && [ALL_TYPES containsObject:elementType]) {
-                canvasWindow.elementList[tablePosition] = [[NSMutableDictionary alloc] init] ;
+                canvasView.elementList[tablePosition] = [[NSMutableDictionary alloc] init] ;
                 [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
                     // skip type in here to minimize the need to copy in defaults just to be overwritten
-                    if (![keyName isEqualTo:@"type"]) [canvasWindow setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue] ;
+                    if (![keyName isEqualTo:@"type"]) [canvasView setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue] ;
                 }] ;
-                [canvasWindow setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
+                [canvasView setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
             } else {
                 return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid element; type required and must be one of %@", [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
             }
@@ -2341,7 +2320,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
         }
     }
 
-    canvasWindow.contentView.needsDisplay = true ;
+    canvasView.needsDisplay = true ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -2498,6 +2477,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"show",               canvas_show},
     {"size",               canvas_size},
     {"topLeft",            canvas_topLeft},
+    {"transformation",     canvas_canvasTransformation},
     {"wantsLayer",         canvas_wantsLayer},
 
     {"__tostring",         userdata_tostring},
@@ -2513,12 +2493,6 @@ static luaL_Reg moduleLib[] = {
 
     {NULL,          NULL}
 };
-
-// // Metatable for module, if needed
-// static const luaL_Reg module_metaLib[] = {
-//     {"__gc", meta_gc},
-//     {NULL,   NULL}
-// };
 
 int luaopen_hs__asm_canvas_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
