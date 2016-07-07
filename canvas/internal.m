@@ -39,9 +39,9 @@ typedef NS_ENUM(NSInteger, attributeValidity) {
     attributeInvalid,
 };
 
-#define ALL_TYPES  @[ @"arc", @"circle", @"curve", @"ellipticalArc", @"image", @"line", @"oval", @"point", @"rectangle", @"resetClip", @"segments", @"text" ]
-#define VISIBLE    @[ @"arc", @"circle", @"curve", @"ellipticalArc", @"image", @"line", @"oval", @"point", @"rectangle", @"segments", @"text" ]
-#define PRIMITIVES @[ @"arc", @"circle", @"curve", @"ellipticalArc", @"line", @"oval", @"point", @"rectangle", @"segments" ]
+#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text" ]
+#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text" ]
+#define PRIMITIVES @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"points", @"rectangle", @"segments" ]
 #define CLOSED     @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"rectangle", @"segments" ]
 
 
@@ -92,14 +92,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"class"       : @[ [NSString class] ],
             @"luaClass"    : @"string",
             @"default"     : @"strokeAndFill",
-            @"values"      : @[
-                                   @"stroke",
-                                   @"fill",
-                                   @"strokeAndFill",
-                                   @"clip",
-                                   @"build",
-                                   @"skip",
-                             ],
+            @"values"      : @[ @"stroke", @"fill", @"strokeAndFill", @"clip", @"build", @"skip" ],
             @"nullable" : @(YES),
             @"optionalFor" : ALL_TYPES,
         },
@@ -171,25 +164,66 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"      : @(NO),
             @"requiredFor"   : @[ @"circle", @"arc" ],
         },
-        @"end" : @{
-            @"class"         : @[ [NSDictionary class] ],
-            @"luaClass"      : @"table",
-            @"keys"          : @{
-                @"x" : @{
-                    @"class"    : @[ [NSString class], [NSNumber class] ],
-                    @"luaClass" : @"number or string",
+        @"closed" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"boolean",
+            @"objCType"    : @(@encode(BOOL)),
+            @"nullable"    : @(NO),
+            @"default"     : @(YES),
+            @"requiredFor" : @[ @"segments" ],
+        },
+        @"coordinates" : @{
+            @"class"           : @[ [NSArray class] ],
+            @"luaClass"        : @"table",
+            @"default"         : @[ ],
+            @"nullable"        : @(NO),
+            @"requiredFor"     : @[ @"segments", @"points" ],
+            @"memberClass"     : [NSDictionary class],
+            @"memberLuaClass"  : @"point table",
+            @"memberClassKeys" : @{
+                @"x"   : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"requiredFor" : @[ @"segments", @"points" ],
+                    @"nullable"    : @(NO),
                 },
-                @"y" : @{
-                    @"class"    : @[ [NSString class], [NSNumber class] ],
-                    @"luaClass" : @"number or string",
+                @"y"   : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"requiredFor" : @[ @"segments", @"points" ],
+                    @"nullable"    : @(NO),
+                },
+                @"c1x" : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"optionalFor" : @[ @"segments" ],
+                    @"nullable"    : @(YES),
+                },
+                @"c1y" : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"optionalFor" : @[ @"segments" ],
+                    @"nullable"    : @(YES),
+                },
+                @"c2x" : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"optionalFor" : @[ @"segments" ],
+                    @"nullable"    : @(YES),
+                },
+                @"c2y" : @{
+                    @"class"       : @[ [NSNumber class], [NSString class] ],
+                    @"luaClass"    : @"number or string",
+                    @"default"     : @"0.0",
+                    @"optionalFor" : @[ @"segments" ],
+                    @"nullable"    : @(YES),
                 },
             },
-            @"default"       : @{
-                                   @"x" : @"100%",
-                                   @"y" : @"100%",
-                               },
-            @"nullable"      : @(NO),
-            @"requiredFor"   : @[ @"line" ],
         },
         @"endAngle" : @{
             @"class"       : @[ [NSNumber class] ],
@@ -382,26 +416,6 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : defaultShadow,
             @"optionalFor" : PRIMITIVES,
         },
-        @"start" : @{
-            @"class"         : @[ [NSDictionary class] ],
-            @"luaClass"      : @"table",
-            @"keys"          : @{
-                @"x" : @{
-                    @"class"    : @[ [NSString class], [NSNumber class] ],
-                    @"luaClass" : @"number or string",
-                },
-                @"y" : @{
-                    @"class"    : @[ [NSString class], [NSNumber class] ],
-                    @"luaClass" : @"number or string",
-                },
-            },
-            @"default"       : @{
-                                   @"x" : @"0%",
-                                   @"y" : @"0%",
-                               },
-            @"nullable"      : @(NO),
-            @"requiredFor"   : @[ @"line" ],
-        },
         @"startAngle" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"number",
@@ -459,7 +473,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"class"       : @[ [NSString class], [NSNumber class], [NSAttributedString class] ],
             @"luaClass"    : @"string or hs.styledText object",
             @"default"     : @"",
-            @"nullable"    : @(NO),
+            @"nullable"    : @(YES),
             @"requiredFor" : @[ @"text" ],
         },
         @"textColor" : @{
@@ -479,7 +493,7 @@ static NSDictionary *defineLanguageDictionary() {
         @"textSize" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"number",
-            @"nullalble"   : @(YES),
+            @"nullable"    : @(YES),
             @"default"     : @(27.0),
             @"optionalFor" : @[ @"text" ],
         },
@@ -556,9 +570,9 @@ static NSDictionary *defineLanguageDictionary() {
     } ;
 }
 
-static attributeValidity isValueValidForAttribute(NSString *keyName, id keyValue) {
-    NSDictionary      *attributeDefinition = languageDictionary[keyName] ;
-    attributeValidity validity = attributeValid ;
+
+static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValue, NSDictionary *attributeDefinition) {
+    __block attributeValidity validity = attributeValid ;
     NSString          *errorMessage ;
     BOOL              checked = NO ;
 
@@ -685,15 +699,22 @@ static attributeValidity isValueValidForAttribute(NSString *keyName, id keyValue
 
         if ([keyValue isKindOfClass:[NSArray class]]) {
             BOOL isGood = YES ;
-            for (NSUInteger i = 0 ; i < [keyValue count] ; i++) {
-                if (![keyValue[i] isKindOfClass:attributeDefinition[@"memberClass"]]) {
-                    isGood = NO ;
+            if ([keyValue count] > 0) {
+                for (NSUInteger i = 0 ; i < [keyValue count] ; i++) {
+                    if (![keyValue[i] isKindOfClass:attributeDefinition[@"memberClass"]]) {
+                        isGood = NO ;
+                        break ;
+                    } else if ([keyValue[i] isKindOfClass:[NSDictionary class]]) {
+                        [keyValue[i] enumerateKeysAndObjectsUsingBlock:^(NSString *subKey, id obj, BOOL *stop) {
+                            validity = isValueValidForDictionary(subKey, obj, attributeDefinition[@"memberClassKeys"][subKey]) ;
+                            if (validity != attributeValid) *stop = YES ;
+                        }] ;
+                    }
+                }
+                if (!isGood) {
+                    errorMessage = [NSString stringWithFormat:@"%@ must be an array of %@ values", keyName, attributeDefinition[@"memberLuaClass"]] ;
                     break ;
                 }
-            }
-            if (!isGood) {
-                errorMessage = [NSString stringWithFormat:@"%@ must be an array of %@ values", keyName, attributeDefinition[@"memberLuaClass"]] ;
-                break ;
             }
         }
     }
@@ -702,6 +723,11 @@ static attributeValidity isValueValidForAttribute(NSString *keyName, id keyValue
         validity = attributeInvalid ;
     }
     return validity ;
+}
+
+static attributeValidity isValueValidForAttribute(NSString *keyName, id keyValue) {
+    NSDictionary      *attributeDefinition = languageDictionary[keyName] ;
+    return isValueValidForDictionary(keyName, keyValue, attributeDefinition) ;
 }
 
 static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
@@ -939,7 +965,7 @@ static int userdata_gc(lua_State* L) ;
         NSColor *strokeColor = [self getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
         if (strokeColor) [strokeColor setFill] ;
 
-        NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx onlyIfSet:YES] ;
+        NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
         if (elementTransform) [elementTransform concat] ;
 
         NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
@@ -1003,7 +1029,7 @@ static int userdata_gc(lua_State* L) ;
         } else
         if ([elementType isEqualToString:@"image"]) {
             if (![action isEqualTo:@"skip"]) {
-// to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
+            // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
                 NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
                 if (theImage) [theImage drawInRect:frameRect] ;
                 elementPath = nil ; // shouldn't be necessary, but lets be explicit
@@ -1043,14 +1069,34 @@ static int userdata_gc(lua_State* L) ;
                                               xRadius:[roundedRect[@"xRadius"] doubleValue]
                                               yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
         } else
-//         if ([elementType isEqualToString:@"line"]) {
+//         if ([elementType isEqualToString:@"points"]) {
 //         } else
-//         if ([elementType isEqualToString:@"curve"]) {
-//         } else
-//         if ([elementType isEqualToString:@"point"]) {
-//         } else
-//         if ([elementType isEqualToString:@"segments"]) {
-//         } else
+        if ([elementType isEqualToString:@"segments"]) {
+            elementPath = [NSBezierPath bezierPath];
+            NSArray *coordinates = [self getElementValueFor:@"coordinates" atIndex:idx resolvePercentages:YES] ;
+
+            [coordinates enumerateObjectsUsingBlock:^(NSDictionary *aPoint, NSUInteger idx2, __unused BOOL *stop2) {
+                NSNumber *xNumber   = aPoint[@"x"] ;
+                NSNumber *yNumber   = aPoint[@"y"] ;
+                NSNumber *c1xNumber = aPoint[@"c1x"] ;
+                NSNumber *c1yNumber = aPoint[@"c1y"] ;
+                NSNumber *c2xNumber = aPoint[@"c2x"] ;
+                NSNumber *c2yNumber = aPoint[@"c2y"] ;
+                BOOL goodForCurve = (c1xNumber) && (c1yNumber) && (c2xNumber) && (c2yNumber) ;
+                if (idx2 == 0) {
+                    [elementPath moveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
+                } else if (!goodForCurve) {
+                    [elementPath lineToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
+                } else {
+                    [elementPath curveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])
+                                controlPoint1:NSMakePoint([c1xNumber doubleValue], [c1yNumber doubleValue])
+                                controlPoint2:NSMakePoint([c2xNumber doubleValue], [c2yNumber doubleValue])] ;
+                }
+            }] ;
+            if ([[self getElementValueFor:@"closed" atIndex:idx] boolValue]) {
+                [elementPath closePath] ;
+            }
+        } else
         if ([elementType isEqualToString:@"resetClip"]) {
             if (![action isEqualTo:@"skip"]) {
                 [gc restoreGraphicsState] ; // from beginning of enumeration
@@ -1298,7 +1344,7 @@ static int userdata_gc(lua_State* L) ;
                 NSNumber *percentage = convertPercentageStringToNumber(foundObject) ;
                 foundObject = [NSNumber numberWithDouble:([percentage doubleValue] * paddedWidth)] ;
             }
-        } else if ([keyName isEqualToString:@"center"] || [keyName isEqualToString:@"end"] || [keyName isEqualToString:@"start"]) {
+        } else if ([keyName isEqualToString:@"center"]) {
             if ([foundObject[@"x"] isKindOfClass:[NSString class]]) {
                 NSNumber *percentage = convertPercentageStringToNumber(foundObject[@"x"]) ;
                 foundObject[@"x"] = [NSNumber numberWithDouble:(padding + [percentage doubleValue] * paddedWidth)] ;
@@ -1324,6 +1370,21 @@ static int userdata_gc(lua_State* L) ;
                 NSNumber *percentage = convertPercentageStringToNumber(foundObject[@"h"]) ;
                 foundObject[@"h"] = [NSNumber numberWithDouble:([percentage doubleValue] * paddedHeight)] ;
             }
+        } else if ([keyName isEqualToString:@"coordinates"]) {
+        // make sure we adjust a copy and not the actual items as defined; this is necessary because the copy above just does the top level element; this attribute is an array of objects unlike above attributes
+            NSMutableArray *ourCopy = [[NSMutableArray alloc] init] ;
+            [(NSMutableArray *)foundObject enumerateObjectsUsingBlock:^(NSMutableDictionary *subItem, NSUInteger idx, __unused BOOL *stop) {
+                NSMutableDictionary *targetItem = [[NSMutableDictionary alloc] init] ;
+                for (NSString *field in @[ @"x", @"y", @"c1x", @"c1y", @"c2x", @"c2y" ]) {
+                    if (subItem[field] && [subItem[field] isKindOfClass:[NSString class]]) {
+                        NSNumber *percentage = convertPercentageStringToNumber(subItem[field]) ;
+                        CGFloat ourPadding = [field hasSuffix:@"x"] ? paddedWidth : paddedHeight ;
+                        targetItem[field] = [NSNumber numberWithDouble:(padding + [percentage doubleValue] * ourPadding)] ;
+                    }
+                }
+                ourCopy[idx] = targetItem ;
+            }] ;
+            foundObject = ourCopy ;
         }
     }
 
@@ -1333,7 +1394,7 @@ static int userdata_gc(lua_State* L) ;
 - (attributeValidity)setElementValueFor:(NSString *)keyName atIndex:(NSUInteger)index to:(id)keyValue {
     if (index > [_elementList count]) return attributeInvalid ;
     keyValue = [self massageKeyValue:keyValue forKey:keyName] ;
-    attributeValidity validityStatus = isValueValidForAttribute(keyName, keyValue) ;
+    __block attributeValidity validityStatus = isValueValidForAttribute(keyName, keyValue) ;
 
     switch (validityStatus) {
         case attributeValid: {
@@ -1346,7 +1407,7 @@ static int userdata_gc(lua_State* L) ;
                         break ;
                     }
                 }
-            } else if ([keyName isEqualToString:@"center"] || [keyName isEqualToString:@"end"] || [keyName isEqualToString:@"start"]) {
+            } else if ([keyName isEqualToString:@"center"]) {
                 if ([keyValue[@"x"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"x"]) ;
                     if (!percentage) {
@@ -1396,7 +1457,39 @@ static int userdata_gc(lua_State* L) ;
                         break ;
                     }
                 }
+            } else if ([keyName isEqualToString:@"coordinates"]) {
+                [(NSMutableArray *)keyValue enumerateObjectsUsingBlock:^(NSMutableDictionary *subItem, NSUInteger idx, BOOL *stop) {
+                    NSMutableSet *seenFields = [[NSMutableSet alloc] init] ;
+                    for (NSString *field in @[ @"x", @"y", @"c1x", @"c1y", @"c2x", @"c2y" ]) {
+                        if (subItem[field]) {
+                            [seenFields addObject:field] ;
+                            if ([subItem[field] isKindOfClass:[NSString class]]) {
+                                NSNumber *percentage = convertPercentageStringToNumber(subItem[field]) ;
+                                if (!percentage) {
+                                    [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field %@ at index %lu of %@", USERDATA_TAG, field, idx + 1, keyName]];
+                                    validityStatus = attributeInvalid ;
+                                    *stop = YES ;
+                                    break ;
+                                }
+                            }
+                        }
+                    }
+                    BOOL goodForPoint = [seenFields containsObject:@"x"] && [seenFields containsObject:@"y"] ;
+                    BOOL goodForCurve = goodForPoint && [seenFields containsObject:@"c1x"] && [seenFields containsObject:@"c1y"] &&
+                                                        [seenFields containsObject:@"c2x"] && [seenFields containsObject:@"c2y"] ;
+                    BOOL partialCurve = ([seenFields containsObject:@"c1x"] || [seenFields containsObject:@"c1y"] ||
+                                        [seenFields containsObject:@"c2x"] || [seenFields containsObject:@"c2y"]) && !goodForCurve ;
+
+                    if (!goodForPoint) {
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:index %lu of %@ does not specify a valid point or curve with control points", USERDATA_TAG, idx + 1, keyName]];
+                        validityStatus = attributeInvalid ;
+                    } else if (goodForPoint && partialCurve) {
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:index %lu of %@ does not contain complete curve control points; treating as a singular point", USERDATA_TAG, idx + 1, keyName]];
+                    }
+                }] ;
+                if (validityStatus == attributeInvalid) break ;
             }
+
             _elementList[index][keyName] = keyValue ;
             if ([keyName isEqualToString:@"type"]) {
                 // add defaults, if not already present, for type (recurse into this method as needed)
@@ -1694,13 +1787,23 @@ static int canvas_size(lua_State *L) {
                 NSMutableDictionary *attributeDefinition = canvasView.elementList[i] ;
                 if (!absolutePosition) {
                     [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
-                        if ([(@[ @"center", @"end", @"frame", @"start"]) containsObject:keyName]) {
+                        if ([keyName isEqualToString:@"center"] || [keyName isEqualToString:@"frame"]) {
                             if ([keyValue[@"x"] isKindOfClass:[NSNumber class]]) {
                                 keyValue[@"x"] = [NSNumber numberWithDouble:([keyValue[@"x"] doubleValue] * xFactor)] ;
                             }
                             if ([keyValue[@"y"] isKindOfClass:[NSNumber class]]) {
                                 keyValue[@"y"] = [NSNumber numberWithDouble:([keyValue[@"y"] doubleValue] * yFactor)] ;
                             }
+                        } else if ([keyName isEqualTo:@"coordinates"]) {
+                            [(NSMutableArray *)keyValue enumerateObjectsUsingBlock:^(NSMutableDictionary *subItem, __unused NSUInteger idx, __unused BOOL *stop2) {
+                                for (NSString *field in @[ @"x", @"y", @"c1x", @"c1y", @"c2x", @"c2y" ]) {
+                                    if (subItem[field] && [subItem[field] isKindOfClass:[NSNumber class]]) {
+                                        CGFloat ourFactor = [field hasSuffix:@"x"] ? xFactor : yFactor ;
+                                        subItem[field] = [NSNumber numberWithDouble:([subItem[field] doubleValue] * ourFactor)] ;
+                                    }
+                                }
+                            }] ;
+
                         }
                     }] ;
                 }
@@ -2032,12 +2135,12 @@ static int canvas_canvasDefaultFor(lua_State *L) {
     NSString *keyName = [skin toNSObjectAtIndex:2] ;
 
     if (!languageDictionary[keyName]) {
-        return luaL_argerror(L, 2, "unrecognized attribute name") ;
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"attribute name %@ unrecognized", keyName] UTF8String]) ;
     }
 
     id attributeDefault = [canvasView getDefaultValueFor:keyName onlyIfSet:NO] ;
     if (!attributeDefault) {
-        return luaL_argerror(L, 2, "attribute has no default value") ;
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"attribute %@ has no default value", keyName] UTF8String]) ;
     }
 
     if (lua_gettop(L) == 2) {
@@ -2052,9 +2155,9 @@ static int canvas_canvasDefaultFor(lua_State *L) {
             case attributeInvalid:
             default:
                 if ([languageDictionary[keyName][@"nullable"] boolValue]) {
-                    return luaL_argerror(L, 3, "invalid argument type specified") ;
+                    return luaL_argerror(L, 3, [[NSString stringWithFormat:@"invalid argument type for %@ specified", keyName] UTF8String]) ;
                 } else {
-                    return luaL_argerror(L, 2, "attribute default cannot be changed") ;
+                    return luaL_argerror(L, 2, [[NSString stringWithFormat:@"attribute default for %@ cannot be changed", keyName] UTF8String]) ;
                 }
 //                 break ;
         }
@@ -2076,7 +2179,7 @@ static int canvas_insertElementAtIndex(lua_State *L) {
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
-        return luaL_argerror(L, 3, "index out of bounds") ;
+        return luaL_argerror(L, 3, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
 
     NSDictionary *element = [skin toNSObjectAtIndex:2 withOptions:LS_NSRawTables] ;
@@ -2090,7 +2193,7 @@ static int canvas_insertElementAtIndex(lua_State *L) {
             }] ;
             [canvasView setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
         } else {
-            return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid element; type required and must be one of %@", [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
+            return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid type %@; must be one of %@", elementType, [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
         }
     } else {
         return luaL_argerror(L, 2, "invalid element definition; must contain key-value pairs");
@@ -2112,7 +2215,7 @@ static int canvas_removeElementAtIndex(lua_State *L) {
     NSInteger       tablePosition = (lua_gettop(L) == 2) ? (lua_tointeger(L, 2) - 1) : (NSInteger)elementCount - 1 ;
 
     if (tablePosition < 0 || tablePosition >= (NSInteger)elementCount) {
-        return luaL_argerror(L, 2, "index out of bounds") ;
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
 
     [canvasView.elementList removeObjectAtIndex:(NSUInteger)tablePosition] ;
@@ -2138,8 +2241,8 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
 
     BOOL            resolvePercentages = NO ;
 
-    if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
-        return luaL_argerror(L, 2, "index out of bounds") ;
+    if (tablePosition < 0 || tablePosition >= (NSInteger)elementCount) {
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
 
     if (!languageDictionary[keyName]) {
@@ -2154,7 +2257,7 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
                 return 1 ;
             }
         } else {
-            return luaL_argerror(L, 3, "unrecognized attribute name") ;
+            return luaL_argerror(L, 3, [[NSString stringWithFormat:@"attribute name %@ unrecognized", keyName] UTF8String]) ;
         }
     }
 
@@ -2169,7 +2272,7 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
                 break ;
             case attributeInvalid:
             default:
-                return luaL_argerror(L, 4, "invalid argument type specified") ;
+                return luaL_argerror(L, 4, [[NSString stringWithFormat:@"invalid argument type for %@ specified", keyName] UTF8String]) ;
 //                 break ;
         }
     }
@@ -2187,8 +2290,8 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = lua_tointeger(L, 2) - 1 ;
 
-    if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
-        return luaL_argerror(L, 2, "index out of bounds") ;
+    if (tablePosition < 0 || tablePosition >= (NSInteger)elementCount) {
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
     NSUInteger indexPosition = (NSUInteger)tablePosition ;
 
@@ -2292,7 +2395,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
 
     if (tablePosition < 0 || tablePosition > (NSInteger)elementCount) {
-        return luaL_argerror(L, 3, "index out of bounds") ;
+        return luaL_argerror(L, 3, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
 
     if (lua_isnil(L, 2)) {
@@ -2313,7 +2416,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
                 }] ;
                 [canvasView setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
             } else {
-                return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid element; type required and must be one of %@", [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
+                return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid type %@; must be one of %@", elementType, [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
             }
         } else {
             return luaL_argerror(L, 2, "invalid element definition; must contain key-value pairs");

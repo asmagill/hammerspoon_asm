@@ -334,6 +334,43 @@ elementMT.__len = function(_)
     return #value
 end
 
+local dump_table
+dump_table = function(depth, value)
+    local result = "{\n"
+    for k,v in require("hs.fnutils").sortByKeys(value) do
+        local displayValue = v
+        if type(v) == "table" then
+            displayValue = dump_table(depth + 2, v)
+        elseif type(v) == "string" then
+            displayValue = "\"" .. v .. "\""
+        end
+        local displayKey = k
+        if type(k) == "number" then
+            displayKey = "[" .. tostring(k) .. "]"
+        end
+        result = result .. string.rep(" ", depth + 2) .. string.format("%s = %s,\n", tostring(displayKey), tostring(displayValue))
+    end
+    result = result .. string.rep(" ", depth) .. "}"
+    return result
+end
+
+elementMT.__tostring = function(_)
+    local obj = elementMT.__e[_]
+    local value
+    if obj.field then
+        value = obj.value[obj.field]
+    elseif obj.key then
+        value = obj.value
+    else
+        value = _
+    end
+    if type(value) == "table" then
+        return dump_table(0, value)
+    else
+        return tostring(value)
+    end
+end
+
 canvasMT.__index = function(self, key)
     if type(key) == "string" then
         if key == "_default" then

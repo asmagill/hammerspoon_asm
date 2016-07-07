@@ -1,18 +1,14 @@
-    Add more types
-    drop line and curve and just do segments?
     point... needed?  thinking graphs here, but unit rectangles work just as well, or image/circle/?
+
+    mouse callbacks
+
+    remove circle and arc?
 
     rotate around element center method
     Canvas to hs.image
 
     merge canvases?
     method to swap elements?
-
-*   _raw appendage to keyname to get actual calculated value
-*   fill pattern? -- update hs.drawing.color
-*   transform functions
-*   canvas level transform -- allows alternate origin
-*   support shadows
 
 >> Can we optimize by only applying when value in canvas defaults or element?  how much would this help?
 The following are saved with the graphics context -- set them before iterating, then change only when set in actual element data (i.e. not inherited from defaults) See https://developer.apple.com/library/prerelease/content/documentation/Cocoa/Conceptual/CocoaDrawingGuide/GraphicsContexts/GraphicsContexts.html#//apple_ref/doc/uid/TP40003290-CH203-BCIHGDAH
@@ -69,3 +65,31 @@ end, function()
     local cp = hs.mouse.getAbsolutePosition()
     a:transformation(c.matrix.translate(cp.x - sp.x, cp.y - sp.y))
 end, .01)
+
+
+
+c = require("hs._asm.canvas")
+a = c.new{ x = 100, y = 100, h = 500, w = 500 }
+a[1] = {
+  coordinates = {
+    { x = ".1", y = ".5" },
+    { x = ".9", y = ".5", c1x = ".1", c1y = ".1", c2x = ".9", c2y = ".9" },
+    { x = ".1", y = ".5", c1x = ".9", c1y = ".1", c2x = ".1", c2y = ".9" },
+  },
+  fillColor = { blue = 1 },
+  type = "segments",
+}
+
+a[2] = {
+  coordinates = {
+    { x = ".5", y = ".1" },
+    { x = ".5", y = ".9", c1x = ".1", c1y = ".1", c2x = ".9", c2y = ".9" },
+    { x = ".5", y = ".1", c1x = ".1", c1y = ".9", c2x = ".9", c2y = ".1" },
+  },
+  fillColor = { blue = 1 },
+  type = "segments",
+}
+
+a:show()
+
+y = false ; z = 0 ; hs.timer.doWhile(function() return y ~= true end, function() local sz = a:size() ; a._default.transformation = c.matrix.translate(sz.w / 2, sz.h / 2):rotate(z):translate(sz.w / -2, sz.h / -2) z = z + 10 end, .1)
