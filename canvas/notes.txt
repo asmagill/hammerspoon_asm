@@ -1,6 +1,9 @@
     point... needed?  thinking graphs here, but unit rectangles work just as well, or image/circle/?
 
-    mouse callbacks
+*   mouse callbacks
+        reduce granularity for elements? increase for canvas?
+
+    method for element bounds?
 
     remove circle and arc?
 

@@ -26,10 +26,13 @@ static NSDictionary *languageDictionary ;
 @end
 
 @interface ASMCanvasView : NSView
-@property int                 clickDownRef;
-@property int                 clickUpRef;
+@property int                 mouseCallbackRef ;
+@property BOOL                mouseTracking ;
+@property BOOL                canvasMouseEvents ;
+@property NSUInteger          previousTrackedIndex ;
 @property NSMutableDictionary *canvasDefaults ;
 @property NSMutableArray      *elementList ;
+@property NSMutableArray      *elementBounds ;
 @property NSAffineTransform   *canvasTransform ;
 @end
 
@@ -812,6 +815,11 @@ static int userdata_gc(lua_State* L) ;
     return self;
 }
 
+- (BOOL)shouldDelayWindowOrderingForEvent:(__unused NSEvent *)theEvent {
+    [LuaSkin logWarn:@"yeah, I'm needed"] ;
+    return NO ;
+}
+
 #pragma mark - NSWindowDelegate Methods
 
 - (BOOL)windowShouldClose:(id __unused)sender {
@@ -867,11 +875,25 @@ static int userdata_gc(lua_State* L) ;
 - (instancetype)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect];
     if (self) {
-        _clickDownRef    = LUA_NOREF;
-        _clickUpRef      = LUA_NOREF;
-        _canvasDefaults  = [[NSMutableDictionary alloc] init] ;
-        _elementList     = [[NSMutableArray alloc] init] ;
-        _canvasTransform = [NSAffineTransform transform] ;
+        _mouseCallbackRef = LUA_NOREF;
+        _canvasDefaults   = [[NSMutableDictionary alloc] init] ;
+        _elementList      = [[NSMutableArray alloc] init] ;
+        _elementBounds    = [[NSMutableArray alloc] init] ;
+        _canvasTransform  = [NSAffineTransform transform] ;
+
+        _canvasMouseEvents    = NO ;
+        _mouseTracking        = NO ;
+        _previousTrackedIndex = NSNotFound ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wassign-enum"
+        [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:frameRect
+                                                           options:NSTrackingMouseMoved |
+                                                                   NSTrackingMouseEnteredAndExited |
+                                                                   NSTrackingActiveAlways |
+                                                                   NSTrackingInVisibleRect
+                                                             owner:self
+                                                          userInfo:nil]] ;
+#pragma clang diagnostic pop
     }
     return self;
 }
@@ -883,24 +905,150 @@ static int userdata_gc(lua_State* L) ;
     return !self.window.ignoresMouseEvents;
 }
 
-- (void)mouseDown:(NSEvent *)theEvent {
-    [NSApp preventWindowOrdering];
-    BOOL isDown = (theEvent.type == NSLeftMouseDown)  ||
-                  (theEvent.type == NSRightMouseDown) ||
-                  (theEvent.type == NSOtherMouseDown) ;
-    int callbackRef = isDown ? _clickDownRef : _clickUpRef ;
+- (void)mouseMoved:(NSEvent *)theEvent {
+    if ((_mouseCallbackRef != LUA_NOREF) && (_mouseTracking || _canvasMouseEvents)) {
+        NSPoint event_location = theEvent.locationInWindow;
+        NSPoint local_point = [self convertPoint:event_location fromView:nil];
 
-    if (callbackRef != LUA_NOREF) {
+        __block NSUInteger targetIndex = NSNotFound ;
+        __block NSPoint actualpoint = local_point ;
+
+        [_elementBounds enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(NSDictionary *box, NSUInteger idx, BOOL *stop) {
+            NSUInteger elementIdx  = [box[@"index"] unsignedIntegerValue] ;
+            if ([[self getElementValueFor:@"trackMouseEnter" atIndex:elementIdx] boolValue] || [[self getElementValueFor:@"trackMouseExit" atIndex:elementIdx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:elementIdx] boolValue]) {
+                NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
+                [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
+                [pointTransform invert] ;
+                actualpoint = [pointTransform transformPoint:local_point] ;
+                if ((box[@"frame"] && NSPointInRect(actualpoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualpoint]))
+                {
+                    targetIndex = idx ;
+                    *stop = YES ;
+                }
+            }
+        }] ;
+
+        NSUInteger realTargetIndex = (targetIndex != NSNotFound) ?
+                    [_elementBounds[targetIndex][@"index"] unsignedIntegerValue]  : NSNotFound ;
+        NSUInteger realPrevIndex = (_previousTrackedIndex != NSNotFound) ?
+                    [_elementBounds[_previousTrackedIndex][@"index"] unsignedIntegerValue]  : NSNotFound ;
+
+        if (_previousTrackedIndex == targetIndex) {
+            if ((targetIndex != NSNotFound) && [[self getElementValueFor:@"trackMouseMove" atIndex:realPrevIndex] boolValue]) {
+                id targetID = [self getElementValueFor:@"id" atIndex:realPrevIndex onlyIfSet:YES] ;
+                if (!targetID) targetID = @(realPrevIndex + 1) ;
+                [self doMouseCallback:@"mouseMove" for:targetID at:local_point] ;
+            }
+        } else {
+            if ((_previousTrackedIndex != NSNotFound) && [[self getElementValueFor:@"trackMouseExit" atIndex:realPrevIndex] boolValue]) {
+                id targetID = [self getElementValueFor:@"id" atIndex:realPrevIndex onlyIfSet:YES] ;
+                if (!targetID) targetID = @(realPrevIndex + 1) ;
+                [self doMouseCallback:@"mouseExit" for:targetID at:local_point] ;
+            }
+            if (targetIndex != NSNotFound) {
+                id targetID = [self getElementValueFor:@"id" atIndex:realTargetIndex onlyIfSet:YES] ;
+                if (!targetID) targetID = @(realTargetIndex + 1) ;
+                if ([[self getElementValueFor:@"trackMouseEnter" atIndex:realTargetIndex] boolValue]) {
+                    [self doMouseCallback:@"mouseEnter" for:targetID at:local_point] ;
+                } else if ([[self getElementValueFor:@"trackMouseMove" atIndex:realTargetIndex] boolValue]) {
+                    [self doMouseCallback:@"mouseMove" for:targetID at:local_point] ;
+                }
+                if (_canvasMouseEvents && (_previousTrackedIndex == NSNotFound)) {
+                    [self doMouseCallback:@"mouseExit" for:@"_canvas_" at:local_point] ;
+                }
+            }
+        }
+
+        if (_canvasMouseEvents && (targetIndex == NSNotFound)) {
+            NSString *action = (_previousTrackedIndex != NSNotFound) ? @"mouseEnter" : @"mouseMove" ;
+            [self doMouseCallback:action for:@"_canvas_" at:local_point] ;
+        }
+
+        _previousTrackedIndex = targetIndex ;
+    }
+}
+
+- (void)mouseEntered:(NSEvent *)theEvent {
+    if ((_mouseCallbackRef != LUA_NOREF) && _canvasMouseEvents) {
+        NSPoint event_location = theEvent.locationInWindow;
+        NSPoint local_point = [self convertPoint:event_location fromView:nil];
+
+        [self doMouseCallback:@"mouseEnter" for:@"_canvas_" at:local_point] ;
+    }
+}
+
+- (void)mouseExited:(NSEvent *)theEvent {
+    if (_mouseCallbackRef != LUA_NOREF) {
+        NSPoint event_location = theEvent.locationInWindow;
+        NSPoint local_point = [self convertPoint:event_location fromView:nil];
+        if (_previousTrackedIndex != NSNotFound) {
+            NSUInteger realPrevIndex = (_previousTrackedIndex != NSNotFound) ?
+                    [_elementBounds[_previousTrackedIndex][@"index"] unsignedIntegerValue]  : NSNotFound ;
+            if ([[self getElementValueFor:@"trackMouseExit" atIndex:realPrevIndex] boolValue]) {
+                id targetID = [self getElementValueFor:@"id" atIndex:realPrevIndex onlyIfSet:YES] ;
+                if (!targetID) targetID = @(realPrevIndex + 1) ;
+                [self doMouseCallback:@"mouseExit" for:targetID at:local_point] ;
+            }
+        }
+        if (_canvasMouseEvents) {
+            [self doMouseCallback:@"mouseExit" for:@"_canvas_" at:local_point] ;
+        }
+    }
+    _previousTrackedIndex = NSNotFound ;
+}
+
+- (void)doMouseCallback:(NSString *)message for:(id)elementIdentifier at:(NSPoint)location {
+    if (elementIdentifier) {
         LuaSkin *skin = [LuaSkin shared];
-        [skin pushLuaRef:refTable ref:callbackRef];
+        [skin pushLuaRef:refTable ref:_mouseCallbackRef];
         [skin pushLuaRef:refTable ref:((ASMCanvasWindow *)self.window).selfRef] ;
-        if (![skin protectedCallAndTraceback:1 nresults:0]) {
-            [skin logError:[NSString stringWithFormat:@"%s:clickCallback %s callback error: %s",
+        [skin pushNSObject:message] ;
+        [skin pushNSObject:elementIdentifier] ;
+        lua_pushnumber(skin.L, location.x) ;
+        lua_pushnumber(skin.L, location.y) ;
+        if (![skin protectedCallAndTraceback:5 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s:clickCallback for %@ callback error: %s",
                                                       USERDATA_TAG,
-                                                      (isDown ? "mouseDown" : "mouseUp"),
+                                                      message,
                                                       lua_tostring(skin.L, -1)]];
             lua_pop(skin.L, 1) ;
         }
+    }
+}
+
+- (void)mouseDown:(NSEvent *)theEvent {
+    [NSApp preventWindowOrdering];
+    if (_mouseCallbackRef != LUA_NOREF) {
+        BOOL isDown = (theEvent.type == NSLeftMouseDown)  ||
+                      (theEvent.type == NSRightMouseDown) ||
+                      (theEvent.type == NSOtherMouseDown) ;
+
+        NSPoint event_location = theEvent.locationInWindow;
+        NSPoint local_point = [self convertPoint:event_location fromView:nil];
+//         [LuaSkin logWarn:[NSString stringWithFormat:@"mouse click at (%f, %f)", local_point.x, local_point.y]] ;
+
+        __block id targetID = nil ;
+        __block NSPoint actualpoint = local_point ;
+
+        [_elementBounds enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(NSDictionary *box, __unused NSUInteger idx, BOOL *stop) {
+            NSUInteger elementIdx  = [box[@"index"] unsignedIntegerValue] ;
+            if ([[self getElementValueFor:(isDown ? @"trackMouseDown" : @"trackMouseUp") atIndex:elementIdx] boolValue]) {
+                NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
+                [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
+                [pointTransform invert] ;
+                actualpoint = [pointTransform transformPoint:local_point] ;
+                if ((box[@"frame"] && NSPointInRect(actualpoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualpoint]))
+                {
+                    targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
+                    if (!targetID) targetID = @(elementIdx + 1) ;
+                    *stop = YES ;
+                }
+            }
+        }] ;
+
+        if (!targetID && _canvasMouseEvents) targetID = @"_canvas_" ;
+
+        [self doMouseCallback:(isDown ? @"mouseDown" : @"mouseUp") for:targetID at:actualpoint] ;
     }
 }
 
@@ -938,13 +1086,21 @@ static int userdata_gc(lua_State* L) ;
     [[self getDefaultValueFor:@"fillColor" onlyIfSet:NO] setFill] ;
     [[self getDefaultValueFor:@"strokeColor" onlyIfSet:NO] setStroke] ;
 
-    __block BOOL clippingModified = NO ;
+    _elementBounds = [[NSMutableArray alloc] init] ;
 
+    // renderPath needs to persist through iterations, so define it here
     __block NSBezierPath *renderPath ;
+    __block BOOL         clippingModified = NO ;
+    __block BOOL         needMouseTracking = NO ;
+
     [_elementList enumerateObjectsUsingBlock:^(NSDictionary *element, NSUInteger idx, __unused BOOL *stop) {
         NSBezierPath *elementPath ;
         NSString     *elementType = element[@"type"] ;
         NSString     *action      = [self getElementValueFor:@"action" atIndex:idx] ;
+
+        if (!needMouseTracking) {
+            needMouseTracking = [[self getElementValueFor:@"trackMouseEnter" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseExit" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:idx] boolValue] ;
+        }
 
         BOOL wasClippingChanged = NO ; // necessary to keep graphicsState stack properly ordered
 
@@ -1032,6 +1188,10 @@ static int userdata_gc(lua_State* L) ;
             // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
                 NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
                 if (theImage) [theImage drawInRect:frameRect] ;
+                [self->_elementBounds addObject:@{
+                    @"index" : @(idx),
+                    @"frame" : [NSValue valueWithRect:frameRect]
+                }] ;
                 elementPath = nil ; // shouldn't be necessary, but lets be explicit
             }
         } else
@@ -1055,6 +1215,10 @@ static int userdata_gc(lua_State* L) ;
                 } else {
                     [(NSAttributedString *)textEntry drawInRect:frameRect] ;
                 }
+                [self->_elementBounds addObject:@{
+                    @"index" : @(idx),
+                    @"frame" : [NSValue valueWithRect:frameRect]
+                }] ;
                 elementPath = nil ; // shouldn't be necessary, but lets be explicit
             }
         } else
@@ -1195,7 +1359,10 @@ static int userdata_gc(lua_State* L) ;
 
                     [renderPath stroke] ;
                 }
-
+                [self->_elementBounds addObject:@{
+                    @"index" : @(idx),
+                    @"path"  : renderPath,
+                }] ;
                 renderPath = nil ;
             } else if ([action isEqualToString:@"skip"]) {
                 renderPath = nil ;
@@ -1209,6 +1376,7 @@ static int userdata_gc(lua_State* L) ;
 
     if (clippingModified) [gc restoreGraphicsState] ; // balance our saves
 
+    _mouseTracking = needMouseTracking ;
     [gc restoreGraphicsState];
     NSEnableScreenUpdates() ;
 }
@@ -1631,45 +1799,44 @@ static int canvas_hide(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.canvas:clickCallback(mouseUpFn, mouseDownFn) -> canvasObject
+/// hs._asm.canvas:mouseCallback(mouseCallbackFn) -> canvasObject
 /// Method
-/// Sets a callback for mouseUp and mouseDown click events
+/// Sets a callback for mouse events with respect to the canvas
 ///
 /// Parameters:
-///  * `mouseUpFn`   - A function, can be nil, that will be called when the canvas object is clicked on and the mouse button is released. If this argument is nil, any existing callback is removed.
-///  * `mouseDownFn` - A function, can be nil, that will be called when the canvas object is clicked on and the mouse button is first pressed down. If this argument is nil, any existing callback is removed.
+///  * `mouseCallbackFn`   - A function, can be nil, that will be called when a mouse event occurs within the canvas, and an element beneath the mouse's current position has one of the `trackMouse...` attributes set to true.  The function should expect 5 arguments: the canvas object itself, a message specifying the type of mouse event, the canvas element `id` (or index position in the canvas if the `id` attribute is not set for the element), the x position of the mouse when the event was triggered within the rendered portion of the canvas element, and the y position of the mouse when the event was triggered within the rendered portion of the canvas element.
 ///
 /// Returns:
 ///  * The canvas object
 ///
 /// Notes:
-///  * the `mouseUpFn` and `mouseDownFn` functions may accept one argument (the canvasObject that received the mouse click) and should return nothing.
+///  * The following mouse attributes may be set per canvas element and will invoke the callback with the specified message:
+///    * `trackMouseDown`   - indicates that a callback should be invoked when a mouse button is clicked down.  The message will be "mouseDown".
+///    * `trackMouseUp`     - indicates that a callback should be invoked when a mouse button has been released.  The message will be "mouseUp".
+///    * `trackMouseEnter`  - indicates that a callback should be invoked when the mouse pointer enters the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseEnter".
+///    * `trackMouseExit`   - indicates that a callback should be invoked when the mouse pointer exits the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseExit".
+///    * `trackMouseMove`   - indicates that a callback should be invoked when the mouse pointer moves within the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseMove".
 ///
-///  * No distinction is made between the left, right, or other mouse buttons -- they all invoke the same up or down function. If you need to determine which specific button was pressed, use `hs.eventtap.checkMouseButtons()` within your callback to check.
-static int canvas_clickCallback(lua_State *L) {
+///  * The callback mechanism uses reverse z-indexing to determine which element will receive the callback -- the topmost element of the canvas which has enabled callbacks for the specified message will be invoked.
+///
+///  * No distinction is made between the left, right, or other mouse buttons. If you need to determine which specific button was pressed, use `hs.eventtap.checkMouseButtons()` within your callback to check.
+static int canvas_mouseCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TFUNCTION | LS_TNIL,
-                    LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
     ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
 
     // We're either removing callback(s), or setting new one(s). Either way, remove existing.
-    canvasView.clickUpRef   = [skin luaUnref:refTable ref:canvasView.clickUpRef];
-    canvasView.clickDownRef = [skin luaUnref:refTable ref:canvasView.clickDownRef];
+    canvasView.mouseCallbackRef = [skin luaUnref:refTable ref:canvasView.mouseCallbackRef];
+    canvasView.previousTrackedIndex = NSNotFound ;
     canvasWindow.ignoresMouseEvents = YES ;
 
     if (lua_type(L, 2) == LUA_TFUNCTION) {
         lua_pushvalue(L, 2);
-        canvasView.clickUpRef = [skin luaRef:refTable] ;
-        canvasWindow.ignoresMouseEvents = NO ;
-    }
-
-    if (lua_type(L, 3) == LUA_TFUNCTION) {
-        lua_pushvalue(L, 3);
-        canvasView.clickDownRef = [skin luaRef:refTable] ;
+        canvasView.mouseCallbackRef = [skin luaRef:refTable] ;
         canvasWindow.ignoresMouseEvents = NO ;
     }
 
@@ -1706,6 +1873,25 @@ static int canvas_clickActivating(lua_State *L) {
         lua_pushvalue(L, 1) ;
     } else {
         lua_pushboolean(L, ((canvasWindow.styleMask & NSNonactivatingPanelMask) != NSNonactivatingPanelMask)) ;
+    }
+
+    return 1;
+}
+
+static int canvas_canvasMouseEvents(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+
+    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+
+    if (lua_type(L, 2) != LUA_TNONE) {
+        canvasView.canvasMouseEvents = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    } else {
+        lua_pushboolean(L, canvasView.canvasMouseEvents) ;
     }
 
     return 1;
@@ -2382,6 +2568,16 @@ static int canvas_canvasElements(__unused lua_State *L) {
     return 1 ;
 }
 
+static int canvas_canvasBoundingBoxes(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TBREAK] ;
+    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    [skin pushNSObject:canvasView.elementBounds withOptions:LS_NSDescribeUnknownTypes] ;
+    return 1 ;
+}
+
 static int canvas_assignElementAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2532,10 +2728,8 @@ static int userdata_gc(lua_State* L) {
     ASMCanvasWindow *obj = get_objectFromUserdata(__bridge_transfer ASMCanvasWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
         if (obj.contentView) {
-            ASMCanvasView *theView  = (ASMCanvasView *)obj.contentView ;
-
-            theView.clickDownRef = [skin luaUnref:refTable ref:theView.clickDownRef] ;
-            theView.clickUpRef   = [skin luaUnref:refTable ref:theView.clickUpRef] ;
+            ASMCanvasView *theView   = (ASMCanvasView *)obj.contentView ;
+            theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         }
         [obj close];
         obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
@@ -2555,38 +2749,40 @@ static int userdata_gc(lua_State* L) {
 // // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
 // affects drawing elements
-    {"assignElement",      canvas_assignElementAtIndex},
-    {"canvasDefaults",     canvas_canvasDefaults},
-    {"canvasDefaultKeys",  canvas_canvasDefaultKeys},
-    {"canvasDefaultFor",   canvas_canvasDefaultFor},
-    {"elementAttribute",   canvas_elementAttributeAtIndex},
-    {"elementKeys",        canvas_elementKeysAtIndex},
-    {"elementCount",       canvas_elementCount},
-    {"canvasElements",     canvas_canvasElements},
-    {"insertElement",      canvas_insertElementAtIndex},
-    {"removeElement",      canvas_removeElementAtIndex},
+    {"assignElement",       canvas_assignElementAtIndex},
+    {"canvasBoundingBoxes", canvas_canvasBoundingBoxes},
+    {"canvasElements",      canvas_canvasElements},
+    {"canvasDefaults",      canvas_canvasDefaults},
+    {"canvasMouseEvents",   canvas_canvasMouseEvents},
+    {"canvasDefaultKeys",   canvas_canvasDefaultKeys},
+    {"canvasDefaultFor",    canvas_canvasDefaultFor},
+    {"elementAttribute",    canvas_elementAttributeAtIndex},
+    {"elementKeys",         canvas_elementKeysAtIndex},
+    {"elementCount",        canvas_elementCount},
+    {"insertElement",       canvas_insertElementAtIndex},
+    {"removeElement",       canvas_removeElementAtIndex},
 // affects whole canvas
-    {"alpha",              canvas_alpha},
-    {"behavior",           canvas_behavior},
-    {"clickActivating",    canvas_clickActivating},
-    {"clickCallback",      canvas_clickCallback},
-    {"delete",             canvas_delete},
-    {"hide",               canvas_hide},
-    {"isOccluded",         canvas_isOccluded},
-    {"isShowing",          canvas_isShowing},
-    {"level",              canvas_level},
-    {"orderAbove",         canvas_orderAbove},
-    {"orderBelow",         canvas_orderBelow},
-    {"show",               canvas_show},
-    {"size",               canvas_size},
-    {"topLeft",            canvas_topLeft},
-    {"transformation",     canvas_canvasTransformation},
-    {"wantsLayer",         canvas_wantsLayer},
+    {"alpha",               canvas_alpha},
+    {"behavior",            canvas_behavior},
+    {"clickActivating",     canvas_clickActivating},
+    {"delete",              canvas_delete},
+    {"hide",                canvas_hide},
+    {"isOccluded",          canvas_isOccluded},
+    {"isShowing",           canvas_isShowing},
+    {"level",               canvas_level},
+    {"mouseCallback",       canvas_mouseCallback},
+    {"orderAbove",          canvas_orderAbove},
+    {"orderBelow",          canvas_orderBelow},
+    {"show",                canvas_show},
+    {"size",                canvas_size},
+    {"topLeft",             canvas_topLeft},
+    {"transformation",      canvas_canvasTransformation},
+    {"wantsLayer",          canvas_wantsLayer},
 
-    {"__tostring",         userdata_tostring},
-    {"__eq",               userdata_eq},
-    {"__gc",               userdata_gc},
-    {NULL,                 NULL}
+    {"__tostring",          userdata_tostring},
+    {"__eq",                userdata_eq},
+    {"__gc",                userdata_gc},
+    {NULL,                  NULL}
 };
 
 // Functions for returned object when module loads
