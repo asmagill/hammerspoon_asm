@@ -245,6 +245,36 @@ canvasMT.appendElements = function(obj, elementsArray)
     return obj
 end
 
+canvasMT.replaceElements = function(obj, elementsArray)
+    for i,v in ipairs(elementsArray) do obj:assignElement(v, i) end
+    while (#obj > #elementArray) do obj:removeElement() end
+    return obj
+end
+
+canvasMT.rotateElement = function(obj, index, angle, point, append)
+    local bounds = obj:elementBounds(index)
+    if type(point) == "boolean" then
+        append, point = point, nil
+    end
+    if not point then
+        point = {
+            x = bounds.x + bounds.w / 2,
+            y = bounds.y + bounds.h / 2,
+        }
+    end
+
+    local currentTransform = obj:elementAttribute(index, "transformation")
+    if append then
+        obj[index].transformation = obj[index].transformation:translate(point.x, point.y)
+                                                             :rotate(angle)
+                                                             :translate(-point.x, -point.y)
+    else
+        obj[index].transformation = module.matrix.translate(point.x, point.y):rotate(angle)
+                                                                             :translate(-point.x, -point.y)
+    end
+    return obj
+end
+
 local elementMT = {
     __e = setmetatable({}, { __mode="k" }),
 }

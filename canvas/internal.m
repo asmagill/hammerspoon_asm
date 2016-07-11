@@ -28,7 +28,10 @@ static NSDictionary *languageDictionary ;
 @interface ASMCanvasView : NSView
 @property int                 mouseCallbackRef ;
 @property BOOL                mouseTracking ;
-@property BOOL                canvasMouseEvents ;
+@property BOOL                canvasMouseDown ;
+@property BOOL                canvasMouseUp ;
+@property BOOL                canvasMouseEnterExit ;
+@property BOOL                canvasMouseMove ;
 @property NSUInteger          previousTrackedIndex ;
 @property NSMutableDictionary *canvasDefaults ;
 @property NSMutableArray      *elementList ;
@@ -500,15 +503,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : @(27.0),
             @"optionalFor" : @[ @"text" ],
         },
-        @"trackMouseEnter" : @{
-            @"class"       : @[ [NSNumber class] ],
-            @"luaClass"    : @"boolean",
-            @"objCType"    : @(@encode(BOOL)),
-            @"nullable"    : @(YES),
-            @"default"     : @(NO),
-            @"optionalFor" : VISIBLE,
-        },
-        @"trackMouseExit" : @{
+        @"trackMouseEnterExit" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"boolean",
             @"objCType"    : @(@encode(BOOL)),
@@ -881,7 +876,11 @@ static int userdata_gc(lua_State* L) ;
         _elementBounds    = [[NSMutableArray alloc] init] ;
         _canvasTransform  = [NSAffineTransform transform] ;
 
-        _canvasMouseEvents    = NO ;
+        _canvasMouseDown      = NO ;
+        _canvasMouseUp        = NO ;
+        _canvasMouseEnterExit = NO ;
+        _canvasMouseMove      = NO ;
+
         _mouseTracking        = NO ;
         _previousTrackedIndex = NSNotFound ;
 #pragma clang diagnostic push
@@ -906,7 +905,9 @@ static int userdata_gc(lua_State* L) ;
 }
 
 - (void)mouseMoved:(NSEvent *)theEvent {
-    if ((_mouseCallbackRef != LUA_NOREF) && (_mouseTracking || _canvasMouseEvents)) {
+    BOOL canvasMouseEvents = _canvasMouseDown || _canvasMouseUp || _canvasMouseEnterExit || _canvasMouseMove ;
+
+    if ((_mouseCallbackRef != LUA_NOREF) && (_mouseTracking || canvasMouseEvents)) {
         NSPoint event_location = theEvent.locationInWindow;
         NSPoint local_point = [self convertPoint:event_location fromView:nil];
 
@@ -915,7 +916,7 @@ static int userdata_gc(lua_State* L) ;
 
         [_elementBounds enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(NSDictionary *box, NSUInteger idx, BOOL *stop) {
             NSUInteger elementIdx  = [box[@"index"] unsignedIntegerValue] ;
-            if ([[self getElementValueFor:@"trackMouseEnter" atIndex:elementIdx] boolValue] || [[self getElementValueFor:@"trackMouseExit" atIndex:elementIdx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:elementIdx] boolValue]) {
+            if ([[self getElementValueFor:@"trackMouseEnterExit" atIndex:elementIdx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:elementIdx] boolValue]) {
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
@@ -940,7 +941,7 @@ static int userdata_gc(lua_State* L) ;
                 [self doMouseCallback:@"mouseMove" for:targetID at:local_point] ;
             }
         } else {
-            if ((_previousTrackedIndex != NSNotFound) && [[self getElementValueFor:@"trackMouseExit" atIndex:realPrevIndex] boolValue]) {
+            if ((_previousTrackedIndex != NSNotFound) && [[self getElementValueFor:@"trackMouseEnterExit" atIndex:realPrevIndex] boolValue]) {
                 id targetID = [self getElementValueFor:@"id" atIndex:realPrevIndex onlyIfSet:YES] ;
                 if (!targetID) targetID = @(realPrevIndex + 1) ;
                 [self doMouseCallback:@"mouseExit" for:targetID at:local_point] ;
@@ -948,28 +949,30 @@ static int userdata_gc(lua_State* L) ;
             if (targetIndex != NSNotFound) {
                 id targetID = [self getElementValueFor:@"id" atIndex:realTargetIndex onlyIfSet:YES] ;
                 if (!targetID) targetID = @(realTargetIndex + 1) ;
-                if ([[self getElementValueFor:@"trackMouseEnter" atIndex:realTargetIndex] boolValue]) {
+                if ([[self getElementValueFor:@"trackMouseEnterExit" atIndex:realTargetIndex] boolValue]) {
                     [self doMouseCallback:@"mouseEnter" for:targetID at:local_point] ;
                 } else if ([[self getElementValueFor:@"trackMouseMove" atIndex:realTargetIndex] boolValue]) {
                     [self doMouseCallback:@"mouseMove" for:targetID at:local_point] ;
                 }
-                if (_canvasMouseEvents && (_previousTrackedIndex == NSNotFound)) {
+                if (_canvasMouseEnterExit && (_previousTrackedIndex == NSNotFound)) {
                     [self doMouseCallback:@"mouseExit" for:@"_canvas_" at:local_point] ;
                 }
             }
         }
 
-        if (_canvasMouseEvents && (targetIndex == NSNotFound)) {
-            NSString *action = (_previousTrackedIndex != NSNotFound) ? @"mouseEnter" : @"mouseMove" ;
-            [self doMouseCallback:action for:@"_canvas_" at:local_point] ;
+        if ((_canvasMouseEnterExit || _canvasMouseMove) && (targetIndex == NSNotFound)) {
+            if (_previousTrackedIndex == NSNotFound && _canvasMouseMove) {
+                [self doMouseCallback:@"mouseMove" for:@"_canvas_" at:local_point] ;
+            } else if (_previousTrackedIndex != NSNotFound && _canvasMouseEnterExit) {
+                [self doMouseCallback:@"mouseEnter" for:@"_canvas_" at:local_point] ;
+            }
         }
-
         _previousTrackedIndex = targetIndex ;
     }
 }
 
 - (void)mouseEntered:(NSEvent *)theEvent {
-    if ((_mouseCallbackRef != LUA_NOREF) && _canvasMouseEvents) {
+    if ((_mouseCallbackRef != LUA_NOREF) && _canvasMouseEnterExit) {
         NSPoint event_location = theEvent.locationInWindow;
         NSPoint local_point = [self convertPoint:event_location fromView:nil];
 
@@ -984,13 +987,13 @@ static int userdata_gc(lua_State* L) ;
         if (_previousTrackedIndex != NSNotFound) {
             NSUInteger realPrevIndex = (_previousTrackedIndex != NSNotFound) ?
                     [_elementBounds[_previousTrackedIndex][@"index"] unsignedIntegerValue]  : NSNotFound ;
-            if ([[self getElementValueFor:@"trackMouseExit" atIndex:realPrevIndex] boolValue]) {
+            if ([[self getElementValueFor:@"trackMouseEnterExit" atIndex:realPrevIndex] boolValue]) {
                 id targetID = [self getElementValueFor:@"id" atIndex:realPrevIndex onlyIfSet:YES] ;
                 if (!targetID) targetID = @(realPrevIndex + 1) ;
                 [self doMouseCallback:@"mouseExit" for:targetID at:local_point] ;
             }
         }
-        if (_canvasMouseEvents) {
+        if (_canvasMouseEnterExit) {
             [self doMouseCallback:@"mouseExit" for:@"_canvas_" at:local_point] ;
         }
     }
@@ -1046,9 +1049,13 @@ static int userdata_gc(lua_State* L) ;
             }
         }] ;
 
-        if (!targetID && _canvasMouseEvents) targetID = @"_canvas_" ;
-
-        [self doMouseCallback:(isDown ? @"mouseDown" : @"mouseUp") for:targetID at:actualpoint] ;
+        if (!targetID) {
+            if (isDown && _canvasMouseDown) {
+                [self doMouseCallback:@"mouseDown" for:@"_canvas_" at:actualpoint] ;
+            } else if (!isDown && _canvasMouseUp) {
+                [self doMouseCallback:@"mouseUp" for:@"_canvas_" at:actualpoint] ;
+            }
+        }
     }
 }
 
@@ -1057,6 +1064,111 @@ static int userdata_gc(lua_State* L) ;
 - (void)mouseUp:(NSEvent *)theEvent        { [self mouseDown:theEvent] ; }
 - (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
+
+- (NSBezierPath *)pathForElementAtIndex:(NSUInteger)idx {
+    NSBezierPath *elementPath = nil ;
+    NSString     *elementType = [self getElementValueFor:@"type" atIndex:idx] ;
+
+    NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+    NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                   [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+
+    if ([elementType isEqualToString:@"arc"]) {
+        NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
+        CGFloat cx = [center[@"x"] doubleValue] ;
+        CGFloat cy = [center[@"y"] doubleValue] ;
+        CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
+        NSPoint myCenterPoint = NSMakePoint(cx, cy) ;
+        elementPath = [NSBezierPath bezierPath];
+        CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
+        CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
+        BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
+        BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
+        if (arcLegs) [elementPath moveToPoint:myCenterPoint] ;
+        [elementPath appendBezierPathWithArcWithCenter:myCenterPoint
+                                                radius:r
+                                            startAngle:startAngle
+                                              endAngle:endAngle
+                                             clockwise:!arcDir // because our canvas is flipped, we have to reverse this
+        ] ;
+        if (arcLegs) [elementPath lineToPoint:myCenterPoint] ;
+    } else
+    if ([elementType isEqualToString:@"circle"]) {
+        NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
+        CGFloat cx = [center[@"x"] doubleValue] ;
+        CGFloat cy = [center[@"y"] doubleValue] ;
+        CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
+        elementPath = [NSBezierPath bezierPath];
+        [elementPath appendBezierPathWithOvalInRect:NSMakeRect(cx - r, cy - r, r * 2, r * 2)] ;
+    } else
+    if ([elementType isEqualToString:@"ellipticalArc"]) {
+        CGFloat cx     = frameRect.origin.x + frameRect.size.width / 2 ;
+        CGFloat cy     = frameRect.origin.y + frameRect.size.height / 2 ;
+        CGFloat r      = frameRect.size.width / 2 ;
+
+        NSAffineTransform *moveTransform = [NSAffineTransform transform] ;
+        [moveTransform translateXBy:cx yBy:cy] ;
+        NSAffineTransform *scaleTransform = [NSAffineTransform transform] ;
+        [scaleTransform scaleXBy:1.0 yBy:(frameRect.size.height / frameRect.size.width)] ;
+        NSAffineTransform *finalTransform = [[NSAffineTransform alloc] initWithTransform:scaleTransform] ;
+        [finalTransform appendTransform:moveTransform] ;
+        elementPath = [NSBezierPath bezierPath];
+        CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
+        CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
+        BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
+        BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
+        if (arcLegs) [elementPath moveToPoint:NSZeroPoint] ;
+        [elementPath appendBezierPathWithArcWithCenter:NSZeroPoint
+                                                radius:r
+                                            startAngle:startAngle
+                                              endAngle:endAngle
+                                             clockwise:!arcDir // because our canvas is flipped, we have to reverse this
+        ] ;
+        if (arcLegs) [elementPath lineToPoint:NSZeroPoint] ;
+        elementPath = [finalTransform transformBezierPath:elementPath] ;
+    } else
+    if ([elementType isEqualToString:@"oval"]) {
+        elementPath = [NSBezierPath bezierPath];
+        [elementPath appendBezierPathWithOvalInRect:frameRect] ;
+    } else
+    if ([elementType isEqualToString:@"rectangle"]) {
+        elementPath = [NSBezierPath bezierPath];
+        NSDictionary *roundedRect = [self getElementValueFor:@"roundedRectRadii" atIndex:idx] ;
+        [elementPath appendBezierPathWithRoundedRect:frameRect
+                                          xRadius:[roundedRect[@"xRadius"] doubleValue]
+                                          yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
+    } else
+//         if ([elementType isEqualToString:@"points"]) {
+//         } else
+    if ([elementType isEqualToString:@"segments"]) {
+        elementPath = [NSBezierPath bezierPath];
+        NSArray *coordinates = [self getElementValueFor:@"coordinates" atIndex:idx resolvePercentages:YES] ;
+
+        [coordinates enumerateObjectsUsingBlock:^(NSDictionary *aPoint, NSUInteger idx2, __unused BOOL *stop2) {
+            NSNumber *xNumber   = aPoint[@"x"] ;
+            NSNumber *yNumber   = aPoint[@"y"] ;
+            NSNumber *c1xNumber = aPoint[@"c1x"] ;
+            NSNumber *c1yNumber = aPoint[@"c1y"] ;
+            NSNumber *c2xNumber = aPoint[@"c2x"] ;
+            NSNumber *c2yNumber = aPoint[@"c2y"] ;
+            BOOL goodForCurve = (c1xNumber) && (c1yNumber) && (c2xNumber) && (c2yNumber) ;
+            if (idx2 == 0) {
+                [elementPath moveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
+            } else if (!goodForCurve) {
+                [elementPath lineToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
+            } else {
+                [elementPath curveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])
+                            controlPoint1:NSMakePoint([c1xNumber doubleValue], [c1yNumber doubleValue])
+                            controlPoint2:NSMakePoint([c2xNumber doubleValue], [c2yNumber doubleValue])] ;
+            }
+        }] ;
+        if ([[self getElementValueFor:@"closed" atIndex:idx] boolValue]) {
+            [elementPath closePath] ;
+        }
+    }
+
+    return elementPath ;
+}
 
 - (void)drawRect:(__unused NSRect)rect {
     NSDisableScreenUpdates() ;
@@ -1099,7 +1211,7 @@ static int userdata_gc(lua_State* L) ;
         NSString     *action      = [self getElementValueFor:@"action" atIndex:idx] ;
 
         if (!needMouseTracking) {
-            needMouseTracking = [[self getElementValueFor:@"trackMouseEnter" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseExit" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:idx] boolValue] ;
+            needMouseTracking = [[self getElementValueFor:@"trackMouseEnterExit" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:idx] boolValue] ;
         }
 
         BOOL wasClippingChanged = NO ; // necessary to keep graphicsState stack properly ordered
@@ -1124,159 +1236,73 @@ static int userdata_gc(lua_State* L) ;
         NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
         if (elementTransform) [elementTransform concat] ;
 
-        NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-        NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                       [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+        elementPath = [self pathForElementAtIndex:idx] ;
 
+        // First, if it's not a path, make sure it's not an element which doesn't have a path...
 
-        if ([elementType isEqualToString:@"arc"]) {
-            NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
-            CGFloat cx = [center[@"x"] doubleValue] ;
-            CGFloat cy = [center[@"y"] doubleValue] ;
-            CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
-            NSPoint myCenterPoint = NSMakePoint(cx, cy) ;
-            elementPath = [NSBezierPath bezierPath];
-            CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
-            CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
-            BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
-            BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
-            if (arcLegs) [elementPath moveToPoint:myCenterPoint] ;
-            [elementPath appendBezierPathWithArcWithCenter:myCenterPoint
-                                                    radius:r
-                                                startAngle:startAngle
-                                                  endAngle:endAngle
-                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
-            ] ;
-            if (arcLegs) [elementPath lineToPoint:myCenterPoint] ;
-        } else
-        if ([elementType isEqualToString:@"circle"]) {
-            NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
-            CGFloat cx = [center[@"x"] doubleValue] ;
-            CGFloat cy = [center[@"y"] doubleValue] ;
-            CGFloat r  = [[self getElementValueFor:@"radius" atIndex:idx resolvePercentages:YES] doubleValue] ;
-            elementPath = [NSBezierPath bezierPath];
-            [elementPath appendBezierPathWithOvalInRect:NSMakeRect(cx - r, cy - r, r * 2, r * 2)] ;
-        } else
-        if ([elementType isEqualToString:@"ellipticalArc"]) {
-            CGFloat cx     = frameRect.origin.x + frameRect.size.width / 2 ;
-            CGFloat cy     = frameRect.origin.y + frameRect.size.height / 2 ;
-            CGFloat r      = frameRect.size.width / 2 ;
+        if (!elementPath) {
+            NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+            NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                           [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
-            NSAffineTransform *moveTransform = [NSAffineTransform transform] ;
-            [moveTransform translateXBy:cx yBy:cy] ;
-            NSAffineTransform *scaleTransform = [NSAffineTransform transform] ;
-            [scaleTransform scaleXBy:1.0 yBy:(frameRect.size.height / frameRect.size.width)] ;
-            NSAffineTransform *finalTransform = [[NSAffineTransform alloc] initWithTransform:scaleTransform] ;
-            [finalTransform appendTransform:moveTransform] ;
-            elementPath = [NSBezierPath bezierPath];
-            CGFloat startAngle = [[self getElementValueFor:@"startAngle" atIndex:idx] doubleValue] - 90 ;
-            CGFloat endAngle   = [[self getElementValueFor:@"endAngle" atIndex:idx] doubleValue] - 90 ;
-            BOOL    arcDir     = [[self getElementValueFor:@"arcClockwise" atIndex:idx] boolValue] ;
-            BOOL    arcLegs    = [[self getElementValueFor:@"arcRadii" atIndex:idx] boolValue] ;
-            if (arcLegs) [elementPath moveToPoint:NSZeroPoint] ;
-            [elementPath appendBezierPathWithArcWithCenter:NSZeroPoint
-                                                    radius:r
-                                                startAngle:startAngle
-                                                  endAngle:endAngle
-                                                 clockwise:!arcDir // because our canvas is flipped, we have to reverse this
-            ] ;
-            if (arcLegs) [elementPath lineToPoint:NSZeroPoint] ;
-            elementPath = [finalTransform transformBezierPath:elementPath] ;
-        } else
-        if ([elementType isEqualToString:@"image"]) {
-            if (![action isEqualTo:@"skip"]) {
-            // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
-                NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
-                if (theImage) [theImage drawInRect:frameRect] ;
-                [self->_elementBounds addObject:@{
-                    @"index" : @(idx),
-                    @"frame" : [NSValue valueWithRect:frameRect]
-                }] ;
-                elementPath = nil ; // shouldn't be necessary, but lets be explicit
-            }
-        } else
-        if ([elementType isEqualToString:@"text"]) {
-            if (![action isEqualTo:@"skip"]) {
-                id textEntry = [self getElementValueFor:@"text" atIndex:idx onlyIfSet:YES] ;
-                if (!textEntry) {
-                    textEntry = @"" ;
-                } else if([textEntry isKindOfClass:[NSNumber class]]) {
-                    textEntry = [(NSNumber *)textEntry stringValue] ;
+            if ([elementType isEqualToString:@"image"]) {
+                if (![action isEqualTo:@"skip"]) {
+                // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
+                    NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
+                    if (theImage) [theImage drawInRect:frameRect] ;
+                    [self->_elementBounds addObject:@{
+                        @"index" : @(idx),
+                        @"frame" : [NSValue valueWithRect:frameRect]
+                    }] ;
+                    elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
+            } else
+            if ([elementType isEqualToString:@"text"]) {
+                if (![action isEqualTo:@"skip"]) {
+                    id textEntry = [self getElementValueFor:@"text" atIndex:idx onlyIfSet:YES] ;
+                    if (!textEntry) {
+                        textEntry = @"" ;
+                    } else if([textEntry isKindOfClass:[NSNumber class]]) {
+                        textEntry = [(NSNumber *)textEntry stringValue] ;
+                    }
 
-                if ([textEntry isKindOfClass:[NSString class]]) {
-                    NSString *myFont = [self getElementValueFor:@"textFont" atIndex:idx onlyIfSet:NO] ;
-                    NSNumber *mySize = [self getElementValueFor:@"textSize" atIndex:idx onlyIfSet:NO] ;
-                    NSDictionary *attributes = @{
-                        NSForegroundColorAttributeName : [self getElementValueFor:@"textColor" atIndex:idx onlyIfSet:NO],
-                        NSFontAttributeName            : [NSFont fontWithName:myFont size:[mySize doubleValue]],
-                    } ;
-                    [(NSString *)textEntry drawInRect:frameRect withAttributes:attributes] ;
-                } else {
-                    [(NSAttributedString *)textEntry drawInRect:frameRect] ;
+                    if ([textEntry isKindOfClass:[NSString class]]) {
+                        NSString *myFont = [self getElementValueFor:@"textFont" atIndex:idx onlyIfSet:NO] ;
+                        NSNumber *mySize = [self getElementValueFor:@"textSize" atIndex:idx onlyIfSet:NO] ;
+                        NSDictionary *attributes = @{
+                            NSForegroundColorAttributeName : [self getElementValueFor:@"textColor" atIndex:idx onlyIfSet:NO],
+                            NSFontAttributeName            : [NSFont fontWithName:myFont size:[mySize doubleValue]],
+                        } ;
+                        [(NSString *)textEntry drawInRect:frameRect withAttributes:attributes] ;
+                    } else {
+                        [(NSAttributedString *)textEntry drawInRect:frameRect] ;
+                    }
+                    [self->_elementBounds addObject:@{
+                        @"index" : @(idx),
+                        @"frame" : [NSValue valueWithRect:frameRect]
+                    }] ;
+                    elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
-                [self->_elementBounds addObject:@{
-                    @"index" : @(idx),
-                    @"frame" : [NSValue valueWithRect:frameRect]
-                }] ;
-                elementPath = nil ; // shouldn't be necessary, but lets be explicit
-            }
-        } else
-        if ([elementType isEqualToString:@"oval"]) {
-            elementPath = [NSBezierPath bezierPath];
-            [elementPath appendBezierPathWithOvalInRect:frameRect] ;
-        } else
-        if ([elementType isEqualToString:@"rectangle"]) {
-            elementPath = [NSBezierPath bezierPath];
-            NSDictionary *roundedRect = [self getElementValueFor:@"roundedRectRadii" atIndex:idx] ;
-            [elementPath appendBezierPathWithRoundedRect:frameRect
-                                              xRadius:[roundedRect[@"xRadius"] doubleValue]
-                                              yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
-        } else
-//         if ([elementType isEqualToString:@"points"]) {
-//         } else
-        if ([elementType isEqualToString:@"segments"]) {
-            elementPath = [NSBezierPath bezierPath];
-            NSArray *coordinates = [self getElementValueFor:@"coordinates" atIndex:idx resolvePercentages:YES] ;
-
-            [coordinates enumerateObjectsUsingBlock:^(NSDictionary *aPoint, NSUInteger idx2, __unused BOOL *stop2) {
-                NSNumber *xNumber   = aPoint[@"x"] ;
-                NSNumber *yNumber   = aPoint[@"y"] ;
-                NSNumber *c1xNumber = aPoint[@"c1x"] ;
-                NSNumber *c1yNumber = aPoint[@"c1y"] ;
-                NSNumber *c2xNumber = aPoint[@"c2x"] ;
-                NSNumber *c2yNumber = aPoint[@"c2y"] ;
-                BOOL goodForCurve = (c1xNumber) && (c1yNumber) && (c2xNumber) && (c2yNumber) ;
-                if (idx2 == 0) {
-                    [elementPath moveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
-                } else if (!goodForCurve) {
-                    [elementPath lineToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])] ;
-                } else {
-                    [elementPath curveToPoint:NSMakePoint([xNumber doubleValue], [yNumber doubleValue])
-                                controlPoint1:NSMakePoint([c1xNumber doubleValue], [c1yNumber doubleValue])
-                                controlPoint2:NSMakePoint([c2xNumber doubleValue], [c2yNumber doubleValue])] ;
+            } else
+            if ([elementType isEqualToString:@"resetClip"]) {
+                if (![action isEqualTo:@"skip"]) {
+                    [gc restoreGraphicsState] ; // from beginning of enumeration
+                    wasClippingChanged = YES ;
+                    if (clippingModified) {
+                        [gc restoreGraphicsState] ; // from clip action
+                        clippingModified = NO ;
+                    } else {
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - un-nested resetClip at index %lu", USERDATA_TAG, idx + 1]] ;
+                    }
+                    elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
-            }] ;
-            if ([[self getElementValueFor:@"closed" atIndex:idx] boolValue]) {
-                [elementPath closePath] ;
+            } else
+            {
+                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
             }
-        } else
-        if ([elementType isEqualToString:@"resetClip"]) {
-            if (![action isEqualTo:@"skip"]) {
-                [gc restoreGraphicsState] ; // from beginning of enumeration
-                wasClippingChanged = YES ;
-                if (clippingModified) {
-                    [gc restoreGraphicsState] ; // from clip action
-                    clippingModified = NO ;
-                } else {
-                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - un-nested resetClip at index %lu", USERDATA_TAG, idx + 1]] ;
-                }
-                elementPath = nil ; // shouldn't be necessary, but lets be explicit
-            }
-        } else
-        {
-            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
         }
+
+        // Now, if it's still not a path, we don't render it.  But if it is...
 
         if (elementPath) {
             NSNumber *miterLimit = [self getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
@@ -1811,15 +1837,16 @@ static int canvas_hide(lua_State *L) {
 ///
 /// Notes:
 ///  * The following mouse attributes may be set per canvas element and will invoke the callback with the specified message:
-///    * `trackMouseDown`   - indicates that a callback should be invoked when a mouse button is clicked down.  The message will be "mouseDown".
-///    * `trackMouseUp`     - indicates that a callback should be invoked when a mouse button has been released.  The message will be "mouseUp".
-///    * `trackMouseEnter`  - indicates that a callback should be invoked when the mouse pointer enters the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseEnter".
-///    * `trackMouseExit`   - indicates that a callback should be invoked when the mouse pointer exits the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseExit".
-///    * `trackMouseMove`   - indicates that a callback should be invoked when the mouse pointer moves within the bounds (the smallest rectangle which can completely contain it) of the canvas element.  The message will be "mouseMove".
+///    * `trackMouseDown`      - indicates that a callback should be invoked when a mouse button is clicked down on the canvas element.  The message will be "mouseDown".
+///    * `trackMouseUp`        - indicates that a callback should be invoked when a mouse button has been released over the canvas element.  The message will be "mouseUp".
+///    * `trackMouseEnterExit` - indicates that a callback should be invoked when the mouse pointer enters or exits the  canvas element.  The message will be "mouseEnter".
+///    * `trackMouseMove`      - indicates that a callback should be invoked when the mouse pointer moves within the canvas element.  The message will be "mouseMove".
 ///
 ///  * The callback mechanism uses reverse z-indexing to determine which element will receive the callback -- the topmost element of the canvas which has enabled callbacks for the specified message will be invoked.
 ///
 ///  * No distinction is made between the left, right, or other mouse buttons. If you need to determine which specific button was pressed, use `hs.eventtap.checkMouseButtons()` within your callback to check.
+///
+///  * The hit point detection occurs by comparing the mouse pointer location to the rendered content of each individual canvas object... if an object which obscures a lower object does not have mouse tracking enabled, the lower object may still receive the event if it does have tracking enabled.  Likewise, clipping regions which remove content from the visible area of a rendered object are not honored during this test.
 static int canvas_mouseCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -1881,20 +1908,38 @@ static int canvas_clickActivating(lua_State *L) {
 static int canvas_canvasMouseEvents(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                    LS_TBOOLEAN | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
     ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
 
-    if (lua_type(L, 2) != LUA_TNONE) {
-        canvasView.canvasMouseEvents = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, canvasView.canvasMouseDown) ;
+        lua_pushboolean(L, canvasView.canvasMouseUp) ;
+        lua_pushboolean(L, canvasView.canvasMouseEnterExit) ;
+        lua_pushboolean(L, canvasView.canvasMouseMove) ;
+        return 4 ;
     } else {
-        lua_pushboolean(L, canvasView.canvasMouseEvents) ;
-    }
+        if (lua_type(L, 2) == LUA_TBOOLEAN) {
+            canvasView.canvasMouseDown = (BOOL)lua_toboolean(L, 2) ;
+        }
+        if (lua_type(L, 3) == LUA_TBOOLEAN) {
+            canvasView.canvasMouseUp = (BOOL)lua_toboolean(L, 2) ;
+        }
+        if (lua_type(L, 4) == LUA_TBOOLEAN) {
+            canvasView.canvasMouseEnterExit = (BOOL)lua_toboolean(L, 2) ;
+        }
+        if (lua_type(L, 5) == LUA_TBOOLEAN) {
+            canvasView.canvasMouseMove = (BOOL)lua_toboolean(L, 2) ;
+        }
 
-    return 1;
+        lua_pushvalue(L, 1) ;
+        return 1;
+    }
 }
 
 /// hs._asm.canvas:topLeft([point]) -> canvasObject | currentValue
@@ -2568,13 +2613,40 @@ static int canvas_canvasElements(__unused lua_State *L) {
     return 1 ;
 }
 
-static int canvas_canvasBoundingBoxes(__unused lua_State *L) {
+static int canvas_elementBoundsAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TNUMBER | LS_TINTEGER,
                     LS_TBREAK] ;
     ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
     ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
-    [skin pushNSObject:canvasView.elementBounds withOptions:LS_NSDescribeUnknownTypes] ;
+
+    NSUInteger      elementCount  = [canvasView.elementList count] ;
+    NSInteger       tablePosition = (lua_tointeger(L, 2) - 1) ;
+
+    if (tablePosition < 0 || tablePosition > (NSInteger)elementCount - 1) {
+        return luaL_argerror(L, 3, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
+    }
+
+    NSUInteger   idx         = (NSUInteger)tablePosition ;
+    NSRect       boundingBox = NSZeroRect ;
+    NSBezierPath *itemPath   = [canvasView pathForElementAtIndex:idx] ;
+    if (itemPath) {
+        boundingBox = [itemPath bounds] ;
+    } else {
+        NSString *itemType = canvasView.elementList[idx][@"type"] ;
+        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"]) {
+            NSDictionary *frame = [canvasView getElementValueFor:@"frame"
+                                                         atIndex:idx
+                                              resolvePercentages:YES] ;
+            boundingBox = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                     [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+        } else {
+            lua_pushnil(L) ;
+            return 1 ;
+        }
+    }
+    [skin pushNSRect:boundingBox] ;
     return 1 ;
 }
 
@@ -2750,15 +2822,15 @@ static int userdata_gc(lua_State* L) {
 static const luaL_Reg userdata_metaLib[] = {
 // affects drawing elements
     {"assignElement",       canvas_assignElementAtIndex},
-    {"canvasBoundingBoxes", canvas_canvasBoundingBoxes},
     {"canvasElements",      canvas_canvasElements},
     {"canvasDefaults",      canvas_canvasDefaults},
     {"canvasMouseEvents",   canvas_canvasMouseEvents},
     {"canvasDefaultKeys",   canvas_canvasDefaultKeys},
     {"canvasDefaultFor",    canvas_canvasDefaultFor},
     {"elementAttribute",    canvas_elementAttributeAtIndex},
-    {"elementKeys",         canvas_elementKeysAtIndex},
+    {"elementBounds",       canvas_elementBoundsAtIndex},
     {"elementCount",        canvas_elementCount},
+    {"elementKeys",         canvas_elementKeysAtIndex},
     {"insertElement",       canvas_insertElementAtIndex},
     {"removeElement",       canvas_removeElementAtIndex},
 // affects whole canvas

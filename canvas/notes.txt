@@ -1,26 +1,23 @@
-    point... needed?  thinking graphs here, but unit rectangles work just as well, or image/circle/?
-
 *   mouse callbacks
-        reduce granularity for elements? increase for canvas?
+*       reduce granularity for elements? increase for canvas?
 
-    method for element bounds?
+*   method for element bounds?
+*   rotate around element center method
+
+    text/image affect clipping region?
+    text/image target actual rendered area instead of frame?
 
     remove circle and arc?
+    add points
 
-    rotate around element center method
     Canvas to hs.image
 
     merge canvases?
     method to swap elements?
 
->> Can we optimize by only applying when value in canvas defaults or element?  how much would this help?
-The following are saved with the graphics context -- set them before iterating, then change only when set in actual element data (i.e. not inherited from defaults) See https://developer.apple.com/library/prerelease/content/documentation/Cocoa/Conceptual/CocoaDrawingGuide/GraphicsContexts/GraphicsContexts.html#//apple_ref/doc/uid/TP40003290-CH203-BCIHGDAH
+    NSGraphicsContext imageInterpolation?
 
-    NSGraphicsContext imageInterpolation ??
-
-// Want to add tracking rectangle to this and/or hs.drawing https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/EventOverview/TrackingAreaObjects/TrackingAreaObjects.html
-
--- sample:
+-- samples:
 
 c = require("hs._asm.canvas")
 a = c.new{x=100,y=100,h=500,w=500}:appendElements{ {
