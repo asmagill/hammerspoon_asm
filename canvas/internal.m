@@ -1988,6 +1988,27 @@ static int canvas_topLeft(lua_State *L) {
     return 1;
 }
 
+static int canvas_canvasAsImage(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TTABLE | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+
+    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    NSRect canvasFrame = canvasView.bounds ;
+
+    if (lua_gettop(L) == 2) {
+        canvasFrame = [skin tableToRectAtIndex:2] ;
+    }
+    NSData  *pdfData = [canvasView dataWithPDFInsideRect:canvasFrame] ;
+    NSImage *image   = [[NSImage alloc] initWithData:pdfData] ;
+    [skin pushNSObject:image] ;
+    return 1;
+}
+
+
+
 /// hs._asm.canvas:size([size]) -> canvasObject | currentValue
 /// Method
 /// Get or set the size of a canvas object
@@ -2845,6 +2866,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementBounds",       canvas_elementBoundsAtIndex},
     {"elementCount",        canvas_elementCount},
     {"elementKeys",         canvas_elementKeysAtIndex},
+    {"imageOfCanvas",       canvas_canvasAsImage},
     {"insertElement",       canvas_insertElementAtIndex},
     {"removeElement",       canvas_removeElementAtIndex},
 // affects whole canvas
