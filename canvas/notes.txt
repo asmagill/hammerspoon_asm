@@ -93,3 +93,11 @@ a[2] = {
 a:show()
 
 y = false ; z = 0 ; hs.timer.doWhile(function() return y ~= true end, function() local sz = a:size() ; a._default.transformation = c.matrix.translate(sz.w / 2, sz.h / 2):rotate(z):translate(sz.w / -2, sz.h / -2) z = z + 10 end, .1)
+
+
+
+c = require("hs._asm.canvas")
+a = c.new{ x = 100, y = 100, h = 500, w = 500 }
+a[1] = { type = "segments", closed = false, strokeColor = { blue = 1 }, action = "stroke", strokeWidth = 2 }
+a:show()
+t = hs.timer.doEvery(.1, function() local z = {} ; for i = 0, 500, 10 do table.insert(z, { x = i, y = math.random(500) }) end ; a[1].coordinates = z end)

@@ -7,6 +7,86 @@
 --- This module works by designating a canvas and then assigning a series of graphical primitives to the canvas.  Included in this assignment list are rules about how the individual elements interact with each other within the canvas (compositing and clipping rules), and direct modification of the canvas itself (move, resize, etc.) causes all of the assigned elements to be adjusted as a group.
 ---
 --- This is an experimental work in progress, so we'll see how it goes...
+---
+--- ### Overview
+---
+--- The canvas elements are defined in an array, and each entry of the array is a table of key-value pairs describing the element at that position.  Elements are rendered in the order in which they are assigned to the array (i.e. element 1 is drawn before element 2, etc.).
+---
+--- All canvas elements require the `type` field; all other attributes have default values.  Defaults are first looked for in the canvas level defaults, and then in the module's built in defaults.
+---
+--- #### Element Attributes
+---
+--- * `type` - specifies the type of canvas element the table represents. This attribute has no default and must be specified for each element in the canvas array. Valid type strings are:
+---   * `arc`           - an arc inscribed on a circle, defined by `radius`, `center`, `startAngle`, and `endAngle`.
+---   * `circle`        - a circle, defined by `radius` and `center`.
+---   * `ellipticalArc` - an arc inscribed on an oval, defined by `frame`, `startAngle`, and `endAngle`.
+---   * `image`         - an image as defined by one of the `hs.image` constructors.
+---   * `oval`          - an oval, defined by `frame`
+---   * `points`        - a list of points defined in `coordinates`.
+---   * `rectangle`     - a rectangle, optionally with rounded corners, defined by `frame`.
+---   * `resetClip`     - a special type -- indicates that the current clipping shape should be reset to the canvas default (the full canvas area).  See `Clipping Example`.
+---   * `segments`      - a list of line segments or bezier curves with control points, defined in `coordinates`.
+---   * `text`          - a string or `hs.styledtext` object, defined by `text` and `frame`.
+---
+--- * The following is a list of all valid attributes.  Not all attributes apply to every type, but you can set them for any type.
+---   * `action`              - Default `strokeAndFill`. A string specifying the action to take for the element in the array.  The following actions are recognized:
+---     * `clip`          - append the shape to the current clipping region for the canvas. Ignored for `image` and `text` types.
+---     * `build`         - do not render the element -- it's shape is preserved and the next element in the canvas array is appended to it.  This can be used to create complex shapes or clipping regions. Ignored for `image` and `text` types.
+---     * `fill`          - fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+---     * `skip`          - ignore this element or its effects.  Can be used to temporarily "remove" an object from the canvas.
+---     * `stroke`        - stroke (outline) the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+---     * `strokeAndFill` - stroke and fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+---   * `absolutePosition`    - Default `true`. If false, non-string location/size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element remains in the same "relative" position in the canvas.
+---   * `absoluteSize`        - Default `true`. If false, non-string location/size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element maintains the same "relative" size in the canvas.
+---   * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
+---   * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the elements center to the start and end angles should be included in the elements visible portion.  This affects whether the objects stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
+---   * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
+---   * `compositeRule`
+---   * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on percentages for more information.
+---   * `closed`              - Default `false`.  Used by the `segments` type to specify whether or not the shape defined by the lines and curves defined should be closed (true) or open (false).  When an object is closed, an implicit line is stroked from the final point back to the initial point of the coordinates listed.
+---   * `coordinates`         - An array containing coordinates used by the `segments` and `points` types to define the lines and curves or points that make up the canvas element.  The following keys are recognized and may be specified as numbers or strings (see the section on percentages).
+---     * `x`   - required for `segments` and `points`, specifying the x coordinate of a point.
+---     * `y`   - required for `segments` and `points`, specifying the y coordinate of a point.
+---     * `c1x` - optional for `segments, specifying the x coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+---     * `c1y` - optional for `segments, specifying the y coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+---     * `c2x` - optional for `segments, specifying the x coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+---     * `c2y` - optional for `segments, specifying the y coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+---   * `endAngle`            - Default `360.0`. Used by the `arc` and `ellipticalArc` to specify the ending angle for the inscribed arc.
+---   * `fillColor`           - Default `{ red = 1.0 }`.  Specifies the color used to fill the canvas element when the `action` is set to `fill` or `strokeAndFill` and `fillGradient` is equal to `none`.  Ignored for the `image` and `text` types.
+---   * `fillGradient`        - Default `none`.  A string specifying whether a fill gradient should be used instead of the fill color when the action is `fill` or `strokeAndFill`.  May be `none`, `linear`, or `radial`.
+---   * `fillGradientAngle`   - Default 0.0.  Specifies the direction of a linear gradient when `fillGradient` is linear.
+---   * `fillGradientCenter`  - Default `{ x = 0.0, y = 0.0 }`. Specifies the relative center point within the elements bounds of a radial gradient when `fillGradient` is `radial`.  The `x` and `y` fields must both be between -1.0 and 1.0 inclusive.
+---   * `fillGradientColors`  - Default `{ startColor = { white = 0.0 }, endColor = { white = 1.0 } }`.  Specifies the beginning and ending colors for a gradient when `fillGradient` is not `none`.
+---   * `flatness`            -
+---   * `flattenPath`         -
+---   * `frame`               -
+---   * `id`                  -
+---   * `image`               -
+---   * `miterLimit`          -
+---   * `padding`             -
+---   * `radius`              -
+---   * `reversePath`         -
+---   * `roundedRectRadii`    -
+---   * `shadow`              -
+---   * `startAngle`          -
+---   * `strokeCapStyle`      -
+---   * `strokeColor`         -
+---   * `strokeDashPattern`   -
+---   * `strokeDashPhase`     -
+---   * `strokeJoinStyle`     - Default `miter`.  A string which specifies the shape of the joints between connected segments of a stroked path.  Valid values for this attribute are "miter", "round", and "bevel".  Ignored for element types of `image` and `text`.
+---   * `strokeWidth`         - Default `1.0`.  Specifies the width of stroked lines when an element's action is set to `stroke` or `strokeAndFill`.  Ignored for the `image` and `text` element types.
+---   * `text`                - Default `""`.  Specifies the text to display for a `text` element.  This may be specified as a string, or as an `hs.styledtext` object.
+---   * `textColor`           - Default `{ white = 1.0 }`.  Specifies the color to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+---   * `textFont`            - Defaults to the default system font.  A string specifying the name of thefont to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+---   * `textSize`            - Default `27.0`.  Specifies the sont size to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+---   * `trackMouseEnterExit` - Default `false`.  Generates a callback when the mouse enters or exits the visible portion of the canvas element.  For `text` and `image` types, the `frame` of the element defines the boundaries of the tracking area.
+---   * `trackMouseDown`      - Default `false`.  Generates a callback when mouse button is clicked down while the cursor is within the visible portion of the canvas element.  For `text` and `image` types, the `frame` of the element defines the boundaries of the tracking area.
+---   * `trackMouseUp`        - Default `false`.  Generates a callback when mouse button is released while the cursor is within the visible portion of the canvas element.  For `text` and `image` types, the `frame` of the element defines the boundaries of the tracking area.
+---   * `trackMouseMove`      - Default `false`.  Generates a callback when the mouse cursor moves within the visible portion of the canvas element.  For `text` and `image` types, the `frame` of the element defines the boundaries of the tracking area.
+---   * `transformation`      - Default `{ m11 = 1.0, m12 = 0.0, m21 = 0.0, m22 = 1.0, tX = 0.0, tY = 0.0 }`. Specifies a matrix transformation to apply to the element before displaying it.  Transformations may include rotation, translation, scaling, skewing, etc.
+---   * `windingRule`         - Default `nonZero`.  A string specifying the winding rule in effect for the canvas element. May be "nonZero" or "evenOdd".  The winding rule determines which portions of an element to fill. This setting will only have a visible effect on compound elements (built with the `build` action) or elements of type `segments` when the object is made from lines which cross.
+---   * `withShadow`          - Default `false`. Specifies whether a shadow effect should be applied to the canvas element.  Ignored for the `text` type.
+
 
 local USERDATA_TAG = "hs._asm.canvas"
 local module       = require(USERDATA_TAG..".internal")

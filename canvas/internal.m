@@ -1,12 +1,5 @@
-
-//   in init.lua, add wrapper to take array of elements and replace all
-//   ALL_TYPES like languageDictionary, rather than as repeated literal?
 //   keep elementSpec function?
 //   should circle and arc remain or auto-convert or be removed?
-
-//   Redo callback details per description in `hs._asm.canvas:elements`
-//   Should we optionally allow turning off NSView rect clipping like drawing does always?
-//   Start coding the hard parts, you monkey!
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -175,7 +168,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"luaClass"    : @"boolean",
             @"objCType"    : @(@encode(BOOL)),
             @"nullable"    : @(NO),
-            @"default"     : @(YES),
+            @"default"     : @(NO),
             @"requiredFor" : @[ @"segments" ],
         },
         @"coordinates" : @{
@@ -1073,6 +1066,7 @@ static int userdata_gc(lua_State* L) ;
     NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
                                    [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
+#pragma mark - ARC
     if ([elementType isEqualToString:@"arc"]) {
         NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
         CGFloat cx = [center[@"x"] doubleValue] ;
@@ -1093,6 +1087,7 @@ static int userdata_gc(lua_State* L) ;
         ] ;
         if (arcLegs) [elementPath lineToPoint:myCenterPoint] ;
     } else
+#pragma mark - CIRCLE
     if ([elementType isEqualToString:@"circle"]) {
         NSDictionary *center = [self getElementValueFor:@"center" atIndex:idx resolvePercentages:YES] ;
         CGFloat cx = [center[@"x"] doubleValue] ;
@@ -1101,6 +1096,7 @@ static int userdata_gc(lua_State* L) ;
         elementPath = [NSBezierPath bezierPath];
         [elementPath appendBezierPathWithOvalInRect:NSMakeRect(cx - r, cy - r, r * 2, r * 2)] ;
     } else
+#pragma mark - ELLIPTICALARC
     if ([elementType isEqualToString:@"ellipticalArc"]) {
         CGFloat cx     = frameRect.origin.x + frameRect.size.width / 2 ;
         CGFloat cy     = frameRect.origin.y + frameRect.size.height / 2 ;
@@ -1127,10 +1123,12 @@ static int userdata_gc(lua_State* L) ;
         if (arcLegs) [elementPath lineToPoint:NSZeroPoint] ;
         elementPath = [finalTransform transformBezierPath:elementPath] ;
     } else
+#pragma mark - OVAL
     if ([elementType isEqualToString:@"oval"]) {
         elementPath = [NSBezierPath bezierPath];
         [elementPath appendBezierPathWithOvalInRect:frameRect] ;
     } else
+#pragma mark - RECTANGLE
     if ([elementType isEqualToString:@"rectangle"]) {
         elementPath = [NSBezierPath bezierPath];
         NSDictionary *roundedRect = [self getElementValueFor:@"roundedRectRadii" atIndex:idx] ;
@@ -1138,8 +1136,18 @@ static int userdata_gc(lua_State* L) ;
                                           xRadius:[roundedRect[@"xRadius"] doubleValue]
                                           yRadius:[roundedRect[@"yRadius"] doubleValue]] ;
     } else
-//         if ([elementType isEqualToString:@"points"]) {
-//         } else
+#pragma mark - POINTS
+    if ([elementType isEqualToString:@"points"]) {
+        elementPath = [NSBezierPath bezierPath];
+        NSArray *coordinates = [self getElementValueFor:@"coordinates" atIndex:idx resolvePercentages:YES] ;
+
+        [coordinates enumerateObjectsUsingBlock:^(NSDictionary *aPoint, __unused NSUInteger idx2, __unused BOOL *stop2) {
+            NSNumber *xNumber   = aPoint[@"x"] ;
+            NSNumber *yNumber   = aPoint[@"y"] ;
+            [elementPath appendBezierPathWithRect:NSMakeRect([xNumber doubleValue], [yNumber doubleValue], 1.0, 1.0)] ;
+        }] ;
+    } else
+#pragma mark - SEGMENTS
     if ([elementType isEqualToString:@"segments"]) {
         elementPath = [NSBezierPath bezierPath];
         NSArray *coordinates = [self getElementValueFor:@"coordinates" atIndex:idx resolvePercentages:YES] ;
@@ -1231,7 +1239,7 @@ static int userdata_gc(lua_State* L) ;
         if (fillColor) [fillColor setFill] ;
 
         NSColor *strokeColor = [self getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
-        if (strokeColor) [strokeColor setFill] ;
+        if (strokeColor) [strokeColor setStroke] ;
 
         NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
         if (elementTransform) [elementTransform concat] ;
@@ -1245,6 +1253,7 @@ static int userdata_gc(lua_State* L) ;
             NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
                                            [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
+#pragma mark - IMAGE
             if ([elementType isEqualToString:@"image"]) {
                 if (![action isEqualTo:@"skip"]) {
                 // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
@@ -1257,6 +1266,7 @@ static int userdata_gc(lua_State* L) ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
             } else
+#pragma mark - TEXT
             if ([elementType isEqualToString:@"text"]) {
                 if (![action isEqualTo:@"skip"]) {
                     id textEntry = [self getElementValueFor:@"text" atIndex:idx onlyIfSet:YES] ;
@@ -1284,6 +1294,7 @@ static int userdata_gc(lua_State* L) ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
             } else
+#pragma mark - RESETCLIP
             if ([elementType isEqualToString:@"resetClip"]) {
                 if (![action isEqualTo:@"skip"]) {
                     [gc restoreGraphicsState] ; // from beginning of enumeration
@@ -1304,6 +1315,7 @@ static int userdata_gc(lua_State* L) ;
 
         // Now, if it's still not a path, we don't render it.  But if it is...
 
+#pragma mark - Render Logic
         if (elementPath) {
             NSNumber *miterLimit = [self getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
             if (miterLimit) elementPath.miterLimit = [miterLimit doubleValue] ;
@@ -1338,7 +1350,7 @@ static int userdata_gc(lua_State* L) ;
                 renderPath = nil ;
 
             } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
-                if ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"]) {
+                if (![elementType isEqualToString:@"points"] && ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"])) {
                     NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
                     if (![fillGradient isEqualToString:@"none"]) {
                         NSDictionary *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
@@ -1574,6 +1586,8 @@ static int userdata_gc(lua_State* L) ;
                         NSNumber *percentage = convertPercentageStringToNumber(subItem[field]) ;
                         CGFloat ourPadding = [field hasSuffix:@"x"] ? paddedWidth : paddedHeight ;
                         targetItem[field] = [NSNumber numberWithDouble:(padding + [percentage doubleValue] * ourPadding)] ;
+                    } else {
+                        targetItem[field] = subItem[field] ;
                     }
                 }
                 ourCopy[idx] = targetItem ;
