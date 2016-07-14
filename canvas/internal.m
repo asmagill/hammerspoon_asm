@@ -1740,7 +1740,7 @@ static int userdata_gc(lua_State* L) ;
 ///
 /// Notes:
 ///  * The size of the canvas defines the visible area of the canvas -- any portion of a canvas element which extends past the canvas's edges will be clipped.
-///  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen for the canvas (keys `x  and `y`) and the size (keys `h` and `w`) of the canvas. The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen for the canvas (keys `x`  and `y`) and the size (keys `h` and `w`) of the canvas. The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
 static int canvas_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
@@ -1758,6 +1758,18 @@ static int canvas_new(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.elementSpec() -> table
+/// Function
+/// Returns the list of attributes and their specifications that are recognized for canvas elements by this module.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * A table containing the attributes and specifications defined for this module.
+///
+/// Notes:
+///  * This is primarily for debugging purposes and may be removed in the future.
 static int dumpLanguageDictionary(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -1767,6 +1779,18 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.canvas:transformation([matrix]) -> canvasObject | current value
+/// Method
+/// Get or set the matrix transformation which is applied to every element in the canvas before being individually processed and added to the canvas.
+///
+/// Parameters:
+///  * `matrix` - an optional table specifying the matrix table, as defined by the `hs._asm.canvas.matrix` module, to be applied to every element of the canvas, or an explicit `nil` to reset the transformation to the identity matrix.
+///
+/// Returns:
+///  * if an argument is provided, returns the canvasObject, otherwise returns the current value
+///
+/// Notes:
+///  * An example use for this method would be to change the canvas's origin point { x = 0, y = 0 } from the lower left corner of the canvas to somewhere else, like the middle of the canvas.
 static int canvas_canvasTransformation(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1844,13 +1868,16 @@ static int canvas_hide(lua_State *L) {
 /// Sets a callback for mouse events with respect to the canvas
 ///
 /// Parameters:
-///  * `mouseCallbackFn`   - A function, can be nil, that will be called when a mouse event occurs within the canvas, and an element beneath the mouse's current position has one of the `trackMouse...` attributes set to true.  The function should expect 5 arguments: the canvas object itself, a message specifying the type of mouse event, the canvas element `id` (or index position in the canvas if the `id` attribute is not set for the element), the x position of the mouse when the event was triggered within the rendered portion of the canvas element, and the y position of the mouse when the event was triggered within the rendered portion of the canvas element.
+///  * `mouseCallbackFn`   - A function, can be nil, that will be called when a mouse event occurs within the canvas, and an element beneath the mouse's current position has one of the `trackMouse...` attributes set to true.
 ///
 /// Returns:
 ///  * The canvas object
 ///
 /// Notes:
-///  * The following mouse attributes may be set per canvas element and will invoke the callback with the specified message:
+///  * The callback function should expect 5 arguments: the canvas object itself, a message specifying the type of mouse event, the canvas element `id` (or index position in the canvas if the `id` attribute is not set for the element), the x position of the mouse when the event was triggered within the rendered portion of the canvas element, and the y position of the mouse when the event was triggered within the rendered portion of the canvas element.
+///  * See also [hs._asm.canvas:canvasMouseEvents](#canvasMouseEvents) for tracking mouse events in regions of the canvas not covered by an element with mouse tracking enabled.
+///
+///  * The following mouse attributes may be set to true for a canvas element and will invoke the callback with the specified message:
 ///    * `trackMouseDown`      - indicates that a callback should be invoked when a mouse button is clicked down on the canvas element.  The message will be "mouseDown".
 ///    * `trackMouseUp`        - indicates that a callback should be invoked when a mouse button has been released over the canvas element.  The message will be "mouseUp".
 ///    * `trackMouseEnterExit` - indicates that a callback should be invoked when the mouse pointer enters or exits the  canvas element.  The message will be "mouseEnter".
@@ -1919,6 +1946,23 @@ static int canvas_clickActivating(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.canvas:canvasMouseEvents([down], [up], [enterExit], [move]) -> canvasObject | current values
+/// Method
+/// Get or set whether or not regions of the canvas which are not otherwise covered by an element with mouse tracking enabled should generate a callback for mouse events.
+///
+/// Parameters:
+///  * `down`      - an optional boolean, or nil placeholder, specifying whether or not the mouse button being pushed down should generate a callback for the canvas areas not otherwise covered by an element with mouse tracking enabled.
+///  * `up`        - an optional boolean, or nil placeholder, specifying whether or not the mouse button being released should generate a callback for the canvas areas not otherwise covered by an element with mouse tracking enabled.
+///  * `enterExit` - an optional boolean, or nil placeholder, specifying whether or not the mouse pointer entering or exiting the canvas bounds should generate a callback for the canvas areas not otherwise covered by an element with mouse tracking enabled.
+///  * `move`      - an optional boolean, or nil placeholder, specifying whether or not the mouse pointer moving within the canvas bounds should generate a callback for the canvas areas not otherwise covered by an element with mouse tracking enabled.
+///
+/// Returns:
+///  * If any arguments are provided, returns the canvas Object, otherwise returns the current values as four separate boolean values (i.e. not in a table).
+///
+/// Notes:
+///  * Each value that you wish to set must be provided in the order given above, but you may specify a position as `nil` to indicate that whatever it's current state, no change should be applied.  For example, to activate a callback for entering and exiting the canvas without changing the current callback status for up or down button clicks, you could use: `hs._asm.canvas:canvasMouseTracking(nil, nil, true)`.
+///
+///  * Use [hs._asm.canvas:mouseCallback](#mouseCallback) to set the callback function.  The identifier field in the callback's argument list will be "_canvas_", but otherwise identical to those specified in [hs._asm.canvas:mouseCallback](#mouseCallback).
 static int canvas_canvasMouseEvents(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -1967,7 +2011,7 @@ static int canvas_canvasMouseEvents(lua_State *L) {
 ///  * If an argument is provided, the canvas object; otherwise the current value.
 ///
 /// Notes:
-///  * a point-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the canvas (keys `x  and `y`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///  * a point-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the canvas (keys `x`  and `y`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
 static int canvas_topLeft(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -1988,6 +2032,20 @@ static int canvas_topLeft(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.canvas:imageFromCanvas([rect]) -> hs.image object
+/// Method
+/// Returns an image of the canvas contents as an `hs.image` object.
+///
+/// Parameters:
+///  * `rect` - an optional rect-table specifying the rectangle within the canvas to create an image of. Defaults to the full canvas.
+///
+/// Returns:
+///  * an `hs.image` object
+///
+/// Notes:
+///  * a rect-table is a table with key-value pairs specifying the top-left coordinate within the canvas (keys `x`  and `y`) and the size (keys `h` and `w`) of the rectangle.  The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///
+///  * The canvas does not have to be visible in order for an image to be generated from it.
 static int canvas_canvasAsImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2022,8 +2080,8 @@ static int canvas_canvasAsImage(lua_State *L) {
 /// Notes:
 ///  * a size-table is a table with key-value pairs specifying the size (keys `h` and `w`) the canvas should be resized to. The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
 ///
-///  * elements in the canvas that do not have the `absolutePosition` attribute set will be moved so that their relative position within the canvas remains the same with respect to the new size.
-///  * elements in the canvas that do not have the `absoluteSize` attribute set will be resized so that their size relative to the canvas remains the same with respect to the new size.
+///  * elements in the canvas that have the `absolutePosition` attribute set to false will be moved so that their relative position within the canvas remains the same with respect to the new size.
+///  * elements in the canvas that have the `absoluteSize` attribute set to false will be resized so that their relative size with respect to the canvas remains the same with respect to the new size.
 static int canvas_size(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2138,7 +2196,7 @@ static int canvas_alpha(lua_State *L) {
 ///  * The canvas object
 ///
 /// Notes:
-///  * If the canvas object and canvas2 are not at the same presentation level, this method will will move the canvas object as close to the desired relationship without changing the canvas object's presentation level. See [hs._asm.canvas.level](#level).
+///  * If the canvas object and canvas2 are not at the same presentation level, this method will will move the canvas object as close to the desired relationship as possible without changing the canvas object's presentation level. See [hs._asm.canvas.level](#level).
 static int canvas_orderAbove(lua_State *L) {
     return canvas_orderHelper(L, NSWindowAbove) ;
 }
@@ -2154,7 +2212,7 @@ static int canvas_orderAbove(lua_State *L) {
 ///  * The canvas object
 ///
 /// Notes:
-///  * If the canvas object and canvas2 are not at the same presentation level, this method will will move the canvas object as close to the desired relationship without changing the canvas object's presentation level. See [hs._asm.canvas.level](#level).
+///  * If the canvas object and canvas2 are not at the same presentation level, this method will will move the canvas object as close to the desired relationship as possible without changing the canvas object's presentation level. See [hs._asm.canvas.level](#level).
 static int canvas_orderBelow(lua_State *L) {
     return canvas_orderHelper(L, NSWindowBelow) ;
 }
@@ -2387,8 +2445,7 @@ static int canvas_isOccluded(lua_State *L) {
 ///
 /// Notes:
 ///  * Not all keys will apply to all element types.
-///  * Any key listed may be set in an element declaration to specify an alternate value when that element is rendered.
-///  * To get a table containing all of the current defaults, use [hs._asm.canvas:canvasDefaults](#canvasDefaults).
+///  * Currently set and built-in defaults may be retrieved in a table with [hs._asm.canvas:canvasDefaults](#canvasDefaults).
 static int canvas_canvasDefaultFor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2433,6 +2490,19 @@ static int canvas_canvasDefaultFor(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:insertElement(elementTable, [index]) -> canvasObject
+/// Method
+/// Insert a new element into the canvas at the specified index.
+///
+/// Parameters:
+///  * `elementTable` - a table containing key-value pairs that define the element to be added to the canvas.
+///  * `index`        - an optional integer between 1 and the canvas element count + 1 specifying the index position to put the new element.  Any element currently at that index, and those that follow, will be moved one position up in the element array.  Defaults to the canvas element count + 1 (i.e. after the end of the currently defined elements).
+///
+/// Returns:
+///  * the canvasObject
+///
+/// Notes:
+///  * see also [hs._asm.canvas:assignElement](#assignElement).
 static int canvas_insertElementAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2470,6 +2540,15 @@ static int canvas_insertElementAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:removeElement([index]) -> canvasObject
+/// Method
+/// Insert a new element into the canvas at the specified index.
+///
+/// Parameters:
+///  * `index`        - an optional integer between 1 and the canvas element count specifying the index of the canvas element to remove. Any elements that follow, will be moved one position down in the element array.  Defaults to the canvas element count (i.e. the last element of the currently defined elements).
+///
+/// Returns:
+///  * the canvasObject
 static int canvas_removeElementAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2491,6 +2570,17 @@ static int canvas_removeElementAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:elementAttribute(index, key, [value]) -> canvasObject | current value
+/// Method
+/// Get or set the attribute `key` for the canvas element at the specified index.
+///
+/// Parameters:
+///  * `index` - the index of the canvas element whose attribute is to be retrieved or set.
+///  * `key`   - the key name of the attribute to get or set.
+///  * `value` - an optional value to assign to the canvas element's attribute.
+///
+/// Returns:
+///  * if a value for the attribute is specified, returns the canvas object; otherwise returns the current value for the specified attribute.
 static int canvas_elementAttributeAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2545,6 +2635,19 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:elementKeys(index, [optional]) -> table
+/// Method
+/// Returns a list of the key names for the attributes set for the canvas element at the specified index.
+///
+/// Parameters:
+///  * `index`    - the index of the element to get the assigned key list from.
+///  * `optional` - an optional boolean, default false, indicating whether optional, but unset, keys relevant to this canvas object should also be included in the list returned.
+///
+/// Returns:
+///  * a table containing the keys that are set for this canvas element.  May also optionally include keys which are not specifically set for this element but use inherited values from the canvas or module defaults.
+///
+/// Notes:
+///  * Any attribute which has been explicitly set for the element will be included in the key list (even if it is ignored for the element type).  If the `optional` flag is set to true, the *additional* attribute names added to the list will only include those which are relevant to the element type.
 static int canvas_elementKeysAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2574,6 +2677,15 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:elementCount() -> integer
+/// Method
+/// Returns the number of elements currently defined for the canvas object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the number of elements currently defined for the canvas object.
 static int canvas_elementCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -2583,19 +2695,18 @@ static int canvas_elementCount(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.canvas:canvasDefaults() -> table
+/// hs._asm.canvas:canvasDefaults([module]) -> table
 /// Method
-/// Get a table of the default key-value pairs currently in effect for the canvas
+/// Get a table of the default key-value pairs which apply to the canvas.
 ///
 /// Parameters:
-///  * None
+///  * `module` - an optional boolean flag, default false, indicating whether module defaults (true) should be included in the table.  If false, only those defaults which have been explicitly set for the canvas are returned.
 ///
 /// Returns:
-///  * a table containing all of the default values for elements that will be rendered in the canvas.
+///  * a table containing key-value pairs for the defaults which apply to the canvas.
 ///
 /// Notes:
 ///  * Not all keys will apply to all element types.
-///  * Any key listed may be set in an element declaration to specify an alternate value when that element is rendered.
 ///  * To change the defaults for the canvas, use [hs._asm.canvas:canvasDefaultFor](#canvasDefaultFor).
 static int canvas_canvasDefaults(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -2618,6 +2729,15 @@ static int canvas_canvasDefaults(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:canvasDefaultKeys([module]) -> table
+/// Method
+/// Returns a list of the key names for the attributes set for the canvas defaults.
+///
+/// Parameters:
+///  * `module` - an optional boolean flag, default false, indicating whether the key names for the module defaults (true) should be included in the list.  If false, only those defaults which have been explicitly set for the canvas are included.
+///
+/// Returns:
+///  * a table containing the key names for the defaults which are set for this canvas. May also optionally include key names for all attributes which have a default value defined by the module.
 static int canvas_canvasDefaultKeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2638,6 +2758,15 @@ static int canvas_canvasDefaultKeys(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:canvasElements() -> table
+/// Method
+/// Returns an array containing the elements defined for this canvas.  Each array entry will be a table containing the key-value pairs which have been set for that canvas element.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array of element tables which are defined for the canvas.
 static int canvas_canvasElements(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2648,6 +2777,18 @@ static int canvas_canvasElements(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:elementBounds(index) -> rectTable
+/// Method
+/// Returns the smallest rectangle which can fully contain the canvas element at the specified index.
+///
+/// Parameters:
+///  * `index` - the index of the canvas element to get the bounds for
+///
+/// Returns:
+///  * a rect table containing the smallest rectangle which can fully contain the canvas element.
+///
+/// Notes:
+///  * For many elements, this will be the same as the element frame.  For items without a frame (e.g. `segments`, `circle`, etc.) this will be the smallest rectangle which can fully contain the canvas element as specified by it's attributes.
 static int canvas_elementBoundsAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2685,6 +2826,19 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas:assignElement(elementTable, [index]) -> canvasObject
+/// Method
+/// Assigns a new element to the canvas at the specified index.
+///
+/// Parameters:
+///  * `elementTable` - a table containing key-value pairs that define the element to be added to the canvas.
+///  * `index`        - an optional integer between 1 and the canvas element count + 1 specifying the index position to put the new element.  Any element currently at that index will be replaced.  Defaults to the canvas element count + 1 (i.e. after the end of the currently defined elements).
+///
+/// Returns:
+///  * the canvasObject
+///
+/// Notes:
+///  * When the index specified is the canvas element count + 1, the behavior of this method is the same as [hs._asm.canvas:insertElement](#insertElement); i.e. it adds the new element to the end of the currently defined element list.
 static int canvas_assignElementAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,

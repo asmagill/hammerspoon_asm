@@ -31,17 +31,17 @@
 --- * The following is a list of all valid attributes.  Not all attributes apply to every type, but you can set them for any type.
 ---   * `action`              - Default `strokeAndFill`. A string specifying the action to take for the element in the array.  The following actions are recognized:
 ---     * `clip`          - append the shape to the current clipping region for the canvas. Ignored for `image` and `text` types.
----     * `build`         - do not render the element -- it's shape is preserved and the next element in the canvas array is appended to it.  This can be used to create complex shapes or clipping regions. Ignored for `image` and `text` types.
+---     * `build`         - do not render the element -- its shape is preserved and the next element in the canvas array is appended to it.  This can be used to create complex shapes or clipping regions. Ignored for `image` and `text` types.
 ---     * `fill`          - fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
 ---     * `skip`          - ignore this element or its effects.  Can be used to temporarily "remove" an object from the canvas.
 ---     * `stroke`        - stroke (outline) the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
 ---     * `strokeAndFill` - stroke and fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
----   * `absolutePosition`    - Default `true`. If false, non-string location/size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element remains in the same "relative" position in the canvas.
----   * `absoluteSize`        - Default `true`. If false, non-string location/size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element maintains the same "relative" size in the canvas.
+---   * `absolutePosition`    - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element remains in the same relative position in the canvas.
+---   * `absoluteSize`        - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element maintains the same relative size in the canvas.
 ---   * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
----   * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the elements center to the start and end angles should be included in the elements visible portion.  This affects whether the objects stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
+---   * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the element's center to the start and end angles should be included in the element's visible portion.  This affects whether the object's stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
 ---   * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
----   * `compositeRule`
+---   * `compositeRule`       - A string, default `sourceOver`, specifying how this element should be combined with earlier elements of the canvas.  See [hs._asm.canvas.compositeTypes](#compositeTypes) for a list of valid strings and their descriptions.
 ---   * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on percentages for more information.
 ---   * `closed`              - Default `false`.  Used by the `segments` type to specify whether or not the shape defined by the lines and curves defined should be closed (true) or open (false).  When an object is closed, an implicit line is stroked from the final point back to the initial point of the coordinates listed.
 ---   * `coordinates`         - An array containing coordinates used by the `segments` and `points` types to define the lines and curves or points that make up the canvas element.  The following keys are recognized and may be specified as numbers or strings (see the section on percentages).
@@ -231,10 +231,10 @@ end
 ---  * If an argument is provided, the canvas object; otherwise the current value.
 ---
 --- Notes:
----  * a rect-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the canvas (keys `x  and `y`) and the new size (keys `h` and `w`).  The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+---  * a rect-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the canvas (keys `x`  and `y`) and the new size (keys `h` and `w`).  The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
 ---
----  * elements in the canvas that do not have the `absolutePosition` attribute set will be moved so that their relative position within the canvas remains the same with respect to the new size.
----  * elements in the canvas that do not have the `absoluteSize` attribute set will be resized so that their size relative to the canvas remains the same with respect to the new size.
+---  * elements in the canvas that have the `absolutePosition` attribute set to false will be moved so that their relative position within the canvas remains the same with respect to the new size.
+---  * elements in the canvas that have the `absoluteSize` attribute set to false will be resized so that their relative size with respect to the canvas remains the same with respect to the new size.
 canvasMT.frame = function(obj, ...)
     local args = table.pack(...)
 
@@ -301,7 +301,7 @@ canvasMT.sendToBack = function(obj, ...)
     if args.n == 0 then
         return obj:level(drawing.windowLevels.desktopIcon - 1)
     else
-        error("sendToBack method expects 0", 2)
+        error("sendToBack method expects 0 arguments", 2)
     end
 end
 
@@ -320,23 +320,70 @@ end
 ---  * See (hs._asm.canvas:isOccluded)[#isOccluded] for more details.
 canvasMT.isVisible = function(obj, ...) return not obj:isOccluded(...) end
 
-canvasMT.appendElements = function(obj, elementsArray)
+--- hs._asm.canvas:appendElements(element, ...) -> canvasObject
+--- Method
+--- Appends the elements specified to the canvas.
+---
+--- Parameters:
+---  * `element` - a table containing key-value pairs that define the element to be appended to the canvas.  You can specify one or more elements and they will be appended in the order they are listed.
+---
+--- Returns:
+---  * the canvas object
+---
+--- Notes:
+---  * You can also specify multiple elements in a table as an array, where each index in the table contains an element table, and use the array as a single argument to this method if this style works better in your code.
+canvasMT.appendElements = function(obj, ...)
+    local elementsArray = table.pack(...)
+    if elementsArray.n == 1 and #elementsArray[1] ~= 0 then elementsArray = elementsArray[1] end
     for i,v in ipairs(elementsArray) do obj:insertElement(v) end
     return obj
 end
 
-canvasMT.replaceElements = function(obj, elementsArray)
+--- hs._asm.canvas:replaceElements(element, ...) -> canvasObject
+--- Method
+--- Replaces all of the elements in the canvas with the elements specified.  Shortens or lengthens the canvas element count if necessary to accomodate the new canvas elements.
+---
+--- Parameters:
+---  * `element` - a table containing key-value pairs that define the element to be assigned to the canvas.  You can specify one or more elements and they will be appended in the order they are listed.
+---
+--- Returns:
+---  * the canvas object
+---
+--- Notes:
+---  * You can also specify multiple elements in a table as an array, where each index in the table contains an element table, and use the array as a single argument to this method if this style works better in your code.
+canvasMT.replaceElements = function(obj,  ...)
+    local elementsArray = table.pack(...)
+    if elementsArray.n == 1 and #elementsArray[1] ~= 0 then elementsArray = elementsArray[1] end
     for i,v in ipairs(elementsArray) do obj:assignElement(v, i) end
     while (#obj > #elementArray) do obj:removeElement() end
     return obj
 end
 
+--- hs._asm.canvas:rotateElement(index, angle, [point], [append]) -> canvasObject
+--- Method
+--- Rotates an element about the point specified, or the elements center if no point is specified.
+---
+--- Parameters:
+---  * `index`  - the index of the element to rotate
+---  * `angle`  - the angle to rotate the object in a clockwise direction
+---  * `point`  - an optional point table, defaulting to the elements center, specifying the point around which the object should be rotated
+---  * `append` - an optional boolean, default false, specifying whether or not the rotation transformation matrix should be appended to the existing transformation assigned to the element (true) or replace it (false).
+---
+--- Returns:
+---  * the canvas object
+---
+--- Notes:
+---  * a point-table is a table with key-value pairs specifying a coordinate in the canvas (keys `x`  and `y`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+---  * The center of the object is determined by getting the element's bounds with [hs._asm.canvas:elementBounds](#elementBounds).
+---  * If the third argument is a boolean value, the `point` argument is assumed to be the element's center and the boolean value is used as the `append` argument.
+---
+---  * This method uses `hs._asm.canvas.matrix` to generate the rotation transformation and provides a wrapper for `hs._asm.canvas.matrix.translate(x, y):rotate(angle):translate(-x, -y)` which is then assigned or appended to the element's existing `transformation` attribute.
 canvasMT.rotateElement = function(obj, index, angle, point, append)
-    local bounds = obj:elementBounds(index)
     if type(point) == "boolean" then
         append, point = point, nil
     end
     if not point then
+        local bounds = obj:elementBounds(index)
         point = {
             x = bounds.x + bounds.w / 2,
             y = bounds.y + bounds.h / 2,
@@ -481,6 +528,37 @@ elementMT.__tostring = function(_)
     end
 end
 
+--- hs._asm.canvas.object[index]
+--- Field
+--- An array-like method for accessing the attributes for the canvas element at the specified index
+---
+--- Metamethods are assigned to the canvas object so that you can refer to individual elements of the canvas as if the canvas object was an array.  Each element is represented by a table of key-value pairs, where each key represents an attribute for that element.  Valid index numbers range from 1 to [hs._asm.canvas:elementCount()](#elementCount) when getting an element or getting or setting one of its attributes, and from 1 to [hs._asm.canvas:elementCount()](#elementCount) + 1 when assign an element table to an index in the canvas.  For example:
+---
+--- ~~~lua
+--- c = require("hs._asm.canvas")
+--- a = c.new{ x = 100, y = 100, h = 100, w = 100 }
+--- a:insertElement({ type = "rectangle", fillColor = { blue = 1 } })
+--- a:insertElement({ type = "circle", fillColor = { green = 1 } })
+--- ~~~
+--- can also be expressed as:
+--- ~~~lua
+--- c = require("hs._asm.canvas")
+--- a = c.new{ x = 100, y = 100, h = 100, w = 100 }
+--- a[1] = { type = "rectangle", fillColor = { blue = 1 } }
+--- a[2] = { type = "circle", fillColor = { green = 1 } }
+--- ~~~
+---
+--- In addition, you can change a canvas's element using this same style: `a[2].fillColor.alpha = .5` will adjust the alpha value for element 2 of the canvas without adjusting any of the other color fields.  To replace the color entirely, assign it like this: `a[2].fillColor = { white = .5, alpha = .25 }`
+---
+--- The canvas defaults can also be accessed with the `_default` field like this: `a._default.strokeWidth = 5`.
+---
+--- Please note that these methods are a convenience and that the canvas object is not a true table.  The tables are generated dynamically as needed; as such `hs.inspect` cannot properly display them; however, you can just type in the element or element attribute you wish to see expanded in the Hammerspoon console (or in a `print` command) to see the assigned attributes, e.g. `a[1]` or `a[2].fillColor`, and an inspect-like output will be provided.
+---
+--- Because the canvas object is actually a Lua userdata, and not a real table, you cannot use the `table.insert` and `table.remove` functions on it.  For inserting or removing an element in any position except at the end of the canvas, you must still use [hs._asm.canvas:insertElement](#insertElement) and [hs._asm.canvas:removeElement](#removeElement).
+---
+--- You can, however, remove the last element with `a[#a] = nil`.
+---
+--- And print out all of the elements in the canvas with: `for i, v in ipairs(a) do print(v) end`.  The `pairs` iterator will also work, and will work on element sub-tables (transformations, fillColor and strokeColor, etc.), but this iterator does not guarantee order.
 canvasMT.__index = function(self, key)
     if type(key) == "string" then
         if key == "_default" then
@@ -523,6 +601,46 @@ canvasMT.__pairs = function(self)
             k, v = next(keys, k)
             return k, v
         end, self, nil
+end
+
+local help_table
+help_table = function(depth, value)
+    local result = "{\n"
+    for k,v in require("hs.fnutils").sortByKeys(value) do
+        if not ({class = 1, objCType = 1, memberClass = 1})[k] then
+            local displayValue = v
+            if type(v) == "table" then
+                displayValue = help_table(depth + 2, v)
+            elseif type(v) == "string" then
+                displayValue = "\"" .. v .. "\""
+            end
+            local displayKey = k
+            if type(k) == "number" then
+                displayKey = "[" .. tostring(k) .. "]"
+            end
+            result = result .. string.rep(" ", depth + 2) .. string.format("%s = %s,\n", tostring(displayKey), tostring(displayValue))
+        end
+    end
+    result = result .. string.rep(" ", depth) .. "}"
+    return result
+end
+
+--- hs._asm.canvas.help([attribute]) -> string
+--- Function
+--- Provides specification information for the recognized attributes, or the specific attribute specified.
+---
+--- Parameters:
+---  * `attribute` - an optional string specifying an element attribute. If this argument is not provided, all attributes are listed.
+---
+--- Returns:
+---  * a string containing some of the information provided by the [hs._asm.canvas.elementSpec](#elementSpec) in a manner that is easy to reference from the Hammerspoon console.
+module.help = function(what)
+    local help = module.elementSpec()
+    if what and help[what] then what, help = nil, help[what] end
+    if type(what) ~= "nil" then
+        error("unrecognized argument `" .. tostring(what) .. "`", 2)
+    end
+    print(help_table(0, help))
 end
 
 -- Return Module Object --------------------------------------------------

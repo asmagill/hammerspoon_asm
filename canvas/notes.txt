@@ -1,3 +1,8 @@
+Documentation requires
+    samples
+    metatable/use-as-array
+    full language specification
+
 *   mouse callbacks
 *       reduce granularity for elements? increase for canvas?
 
@@ -7,15 +12,15 @@
     text/image affect clipping region?
     text/image target actual rendered area instead of frame?
 
+    NSGraphicsContext imageInterpolation?
+
+*   add points
+*   Canvas to hs.image
+
     remove circle and arc?
-    add points
-
-    Canvas to hs.image
-
     merge canvases?
     method to swap elements?
 
-    NSGraphicsContext imageInterpolation?
 
 -- samples:
 

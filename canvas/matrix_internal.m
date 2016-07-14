@@ -12,6 +12,22 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs._asm.canvas.matrix.identity() -> matrixObject
+/// Constructor
+/// Specifies the identity matrix.  Resets all existing transformations when applied as a method to an existing matrixObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the identity matrix.
+///
+/// Notes:
+///  * The identity matrix can be thought of as "apply no transformations at all" or "render as specified".
+///  * Mathematically this is represented as:
+///        [ 1,  0,  0 ]
+///        [ 0,  1,  0 ]
+///        [ 0,  0,  1 ]
 static int matrix_identity(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL,
@@ -20,6 +36,21 @@ static int matrix_identity(__unused lua_State *L) {
     return 1;
 }
 
+#pragma mark - Module Methods
+
+/// hs._asm.canvas.matrix:invert() -> matrixObject
+/// Method
+/// Generates the mathematical inverse of the matrix.  This method cannot be used as a constructor.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the inverted matrix.
+///
+/// Notes:
+///  * Inverting a matrix which represents a series of transformations has the effect of reversing or undoing the original transformations.
+///  * This is useful when used with [hs._asm.canvas.matrix.append](#append) to undo a previously applied transformation without actually replacing all of the transformations which may have been applied to a canvas element.
 static int matrix_invert(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE,
@@ -30,6 +61,19 @@ static int matrix_invert(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:append(matrix) -> matrixObject
+/// Method
+/// Appends the specified matrix transformations to the matrix and returns the new matrix.  This method cannot be used as a constructor.
+///
+/// Parameters:
+///  * `matrix` - the table to append to the current matrix.
+///
+/// Returns:
+///  * the new matrix
+///
+/// Notes:
+///  * Mathematically this method multiples the original matrix by the new one and returns the result of the multiplication.
+///  * You can use this method to "stack" additional transformations on top of existing transformations, without having to know what the existing transformations in effect for the canvas element are.
 static int matrix_append(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE,
@@ -42,6 +86,18 @@ static int matrix_append(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:prepend(matrix) -> matrixObject
+/// Method
+/// Prepends the specified matrix transformations to the matrix and returns the new matrix.  This method cannot be used as a constructor.
+///
+/// Parameters:
+///  * `matrix` - the table to append to the current matrix.
+///
+/// Returns:
+///  * the new matrix
+///
+/// Notes:
+///  * Mathematically this method multiples the new matrix by the original one and returns the result of the multiplication.
 static int matrix_prepend(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE,
@@ -54,6 +110,19 @@ static int matrix_prepend(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:rotate(angle) -> matrixObject
+/// Method
+/// Applies a rotation of the specified number of degrees to the transformation matrix.  This method can be used as a constructor or a method.
+///
+/// Parameters:
+///  * `angle` - the number of degrees to rotate in a clockwise direction.
+///
+/// Returns:
+///  * the new matrix
+///
+/// Notes:
+///  * The rotation of an element this matrix is applied to will be rotated about the origin (zero point).  To rotate an object about another point (its center for example), prepend a translation to the point to rotate about, and append a translation reversing the initial translation.
+///    * e.g. `hs.canvas.matrix.translate(x, y):rotate(angle):translate(-x, -y)`
 static int matrix_rotate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSAffineTransform *transform = [NSAffineTransform transform] ;
@@ -73,6 +142,16 @@ static int matrix_rotate(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:scale(xFactor, [yFactor]) -> matrixObject
+/// Method
+/// Applies a scaling transformation to the matrix.  This method can be used as a constructor or a method.
+///
+/// Parameters:
+///  * `xFactor` - the scaling factor to apply to the object in the horizontal orientation.
+///  * `yFactor` - an optional argument specifying a different scaling factor in the vertical orientation.  If this argument is not provided, the `xFactor` argument will be used for both orientations.
+///
+/// Returns:
+///  * the new matrix
 static int matrix_scale(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSAffineTransform *transform = [NSAffineTransform transform] ;
@@ -96,6 +175,16 @@ static int matrix_scale(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:shear(xFactor, [yFactor]) -> matrixObject
+/// Method
+/// Applies a shearing transformation to the matrix.  This method can be used as a constructor or a method.
+///
+/// Parameters:
+///  * `xFactor` - the shearing factor to apply to the object in the horizontal orientation.
+///  * `yFactor` - an optional argument specifying a different shearing factor in the vertical orientation.  If this argument is not provided, the `xFactor` argument will be used for both orientations.
+///
+/// Returns:
+///  * the new matrix
 static int matrix_shear(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSAffineTransform *transform = [NSAffineTransform transform] ;
@@ -125,6 +214,16 @@ static int matrix_shear(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.matrix:translate(x, y) -> matrixObject
+/// Method
+/// Applies a translation transformation to the matrix.  This method can be used as a constructor or a method.
+///
+/// Parameters:
+///  * `x` - the distance to translate the object in the horizontal direction.
+///  * `y` - the distance to translate the object in the vertical direction.
+///
+/// Returns:
+///  * the new matrix
 static int matrix_translate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSAffineTransform *transform = [NSAffineTransform transform] ;
@@ -147,8 +246,6 @@ static int matrix_translate(lua_State *L) {
     [skin pushNSObject:transform] ;
     return 1 ;
 }
-
-#pragma mark - Module Methods
 
 #pragma mark - Module Constants
 
