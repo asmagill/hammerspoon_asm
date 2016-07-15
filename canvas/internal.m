@@ -369,7 +369,7 @@ static NSDictionary *defineLanguageDictionary() {
         @"padding" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"number",
-            @"default"     : @(10.0),
+            @"default"     : @(0.0),
             @"nullable"    : @(YES),
             @"optionalFor" : VISIBLE,
         },
@@ -1380,7 +1380,7 @@ static int userdata_gc(lua_State* L) ;
                     NSString *lineCapStyle = [self getElementValueFor:@"strokeCapStyle" atIndex:idx onlyIfSet:YES] ;
                     if (lineCapStyle) renderPath.lineCapStyle = [STROKE_CAP_STYLES[lineCapStyle] unsignedIntValue] ;
 
-                    NSArray *strokeDashes = [self getElementValueFor:@"strokeDashPattern" atIndex:idx onlyIfSet:YES] ;
+                    NSArray *strokeDashes = [self getElementValueFor:@"strokeDashPattern" atIndex:idx] ;
                     if ([strokeDashes count] > 0) {
                         NSUInteger count = [strokeDashes count] ;
                         CGFloat    phase = [[self getElementValueFor:@"strokeDashPhase" atIndex:idx] doubleValue] ;
@@ -1784,7 +1784,7 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
 /// Get or set the matrix transformation which is applied to every element in the canvas before being individually processed and added to the canvas.
 ///
 /// Parameters:
-///  * `matrix` - an optional table specifying the matrix table, as defined by the `hs._asm.canvas.matrix` module, to be applied to every element of the canvas, or an explicit `nil` to reset the transformation to the identity matrix.
+///  * `matrix` - an optional table specifying the matrix table, as defined by the [hs._asm.canvas.matrix](MATRIX.md) module, to be applied to every element of the canvas, or an explicit `nil` to reset the transformation to the identity matrix.
 ///
 /// Returns:
 ///  * if an argument is provided, returns the canvasObject, otherwise returns the current value
@@ -3020,7 +3020,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementBounds",       canvas_elementBoundsAtIndex},
     {"elementCount",        canvas_elementCount},
     {"elementKeys",         canvas_elementKeysAtIndex},
-    {"imageOfCanvas",       canvas_canvasAsImage},
+    {"imageFromCanvas",     canvas_canvasAsImage},
     {"insertElement",       canvas_insertElementAtIndex},
     {"removeElement",       canvas_removeElementAtIndex},
 // affects whole canvas

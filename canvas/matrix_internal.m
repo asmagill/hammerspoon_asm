@@ -25,9 +25,11 @@ static int refTable = LUA_NOREF;
 /// Notes:
 ///  * The identity matrix can be thought of as "apply no transformations at all" or "render as specified".
 ///  * Mathematically this is represented as:
-///        [ 1,  0,  0 ]
-///        [ 0,  1,  0 ]
-///        [ 0,  0,  1 ]
+/// ~~~
+/// [ 1,  0,  0 ]
+/// [ 0,  1,  0 ]
+/// [ 0,  0,  1 ]
+/// ~~~
 static int matrix_identity(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL,
