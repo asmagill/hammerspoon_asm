@@ -3037,6 +3037,21 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         if (obj.contentView) {
             ASMCanvasView *theView   = (ASMCanvasView *)obj.contentView ;
+            for (NSMutableDictionary *element in theView.elementList) {
+                if ([element[@"type"] isEqualToString:@"canvas"]) {
+                    ASMCanvasWindow *ourSubview = element[@"canvas"] ;
+                    if (ourSubview && ![ourSubview isKindOfClass:[NSNull class]]) {
+                        [ourSubview.contentView removeFromSuperview] ;
+                        lua_pushcfunction(L, userdata_gc) ;
+                        [skin pushNSObject:ourSubview] ;
+                        [element removeObjectForKey:@"canvas"] ;
+                        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+                            [LuaSkin logWarn:[NSString stringWithFormat:@"error releasing canvas subview: %s", lua_tostring(L, -1)]] ;
+                            lua_pop(L, 1) ;
+                        }
+                    }
+                }
+            }
             theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         }
         [obj close];
