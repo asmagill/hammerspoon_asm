@@ -38,8 +38,8 @@ typedef NS_ENUM(NSInteger, attributeValidity) {
     attributeInvalid,
 };
 
-#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text" ]
-#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text" ]
+#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text", @"canvas" ]
+#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text", @"canvas" ]
 #define PRIMITIVES @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"points", @"rectangle", @"segments" ]
 #define CLOSED     @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"rectangle", @"segments" ]
 
@@ -134,6 +134,13 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"    : @(YES),
             @"default"     : @(YES),
             @"optionalFor" : @[ @"arc", @"ellipticalArc" ],
+        },
+        @"canvas" : @{
+            @"class"       : @[ [ASMCanvasWindow class] ],
+            @"luaClass"    : @"hs._asm.canvas object",
+            @"nullable"    : @(YES),
+            @"default"     : [NSNull null],
+            @"requiredFor" : @[ @"canvas" ],
         },
         @"compositeRule" : @{
             @"class"       : @[ [NSString class] ],
@@ -344,7 +351,7 @@ static NSDictionary *defineLanguageDictionary() {
                                    @"w" : @"100%",
                                },
             @"nullable"      : @(NO),
-            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image" ],
+            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image", @"canvas" ],
         },
         @"id" : @{
             @"class"       : @[ [NSString class], [NSNumber class] ],
@@ -564,9 +571,9 @@ static NSDictionary *defineLanguageDictionary() {
 
 static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValue, NSDictionary *attributeDefinition) {
     __block attributeValidity validity = attributeValid ;
-    NSString          *errorMessage ;
-    BOOL              checked = NO ;
+    __block NSString          *errorMessage ;
 
+    BOOL checked = NO ;
     while (!checked) {  // doing this as a loop so we can break out as soon as we know enough
         checked = YES ; // but we really don't want to loop
 
@@ -697,7 +704,13 @@ static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValu
                         break ;
                     } else if ([keyValue[i] isKindOfClass:[NSDictionary class]]) {
                         [keyValue[i] enumerateKeysAndObjectsUsingBlock:^(NSString *subKey, id obj, BOOL *stop) {
-                            validity = isValueValidForDictionary(subKey, obj, attributeDefinition[@"memberClassKeys"][subKey]) ;
+                            NSDictionary *subKeyDefinition = attributeDefinition[@"memberClassKeys"][subKey] ;
+                            if (subKeyDefinition) {
+                                validity = isValueValidForDictionary(subKey, obj, subKeyDefinition) ;
+                            } else {
+                                validity = attributeInvalid ;
+                                errorMessage = [NSString stringWithFormat:@"%@ is not a valid subkey for a %@ value", subKey, attributeDefinition[@"memberLuaClass"]] ;
+                            }
                             if (validity != attributeValid) *stop = YES ;
                         }] ;
                     }
@@ -718,7 +731,12 @@ static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValu
 
 static attributeValidity isValueValidForAttribute(NSString *keyName, id keyValue) {
     NSDictionary      *attributeDefinition = languageDictionary[keyName] ;
-    return isValueValidForDictionary(keyName, keyValue, attributeDefinition) ;
+    if (attributeDefinition) {
+        return isValueValidForDictionary(keyName, keyValue, attributeDefinition) ;
+    } else {
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:%@ is not a valid canvas attribute", USERDATA_TAG, keyName]] ;
+        return attributeInvalid ;
+    }
 }
 
 static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
@@ -1218,44 +1236,44 @@ static int userdata_gc(lua_State* L) ;
         NSString     *elementType = element[@"type"] ;
         NSString     *action      = [self getElementValueFor:@"action" atIndex:idx] ;
 
-        if (!needMouseTracking) {
-            needMouseTracking = [[self getElementValueFor:@"trackMouseEnterExit" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:idx] boolValue] ;
-        }
+        if (![action isEqualTo:@"skip"]) {
+            if (!needMouseTracking) {
+                needMouseTracking = [[self getElementValueFor:@"trackMouseEnterExit" atIndex:idx] boolValue] || [[self getElementValueFor:@"trackMouseMove" atIndex:idx] boolValue] ;
+            }
 
-        BOOL wasClippingChanged = NO ; // necessary to keep graphicsState stack properly ordered
+            BOOL wasClippingChanged = NO ; // necessary to keep graphicsState stack properly ordered
 
-        [gc saveGraphicsState] ;
+            [gc saveGraphicsState] ;
 
-        BOOL hasShadow = [[self getElementValueFor:@"withShadow" atIndex:idx] boolValue] ;
-        if (hasShadow) [(NSShadow *)[self getElementValueFor:@"shadow" atIndex:idx] set] ;
+            BOOL hasShadow = [[self getElementValueFor:@"withShadow" atIndex:idx] boolValue] ;
+            if (hasShadow) [(NSShadow *)[self getElementValueFor:@"shadow" atIndex:idx] set] ;
 
-        NSNumber *shouldAntialias = [self getElementValueFor:@"antialias" atIndex:idx onlyIfSet:YES] ;
-        if (shouldAntialias) gc.shouldAntialias = [shouldAntialias boolValue] ;
+            NSNumber *shouldAntialias = [self getElementValueFor:@"antialias" atIndex:idx onlyIfSet:YES] ;
+            if (shouldAntialias) gc.shouldAntialias = [shouldAntialias boolValue] ;
 
-        NSString *compositingString = [self getElementValueFor:@"compositeRule" atIndex:idx onlyIfSet:YES] ;
-        if (compositingString) gc.compositingOperation = [COMPOSITING_TYPES[compositingString] unsignedIntValue] ;
+            NSString *compositingString = [self getElementValueFor:@"compositeRule" atIndex:idx onlyIfSet:YES] ;
+            if (compositingString) gc.compositingOperation = [COMPOSITING_TYPES[compositingString] unsignedIntValue] ;
 
-        NSColor *fillColor = [self getElementValueFor:@"fillColor" atIndex:idx onlyIfSet:YES] ;
-        if (fillColor) [fillColor setFill] ;
+            NSColor *fillColor = [self getElementValueFor:@"fillColor" atIndex:idx onlyIfSet:YES] ;
+            if (fillColor) [fillColor setFill] ;
 
-        NSColor *strokeColor = [self getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
-        if (strokeColor) [strokeColor setStroke] ;
+            NSColor *strokeColor = [self getElementValueFor:@"strokeColor" atIndex:idx onlyIfSet:YES] ;
+            if (strokeColor) [strokeColor setStroke] ;
 
-        NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
-        if (elementTransform) [elementTransform concat] ;
+            NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
+            if (elementTransform) [elementTransform concat] ;
 
-        elementPath = [self pathForElementAtIndex:idx] ;
+            elementPath = [self pathForElementAtIndex:idx] ;
 
-        // First, if it's not a path, make sure it's not an element which doesn't have a path...
+            // First, if it's not a path, make sure it's not an element which doesn't have a path...
 
-        if (!elementPath) {
-            NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-            NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                           [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+            if (!elementPath) {
+                NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+                NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                               [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
-#pragma mark - IMAGE
-            if ([elementType isEqualToString:@"image"]) {
-                if (![action isEqualTo:@"skip"]) {
+    #pragma mark - IMAGE
+                if ([elementType isEqualToString:@"image"]) {
                 // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
                     NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
                     if (theImage) [theImage drawInRect:frameRect] ;
@@ -1264,11 +1282,9 @@ static int userdata_gc(lua_State* L) ;
                         @"frame" : [NSValue valueWithRect:frameRect]
                     }] ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
-                }
-            } else
-#pragma mark - TEXT
-            if ([elementType isEqualToString:@"text"]) {
-                if (![action isEqualTo:@"skip"]) {
+                } else
+    #pragma mark - TEXT
+                if ([elementType isEqualToString:@"text"]) {
                     id textEntry = [self getElementValueFor:@"text" atIndex:idx onlyIfSet:YES] ;
                     if (!textEntry) {
                         textEntry = @"" ;
@@ -1292,11 +1308,28 @@ static int userdata_gc(lua_State* L) ;
                         @"frame" : [NSValue valueWithRect:frameRect]
                     }] ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
-                }
-            } else
-#pragma mark - RESETCLIP
-            if ([elementType isEqualToString:@"resetClip"]) {
-                if (![action isEqualTo:@"skip"]) {
+                } else
+    #pragma mark - CANVAS
+                if ([elementType isEqualToString:@"canvas"]) {
+                    // NOTE: I think we'll have to delete all sub-views each time through, though maybe not since
+                    // we'll have the view itself in the window object... but see notes for removeFromSuperView
+                    // NOTE: What about __gc if a sub-canvas is deleted but not removed first?
+                    ASMCanvasWindow *canvas = [self getElementValueFor:@"canvas" atIndex:idx onlyIfSet:NO] ;
+                    if ([canvas isKindOfClass:[ASMCanvasWindow class]]) {
+                        ASMCanvasView   *canvasView = (ASMCanvasView *)canvas.contentView ;
+                        if (![canvasView isDescendantOf:self]) {
+                            [self addSubview:canvasView] ;
+                        }
+                        canvasView.needsDisplay = YES ;
+                        [canvasView setFrame:frameRect] ;
+                        [self->_elementBounds addObject:@{
+                            @"index" : @(idx),
+                            @"frame" : [NSValue valueWithRect:frameRect]
+                        }] ;
+                    }
+                } else
+    #pragma mark - RESETCLIP
+                if ([elementType isEqualToString:@"resetClip"]) {
                     [gc restoreGraphicsState] ; // from beginning of enumeration
                     wasClippingChanged = YES ;
                     if (clippingModified) {
@@ -1306,110 +1339,108 @@ static int userdata_gc(lua_State* L) ;
                         [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - un-nested resetClip at index %lu", USERDATA_TAG, idx + 1]] ;
                     }
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
+                } else {
+                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
                 }
-            } else
-            {
-                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
             }
-        }
+            // Now, if it's still not a path, we don't render it.  But if it is...
 
-        // Now, if it's still not a path, we don't render it.  But if it is...
+    #pragma mark - Render Logic
+            if (elementPath) {
+                NSNumber *miterLimit = [self getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
+                if (miterLimit) elementPath.miterLimit = [miterLimit doubleValue] ;
 
-#pragma mark - Render Logic
-        if (elementPath) {
-            NSNumber *miterLimit = [self getElementValueFor:@"miterLimit" atIndex:idx onlyIfSet:YES] ;
-            if (miterLimit) elementPath.miterLimit = [miterLimit doubleValue] ;
+                NSNumber *flatness = [self getElementValueFor:@"flatness" atIndex:idx onlyIfSet:YES] ;
+                if (flatness) elementPath.flatness = [flatness doubleValue] ;
 
-            NSNumber *flatness = [self getElementValueFor:@"flatness" atIndex:idx onlyIfSet:YES] ;
-            if (flatness) elementPath.flatness = [flatness doubleValue] ;
-
-            if ([[self getElementValueFor:@"flattenPath" atIndex:idx] boolValue]) {
-                elementPath = elementPath.bezierPathByFlatteningPath ;
-            }
-            if ([[self getElementValueFor:@"reversePath" atIndex:idx] boolValue]) {
-                elementPath = elementPath.bezierPathByReversingPath ;
-            }
-
-            NSString *windingRule = [self getElementValueFor:@"windingRule" atIndex:idx onlyIfSet:YES] ;
-            if (windingRule) elementPath.windingRule = [WINDING_RULES[windingRule] unsignedIntValue] ;
-
-            if (renderPath) {
-                [renderPath appendBezierPath:elementPath] ;
-            } else {
-                renderPath = elementPath ;
-            }
-
-            if ([action isEqualToString:@"clip"]) {
-                [gc restoreGraphicsState] ; // from beginning of enumeration
-                wasClippingChanged = YES ;
-                if (!clippingModified) {
-                    [gc saveGraphicsState] ;
-                    clippingModified = YES ;
+                if ([[self getElementValueFor:@"flattenPath" atIndex:idx] boolValue]) {
+                    elementPath = elementPath.bezierPathByFlatteningPath ;
                 }
-                [renderPath addClip] ;
-                renderPath = nil ;
+                if ([[self getElementValueFor:@"reversePath" atIndex:idx] boolValue]) {
+                    elementPath = elementPath.bezierPathByReversingPath ;
+                }
 
-            } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
-                if (![elementType isEqualToString:@"points"] && ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"])) {
-                    NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
-                    if (![fillGradient isEqualToString:@"none"]) {
-                        NSDictionary *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
-                        NSColor      *startColor     = gradientColors[@"startColor"] ;
-                        NSColor      *endColor       = gradientColors[@"endColor"] ;
-                        if ([fillGradient isEqualToString:@"linear"]) {
-                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
-                            [gradient drawInBezierPath:renderPath angle:[[self getElementValueFor:@"fillGradientAngle" atIndex:idx] doubleValue]] ;
-                        } else if ([fillGradient isEqualToString:@"radial"]) {
-                            NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
-                            NSDictionary *centerPoint = [self getElementValueFor:@"fillGradientCenter" atIndex:idx] ;
-                            [gradient drawInBezierPath:renderPath
-                                relativeCenterPosition:NSMakePoint([centerPoint[@"x"] doubleValue], [centerPoint[@"y"] doubleValue])] ;
-                        }
-                    } else {
-                        [renderPath fill] ;
+                NSString *windingRule = [self getElementValueFor:@"windingRule" atIndex:idx onlyIfSet:YES] ;
+                if (windingRule) elementPath.windingRule = [WINDING_RULES[windingRule] unsignedIntValue] ;
+
+                if (renderPath) {
+                    [renderPath appendBezierPath:elementPath] ;
+                } else {
+                    renderPath = elementPath ;
+                }
+
+                if ([action isEqualToString:@"clip"]) {
+                    [gc restoreGraphicsState] ; // from beginning of enumeration
+                    wasClippingChanged = YES ;
+                    if (!clippingModified) {
+                        [gc saveGraphicsState] ;
+                        clippingModified = YES ;
                     }
-                }
+                    [renderPath addClip] ;
+                    renderPath = nil ;
 
-                if ([action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
-                    NSNumber *strokeWidth = [self getElementValueFor:@"strokeWidth" atIndex:idx onlyIfSet:YES] ;
-                    if (strokeWidth) renderPath.lineWidth  = [strokeWidth doubleValue] ;
-
-                    NSString *lineJoinStyle = [self getElementValueFor:@"strokeJoinStyle" atIndex:idx onlyIfSet:YES] ;
-                    if (lineJoinStyle) renderPath.lineJoinStyle = [STROKE_JOIN_STYLES[lineJoinStyle] unsignedIntValue] ;
-
-                    NSString *lineCapStyle = [self getElementValueFor:@"strokeCapStyle" atIndex:idx onlyIfSet:YES] ;
-                    if (lineCapStyle) renderPath.lineCapStyle = [STROKE_CAP_STYLES[lineCapStyle] unsignedIntValue] ;
-
-                    NSArray *strokeDashes = [self getElementValueFor:@"strokeDashPattern" atIndex:idx] ;
-                    if ([strokeDashes count] > 0) {
-                        NSUInteger count = [strokeDashes count] ;
-                        CGFloat    phase = [[self getElementValueFor:@"strokeDashPhase" atIndex:idx] doubleValue] ;
-                        CGFloat *pattern ;
-                        pattern = (CGFloat *)malloc(sizeof(CGFloat) * count) ;
-                        if (pattern) {
-                            for (NSUInteger i = 0 ; i < count ; i++) {
-                                pattern[i] = [strokeDashes[i] doubleValue] ;
+                } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
+                    if (![elementType isEqualToString:@"points"] && ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"])) {
+                        NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
+                        if (![fillGradient isEqualToString:@"none"]) {
+                            NSDictionary *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
+                            NSColor      *startColor     = gradientColors[@"startColor"] ;
+                            NSColor      *endColor       = gradientColors[@"endColor"] ;
+                            if ([fillGradient isEqualToString:@"linear"]) {
+                                NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
+                                [gradient drawInBezierPath:renderPath angle:[[self getElementValueFor:@"fillGradientAngle" atIndex:idx] doubleValue]] ;
+                            } else if ([fillGradient isEqualToString:@"radial"]) {
+                                NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
+                                NSDictionary *centerPoint = [self getElementValueFor:@"fillGradientCenter" atIndex:idx] ;
+                                [gradient drawInBezierPath:renderPath
+                                    relativeCenterPosition:NSMakePoint([centerPoint[@"x"] doubleValue], [centerPoint[@"y"] doubleValue])] ;
                             }
-                            [renderPath setLineDash:pattern count:(NSInteger)count phase:phase];
-                            free(pattern) ;
+                        } else {
+                            [renderPath fill] ;
                         }
                     }
 
-                    [renderPath stroke] ;
+                    if ([action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
+                        NSNumber *strokeWidth = [self getElementValueFor:@"strokeWidth" atIndex:idx onlyIfSet:YES] ;
+                        if (strokeWidth) renderPath.lineWidth  = [strokeWidth doubleValue] ;
+
+                        NSString *lineJoinStyle = [self getElementValueFor:@"strokeJoinStyle" atIndex:idx onlyIfSet:YES] ;
+                        if (lineJoinStyle) renderPath.lineJoinStyle = [STROKE_JOIN_STYLES[lineJoinStyle] unsignedIntValue] ;
+
+                        NSString *lineCapStyle = [self getElementValueFor:@"strokeCapStyle" atIndex:idx onlyIfSet:YES] ;
+                        if (lineCapStyle) renderPath.lineCapStyle = [STROKE_CAP_STYLES[lineCapStyle] unsignedIntValue] ;
+
+                        NSArray *strokeDashes = [self getElementValueFor:@"strokeDashPattern" atIndex:idx] ;
+                        if ([strokeDashes count] > 0) {
+                            NSUInteger count = [strokeDashes count] ;
+                            CGFloat    phase = [[self getElementValueFor:@"strokeDashPhase" atIndex:idx] doubleValue] ;
+                            CGFloat *pattern ;
+                            pattern = (CGFloat *)malloc(sizeof(CGFloat) * count) ;
+                            if (pattern) {
+                                for (NSUInteger i = 0 ; i < count ; i++) {
+                                    pattern[i] = [strokeDashes[i] doubleValue] ;
+                                }
+                                [renderPath setLineDash:pattern count:(NSInteger)count phase:phase];
+                                free(pattern) ;
+                            }
+                        }
+
+                        [renderPath stroke] ;
+                    }
+                    [self->_elementBounds addObject:@{
+                        @"index" : @(idx),
+                        @"path"  : renderPath,
+                    }] ;
+                    renderPath = nil ;
+                } else if (![action isEqualToString:@"build"]) {
+                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized action %@ at index %lu", USERDATA_TAG, action, idx + 1]] ;
                 }
-                [self->_elementBounds addObject:@{
-                    @"index" : @(idx),
-                    @"path"  : renderPath,
-                }] ;
-                renderPath = nil ;
-            } else if ([action isEqualToString:@"skip"]) {
-                renderPath = nil ;
-            } else if (![action isEqualToString:@"build"]) {
-                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized action %@ at index %lu", USERDATA_TAG, action, idx + 1]] ;
             }
+            // to keep nesting correct, this was already done if we adjusted clipping this round
+            if (!wasClippingChanged) [gc restoreGraphicsState] ;
+//         } else if ([action isEqualToString:@"skip"]) {
+//             renderPath = nil ;
         }
-        // to keep nesting correct, this was already done if we adjusted clipping this round
-        if (!wasClippingChanged) [gc restoreGraphicsState] ;
     }] ;
 
     if (clippingModified) [gc restoreGraphicsState] ; // balance our saves
@@ -1610,7 +1641,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1619,7 +1650,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"x"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"x"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field x of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field x of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1627,7 +1658,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"y"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"y"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field y of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field y of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1636,7 +1667,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"x"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"x"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field x of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field x of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1644,7 +1675,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"y"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"y"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field y of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field y of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1652,7 +1683,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"w"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"w"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field w of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field w of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1660,7 +1691,7 @@ static int userdata_gc(lua_State* L) ;
                 if ([keyValue[@"h"] isKindOfClass:[NSString class]]) {
                     NSNumber *percentage = convertPercentageStringToNumber(keyValue[@"h"]) ;
                     if (!percentage) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field h of %@", USERDATA_TAG, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field h of %@ for element %lu", USERDATA_TAG, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1674,7 +1705,7 @@ static int userdata_gc(lua_State* L) ;
                             if ([subItem[field] isKindOfClass:[NSString class]]) {
                                 NSNumber *percentage = convertPercentageStringToNumber(subItem[field]) ;
                                 if (!percentage) {
-                                    [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field %@ at index %lu of %@", USERDATA_TAG, field, idx + 1, keyName]];
+                                    [LuaSkin logError:[NSString stringWithFormat:@"%s:invalid percentage string specified for field %@ at index %lu of %@ for element %lu", USERDATA_TAG, field, idx + 1, keyName, index + 1]];
                                     validityStatus = attributeInvalid ;
                                     *stop = YES ;
                                     break ;
@@ -1689,15 +1720,27 @@ static int userdata_gc(lua_State* L) ;
                                         [seenFields containsObject:@"c2x"] || [seenFields containsObject:@"c2y"]) && !goodForCurve ;
 
                     if (!goodForPoint) {
-                        [LuaSkin logError:[NSString stringWithFormat:@"%s:index %lu of %@ does not specify a valid point or curve with control points", USERDATA_TAG, idx + 1, keyName]];
+                        [LuaSkin logError:[NSString stringWithFormat:@"%s:index %lu of %@ for element %lu does not specify a valid point or curve with control points", USERDATA_TAG, idx + 1, keyName, index + 1]];
                         validityStatus = attributeInvalid ;
                     } else if (goodForPoint && partialCurve) {
-                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:index %lu of %@ does not contain complete curve control points; treating as a singular point", USERDATA_TAG, idx + 1, keyName]];
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:index %lu of %@ for element %lu does not contain complete curve control points; treating as a singular point", USERDATA_TAG, idx + 1, keyName, index + 1]];
                     }
                 }] ;
                 if (validityStatus == attributeInvalid) break ;
             }
-
+            if ([keyName isEqualToString:@"canvas"]) {
+                ASMCanvasWindow *newCanvas = (ASMCanvasWindow *)keyValue ;
+                ASMCanvasWindow *oldCanvas = (ASMCanvasWindow *)_elementList[index][keyName] ;
+                if (![newCanvas isEqualTo:oldCanvas]) {
+                    ASMCanvasView *canvasView = newCanvas.contentView ;
+                    if (![canvasView isDescendantOf:self]) {
+                        [oldCanvas.contentView removeFromSuperview] ;
+                        if (canvasView) [self addSubview:canvasView] ;
+                    } else {
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:cannot assign canvas to element %lu; the sub-canvas is already in use within the parent canvas.", USERDATA_TAG, index + 1]] ;
+                    }
+                }
+            }
             _elementList[index][keyName] = keyValue ;
             if ([keyName isEqualToString:@"type"]) {
                 // add defaults, if not already present, for type (recurse into this method as needed)
@@ -1712,6 +1755,10 @@ static int userdata_gc(lua_State* L) ;
             }
         }   break ;
         case attributeNulling:
+            if ([keyName isEqualToString:@"canvas"]) {
+                ASMCanvasWindow *oldCanvas = (ASMCanvasWindow *)_elementList[index][keyName] ;
+                [oldCanvas.contentView removeFromSuperview] ;
+            }
             [(NSMutableDictionary *)_elementList[index] removeObjectForKey:keyName] ;
             break ;
         case attributeInvalid:
@@ -2811,7 +2858,7 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
         boundingBox = [itemPath bounds] ;
     } else {
         NSString *itemType = canvasView.elementList[idx][@"type"] ;
-        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"]) {
+        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"canvas"]) {
             NSDictionary *frame = [canvasView getElementValueFor:@"frame"
                                                          atIndex:idx
                                               resolvePercentages:YES] ;
