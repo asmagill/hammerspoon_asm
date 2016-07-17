@@ -1,6 +1,8 @@
 hs._asm.canvas
 ==============
 
+***Use of a `canvas` as a element type within another canvas is experimental... and often crashes during garbage collection if you manually delete either canvas with `hs._asm.canvas:delete` or manipulate them too much.  I believe I know what is wrong, but the proper fix will require a different approach to how the NSView and NSWindow objects are handled internally.  For now, I'd recommend against embedding a canvas within another canvas.***
+
 A different approach to drawing in Hammerspoon
 
 `hs.drawing` approaches graphical images as independant primitives, each "shape" being a separate drawing object based on the core primitives: ellipse, rectangle, point, line, text, etc.  This model works well with graphical elements that are expected to be managed individually and don't have complex clipping interactions, but does not scale well when more complex combinations or groups of drawing elements need to be moved or manipulated as a group, and only allows for simple inclusionary clipping regions.
