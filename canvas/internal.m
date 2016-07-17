@@ -15,10 +15,11 @@ static NSDictionary *languageDictionary ;
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 @interface ASMCanvasWindow : NSPanel <NSWindowDelegate>
-@property int                 selfRef ;
 @end
 
 @interface ASMCanvasView : NSView
+@property int                 selfRef ;
+@property ASMCanvasWindow     *wrapperWindow ;
 @property int                 mouseCallbackRef ;
 @property BOOL                mouseTracking ;
 @property BOOL                canvasMouseDown ;
@@ -136,7 +137,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"optionalFor" : @[ @"arc", @"ellipticalArc" ],
         },
         @"canvas" : @{
-            @"class"       : @[ [ASMCanvasWindow class] ],
+            @"class"       : @[ [ASMCanvasView class] ],
             @"luaClass"    : @"hs._asm.canvas object",
             @"nullable"    : @(YES),
             @"default"     : [NSNull null],
@@ -764,14 +765,18 @@ static int canvas_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBREAK | LS_TVARARG] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+
     NSInteger       relativeTo = 0 ;
 
     if (lua_gettop(L) > 1) {
         [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                         LS_TUSERDATA, USERDATA_TAG,
                         LS_TBREAK] ;
-        relativeTo = [[skin luaObjectAtIndex:2 toClass:"ASMCanvasWindow"] windowNumber] ;
+        ASMCanvasView   *otherView   = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
+        ASMCanvasWindow *otherWindow = otherView.wrapperWindow ;
+        relativeTo = [otherWindow windowNumber] ;
     }
 
     [canvasWindow orderWindow:mode relativeTo:relativeTo] ;
@@ -801,8 +806,6 @@ static int userdata_gc(lua_State* L) ;
                               backing:bufferingType
                                 defer:deferCreation];
     if (self) {
-        _selfRef = LUA_NOREF ;
-
         [self setDelegate:self];
 
         [self setFrameOrigin:RectWithFlippedYCoordinate(contentRect).origin];
@@ -859,7 +862,7 @@ static int userdata_gc(lua_State* L) ;
               LuaSkin *skin = [LuaSkin shared] ;
                   lua_State *L = [skin L] ;
                   lua_pushcfunction(L, userdata_gc) ;
-                  [skin pushLuaRef:refTable ref:mySelf.selfRef] ;
+                  [skin pushLuaRef:refTable ref:((ASMCanvasView *)mySelf.contentView).selfRef] ;
                   if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
                       [skin logBreadcrumb:[NSString stringWithFormat:@"%s:error invoking _gc for delete (with fade) method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
                       lua_pop(L, 1) ;
@@ -881,6 +884,9 @@ static int userdata_gc(lua_State* L) ;
 - (instancetype)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect];
     if (self) {
+        _selfRef          = LUA_NOREF ;
+        _wrapperWindow    = nil ;
+
         _mouseCallbackRef = LUA_NOREF;
         _canvasDefaults   = [[NSMutableDictionary alloc] init] ;
         _elementList      = [[NSMutableArray alloc] init] ;
@@ -1015,7 +1021,7 @@ static int userdata_gc(lua_State* L) ;
     if (elementIdentifier) {
         LuaSkin *skin = [LuaSkin shared];
         [skin pushLuaRef:refTable ref:_mouseCallbackRef];
-        [skin pushLuaRef:refTable ref:((ASMCanvasWindow *)self.window).selfRef] ;
+        [skin pushLuaRef:refTable ref:_selfRef] ;
         [skin pushNSObject:message] ;
         [skin pushNSObject:elementIdentifier] ;
         lua_pushnumber(skin.L, location.x) ;
@@ -1311,12 +1317,8 @@ static int userdata_gc(lua_State* L) ;
                 } else
     #pragma mark - CANVAS
                 if ([elementType isEqualToString:@"canvas"]) {
-                    // NOTE: I think we'll have to delete all sub-views each time through, though maybe not since
-                    // we'll have the view itself in the window object... but see notes for removeFromSuperView
-                    // NOTE: What about __gc if a sub-canvas is deleted but not removed first?
-                    ASMCanvasWindow *canvas = [self getElementValueFor:@"canvas" atIndex:idx onlyIfSet:NO] ;
-                    if ([canvas isKindOfClass:[ASMCanvasWindow class]]) {
-                        ASMCanvasView   *canvasView = (ASMCanvasView *)canvas.contentView ;
+                    ASMCanvasView *canvasView = [self getElementValueFor:@"canvas" atIndex:idx onlyIfSet:NO] ;
+                    if ([canvasView isKindOfClass:[ASMCanvasView class]]) {
                         if (![canvasView isDescendantOf:self]) {
                             [self addSubview:canvasView] ;
                         }
@@ -1729,15 +1731,17 @@ static int userdata_gc(lua_State* L) ;
                 if (validityStatus == attributeInvalid) break ;
             }
             if ([keyName isEqualToString:@"canvas"]) {
-                ASMCanvasWindow *newCanvas = (ASMCanvasWindow *)keyValue ;
-                ASMCanvasWindow *oldCanvas = (ASMCanvasWindow *)_elementList[index][keyName] ;
-                if (![newCanvas isEqualTo:oldCanvas]) {
-                    ASMCanvasView *canvasView = newCanvas.contentView ;
-                    if (![canvasView isDescendantOf:self]) {
-                        [oldCanvas.contentView removeFromSuperview] ;
-                        if (canvasView) [self addSubview:canvasView] ;
+                ASMCanvasView *newCanvas = (ASMCanvasView *)keyValue ;
+                ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
+                if (![newCanvas isEqualTo:oldCanvas] && [newCanvas.wrapperWindow isEqualTo:newCanvas.window] && ![newCanvas.window isVisible]) {
+                    if (![newCanvas isDescendantOf:self]) {
+                        [oldCanvas removeFromSuperview] ;
+                        oldCanvas.wrapperWindow.contentView = oldCanvas ;
+                // a view can have only one parent
+                        newCanvas.wrapperWindow.contentView = nil ;
+                        [self addSubview:newCanvas] ;
                     } else {
-                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:cannot assign canvas to element %lu; the sub-canvas is already in use within the parent canvas.", USERDATA_TAG, index + 1]] ;
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:canvas for element %lu is already in use", USERDATA_TAG, index + 1]] ;
                     }
                 }
             }
@@ -1756,8 +1760,9 @@ static int userdata_gc(lua_State* L) ;
         }   break ;
         case attributeNulling:
             if ([keyName isEqualToString:@"canvas"]) {
-                ASMCanvasWindow *oldCanvas = (ASMCanvasWindow *)_elementList[index][keyName] ;
-                [oldCanvas.contentView removeFromSuperview] ;
+                ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
+                [oldCanvas removeFromSuperview] ;
+                oldCanvas.wrapperWindow.contentView = oldCanvas ;
             }
             [(NSMutableDictionary *)_elementList[index] removeObjectForKey:keyName] ;
             break ;
@@ -1797,8 +1802,11 @@ static int canvas_new(lua_State *L) {
                                                                          backing:NSBackingStoreBuffered
                                                                            defer:YES] ;
     if (canvasWindow) {
-        canvasWindow.contentView = [[ASMCanvasView alloc] initWithFrame:canvasWindow.contentView.bounds];
-        [skin pushNSObject:canvasWindow] ;
+        ASMCanvasView *canvasView = [[ASMCanvasView alloc] initWithFrame:canvasWindow.contentView.bounds];
+        canvasView.wrapperWindow = canvasWindow ;
+        canvasWindow.contentView = canvasView ;
+
+        [skin pushNSObject:canvasView] ;
     } else {
         lua_pushnil(L) ;
     }
@@ -1841,8 +1849,7 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
 static int canvas_canvasTransformation(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:canvasView.canvasTransform] ;
@@ -1865,21 +1872,28 @@ static int canvas_canvasTransformation(lua_State *L) {
 ///
 /// Returns:
 ///  * The canvas object
+///
+/// Notes:
+///  * if the canvas is in use as an element in another canvas, this method will result in an error.
 static int canvas_show(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
-    if (lua_gettop(L) == 1) {
-        [canvasWindow makeKeyAndOrderFront:nil];
+    if ([canvasView.wrapperWindow isEqualTo:canvasView.window]) {
+        if (lua_gettop(L) == 1) {
+            [canvasWindow makeKeyAndOrderFront:nil];
+        } else {
+            [canvasWindow fadeIn:lua_tonumber(L, 2)];
+        }
+        lua_pushvalue(L, 1);
     } else {
-        [canvasWindow fadeIn:lua_tonumber(L, 2)];
+        return luaL_error(L, "canvas is in use as an element of another canvas") ;
     }
-
-    lua_pushvalue(L, 1);
     return 1;
 }
 
@@ -1898,7 +1912,8 @@ static int canvas_hide(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_gettop(L) == 1) {
         [canvasWindow orderOut:nil];
@@ -1941,8 +1956,8 @@ static int canvas_mouseCallback(lua_State *L) {
                     LS_TFUNCTION | LS_TNIL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     // We're either removing callback(s), or setting new one(s). Either way, remove existing.
     canvasView.mouseCallbackRef = [skin luaUnref:refTable ref:canvasView.mouseCallbackRef];
@@ -1977,7 +1992,8 @@ static int canvas_clickActivating(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_type(L, 2) != LUA_TNONE) {
         if (lua_toboolean(L, 2)) {
@@ -2019,8 +2035,7 @@ static int canvas_canvasMouseEvents(lua_State *L) {
                     LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, canvasView.canvasMouseDown) ;
@@ -2065,7 +2080,8 @@ static int canvas_topLeft(lua_State *L) {
                     LS_TTABLE | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
     NSRect oldFrame = RectWithFlippedYCoordinate(canvasWindow.frame);
 
     if (lua_gettop(L) == 1) {
@@ -2099,8 +2115,7 @@ static int canvas_canvasAsImage(lua_State *L) {
                     LS_TTABLE | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSRect canvasFrame = canvasView.bounds ;
 
     if (lua_gettop(L) == 2) {
@@ -2135,8 +2150,8 @@ static int canvas_size(lua_State *L) {
                     LS_TTABLE | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     NSRect oldFrame = canvasWindow.frame;
 
@@ -2219,7 +2234,8 @@ static int canvas_alpha(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_gettop(L) == 1) {
         lua_pushnumber(L, canvasWindow.alphaValue) ;
@@ -2282,7 +2298,8 @@ static int canvas_level(lua_State *L) {
                     LS_TNUMBER | LS_TSTRING | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_gettop(L) == 1) {
         lua_pushinteger(L, [canvasWindow level]) ;
@@ -2341,8 +2358,7 @@ static int canvas_wantsLayer(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     if (lua_type(L, 2) != LUA_TNONE) {
         [canvasView setWantsLayer:(BOOL)lua_toboolean(L, 2)];
@@ -2373,7 +2389,8 @@ static int canvas_behavior(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_gettop(L) == 1) {
         lua_pushinteger(L, [canvasWindow collectionBehavior]) ;
@@ -2414,7 +2431,8 @@ static int canvas_delete(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
     if ((lua_gettop(L) == 1) || (![canvasWindow isVisible])) {
         lua_pushcfunction(L, userdata_gc) ;
         lua_pushvalue(L, 1) ;
@@ -2449,7 +2467,8 @@ static int canvas_isShowing(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
     lua_pushboolean(L, [canvasWindow isVisible]) ;
     return 1 ;
 }
@@ -2474,7 +2493,8 @@ static int canvas_isOccluded(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
     lua_pushboolean(L, ([canvasWindow occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible) ;
     return 1 ;
 }
@@ -2500,8 +2520,7 @@ static int canvas_canvasDefaultFor(lua_State *L) {
                     LS_TANY | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSString *keyName = [skin toNSObjectAtIndex:2] ;
 
     if (!languageDictionary[keyName]) {
@@ -2556,8 +2575,7 @@ static int canvas_insertElementAtIndex(lua_State *L) {
                     LS_TTABLE,
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
 
@@ -2601,8 +2619,7 @@ static int canvas_removeElementAtIndex(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 2) ? (lua_tointeger(L, 2) - 1) : (NSInteger)elementCount - 1 ;
 
@@ -2635,8 +2652,7 @@ static int canvas_elementAttributeAtIndex(lua_State *L) {
                     LS_TSTRING,
                     LS_TANY | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSString        *keyName      = [skin toNSObjectAtIndex:3] ;
 
     NSUInteger      elementCount  = [canvasView.elementList count] ;
@@ -2701,8 +2717,7 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
                     LS_TNUMBER | LS_TINTEGER,
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = lua_tointeger(L, 2) - 1 ;
 
@@ -2736,8 +2751,7 @@ static int canvas_elementKeysAtIndex(lua_State *L) {
 static int canvas_elementCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     lua_pushinteger(L, (lua_Integer)[canvasView.elementList count]) ;
     return 1 ;
 }
@@ -2760,8 +2774,7 @@ static int canvas_canvasDefaults(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     if ((lua_gettop(L) == 2) && lua_toboolean(L, 2)) {
         lua_newtable(L) ;
         for (NSString *keyName in languageDictionary) {
@@ -2790,8 +2803,7 @@ static int canvas_canvasDefaultKeys(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasView.canvasDefaults allKeys]] ;
     if ((lua_gettop(L) == 3) && lua_toboolean(L, 3)) {
@@ -2818,8 +2830,7 @@ static int canvas_canvasElements(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     [skin pushNSObject:canvasView.elementList withOptions:LS_NSDescribeUnknownTypes] ;
     return 1 ;
 }
@@ -2841,8 +2852,7 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TNUMBER | LS_TINTEGER,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_tointeger(L, 2) - 1) ;
@@ -2892,8 +2902,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
                     LS_TTABLE | LS_TNIL,
                     LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,
                     LS_TBREAK] ;
-    ASMCanvasWindow *canvasWindow = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-    ASMCanvasView   *canvasView   = (ASMCanvasView *)canvasWindow.contentView ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     NSUInteger      elementCount  = [canvasView.elementList count] ;
     NSInteger       tablePosition = (lua_gettop(L) == 3) ? (lua_tointeger(L, 3) - 1) : (NSInteger)elementCount ;
@@ -2981,11 +2990,11 @@ static int pushCompositeTypes(lua_State *L) {
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
 
-static int pushASMCanvasWindow(lua_State *L, id obj) {
+static int pushASMCanvasView(lua_State *L, id obj) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMCanvasWindow *value = obj;
+    ASMCanvasView *value = obj;
     if (value.selfRef == LUA_NOREF) {
-        void** valuePtr = lua_newuserdata(L, sizeof(ASMCanvasWindow *));
+        void** valuePtr = lua_newuserdata(L, sizeof(ASMCanvasView *));
         *valuePtr = (__bridge_retained void *)value;
         luaL_getmetatable(L, USERDATA_TAG);
         lua_setmetatable(L, -2);
@@ -2995,11 +3004,11 @@ static int pushASMCanvasWindow(lua_State *L, id obj) {
     return 1;
 }
 
-static id toASMCanvasWindowFromLua(lua_State *L, int idx) {
+static id toASMCanvasViewFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMCanvasWindow *value ;
+    ASMCanvasView *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
-        value = get_objectFromUserdata(__bridge ASMCanvasWindow, L, idx, USERDATA_TAG) ;
+        value = get_objectFromUserdata(__bridge ASMCanvasView, L, idx, USERDATA_TAG) ;
     } else {
         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
                                                    lua_typename(L, lua_type(L, idx))]] ;
@@ -3011,7 +3020,7 @@ static id toASMCanvasWindowFromLua(lua_State *L, int idx) {
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMCanvasWindow *obj = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
+    ASMCanvasView *obj = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     NSString *title = NSStringFromRect(RectWithFlippedYCoordinate(obj.frame)) ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -3022,8 +3031,8 @@ static int userdata_eq(lua_State* L) {
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
         LuaSkin *skin = [LuaSkin shared] ;
-        ASMCanvasWindow *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMCanvasWindow"] ;
-        ASMCanvasWindow *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMCanvasWindow"] ;
+        ASMCanvasView *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+        ASMCanvasView *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
@@ -3033,30 +3042,30 @@ static int userdata_eq(lua_State* L) {
 
 static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMCanvasWindow *obj = get_objectFromUserdata(__bridge_transfer ASMCanvasWindow, L, 1, USERDATA_TAG) ;
-    if (obj) {
-        if (obj.contentView) {
-            ASMCanvasView *theView   = (ASMCanvasView *)obj.contentView ;
-            for (NSMutableDictionary *element in theView.elementList) {
-                if ([element[@"type"] isEqualToString:@"canvas"]) {
-                    ASMCanvasWindow *ourSubview = element[@"canvas"] ;
-                    if (ourSubview && ![ourSubview isKindOfClass:[NSNull class]]) {
-                        [ourSubview.contentView removeFromSuperview] ;
-                        lua_pushcfunction(L, userdata_gc) ;
-                        [skin pushNSObject:ourSubview] ;
-                        [element removeObjectForKey:@"canvas"] ;
-                        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-                            [LuaSkin logWarn:[NSString stringWithFormat:@"error releasing canvas subview: %s", lua_tostring(L, -1)]] ;
-                            lua_pop(L, 1) ;
-                        }
-                    }
-                }
-            }
-            theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
-        }
-        [obj close];
-        obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
-        obj = nil ;
+    ASMCanvasView *theView = get_objectFromUserdata(__bridge_transfer ASMCanvasView, L, 1, USERDATA_TAG) ;
+    if (theView) {
+        ASMCanvasWindow *theWindow = theView.wrapperWindow ;
+
+//         for (NSMutableDictionary *element in theView.elementList) {
+//             if ([element[@"type"] isEqualToString:@"canvas"]) {
+//                 ASMCanvasWindow *ourSubview = element[@"canvas"] ;
+//                 if (ourSubview && ![ourSubview isKindOfClass:[NSNull class]]) {
+//                     [ourSubview.contentView removeFromSuperview] ;
+//                     lua_pushcfunction(L, userdata_gc) ;
+//                     [skin pushNSObject:ourSubview] ;
+//                     [element removeObjectForKey:@"canvas"] ;
+//                     if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+//                         [LuaSkin logWarn:[NSString stringWithFormat:@"error releasing canvas subview: %s", lua_tostring(L, -1)]] ;
+//                         lua_pop(L, 1) ;
+//                     }
+//                 }
+//             }
+//         }
+
+        theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
+        theView.selfRef          = [skin luaUnref:refTable ref:theView.selfRef] ;
+        theView.wrapperWindow    = nil ;
+        if (theWindow) [theWindow close];
     }
 
     // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -3126,9 +3135,9 @@ int luaopen_hs__asm_canvas_internal(lua_State* L) {
 
     languageDictionary = defineLanguageDictionary() ;
 
-    [skin registerPushNSHelper:pushASMCanvasWindow         forClass:"ASMCanvasWindow"];
-    [skin registerLuaObjectHelper:toASMCanvasWindowFromLua forClass:"ASMCanvasWindow"
-                                                withUserdataMapping:USERDATA_TAG];
+    [skin registerPushNSHelper:pushASMCanvasView         forClass:"ASMCanvasView"];
+    [skin registerLuaObjectHelper:toASMCanvasViewFromLua forClass:"ASMCanvasView"
+                                              withUserdataMapping:USERDATA_TAG];
 
     pushCompositeTypes(L) ; lua_setfield(L, -2, "compositeTypes") ;
 

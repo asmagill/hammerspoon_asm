@@ -1,0 +1,10 @@
++   merge canvases? sorta -- can now use a canvas as an element
+    method to duplicate canvas?  Only canvas elements would have to handled special, since other "object" types support copying
+
+    remove circle and arc (variants of oval and ellipticalArc)?  or method to convert between them?
+
+    text/image affect clipping region? would require converting text to glyphs... worth the trouble?
+    text/image target actual rendered area instead of frame?
+
+    NSGraphicsContext imageInterpolation?
+

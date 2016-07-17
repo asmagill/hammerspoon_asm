@@ -1,8 +1,6 @@
 hs._asm.canvas
 ==============
 
-***Use of a `canvas` as a element type within another canvas is experimental... and often crashes during garbage collection if you manually delete either canvas with `hs._asm.canvas:delete` or manipulate them too much.  I believe I know what is wrong, but the proper fix will require a different approach to how the NSView and NSWindow objects are handled internally.  For now, I'd recommend against embedding a canvas within another canvas.***
-
 A different approach to drawing in Hammerspoon
 
 `hs.drawing` approaches graphical images as independant primitives, each "shape" being a separate drawing object based on the core primitives: ellipse, rectangle, point, line, text, etc.  This model works well with graphical elements that are expected to be managed individually and don't have complex clipping interactions, but does not scale well when more complex combinations or groups of drawing elements need to be moved or manipulated as a group, and only allows for simple inclusionary clipping regions.
@@ -70,6 +68,7 @@ As always, whichever method you chose, if you are updating from an earlier versi
   * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
   * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the element's center to the start and end angles should be included in the element's visible portion.  This affects whether the object's stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
   * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
+  * `canvas`              - Defaults to nil. The canvas which is to be displayed for an element of type `canvas`.  The canvas specified must not be currently assigned to any other canvas as an element or visible (shown) as an independant canvas (see `hs._asm.canvas:show`).  Assign nil to this property to release a previously assigned canvas for use elsewhere as an element or on its own.
   * `compositeRule`       - A string, default "sourceOver", specifying how this element should be combined with earlier elements of the canvas.  See [hs._asm.canvas.compositeTypes](#compositeTypes) for a list of valid strings and their descriptions.
   * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
   * `closed`              - Default `false`.  Used by the `segments` type to specify whether or not the shape defined by the lines and curves defined should be closed (true) or open (false).  When an object is closed, an implicit line is stroked from the final point back to the initial point of the coordinates listed.
@@ -803,6 +802,9 @@ Parameters:
 
 Returns:
  * The canvas object
+
+Notes:
+ * if the canvas is in use as an element in another canvas, this method will result in an error.
 
 - - -
 
