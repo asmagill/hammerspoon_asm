@@ -290,24 +290,13 @@ static NSDictionary *defineLanguageDictionary() {
             @"optionalFor"   : CLOSED,
         },
         @"fillGradientColors" : @{
-            @"class"       : @[ [NSDictionary class] ],
-            @"luaClass"    : @"table",
-            @"keys"        : @{
-                @"startColor" : @{
-                    @"class"    : @[ [NSColor class] ],
-                    @"luaClass" : @"hs.drawing.color table",
-                },
-                @"endColor" : @{
-                    @"class"    : @[ [NSColor class] ],
-                    @"luaClass" : @"hs.drawing.color table",
-                },
-            },
-            @"default"     : @{
-                                 @"startColor" : [NSColor blackColor],
-                                 @"endColor"   : [NSColor whiteColor],
-                             },
-            @"nullable"    : @(YES),
-            @"optionalFor" : CLOSED,
+            @"class"          : @[ [NSArray class] ],
+            @"luaClass"       : @"table",
+            @"default"        : @[ [NSColor blackColor], [NSColor whiteColor] ],
+            @"memberClass"    : [NSColor class],
+            @"memberLuaClass" : @"hs.drawing.color table",
+            @"nullable"       : @(YES),
+            @"optionalFor"    : CLOSED,
         },
         @"flatness" : @{
             @"class"       : @[ [NSNumber class] ],
@@ -365,6 +354,15 @@ static NSDictionary *defineLanguageDictionary() {
             @"luaClass"    : @"hs.image object",
             @"nullable"    : @(YES),
             @"default"     : [[NSImage alloc] initWithSize:NSMakeSize(1.0, 1.0)],
+            @"optionalFor" : @[ @"image" ],
+        },
+        @"imageAlpha" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"number",
+            @"nullable"    : @(YES),
+            @"default"     : @(1.0),
+            @"minNumber"   : @(0.0),
+            @"maxNumber"   : @(1.0),
             @"optionalFor" : @[ @"image" ],
         },
         @"miterLimit" : @{
@@ -611,6 +609,14 @@ static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValu
             }
         }
 
+        if ([keyValue isKindOfClass:[NSNumber class]] && !attributeDefinition[@"objCType"]) {
+          if (!isfinite([keyValue doubleValue])) {
+              errorMessage = [NSString stringWithFormat:@"%@ must be a finite number", keyName] ;
+              break ;
+          }
+        }
+
+
         if (attributeDefinition[@"values"]) {
             BOOL found = NO ;
             for (NSUInteger i = 0 ; i < [attributeDefinition[@"values"] count] ; i++) {
@@ -797,7 +803,7 @@ static int userdata_gc(lua_State* L) ;
     LuaSkin *skin = [LuaSkin shared];
 
     if (!(isfinite(contentRect.origin.x) && isfinite(contentRect.origin.y) && isfinite(contentRect.size.height) && isfinite(contentRect.size.width))) {
-        [skin logError:[NSString stringWithFormat:@"%s: non-finite co-ordinates/size specified", USERDATA_TAG]];
+        [skin logError:[NSString stringWithFormat:@"%s:coordinates must be finite numbers", USERDATA_TAG]];
         return nil;
     }
 
@@ -1282,7 +1288,15 @@ static int userdata_gc(lua_State* L) ;
                 if ([elementType isEqualToString:@"image"]) {
                 // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
                     NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
-                    if (theImage) [theImage drawInRect:frameRect] ;
+                    if (theImage) {
+                        NSNumber *alpha = [self getElementValueFor:@"imageAlpha" atIndex:idx] ;
+                        [theImage drawInRect:frameRect
+                                    fromRect:NSZeroRect
+                                   operation:[COMPOSITING_TYPES[CS] unsignedIntValue]
+                                    fraction:[alpha doubleValue]
+                              respectFlipped:YES
+                                       hints:nil] ;
+                    }
                     [self->_elementBounds addObject:@{
                         @"index" : @(idx),
                         @"frame" : [NSValue valueWithRect:frameRect]
@@ -1384,15 +1398,12 @@ static int userdata_gc(lua_State* L) ;
                 } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
                     if (![elementType isEqualToString:@"points"] && ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"])) {
                         NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
-                        if (![fillGradient isEqualToString:@"none"]) {
-                            NSDictionary *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
-                            NSColor      *startColor     = gradientColors[@"startColor"] ;
-                            NSColor      *endColor       = gradientColors[@"endColor"] ;
+                        if (![fillGradient isEqualToString:@"none"] && ![renderPath isEmpty]) {
+                            NSArray *gradientColors = [self getElementValueFor:@"fillGradientColors" atIndex:idx] ;
+                            NSGradient* gradient = [[NSGradient alloc] initWithColors:gradientColors];
                             if ([fillGradient isEqualToString:@"linear"]) {
-                                NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
                                 [gradient drawInBezierPath:renderPath angle:[[self getElementValueFor:@"fillGradientAngle" atIndex:idx] doubleValue]] ;
                             } else if ([fillGradient isEqualToString:@"radial"]) {
-                                NSGradient* gradient = [[NSGradient alloc] initWithStartingColor:startColor endingColor:endColor];
                                 NSDictionary *centerPoint = [self getElementValueFor:@"fillGradientCenter" atIndex:idx] ;
                                 [gradient drawInBezierPath:renderPath
                                     relativeCenterPosition:NSMakePoint([centerPoint[@"x"] doubleValue], [centerPoint[@"y"] doubleValue])] ;
@@ -1470,6 +1481,28 @@ static int userdata_gc(lua_State* L) ;
         newValue = [skin toNSObjectAtIndex:-1] ;
         lua_pop(L, 1) ;
 
+    // fillGradientColors is an array of colors
+    } else if ([keyName isEqualToString:@"fillGradientColors"]) {
+        newValue = [[NSMutableArray alloc] init] ;
+        [(NSMutableArray *)oldValue enumerateObjectsUsingBlock:^(NSDictionary *anItem, NSUInteger idx, __unused BOOL *stop) {
+            if ([anItem isKindOfClass:[NSDictionary class]]) {
+                [skin pushNSObject:anItem] ;
+                lua_pushstring(L, "NSColor") ;
+                lua_setfield(L, -2, "__luaSkinType") ;
+                anItem = [skin toNSObjectAtIndex:-1] ;
+                lua_pop(L, 1) ;
+            }
+            if (anItem && [anItem isKindOfClass:[NSColor class]] && [(NSColor *)anItem colorUsingColorSpaceName:NSCalibratedRGBColorSpace]) {
+                [(NSMutableArray *)newValue addObject:anItem] ;
+            } else {
+                [LuaSkin logWarn:[NSString stringWithFormat:@"%s:not a proper color at index %lu of fillGradientColor; using Black", USERDATA_TAG, idx + 1]] ;
+                [(NSMutableArray *)newValue addObject:[NSColor blackColor]] ;
+            }
+        }] ;
+        if ([(NSMutableArray *)newValue count] < 2) {
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:fillGradientColor requires at least 2 colors; using default", USERDATA_TAG]] ;
+            newValue = [self getDefaultValueFor:keyName onlyIfSet:NO] ;
+        }
     // fix NSAffineTransform table
     } else if ([keyName isEqualToString:@"transformation"] && ([oldValue isKindOfClass:[NSDictionary class]] || [oldValue isKindOfClass:[NSArray class]])) {
         [skin pushNSObject:oldValue] ;
@@ -1775,6 +1808,18 @@ static int userdata_gc(lua_State* L) ;
     self.needsDisplay = true ;
     return validityStatus ;
 }
+
+// see https://www.stairways.com/blog/2009-04-21-nsimage-from-nsview
+- (NSImage *)imageWithSubviews {
+    NSBitmapImageRep *bir = [self bitmapImageRepForCachingDisplayInRect:self.bounds];
+    [bir setSize:self.bounds.size];
+    [self cacheDisplayInRect:self.bounds toBitmapImageRep:bir];
+
+    NSImage* image = [[NSImage alloc]initWithSize:self.bounds.size] ;
+    [image addRepresentation:bir];
+    return image;
+}
+
 
 @end
 
@@ -2095,34 +2140,25 @@ static int canvas_topLeft(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.canvas:imageFromCanvas([rect]) -> hs.image object
+/// hs._asm.canvas:imageFromCanvas() -> hs.image object
 /// Method
 /// Returns an image of the canvas contents as an `hs.image` object.
 ///
 /// Parameters:
-///  * `rect` - an optional rect-table specifying the rectangle within the canvas to create an image of. Defaults to the full canvas.
+///  * None
 ///
 /// Returns:
 ///  * an `hs.image` object
 ///
 /// Notes:
-///  * a rect-table is a table with key-value pairs specifying the top-left coordinate within the canvas (keys `x`  and `y`) and the size (keys `h` and `w`) of the rectangle.  The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
-///
 ///  * The canvas does not have to be visible in order for an image to be generated from it.
-static int canvas_canvasAsImage(lua_State *L) {
+static int canvas_canvasAsImage(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                    LS_TTABLE | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    NSRect canvasFrame = canvasView.bounds ;
-
-    if (lua_gettop(L) == 2) {
-        canvasFrame = [skin tableToRectAtIndex:2] ;
-    }
-    NSData  *pdfData = [canvasView dataWithPDFInsideRect:canvasFrame] ;
-    NSImage *image   = [[NSImage alloc] initWithData:pdfData] ;
+    NSImage *image = [canvasView imageWithSubviews] ;
     [skin pushNSObject:image] ;
     return 1;
 }
@@ -2865,7 +2901,11 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
     NSRect       boundingBox = NSZeroRect ;
     NSBezierPath *itemPath   = [canvasView pathForElementAtIndex:idx] ;
     if (itemPath) {
-        boundingBox = [itemPath bounds] ;
+        if ([itemPath isEmpty]) {
+            boundingBox = NSZeroRect ;
+        } else {
+            boundingBox = [itemPath bounds] ;
+        }
     } else {
         NSString *itemType = canvasView.elementList[idx][@"type"] ;
         if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"canvas"]) {
@@ -2967,22 +3007,8 @@ static int canvas_assignElementAtIndex(lua_State *L) {
 /// In each equation, R is the resulting (premultiplied) color, S is the source color, D is the destination color, Sa is the alpha value of the source color, and Da is the alpha value of the destination color.
 ///
 /// The `source` object is the individual element as it is rendered in order within the canvas, and the `destination` object is the combined state of the previous elements as they have been composited within the canvas.
-static int pushCompositeTypes(lua_State *L) {
-    lua_newtable(L) ;
-      lua_pushstring(L, "clear") ;           lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "copy") ;            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "sourceOver") ;      lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "sourceIn") ;        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "sourceOut") ;       lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "sourceAtop") ;      lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "destinationOver") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "destinationIn") ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "destinationOut") ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "destinationAtop") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "XOR") ;             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-      lua_pushstring(L, "plusDarker") ;      lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-//       lua_pushstring(L, "highlight") ;       lua_rawseti(L, -2, luaL_len(L, -2) + 1) ; // mapped to NSCompositeSourceOver
-      lua_pushstring(L, "plusLighter") ;     lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+static int pushCompositeTypes(__unused lua_State *L) {
+    [[LuaSkin shared] pushNSObject:COMPOSITING_TYPES] ;
     return 1 ;
 }
 
@@ -3045,22 +3071,6 @@ static int userdata_gc(lua_State* L) {
     ASMCanvasView *theView = get_objectFromUserdata(__bridge_transfer ASMCanvasView, L, 1, USERDATA_TAG) ;
     if (theView) {
         ASMCanvasWindow *theWindow = theView.wrapperWindow ;
-
-//         for (NSMutableDictionary *element in theView.elementList) {
-//             if ([element[@"type"] isEqualToString:@"canvas"]) {
-//                 ASMCanvasWindow *ourSubview = element[@"canvas"] ;
-//                 if (ourSubview && ![ourSubview isKindOfClass:[NSNull class]]) {
-//                     [ourSubview.contentView removeFromSuperview] ;
-//                     lua_pushcfunction(L, userdata_gc) ;
-//                     [skin pushNSObject:ourSubview] ;
-//                     [element removeObjectForKey:@"canvas"] ;
-//                     if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-//                         [LuaSkin logWarn:[NSString stringWithFormat:@"error releasing canvas subview: %s", lua_tostring(L, -1)]] ;
-//                         lua_pop(L, 1) ;
-//                     }
-//                 }
-//             }
-//         }
 
         theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         theView.selfRef          = [skin luaUnref:refTable ref:theView.selfRef] ;

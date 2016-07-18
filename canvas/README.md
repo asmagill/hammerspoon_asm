@@ -84,12 +84,13 @@ As always, whichever method you chose, if you are updating from an earlier versi
   * `fillGradient`        - Default "none".  A string specifying whether a fill gradient should be used instead of the fill color when the action is `fill` or `strokeAndFill`.  May be "none", "linear", or "radial".
   * `fillGradientAngle`   - Default 0.0.  Specifies the direction of a linear gradient when `fillGradient` is linear.
   * `fillGradientCenter`  - Default `{ x = 0.0, y = 0.0 }`. Specifies the relative center point within the elements bounds of a radial gradient when `fillGradient` is `radial`.  The `x` and `y` fields must both be between -1.0 and 1.0 inclusive.
-  * `fillGradientColors`  - Default `{ startColor = { white = 0.0 }, endColor = { white = 1.0 } }`.  Specifies the beginning and ending colors for a gradient when `fillGradient` is not `none`.
+  * `fillGradientColors`  - Default `{ { white = 0.0 }, { white = 1.0 } }`.  Specifies the colors to use for the gradient when `fillGradient` is not `none`.  You must specify at least two colors, each of which must be convertible into the RGB color space (i.e. they cannot be an image being used as a color pattern).  The gradient will blend from the first to the next, and so on until the last color.  If more than two colors are specified, the "color stops" will be placed at evenly spaced intervals within the element.
   * `flatness`            - Default `0.6`.  A number which specifies the accuracy (or smoothness) with which curves are rendered. It is also the maximum error tolerance (measured in pixels) for rendering curves, where smaller numbers give smoother curves at the expense of more computation.
   * `flattenPath`         - Default `false`. Specifies whether curved line segments should be converted into straight line approximations. The granularity of the approximations is controlled by the path's current flatness value.
   * `frame`               - Default `{ x = "0%", y = "0%", h = "100%", w = "100%" }`.  Used by the `rectangle`, `oval`, `ellipticalArc`, `text`, and `image` types to specify the element's position and size.  When the key value for `x`, `y`, `h`, or `w` are specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
   * `id`                  - An optional string or number which is included in mouse callbacks to identify the element which was the target of the mouse event.  If this is not specified for an element, it's index position is used instead.
   * `image`               - Defaults to a blank image.  Used by the `image` type to specify an `hs.image` object to display as an image.
+  * `imageAlpha`          - Defaults to `1.0`.  A number between 0.0 and 1.0 specifying the alpha value to be applied to the image specified by `image`.
   * `miterLimit`          - Default `10.0`. The limit at which miter joins are converted to bevel join when `strokeJoinStyle` is `miter`.  The miter limit helps you avoid spikes at the junction of two line segments.  When the ratio of the miter length—the diagonal length of the miter join—to the line thickness exceeds the miter limit, the joint is converted to a bevel join. Ignored for the `canvas`, `text`, and `image` types.
   * `padding`             - Default `0.0`. When an element specifies position information by percentage (i.e. as a string), the actual frame used for calculating position values is inset from the canvas frame on all sides by this amount. If you are using shadows with your elements, the shadow position is not included in the element's size and position specification; this attribute can be used to provide extra space for the shadow to be fully rendered within the canvas.
   * `radius`              - Default "50%". Used by the `arc` and `circle` types to specify the radius of the circle for the element. May be specified as a string or a number.  When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
@@ -150,7 +151,7 @@ canvas = require("hs._asm.canvas")
 * <a href="#elementKeys">canvas:elementKeys(index, [optional]) -> table</a>
 * <a href="#frame">canvas:frame([rect]) -> canvasObject | currentValue</a>
 * <a href="#hide">canvas:hide([fadeOutTime]) -> canvasObject</a>
-* <a href="#imageFromCanvas">canvas:imageFromCanvas([rect]) -> hs.image object</a>
+* <a href="#imageFromCanvas">canvas:imageFromCanvas() -> hs.image object</a>
 * <a href="#insertElement">canvas:insertElement(elementTable, [index]) -> canvasObject</a>
 * <a href="#isOccluded">canvas:isOccluded() -> boolean</a>
 * <a href="#isShowing">canvas:isShowing() -> boolean</a>
@@ -550,19 +551,17 @@ Returns:
 
 <a name="imageFromCanvas"></a>
 ~~~lua
-canvas:imageFromCanvas([rect]) -> hs.image object
+canvas:imageFromCanvas() -> hs.image object
 ~~~
 Returns an image of the canvas contents as an `hs.image` object.
 
 Parameters:
- * `rect` - an optional rect-table specifying the rectangle within the canvas to create an image of. Defaults to the full canvas.
+ * None
 
 Returns:
  * an `hs.image` object
 
 Notes:
- * a rect-table is a table with key-value pairs specifying the top-left coordinate within the canvas (keys `x`  and `y`) and the size (keys `h` and `w`) of the rectangle.  The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
-
  * The canvas does not have to be visible in order for an image to be generated from it.
 
 - - -
