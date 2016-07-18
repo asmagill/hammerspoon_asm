@@ -502,6 +502,14 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : @(27.0),
             @"optionalFor" : @[ @"text" ],
         },
+        @"trackMouseByBounds" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"boolean",
+            @"objCType"    : @(@encode(BOOL)),
+            @"nullable"    : @(YES),
+            @"default"     : @(NO),
+            @"optionalFor" : VISIBLE,
+        },
         @"trackMouseEnterExit" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"boolean",
@@ -830,10 +838,10 @@ static int userdata_gc(lua_State* L) ;
     return self;
 }
 
-- (BOOL)shouldDelayWindowOrderingForEvent:(__unused NSEvent *)theEvent {
-    [LuaSkin logWarn:@"yeah, I'm needed"] ;
-    return NO ;
-}
+// - (BOOL)shouldDelayWindowOrderingForEvent:(__unused NSEvent *)theEvent {
+//     [LuaSkin logWarn:@"yeah, I'm needed"] ;
+//     return NO ;
+// }
 
 #pragma mark - NSWindowDelegate Methods
 
@@ -935,7 +943,7 @@ static int userdata_gc(lua_State* L) ;
         NSPoint local_point = [self convertPoint:event_location fromView:nil];
 
         __block NSUInteger targetIndex = NSNotFound ;
-        __block NSPoint actualpoint = local_point ;
+        __block NSPoint actualPoint = local_point ;
 
         [_elementBounds enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(NSDictionary *box, NSUInteger idx, BOOL *stop) {
             NSUInteger elementIdx  = [box[@"index"] unsignedIntegerValue] ;
@@ -943,9 +951,19 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                actualpoint = [pointTransform transformPoint:local_point] ;
-                if ((box[@"frame"] && NSPointInRect(actualpoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualpoint]))
-                {
+                actualPoint = [pointTransform transformPoint:local_point] ;
+                if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
+                    NSImage *theImage = [self getElementValueFor:@"image" atIndex:elementIdx] ;
+                    NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
+                    NSRect imageRect = [box[@"frame"] rectValue] ;
+                    if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
+                                                                       context:nil
+                                                                         hints:nil
+                                                                       flipped:YES]) {
+                        targetIndex = idx ;
+                        *stop = YES ;
+                    }
+                } else if ((box[@"frame"] && NSPointInRect(actualPoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualPoint])) {
                     targetIndex = idx ;
                     *stop = YES ;
                 }
@@ -1054,7 +1072,7 @@ static int userdata_gc(lua_State* L) ;
 //         [LuaSkin logWarn:[NSString stringWithFormat:@"mouse click at (%f, %f)", local_point.x, local_point.y]] ;
 
         __block id targetID = nil ;
-        __block NSPoint actualpoint = local_point ;
+        __block NSPoint actualPoint = local_point ;
 
         [_elementBounds enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(NSDictionary *box, __unused NSUInteger idx, BOOL *stop) {
             NSUInteger elementIdx  = [box[@"index"] unsignedIntegerValue] ;
@@ -1062,21 +1080,40 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                actualpoint = [pointTransform transformPoint:local_point] ;
-                if ((box[@"frame"] && NSPointInRect(actualpoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualpoint]))
-                {
+                actualPoint = [pointTransform transformPoint:local_point] ;
+                if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
+                    NSImage *theImage = [self getElementValueFor:@"image" atIndex:elementIdx] ;
+                    NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
+                    NSRect imageRect = [box[@"frame"] rectValue] ;
+                    if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
+                                                                       context:nil
+                                                                         hints:nil
+                                                                       flipped:YES]) {
+                    targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
+                    if (!targetID) targetID = @(elementIdx + 1) ;
+                        *stop = YES ;
+                    }
+                } else if ((box[@"frame"] && NSPointInRect(actualPoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualPoint])) {
                     targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
                     if (!targetID) targetID = @(elementIdx + 1) ;
                     *stop = YES ;
+                }
+                if (*stop) {
+                    if (isDown && [[self getElementValueFor:@"trackMouseDown" atIndex:elementIdx] boolValue]) {
+                        [self doMouseCallback:@"mouseDown" for:targetID at:local_point] ;
+                    }
+                    if (!isDown && [[self getElementValueFor:@"trackMouseUp" atIndex:elementIdx] boolValue]) {
+                        [self doMouseCallback:@"mouseUp" for:targetID at:local_point] ;
+                    }
                 }
             }
         }] ;
 
         if (!targetID) {
             if (isDown && _canvasMouseDown) {
-                [self doMouseCallback:@"mouseDown" for:@"_canvas_" at:actualpoint] ;
+                [self doMouseCallback:@"mouseDown" for:@"_canvas_" at:local_point] ;
             } else if (!isDown && _canvasMouseUp) {
-                [self doMouseCallback:@"mouseUp" for:@"_canvas_" at:actualpoint] ;
+                [self doMouseCallback:@"mouseUp" for:@"_canvas_" at:local_point] ;
             }
         }
     }
@@ -1298,8 +1335,9 @@ static int userdata_gc(lua_State* L) ;
                                        hints:nil] ;
                     }
                     [self->_elementBounds addObject:@{
-                        @"index" : @(idx),
-                        @"frame" : [NSValue valueWithRect:frameRect]
+                        @"index"         : @(idx),
+                        @"frame"         : [NSValue valueWithRect:frameRect],
+                        @"imageByBounds" : [self getElementValueFor:@"trackMouseByBounds" atIndex:idx]
                     }] ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else
@@ -1440,10 +1478,19 @@ static int userdata_gc(lua_State* L) ;
 
                         [renderPath stroke] ;
                     }
-                    [self->_elementBounds addObject:@{
-                        @"index" : @(idx),
-                        @"path"  : renderPath,
-                    }] ;
+                    if ([[self getElementValueFor:@"trackMouseByBounds" atIndex:idx] boolValue]) {
+                        NSRect objectBounds = NSZeroRect ;
+                        if (![renderPath isEmpty]) objectBounds = [renderPath bounds] ;
+                        [self->_elementBounds addObject:@{
+                            @"index" : @(idx),
+                            @"frame"  : [NSValue valueWithRect:objectBounds],
+                        }] ;
+                    } else {
+                        [self->_elementBounds addObject:@{
+                            @"index" : @(idx),
+                            @"path"  : renderPath,
+                        }] ;
+                    }
                     renderPath = nil ;
                 } else if (![action isEqualToString:@"build"]) {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized action %@ at index %lu", USERDATA_TAG, action, idx + 1]] ;
@@ -1994,7 +2041,9 @@ static int canvas_hide(lua_State *L) {
 ///
 ///  * No distinction is made between the left, right, or other mouse buttons. If you need to determine which specific button was pressed, use `hs.eventtap.checkMouseButtons()` within your callback to check.
 ///
-///  * The hit point detection occurs by comparing the mouse pointer location to the rendered content of each individual canvas object... if an object which obscures a lower object does not have mouse tracking enabled, the lower object may still receive the event if it does have tracking enabled.  Likewise, clipping regions which remove content from the visible area of a rendered object are not honored during this test.
+///  * The hit point detection occurs by comparing the mouse pointer location to the rendered content of each individual canvas object... if an object which obscures a lower object does not have mouse tracking enabled, the lower object will still receive the event if it does have tracking enabled.
+///
+///  * Clipping regions which remove content from the visible area of a rendered object are ignored for the purposes of element hit-detection.
 static int canvas_mouseCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,

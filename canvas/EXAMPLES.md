@@ -6,10 +6,10 @@ This document provides some examples which highlight graphical elements possible
 ### Contents
 * <a href="#clipping">Clipping Example</a>
   * <a href="#canvasTransformation">adding a canvas transformation</a>
-* <a href="#gradients">Gradients and Composite Rules</a>
 * <a href="#bezier">Bezier Curve Example</a>
   * <a href="#rotation">adding a element rotation</a>
   * <a href="#mouseEnterExit">adding mouse enter and exit</a>
+* <a href="#gradients">Gradients and Composite Rules</a>
 * <a href="#segments">Segments and Points</a>
   * <a href="#changingSegments">... that change</a>
 * <a href="#asImage">Using a Canvas as an Image for Other Modules</a>
@@ -90,80 +90,6 @@ end, .01)
 
 - - -
 
-<a name="gradients"></a>
-### Gradients and Composite Rules
-
-This module also supports radial and linear gradients, but is not limited to just 2 colors.  As an example:
-
-~~~lua
-c = require("hs._asm.canvas")
-a = c.new{x = 100, y = 100, w = 200, h = 200 }:show()
-a[1] = {
-  type="image",
-  -- the Hammerspoon menu icon has this name within the Application bundle, so we can get it this way:
-  image = hs.image.imageFromName("statusicon")
-}
-a[2] = {
-  type = "rectangle",
-  action = "fill",
-  fillGradientColors = {
-    { red = 1 },
-    { red = 1, green = .65 },
-    { red = 1, green = 1 },
-    { green = 1 },
-    { blue = 1 },
-    { red = .30, blue = .5 },
-    { red = .93, green = .5, blue = .93 }
-  },
-  fillGradient = "radial"
-}
-~~~
-
-The above will render the following canvas:
-
-![Image of sourceOver](images/sourceOver.png)
-
-If you look closely at the code above, you'll see that the gradient filled rectangle is actually the *second* object.  This was done to show some of the effects available by changing the compositing rule.  For example:
-
-~~~lua
-a[2].compositeRule = "sourceOut"
-~~~
-![Image of sourceOut](images/sourceOut.png)
-
-~~~lua
-a[2].compositeRule = "destinationIn"
-~~~
-![Image of destinationIn](images/destinationIn.png)
-
-~~~lua
-a[2].compositeRule = "destinationOver"
-~~~
-![Image of destinationOver](images/destinationOver.png)
-
-~~~lua
-a[2].compositeRule = "sourceAtop"
-~~~
-![Image of sourceAtop](images/sourceAtop.png)
-
-You can find more information about the compositing rules in the documentation for `hs._asm.canvas.compositeTypes`.
-
-And to animate the gradient (end it with `t:stop()`):
-
-~~~lua
-local m, n = 0, .1
-t = hs.timer.doEvery(.1, function()
-  m = m + n
-  if m > 1 then
-    m, n = 1, -.1
-  elseif m < -1 then
-    m, n = -1, .1
-  end
-  a[2].fillGradientCenter = { x = m, y = m }
-end)
-~~~
-
-- - -
-
 <a name="bezier"></a>
 ### Bezier Curve Example
 
@@ -240,6 +166,80 @@ a._default.trackMouseEnterExit = true
 ~~~
 
 Note that if you apply this while element 2 is still rotating, the region which matches element 2 does get adjusted as the element rotates, but the rotating itself does not constitute a mouse movement: if your mouse enters and exits the moving element under your control, the color change will occur; however if it leaves because the image rotates away from the mouse pointer, no mouse event is actually generated, so we can't detect it.
+
+- - -
+
+<a name="gradients"></a>
+### Gradients and Composite Rules
+
+This module also supports radial and linear gradients, but is not limited to just 2 colors.  As an example:
+
+~~~lua
+c = require("hs._asm.canvas")
+a = c.new{x = 100, y = 100, w = 200, h = 200 }:show()
+a[1] = {
+  type="image",
+  -- the Hammerspoon menu icon has this name within the Application bundle, so we can get it this way:
+  image = hs.image.imageFromName("statusicon")
+}
+a[2] = {
+  type = "rectangle",
+  action = "fill",
+  fillGradientColors = {
+    { red = 1 },
+    { red = 1, green = .65 },
+    { red = 1, green = 1 },
+    { green = 1 },
+    { blue = 1 },
+    { red = .30, blue = .5 },
+    { red = .93, green = .5, blue = .93 }
+  },
+  fillGradient = "radial"
+}
+~~~
+
+The above will render the following canvas:
+
+![Image of sourceOver](images/sourceOver.png)
+
+If you look closely at the code above, you'll see that the gradient filled rectangle is actually the *second* object.  This was done to show some of the effects available by changing the compositing rule.  For example:
+
+~~~lua
+a[2].compositeRule = "sourceOut"
+~~~
+![Image of sourceOut](images/sourceOut.png)
+
+~~~lua
+a[2].compositeRule = "destinationIn"
+~~~
+![Image of destinationIn](images/destinationIn.png)
+
+~~~lua
+a[2].compositeRule = "destinationOver"
+~~~
+![Image of destinationOver](images/destinationOver.png)
+
+~~~lua
+a[2].compositeRule = "sourceAtop"
+~~~
+![Image of sourceAtop](images/sourceAtop.png)
+
+You can find more information about the compositing rules in the documentation for `hs._asm.canvas.compositeTypes`.
+
+And to animate the gradient (end it with `t:stop()`):
+
+~~~lua
+local m, n = 0, .1
+t = hs.timer.doEvery(.1, function()
+  m = m + n
+  if m > 1 then
+    m, n = 1, -.1
+  elseif m < -1 then
+    m, n = -1, .1
+  end
+  a[2].fillGradientCenter = { x = m, y = m }
+end)
+~~~
 
 - - -
 
