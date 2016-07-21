@@ -13,7 +13,7 @@ This is an experimental work in progress, so we'll see how it goes...
 
 The canvas elements are defined in an array, and each entry of the array is a table of key-value pairs describing the element at that position.  Elements are rendered in the order in which they are assigned to the array (i.e. element 1 is drawn before element 2, etc.).
 
-All canvas elements require the `type` field; all other attributes have default values.  Fields required to properly define the element (for example, `frame` for the `rectangle` element type) will be copied into the element definition with their default values if they are not specified at the time of creation. Optional attributes will only be assigned in the element definition if they are specified.  When the module requires the value for an element's attribute it first checks the element definition itself, then the defaults are looked for in the canvas defaults, and then finally in the module's built in defaults (specified in the descriptions below).
+Attributes for canvas elements are defined in [hs._asm.canvas.attributes](#attributes). All canvas elements require the `type` field; all other attributes have default values.  Fields required to properly define the element (for example, `frame` for the `rectangle` element type) will be copied into the element definition with their default values if they are not specified at the time of creation. Optional attributes will only be assigned in the element definition if they are specified.  When the module requires the value for an element's attribute it first checks the element definition itself, then the defaults are looked for in the canvas defaults, and then finally in the module's built in defaults (specified in the descriptions below).
 
 Matrix operations which can be assigned to element `transformation` attributes can be found in the [MATRIX.md](MATRIX.md) file.
 Examples of this module in use can found in the [EXAMPLES.md](EXAMPLES.md) file.
@@ -40,83 +40,6 @@ As always, whichever method you chose, if you are updating from an earlier versi
 
 - - -
 
-### Canvas Element Attributes
-
-* `type` - specifies the type of canvas element the table represents. This attribute has no default and must be specified for each element in the canvas array. Valid type strings are:
-  * `arc`           - an arc inscribed on a circle, defined by `radius`, `center`, `startAngle`, and `endAngle`.
-  * `canvas`        - a canvas object, defined by `canvas` and `frame`.
-  * `circle`        - a circle, defined by `radius` and `center`.
-  * `ellipticalArc` - an arc inscribed on an oval, defined by `frame`, `startAngle`, and `endAngle`.
-  * `image`         - an image as defined by one of the `hs.image` constructors.
-  * `oval`          - an oval, defined by `frame`
-  * `points`        - a list of points defined in `coordinates`.
-  * `rectangle`     - a rectangle, optionally with rounded corners, defined by `frame`.
-  * `resetClip`     - a special type -- indicates that the current clipping shape should be reset to the canvas default (the full canvas area).  See `Clipping Example`.
-  * `segments`      - a list of line segments or bezier curves with control points, defined in `coordinates`.
-  * `text`          - a string or `hs.styledtext` object, defined by `text` and `frame`.
-
-* The following is a list of all valid attributes.  Not all attributes apply to every type, but you can set them for any type.
-  * `action`              - Default `strokeAndFill`. A string specifying the action to take for the element in the array.  The following actions are recognized:
-    * `clip`          - append the shape to the current clipping region for the canvas. Ignored for `canvas`, `image`, and `text` types.
-    * `build`         - do not render the element -- its shape is preserved and the next element in the canvas array is appended to it.  This can be used to create complex shapes or clipping regions. The stroke and fill settings for a complex object created in this manner will be those of the final object of the group. Ignored for `canvas`, `image`, and `text` types.
-    * `fill`          - fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
-    * `skip`          - ignore this element or its effects.  Can be used to temporarily "remove" an object from the canvas.
-    * `stroke`        - stroke (outline) the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
-    * `strokeAndFill` - stroke and fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
-  * `absolutePosition`    - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element remains in the same relative position in the canvas.
-  * `absoluteSize`        - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element maintains the same relative size in the canvas.
-  * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
-  * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the element's center to the start and end angles should be included in the element's visible portion.  This affects whether the object's stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
-  * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
-  * `canvas`              - Defaults to nil. The canvas which is to be displayed for an element of type `canvas`.  The canvas specified must not be currently assigned to any other canvas as an element or visible (shown) as an independant canvas (see `hs._asm.canvas:show`).  Assign nil to this property to release a previously assigned canvas for use elsewhere as an element or on its own.
-  * `compositeRule`       - A string, default "sourceOver", specifying how this element should be combined with earlier elements of the canvas.  See [hs._asm.canvas.compositeTypes](#compositeTypes) for a list of valid strings and their descriptions.
-  * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
-  * `closed`              - Default `false`.  Used by the `segments` type to specify whether or not the shape defined by the lines and curves defined should be closed (true) or open (false).  When an object is closed, an implicit line is stroked from the final point back to the initial point of the coordinates listed.
-  * `coordinates`         - An array containing coordinates used by the `segments` and `points` types to define the lines and curves or points that make up the canvas element.  The following keys are recognized and may be specified as numbers or strings (see the section on [percentages](#percentages)).
-    * `x`   - required for `segments` and `points`, specifying the x coordinate of a point.
-    * `y`   - required for `segments` and `points`, specifying the y coordinate of a point.
-    * `c1x` - optional for `segments, specifying the x coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
-    * `c1y` - optional for `segments, specifying the y coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
-    * `c2x` - optional for `segments, specifying the x coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
-    * `c2y` - optional for `segments, specifying the y coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
-  * `endAngle`            - Default `360.0`. Used by the `arc` and `ellipticalArc` to specify the ending angle position for the inscribed arc.
-  * `fillColor`           - Default `{ red = 1.0 }`.  Specifies the color used to fill the canvas element when the `action` is set to `fill` or `strokeAndFill` and `fillGradient` is equal to `none`.  Ignored for the `canvas`, `image`, and `text` types.
-  * `fillGradient`        - Default "none".  A string specifying whether a fill gradient should be used instead of the fill color when the action is `fill` or `strokeAndFill`.  May be "none", "linear", or "radial".
-  * `fillGradientAngle`   - Default 0.0.  Specifies the direction of a linear gradient when `fillGradient` is linear.
-  * `fillGradientCenter`  - Default `{ x = 0.0, y = 0.0 }`. Specifies the relative center point within the elements bounds of a radial gradient when `fillGradient` is `radial`.  The `x` and `y` fields must both be between -1.0 and 1.0 inclusive.
-  * `fillGradientColors`  - Default `{ { white = 0.0 }, { white = 1.0 } }`.  Specifies the colors to use for the gradient when `fillGradient` is not `none`.  You must specify at least two colors, each of which must be convertible into the RGB color space (i.e. they cannot be an image being used as a color pattern).  The gradient will blend from the first to the next, and so on until the last color.  If more than two colors are specified, the "color stops" will be placed at evenly spaced intervals within the element.
-  * `flatness`            - Default `0.6`.  A number which specifies the accuracy (or smoothness) with which curves are rendered. It is also the maximum error tolerance (measured in pixels) for rendering curves, where smaller numbers give smoother curves at the expense of more computation.
-  * `flattenPath`         - Default `false`. Specifies whether curved line segments should be converted into straight line approximations. The granularity of the approximations is controlled by the path's current flatness value.
-  * `frame`               - Default `{ x = "0%", y = "0%", h = "100%", w = "100%" }`.  Used by the `rectangle`, `oval`, `ellipticalArc`, `text`, and `image` types to specify the element's position and size.  When the key value for `x`, `y`, `h`, or `w` are specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
-  * `id`                  - An optional string or number which is included in mouse callbacks to identify the element which was the target of the mouse event.  If this is not specified for an element, it's index position is used instead.
-  * `image`               - Defaults to a blank image.  Used by the `image` type to specify an `hs.image` object to display as an image.
-  * `imageAlpha`          - Defaults to `1.0`.  A number between 0.0 and 1.0 specifying the alpha value to be applied to the image specified by `image`.
-  * `miterLimit`          - Default `10.0`. The limit at which miter joins are converted to bevel join when `strokeJoinStyle` is `miter`.  The miter limit helps you avoid spikes at the junction of two line segments.  When the ratio of the miter length—the diagonal length of the miter join—to the line thickness exceeds the miter limit, the joint is converted to a bevel join. Ignored for the `canvas`, `text`, and `image` types.
-  * `padding`             - Default `0.0`. When an element specifies position information by percentage (i.e. as a string), the actual frame used for calculating position values is inset from the canvas frame on all sides by this amount. If you are using shadows with your elements, the shadow position is not included in the element's size and position specification; this attribute can be used to provide extra space for the shadow to be fully rendered within the canvas.
-  * `radius`              - Default "50%". Used by the `arc` and `circle` types to specify the radius of the circle for the element. May be specified as a string or a number.  When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
-  * `reversePath`         - Default `false`.  Specifies drawing direction for the canvas element.  By default, canvas elements are drawn from the point nearest the origin (top left corner) in a clockwise direction.  Setting this to true causes the element to be drawn in a counter-clockwise direction. This will mostly affect fill and stroke dash patterns, but can also be used with clipping regions to create cut-outs.  Ignored for `canvas`, `image`, and `text` types.
-  * `roundedRectRadii`    - Default `{ xRadis = 0.0, yRadius = 0.0 }`.
-  * `shadow`              - Default `{ blurRadius = 5.0, color = { alpha = 1/3 }, offset = { h = -5.0, w = 5.0 } }`.  Specifies the shadow blurring, color, and offset to be added to an element which has `withShadow` set to true.
-  * `startAngle`          - Default `0.0`. Used by the `arc` and `ellipticalArc` to specify the starting angle position for the inscribed arc.
-  * `strokeCapStyle`      - Default "butt". A string which specifies the shape of the endpoints of an open path when stroked.  Primarily noticeable for lines rendered with the `segments` type.  Valid values for this attribute are "butt", "round", and "square".
-  * `strokeColor`         - Default `{ white = 0 }`.  Specifies the stroke (outline) color for a canvas element when the action is set to `stroke` or `strokeAndFill`.  Ignored for the `canvas`, `text`, and `image` types.
-  * `strokeDashPattern`   - Default `{}`.  Specifies an array of numbers specifying a dash pattern for stroked lines when an element's `action` attribute is set to `stroke` or `strokeAndFill`.  The numbers in the array alternate with the first element specifying a dash length in points, the second specifying a gap length in points, the third a dash length, etc.  The array repeats to fully stroke the element.  Ignored for the `canvas`, `image`, and `text` types.
-  * `strokeDashPhase`     - Default `0.0`.  Specifies an offset, in points, where the dash pattern specified by `strokeDashPattern` should start. Ignored for the `canvas`, `image`, and `text` types.
-  * `strokeJoinStyle`     - Default "miter".  A string which specifies the shape of the joints between connected segments of a stroked path.  Valid values for this attribute are "miter", "round", and "bevel".  Ignored for element types of `canvas`, `image`, and `text`.
-  * `strokeWidth`         - Default `1.0`.  Specifies the width of stroked lines when an element's action is set to `stroke` or `strokeAndFill`.  Ignored for the `canvas`, `image`, and `text` element types.
-  * `text`                - Default `""`.  Specifies the text to display for a `text` element.  This may be specified as a string, or as an `hs.styledtext` object.
-  * `textColor`           - Default `{ white = 1.0 }`.  Specifies the color to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
-  * `textFont`            - Defaults to the default system font.  A string specifying the name of thefont to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
-  * `textSize`            - Default `27.0`.  Specifies the sont size to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
-  * `trackMouseByBounds`  - Default `false`. If true, mouse events are based on the element's bounds (smallest rectangle which completely contains the element); otherwise, mouse events are based on the visible portion of the canvas element.
-  * `trackMouseEnterExit` - Default `false`.  Generates a callback when the mouse enters or exits the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
-  * `trackMouseDown`      - Default `false`.  Generates a callback when mouse button is clicked down while the cursor is within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
-  * `trackMouseUp`        - Default `false`.  Generates a callback when mouse button is released while the cursor is within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
-  * `trackMouseMove`      - Default `false`.  Generates a callback when the mouse cursor moves within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
-  * `transformation`      - Default `{ m11 = 1.0, m12 = 0.0, m21 = 0.0, m22 = 1.0, tX = 0.0, tY = 0.0 }`. Specifies a matrix transformation to apply to the element before displaying it.  Transformations may include rotation, translation, scaling, skewing, etc.
-  * `windingRule`         - Default "nonZero".  A string specifying the winding rule in effect for the canvas element. May be "nonZero" or "evenOdd".  The winding rule determines which portions of an element to fill. This setting will only have a visible effect on compound elements (built with the `build` action) or elements of type `segments` when the object is made from lines which cross.
-  * `withShadow`          - Default `false`. Specifies whether a shadow effect should be applied to the canvas element.  Ignored for the `text` type.
-
 ### Usage
 ~~~lua
 canvas = require("hs._asm.canvas")
@@ -124,12 +47,14 @@ canvas = require("hs._asm.canvas")
 
 ### Contents
 
-
 ##### Module Constructors
 * <a href="#new">canvas.new(rect) -> canvasObject</a>
 
 ##### Module Functions
+* <a href="#defaultTextStyle">canvas.defaultTextStyle() -> `hs.styledtext` attributes table</a>
+* <a href="#disableScreenUpdates">canvas.disableScreenUpdates() -> None</a>
 * <a href="#elementSpec">canvas.elementSpec() -> table</a>
+* <a href="#enableScreenUpdates">canvas.enableScreenUpdates() -> None</a>
 * <a href="#help">canvas.help([attribute]) -> string</a>
 
 ##### Module Methods
@@ -145,6 +70,7 @@ canvas = require("hs._asm.canvas")
 * <a href="#canvasElements">canvas:canvasElements() -> table</a>
 * <a href="#canvasMouseEvents">canvas:canvasMouseEvents([down], [up], [enterExit], [move]) -> canvasObject | current values</a>
 * <a href="#clickActivating">canvas:clickActivating([flag]) -> canvasObject | currentValue</a>
+* <a href="#copy">canvas:copy() -> canvasObject</a>
 * <a href="#delete">canvas:delete([fadeOutTime]) -> none</a>
 * <a href="#elementAttribute">canvas:elementAttribute(index, key, [value]) -> canvasObject | current value</a>
 * <a href="#elementBounds">canvas:elementBounds(index) -> rectTable</a>
@@ -158,6 +84,7 @@ canvas = require("hs._asm.canvas")
 * <a href="#isShowing">canvas:isShowing() -> boolean</a>
 * <a href="#isVisible">canvas:isVisible() -> boolean</a>
 * <a href="#level">canvas:level([level]) -> canvasObject | currentValue</a>
+* <a href="#minimumTextSize">canvas:minimumTextSize([index], text) -> table</a>
 * <a href="#mouseCallback">canvas:mouseCallback(mouseCallbackFn) -> canvasObject</a>
 * <a href="#orderAbove">canvas:orderAbove([canvas2]) -> canvasObject</a>
 * <a href="#orderBelow">canvas:orderBelow([canvas2]) -> canvasObject</a>
@@ -173,8 +100,11 @@ canvas = require("hs._asm.canvas")
 
 ##### Module Constants
 * <a href="#compositeTypes">canvas.compositeTypes[]</a>
+* <a href="#windowBehaviors">canvas.windowBehaviors[]</a>
+* <a href="#windowLevels">canvas.windowLevels</a>
 
 ##### Module Fields
+* <a href="#attributes">canvas.attributes</a>
 * <a href="#object">canvas.object[index]</a>
 * <a href="#percentages">canvas.percentages</a>
 
@@ -200,6 +130,43 @@ Notes:
 
 ### Module Functions
 
+<a name="defaultTextStyle"></a>
+~~~lua
+canvas.defaultTextStyle() -> `hs.styledtext` attributes table
+~~~
+Returns a table containing the default font, size, color, and paragraphStyle used by `hs._asm.canvas` for text drawing objects.
+
+Parameters:
+ * None
+
+Returns:
+ * a table containing the default style attributes `hs._asm.canvas` uses for text drawing objects in the `hs.styledtext` attributes table format.
+
+Notes:
+ * This method is intended to be used in conjunction with `hs.styledtext` to create styledtext objects that are based on, or a slight variation of, the defaults used by `hs._asm.canvas`.
+
+- - -
+
+<a name="disableScreenUpdates"></a>
+~~~lua
+canvas.disableScreenUpdates() -> None
+~~~
+Tells the OS X window server to pause updating the physical displays for a short while.
+
+Parameters:
+ * None
+
+Returns:
+ * None
+
+Notes:
+ * This method can be used to allow multiple changes which are being made to the users display appear as if they all occur simultaneously by holding off on updating the screen on the regular schedule.
+ * This method should always be balanced with a call to [hs._asm.canvas.enableScreenUpdates](#enableScreenUpdates) when your updates have been completed.  Failure to do so will be logged in the system logs.
+
+ * The window server will only allow you to pause updates for up to 1 second.  This prevents a rogue or hung process from locking the system`s display completely.  Updates will be resumed when [hs._asm.canvas.enableScreenUpdates](#enableScreenUpdates) is encountered or after 1 second, whichever comes first.
+
+- - -
+
 <a name="elementSpec"></a>
 ~~~lua
 canvas.elementSpec() -> table
@@ -214,6 +181,26 @@ Returns:
 
 Notes:
  * This is primarily for debugging purposes and may be removed in the future.
+
+- - -
+
+<a name="enableScreenUpdates"></a>
+~~~lua
+canvas.enableScreenUpdates() -> None
+~~~
+Tells the OS X window server to resume updating the physical displays after a previous pause.
+
+Parameters:
+ * None
+
+Returns:
+ * None
+
+Notes:
+ * In conjunction with [hs._asm.canvas.disableScreenUpdates](#disableScreenUpdates), this method can be used to allow multiple changes which are being made to the users display appear as if they all occur simultaneously by holding off on updating the screen on the regular schedule.
+ * This method should always be preceded by a call to [hs._asm.canvas.disableScreenUpdates](#disableScreenUpdates).  Failure to do so will be logged in the system logs.
+
+ * The window server will only allow you to pause updates for up to 1 second.  This prevents a rogue or hung process from locking the system`s display completely.  Updates will be resumed when this function is encountered  or after 1 second, whichever comes first.
 
 - - -
 
@@ -293,7 +280,7 @@ Returns:
  * If an argument is provided, the canvas object; otherwise the current value.
 
 Notes:
- * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See `hs.drawing.windowBehaviors` for more information.
+ * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See [hs._asm.canvas.windowBehaviors](#windowBehaviors) for more information.
 
 - - -
 
@@ -301,16 +288,13 @@ Notes:
 ~~~lua
 canvas:behaviorAsLabels(behaviorTable) -> canvasObject | currentValue
 ~~~
-Get or set the window behavior settings for the canvas object using labels defined in `hs.drawing.windowBehaviors`.
+Get or set the window behavior settings for the canvas object using labels defined in [hs._asm.canvas.windowBehaviors](#windowBehaviors).
 
 Parameters:
  * behaviorTable - an optional table of strings and/or numbers specifying the desired window behavior for the canvas object.
 
 Returns:
  * If an argument is provided, the canvas object; otherwise the current value.
-
-Notes:
- * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See `hs.drawing.windowBehaviors` for more information.
 
 - - -
 
@@ -431,6 +415,28 @@ Returns:
 
 Notes:
  * Setting this to false changes a canvas object's AXsubrole value and may affect the results of filters used with `hs.window.filter`, depending upon how they are defined.
+
+- - -
+
+<a name="copy"></a>
+~~~lua
+canvas:copy() -> canvasObject
+~~~
+Creates a copy of the canvas.
+
+Parameters:
+ * None
+
+Returns:
+ * a copy of the canvas
+
+Notes:
+ * The copy of the canvas will be identical in all respectes except:
+   * The new canvas will not have a callback function assigned, even if the original canvas does.
+   * The new canvas will not initially be visible, even if the original is.
+ * The new canvas is an independant entity -- any subsequent changes to either canvas will not be reflected in the other canvas.
+
+ * This method allows you to display a canvas in multiple places or use it as a canvas element multiple times.
 
 - - -
 
@@ -648,13 +654,28 @@ canvas:level([level]) -> canvasObject | currentValue
 Sets the window level more precisely than sendToBack and bringToFront.
 
 Parameters:
- * `level` - an optional level, specified as a number or as a string, specifying the new window level for the canvasObject. If it is a string, it must match one of the keys in `hs.drawing.windowLevels`.
+ * `level` - an optional level, specified as a number or as a string, specifying the new window level for the canvasObject. If it is a string, it must match one of the keys in [hs._asm.canvas.windowLevels](#windowLevels).
 
 Returns:
  * If an argument is provided, the canvas object; otherwise the current value.
 
+- - -
+
+<a name="minimumTextSize"></a>
+~~~lua
+canvas:minimumTextSize([index], text) -> table
+~~~
+Returns a table specifying the size of the rectangle which can fully render the text with the specified style so that is will be completely visible.
+
+Parameters:
+ * `index` - an optional index specifying the element in the canvas which contains the text attributes which should be used when determining the size of the text. If not provided, the canvas defaults will be used instead. Ignored if `text` is an hs.styledtext object.
+ * `text`  - a string or hs.styledtext object specifying the text.
+
+Returns:
+ * a size table specifying the height and width of a rectangle which could fully contain the text when displayed in the canvas
+
 Notes:
- * see the notes for `hs.drawing.windowLevels`
+ * Multi-line text (separated by a newline or return) is supported.  The height will be for the multiple lines and the width returned will be for the longest line.
 
 - - -
 
@@ -908,7 +929,172 @@ In each equation, R is the resulting (premultiplied) color, S is the source colo
 
 The `source` object is the individual element as it is rendered in order within the canvas, and the `destination` object is the combined state of the previous elements as they have been composited within the canvas.
 
+- - -
+
+<a name="windowBehaviors"></a>
+~~~lua
+canvas.windowBehaviors[]
+~~~
+Array of window behavior labels for determining how a canvas, drawing, or webview object is handled in Spaces and Exposé
+
+* `default`                   - The window can be associated to one space at a time.
+* `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.
+* `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.
+
+Only one of these may be active at a time:
+
+* `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.
+* `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.
+* `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.
+
+The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but can be used with windows created by other modules (as of this writing, `hs.webview` and the Hammerspoon console itself)
+
+Only one of these may be active at a time:
+
+* `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.
+* `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.
+
+Only one of these may be active at a time:
+
+* `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.
+* `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.
+
+Only one of these may be active at a time (Available in OS X 10.11 and later):
+
+* `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.
+* `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile.
+
+- - -
+
+<a name="windowLevels"></a>
+~~~lua
+canvas.windowLevels
+~~~
+A table of predefined window levels usable with [hs._asm.canvas:level](#level)
+
+Predefined levels are:
+ * _MinimumWindowLevelKey - lowest allowed window level
+ * desktop
+ * desktopIcon            - [hs._asm.canvas:sendToBack](#sendToBack) is equivalent to this level - 1
+ * normal                 - normal application windows
+ * tornOffMenu
+ * floating               - equivalent to [hs._asm.canvas:bringToFront(false)](#bringToFront); where "Always Keep On Top" windows are usually set
+ * modalPanel             - modal alert dialog
+ * utility
+ * dock                   - level of the Dock
+ * mainMenu               - level of the Menubar
+ * status
+ * popUpMenu              - level of a menu when displayed (open)
+ * overlay
+ * help
+ * dragging
+ * screenSaver            - equivalent to [hs._asm.canvas:bringToFront(true)](#bringToFront)
+ * assistiveTechHigh
+ * cursor
+ * _MaximumWindowLevelKey - highest allowed window level
+
+Notes:
+ * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.
+ * Each window level is sorted separately and [hs._asm.canvas:orderAbove](#orderAbove) and [hs._asm.canvas:orderBelow](#orderBelow) only arrange windows within the same level.
+ * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.
+
 ### Module Fields
+
+<a name="attributes"></a>
+~~~lua
+canvas.attributes
+~~~
+Canvas Element Attributes
+
+* `type` - specifies the type of canvas element the table represents. This attribute has no default and must be specified for each element in the canvas array. Valid type strings are:
+  * `arc`           - an arc inscribed on a circle, defined by `radius`, `center`, `startAngle`, and `endAngle`.
+  * `canvas`        - a canvas object, defined by `canvas` and `frame`.
+  * `circle`        - a circle, defined by `radius` and `center`.
+  * `ellipticalArc` - an arc inscribed on an oval, defined by `frame`, `startAngle`, and `endAngle`.
+  * `image`         - an image as defined by one of the `hs.image` constructors.
+  * `oval`          - an oval, defined by `frame`
+  * `points`        - a list of points defined in `coordinates`.
+  * `rectangle`     - a rectangle, optionally with rounded corners, defined by `frame`.
+  * `resetClip`     - a special type -- indicates that the current clipping shape should be reset to the canvas default (the full canvas area).  See `Clipping Example`.
+  * `segments`      - a list of line segments or bezier curves with control points, defined in `coordinates`.
+  * `text`          - a string or `hs.styledtext` object, defined by `text` and `frame`.
+
+* The following is a list of all valid attributes.  Not all attributes apply to every type, but you can set them for any type.
+  * `action`              - Default `strokeAndFill`. A string specifying the action to take for the element in the array.  The following actions are recognized:
+    * `clip`          - append the shape to the current clipping region for the canvas. Ignored for `canvas`, `image`, and `text` types.
+    * `build`         - do not render the element -- its shape is preserved and the next element in the canvas array is appended to it.  This can be used to create complex shapes or clipping regions. The stroke and fill settings for a complex object created in this manner will be those of the final object of the group. Ignored for `canvas`, `image`, and `text` types.
+    * `fill`          - fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+    * `skip`          - ignore this element or its effects.  Can be used to temporarily "remove" an object from the canvas.
+    * `stroke`        - stroke (outline) the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+    * `strokeAndFill` - stroke and fill the canvas element, if it is a shape, or display it normally if it is an `image` or `text`.  Ignored for `resetClip`.
+  * `absolutePosition`    - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element remains in the same relative position in the canvas.
+  * `absoluteSize`        - Default `true`. If false, numeric location and size attributes (`frame`, `center`, `radius`, and `coordinates`) will be automatically adjusted when the canvas is resized with [hs._asm.canvas:size](#size) or [hs._asm.canvas:frame](#frame) so that the element maintains the same relative size in the canvas.
+  * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
+  * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the element's center to the start and end angles should be included in the element's visible portion.  This affects whether the object's stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
+  * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
+  * `canvas`              - Defaults to nil. The canvas which is to be displayed for an element of type `canvas`.  The canvas specified must not be currently assigned to any other canvas as an element or visible (shown) as an independant canvas (see `hs._asm.canvas:show`).  Assign nil to this property to release a previously assigned canvas for use elsewhere as an element or on its own.
+  * `compositeRule`       - A string, default "sourceOver", specifying how this element should be combined with earlier elements of the canvas.  See [hs._asm.canvas.compositeTypes](#compositeTypes) for a list of valid strings and their descriptions.
+  * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
+  * `closed`              - Default `false`.  Used by the `segments` type to specify whether or not the shape defined by the lines and curves defined should be closed (true) or open (false).  When an object is closed, an implicit line is stroked from the final point back to the initial point of the coordinates listed.
+  * `coordinates`         - An array containing coordinates used by the `segments` and `points` types to define the lines and curves or points that make up the canvas element.  The following keys are recognized and may be specified as numbers or strings (see the section on [percentages](#percentages)).
+    * `x`   - required for `segments` and `points`, specifying the x coordinate of a point.
+    * `y`   - required for `segments` and `points`, specifying the y coordinate of a point.
+    * `c1x` - optional for `segments, specifying the x coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+    * `c1y` - optional for `segments, specifying the y coordinate of the first control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+    * `c2x` - optional for `segments, specifying the x coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+    * `c2y` - optional for `segments, specifying the y coordinate of the second control point used to draw a bezier curve between this point and the previous point.  Ignored for `points` and if present in the first coordinate in the `coordinates` array.
+  * `endAngle`            - Default `360.0`. Used by the `arc` and `ellipticalArc` to specify the ending angle position for the inscribed arc.
+  * `fillColor`           - Default `{ red = 1.0 }`.  Specifies the color used to fill the canvas element when the `action` is set to `fill` or `strokeAndFill` and `fillGradient` is equal to `none`.  Ignored for the `canvas`, `image`, and `text` types.
+  * `fillGradient`        - Default "none".  A string specifying whether a fill gradient should be used instead of the fill color when the action is `fill` or `strokeAndFill`.  May be "none", "linear", or "radial".
+  * `fillGradientAngle`   - Default 0.0.  Specifies the direction of a linear gradient when `fillGradient` is linear.
+  * `fillGradientCenter`  - Default `{ x = 0.0, y = 0.0 }`. Specifies the relative center point within the elements bounds of a radial gradient when `fillGradient` is `radial`.  The `x` and `y` fields must both be between -1.0 and 1.0 inclusive.
+  * `fillGradientColors`  - Default `{ { white = 0.0 }, { white = 1.0 } }`.  Specifies the colors to use for the gradient when `fillGradient` is not `none`.  You must specify at least two colors, each of which must be convertible into the RGB color space (i.e. they cannot be an image being used as a color pattern).  The gradient will blend from the first to the next, and so on until the last color.  If more than two colors are specified, the "color stops" will be placed at evenly spaced intervals within the element.
+  * `flatness`            - Default `0.6`.  A number which specifies the accuracy (or smoothness) with which curves are rendered. It is also the maximum error tolerance (measured in pixels) for rendering curves, where smaller numbers give smoother curves at the expense of more computation.
+  * `flattenPath`         - Default `false`. Specifies whether curved line segments should be converted into straight line approximations. The granularity of the approximations is controlled by the path's current flatness value.
+  * `frame`               - Default `{ x = "0%", y = "0%", h = "100%", w = "100%" }`.  Used by the `rectangle`, `oval`, `ellipticalArc`, `text`, and `image` types to specify the element's position and size.  When the key value for `x`, `y`, `h`, or `w` are specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
+  * `id`                  - An optional string or number which is included in mouse callbacks to identify the element which was the target of the mouse event.  If this is not specified for an element, it's index position is used instead.
+  * `image`               - Defaults to a blank image.  Used by the `image` type to specify an `hs.image` object to display as an image.
+  * `imageAlpha`          - Defaults to `1.0`.  A number between 0.0 and 1.0 specifying the alpha value to be applied to the image specified by `image`.
+  * `miterLimit`          - Default `10.0`. The limit at which miter joins are converted to bevel join when `strokeJoinStyle` is `miter`.  The miter limit helps you avoid spikes at the junction of two line segments.  When the ratio of the miter length—the diagonal length of the miter join—to the line thickness exceeds the miter limit, the joint is converted to a bevel join. Ignored for the `canvas`, `text`, and `image` types.
+  * `padding`             - Default `0.0`. When an element specifies position information by percentage (i.e. as a string), the actual frame used for calculating position values is inset from the canvas frame on all sides by this amount. If you are using shadows with your elements, the shadow position is not included in the element's size and position specification; this attribute can be used to provide extra space for the shadow to be fully rendered within the canvas.
+  * `radius`              - Default "50%". Used by the `arc` and `circle` types to specify the radius of the circle for the element. May be specified as a string or a number.  When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
+  * `reversePath`         - Default `false`.  Specifies drawing direction for the canvas element.  By default, canvas elements are drawn from the point nearest the origin (top left corner) in a clockwise direction.  Setting this to true causes the element to be drawn in a counter-clockwise direction. This will mostly affect fill and stroke dash patterns, but can also be used with clipping regions to create cut-outs.  Ignored for `canvas`, `image`, and `text` types.
+  * `roundedRectRadii`    - Default `{ xRadis = 0.0, yRadius = 0.0 }`.
+  * `shadow`              - Default `{ blurRadius = 5.0, color = { alpha = 1/3 }, offset = { h = -5.0, w = 5.0 } }`.  Specifies the shadow blurring, color, and offset to be added to an element which has `withShadow` set to true.
+  * `startAngle`          - Default `0.0`. Used by the `arc` and `ellipticalArc` to specify the starting angle position for the inscribed arc.
+  * `strokeCapStyle`      - Default "butt". A string which specifies the shape of the endpoints of an open path when stroked.  Primarily noticeable for lines rendered with the `segments` type.  Valid values for this attribute are "butt", "round", and "square".
+  * `strokeColor`         - Default `{ white = 0 }`.  Specifies the stroke (outline) color for a canvas element when the action is set to `stroke` or `strokeAndFill`.  Ignored for the `canvas`, `text`, and `image` types.
+  * `strokeDashPattern`   - Default `{}`.  Specifies an array of numbers specifying a dash pattern for stroked lines when an element's `action` attribute is set to `stroke` or `strokeAndFill`.  The numbers in the array alternate with the first element specifying a dash length in points, the second specifying a gap length in points, the third a dash length, etc.  The array repeats to fully stroke the element.  Ignored for the `canvas`, `image`, and `text` types.
+  * `strokeDashPhase`     - Default `0.0`.  Specifies an offset, in points, where the dash pattern specified by `strokeDashPattern` should start. Ignored for the `canvas`, `image`, and `text` types.
+  * `strokeJoinStyle`     - Default "miter".  A string which specifies the shape of the joints between connected segments of a stroked path.  Valid values for this attribute are "miter", "round", and "bevel".  Ignored for element types of `canvas`, `image`, and `text`.
+  * `strokeWidth`         - Default `1.0`.  Specifies the width of stroked lines when an element's action is set to `stroke` or `strokeAndFill`.  Ignored for the `canvas`, `image`, and `text` element types.
+  * `text`                - Default `""`.  Specifies the text to display for a `text` element.  This may be specified as a string, or as an `hs.styledtext` object.
+  * `textAlignment`       - Default `natural`. A string specifying the alignment of the text within a canvas element of type `text`.  Valid values for this attributes are:
+    * `left`      - the text is visually left aligned.
+    * `right`     - the text is visually right aligned.
+    * `center`    - the text is visually center aligned.
+    * `justified` - the text is justified
+    * `natural`   - the natural alignment of the text’s script
+  * `textColor`           - Default `{ white = 1.0 }`.  Specifies the color to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+  * `textFont`            - Defaults to the default system font.  A string specifying the name of thefont to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+  * `textLineBreak`       - Default `wordWrap`. A string specifying how to wrap text which exceeds the canvas element's frame for an element of type `text`.  Valid values for this attribute are:
+    * `wordWrap`       - wrap at word boundaries, unless the word itself doesn’t fit on a single line
+    * `charWrap`       - wrap before the first character that doesn’t fit
+    * `clip`           - do not draw past the edge of the drawing object frame
+    * `truncateHead`   - the line is displayed so that the end fits in the frame and the missing text at the beginning of the line is indicated by an ellipsis
+    * `truncateTail`   - the line is displayed so that the beginning fits in the frame and the missing text at the end of the line is indicated by an ellipsis
+    * `truncateMiddle` - the line is displayed so that the beginning and end fit in the frame and the missing text in the middle is indicated by an ellipsis
+  * `textSize`            - Default `27.0`.  Specifies the sont size to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+  * `trackMouseByBounds`  - Default `false`. If true, mouse events are based on the element's bounds (smallest rectangle which completely contains the element); otherwise, mouse events are based on the visible portion of the canvas element.
+  * `trackMouseEnterExit` - Default `false`.  Generates a callback when the mouse enters or exits the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
+  * `trackMouseDown`      - Default `false`.  Generates a callback when mouse button is clicked down while the cursor is within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
+  * `trackMouseUp`        - Default `false`.  Generates a callback when mouse button is released while the cursor is within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
+  * `trackMouseMove`      - Default `false`.  Generates a callback when the mouse cursor moves within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
+  * `transformation`      - Default `{ m11 = 1.0, m12 = 0.0, m21 = 0.0, m22 = 1.0, tX = 0.0, tY = 0.0 }`. Specifies a matrix transformation to apply to the element before displaying it.  Transformations may include rotation, translation, scaling, skewing, etc.
+  * `windingRule`         - Default "nonZero".  A string specifying the winding rule in effect for the canvas element. May be "nonZero" or "evenOdd".  The winding rule determines which portions of an element to fill. This setting will only have a visible effect on compound elements (built with the `build` action) or elements of type `segments` when the object is made from lines which cross.
+  * `withShadow`          - Default `false`. Specifies whether a shadow effect should be applied to the canvas element.  Ignored for the `text` type.
+
+- - -
 
 <a name="object"></a>
 ~~~lua
@@ -936,13 +1122,13 @@ In addition, you can change a canvas's element using this same style: `a[2].fill
 
 The canvas defaults can also be accessed with the `_default` field like this: `a._default.strokeWidth = 5`.
 
-Please note that these methods are a convenience and that the canvas object is not a true table.  The tables are generated dynamically as needed; as such `hs.inspect` cannot properly display them; however, you can just type in the element or element attribute you wish to see expanded in the Hammerspoon console (or in a `print` command) to see the assigned attributes, e.g. `a[1]` or `a[2].fillColor`, and an inspect-like output will be provided.
+It is important to note that these methods are a convenience and that the canvas object is not a true table.  The tables are generated dynamically as needed; as such `hs.inspect` cannot properly display them; however, you can just type in the element or element attribute you wish to see expanded in the Hammerspoon console (or in a `print` command) to see the assigned attributes, e.g. `a[1]` or `a[2].fillColor`, and an inspect-like output will be provided.  Attributes which allow using a string to specify a percentage (see [percentages](#percentages)) can also be retrieved as their actual number for the canvas's current size by appending `_raw` to the attribute name, e.g. `a[2].frame_raw`.
 
 Because the canvas object is actually a Lua userdata, and not a real table, you cannot use the `table.insert` and `table.remove` functions on it.  For inserting or removing an element in any position except at the end of the canvas, you must still use [hs._asm.canvas:insertElement](#insertElement) and [hs._asm.canvas:removeElement](#removeElement).
 
 You can, however, remove the last element with `a[#a] = nil`.
 
-And print out all of the elements in the canvas with: `for i, v in ipairs(a) do print(v) end`.  The `pairs` iterator will also work, and will work on element sub-tables (transformations, fillColor and strokeColor, etc.), but this iterator does not guarantee order.
+To print out all of the elements in the canvas with: `for i, v in ipairs(a) do print(v) end`.  The `pairs` iterator will also work, and will work on element sub-tables (transformations, fillColor and strokeColor, etc.), but this iterator does not guarantee order.
 
 - - -
 

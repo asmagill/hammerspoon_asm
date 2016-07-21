@@ -12,9 +12,11 @@
 ---
 --- The canvas elements are defined in an array, and each entry of the array is a table of key-value pairs describing the element at that position.  Elements are rendered in the order in which they are assigned to the array (i.e. element 1 is drawn before element 2, etc.).
 ---
---- All canvas elements require the `type` field; all other attributes have default values.  Fields required to properly define the element (for example, `frame` for the `rectangle` element type) will be copied into the element definition with their default values if they are not specified at the time of creation. Optional attributes will only be assigned in the element definition if they are specified.  When the module requires the value for an element's attribute it first checks the element definition itself, then the defaults are looked for in the canvas defaults, and then finally in the module's built in defaults (specified in the descriptions below).
----
---- #### Element Attributes
+--- Attributes for canvas elements are defined in [hs._asm.canvas.attributes](#attributes). All canvas elements require the `type` field; all other attributes have default values.  Fields required to properly define the element (for example, `frame` for the `rectangle` element type) will be copied into the element definition with their default values if they are not specified at the time of creation. Optional attributes will only be assigned in the element definition if they are specified.  When the module requires the value for an element's attribute it first checks the element definition itself, then the defaults are looked for in the canvas defaults, and then finally in the module's built in defaults (specified in the descriptions below).
+
+--- hs._asm.canvas.attributes
+--- Field
+--- Canvas Element Attributes
 ---
 --- * `type` - specifies the type of canvas element the table represents. This attribute has no default and must be specified for each element in the canvas array. Valid type strings are:
 ---   * `arc`           - an arc inscribed on a circle, defined by `radius`, `center`, `startAngle`, and `endAngle`.
@@ -79,8 +81,21 @@
 ---   * `strokeJoinStyle`     - Default "miter".  A string which specifies the shape of the joints between connected segments of a stroked path.  Valid values for this attribute are "miter", "round", and "bevel".  Ignored for element types of `canvas`, `image`, and `text`.
 ---   * `strokeWidth`         - Default `1.0`.  Specifies the width of stroked lines when an element's action is set to `stroke` or `strokeAndFill`.  Ignored for the `canvas`, `image`, and `text` element types.
 ---   * `text`                - Default `""`.  Specifies the text to display for a `text` element.  This may be specified as a string, or as an `hs.styledtext` object.
+---   * `textAlignment`       - Default `natural`. A string specifying the alignment of the text within a canvas element of type `text`.  Valid values for this attributes are:
+---     * `left`      - the text is visually left aligned.
+---     * `right`     - the text is visually right aligned.
+---     * `center`    - the text is visually center aligned.
+---     * `justified` - the text is justified
+---     * `natural`   - the natural alignment of the text’s script
 ---   * `textColor`           - Default `{ white = 1.0 }`.  Specifies the color to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
 ---   * `textFont`            - Defaults to the default system font.  A string specifying the name of thefont to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
+---   * `textLineBreak`       - Default `wordWrap`. A string specifying how to wrap text which exceeds the canvas element's frame for an element of type `text`.  Valid values for this attribute are:
+---     * `wordWrap`       - wrap at word boundaries, unless the word itself doesn’t fit on a single line
+---     * `charWrap`       - wrap before the first character that doesn’t fit
+---     * `clip`           - do not draw past the edge of the drawing object frame
+---     * `truncateHead`   - the line is displayed so that the end fits in the frame and the missing text at the beginning of the line is indicated by an ellipsis
+---     * `truncateTail`   - the line is displayed so that the beginning fits in the frame and the missing text at the end of the line is indicated by an ellipsis
+---     * `truncateMiddle` - the line is displayed so that the beginning and end fit in the frame and the missing text in the middle is indicated by an ellipsis
 ---   * `textSize`            - Default `27.0`.  Specifies the sont size to use when displaying the `text` element type, if the text is specified as a string.  This field is ignored if the text is specified as an `hs.styledtext` object.
 ---   * `trackMouseByBounds`  - Default `false`. If true, mouse events are based on the element's bounds (smallest rectangle which completely contains the element); otherwise, mouse events are based on the visible portion of the canvas element.
 ---   * `trackMouseEnterExit` - Default `false`.  Generates a callback when the mouse enters or exits the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
@@ -180,22 +195,20 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.compositeTypes = _makeConstantsTable(module.compositeTypes)
+module.compositeTypes  = _makeConstantsTable(module.compositeTypes)
+module.windowBehaviors = _makeConstantsTable(module.windowBehaviors)
+module.windowLevels    = _makeConstantsTable(module.windowLevels)
 
 --- hs._asm.canvas:behaviorAsLabels(behaviorTable) -> canvasObject | currentValue
 --- Method
---- Get or set the window behavior settings for the canvas object using labels defined in `hs.drawing.windowBehaviors`.
+--- Get or set the window behavior settings for the canvas object using labels defined in [hs._asm.canvas.windowBehaviors](#windowBehaviors).
 ---
 --- Parameters:
 ---  * behaviorTable - an optional table of strings and/or numbers specifying the desired window behavior for the canvas object.
 ---
 --- Returns:
 ---  * If an argument is provided, the canvas object; otherwise the current value.
----
---- Notes:
----  * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See `hs.drawing.windowBehaviors` for more information.
 canvasMT.behaviorAsLabels = function(obj, ...)
-    local drawing = require"hs.drawing"
     local args = table.pack(...)
 
     if args.n == 0 then
@@ -203,13 +216,13 @@ canvasMT.behaviorAsLabels = function(obj, ...)
         local behaviorNumber = obj:behavior()
 
         if behaviorNumber ~= 0 then
-            for i, v in pairs(drawing.windowBehaviors) do
+            for i, v in pairs(module.windowBehaviors) do
                 if type(i) == "string" then
                     if (behaviorNumber & v) > 0 then table.insert(results, i) end
                 end
             end
         else
-            table.insert(results, drawing.windowBehaviors[0])
+            table.insert(results, module.windowBehaviors[0])
         end
         return setmetatable(results, { __tostring = function(_)
             table.sort(_)
@@ -218,7 +231,7 @@ canvasMT.behaviorAsLabels = function(obj, ...)
     elseif args.n == 1 and type(args[1]) == "table" then
         local newBehavior = 0
         for i,v in ipairs(args[1]) do
-            local flag = tonumber(v) or drawing.windowBehaviors[v]
+            local flag = tonumber(v) or module.windowBehaviors[v]
             if flag then newBehavior = newBehavior | flag end
         end
         return obj:behavior(newBehavior)
@@ -280,13 +293,12 @@ end
 --- Returns:
 ---  * The canvas object
 canvasMT.bringToFront = function(obj, ...)
-    local drawing = require"hs.drawing"
     local args = table.pack(...)
 
     if args.n == 0 then
-        return obj:level(drawing.windowLevels.floating)
+        return obj:level(module.windowLevels.floating)
     elseif args.n == 1 and type(args[1]) == "boolean" then
-        return obj:level(drawing.windowLevels[(args[1] and "screenSaver" or "floating")])
+        return obj:level(module.windowLevels[(args[1] and "screenSaver" or "floating")])
     elseif args.n > 1 then
         error("bringToFront method expects 0 or 1 arguments", 2)
     else
@@ -304,11 +316,10 @@ end
 --- Returns:
 ---  * The canvas object
 canvasMT.sendToBack = function(obj, ...)
-    local drawing = require"hs.drawing"
     local args = table.pack(...)
 
     if args.n == 0 then
-        return obj:level(drawing.windowLevels.desktopIcon - 1)
+        return obj:level(module.windowLevels.desktopIcon - 1)
     else
         error("sendToBack method expects 0 arguments", 2)
     end
@@ -409,6 +420,47 @@ canvasMT.rotateElement = function(obj, index, angle, point, append)
                                                                              :translate(-point.x, -point.y)
     end
     return obj
+end
+
+--- hs._asm.canvas:copy() -> canvasObject
+--- Method
+--- Creates a copy of the canvas.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * a copy of the canvas
+---
+--- Notes:
+---  * The copy of the canvas will be identical in all respectes except:
+---    * The new canvas will not have a callback function assigned, even if the original canvas does.
+---    * The new canvas will not initially be visible, even if the original is.
+---  * The new canvas is an independant entity -- any subsequent changes to either canvas will not be reflected in the other canvas.
+---
+---  * This method allows you to display a canvas in multiple places or use it as a canvas element multiple times.
+canvasMT.copy = function(obj)
+    local newObj = module.new(obj:frame()):alpha(obj:alpha())
+                                 :behavior(obj:behavior())
+                                 :canvasMouseEvents(obj:canvasMouseEvents())
+                                 :clickActivating(obj:clickActivating())
+                                 :level(obj:level())
+                                 :transformation(obj:transformation())
+                                 :wantsLayer(obj:wantsLayer())
+    for i, v in ipairs(obj:canvasDefaultKeys()) do
+      newObj:canvasDefaultFor(v, obj:canvasDefaultFor(v))
+    end
+
+    for i = 1, #obj, 1 do
+      for i2, v2 in ipairs(obj:elementKeys(i)) do
+          if v2 ~= "canvas" then
+              newObj:elementAttribute(i, v2, obj:elementAttribute(i, v2))
+          else
+              newObj:elementAttribute(i, v2, v2:copy())
+          end
+      end
+    end
+    return newObj
 end
 
 local elementMT = {
@@ -561,13 +613,13 @@ end
 ---
 --- The canvas defaults can also be accessed with the `_default` field like this: `a._default.strokeWidth = 5`.
 ---
---- Please note that these methods are a convenience and that the canvas object is not a true table.  The tables are generated dynamically as needed; as such `hs.inspect` cannot properly display them; however, you can just type in the element or element attribute you wish to see expanded in the Hammerspoon console (or in a `print` command) to see the assigned attributes, e.g. `a[1]` or `a[2].fillColor`, and an inspect-like output will be provided.
+--- It is important to note that these methods are a convenience and that the canvas object is not a true table.  The tables are generated dynamically as needed; as such `hs.inspect` cannot properly display them; however, you can just type in the element or element attribute you wish to see expanded in the Hammerspoon console (or in a `print` command) to see the assigned attributes, e.g. `a[1]` or `a[2].fillColor`, and an inspect-like output will be provided.  Attributes which allow using a string to specify a percentage (see [percentages](#percentages)) can also be retrieved as their actual number for the canvas's current size by appending `_raw` to the attribute name, e.g. `a[2].frame_raw`.
 ---
 --- Because the canvas object is actually a Lua userdata, and not a real table, you cannot use the `table.insert` and `table.remove` functions on it.  For inserting or removing an element in any position except at the end of the canvas, you must still use [hs._asm.canvas:insertElement](#insertElement) and [hs._asm.canvas:removeElement](#removeElement).
 ---
 --- You can, however, remove the last element with `a[#a] = nil`.
 ---
---- And print out all of the elements in the canvas with: `for i, v in ipairs(a) do print(v) end`.  The `pairs` iterator will also work, and will work on element sub-tables (transformations, fillColor and strokeColor, etc.), but this iterator does not guarantee order.
+--- To print out all of the elements in the canvas with: `for i, v in ipairs(a) do print(v) end`.  The `pairs` iterator will also work, and will work on element sub-tables (transformations, fillColor and strokeColor, etc.), but this iterator does not guarantee order.
 canvasMT.__index = function(self, key)
     if type(key) == "string" then
         if key == "_default" then

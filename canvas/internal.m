@@ -1,8 +1,7 @@
-//   keep elementSpec function?
-//   should circle and arc remain or auto-convert or be removed?
-
 @import Cocoa ;
 @import LuaSkin ;
+
+#define HSDRAWING_REPLACEMENT
 
 #define USERDATA_TAG "hs._asm.canvas"
 static int refTable = LUA_NOREF;
@@ -46,39 +45,60 @@ typedef NS_ENUM(NSInteger, attributeValidity) {
 
 
 #define STROKE_JOIN_STYLES @{ \
-        @"miter" : @(NSMiterLineJoinStyle), \
-        @"round" : @(NSBevelLineJoinStyle), \
-        @"bevel" : @(NSBevelLineJoinStyle), \
+    @"miter" : @(NSMiterLineJoinStyle), \
+    @"round" : @(NSBevelLineJoinStyle), \
+    @"bevel" : @(NSBevelLineJoinStyle), \
 }
 
 #define STROKE_CAP_STYLES @{ \
-        @"butt"   : @(NSButtLineCapStyle), \
-        @"round"  : @(NSRoundLineCapStyle), \
-        @"square" : @(NSSquareLineCapStyle), \
+    @"butt"   : @(NSButtLineCapStyle), \
+    @"round"  : @(NSRoundLineCapStyle), \
+    @"square" : @(NSSquareLineCapStyle), \
 }
 
 #define COMPOSITING_TYPES @{ \
-        @"clear"           : @(NSCompositeClear), \
-        @"copy"            : @(NSCompositeCopy), \
-        @"sourceOver"      : @(NSCompositeSourceOver), \
-        @"sourceIn"        : @(NSCompositeSourceIn), \
-        @"sourceOut"       : @(NSCompositeSourceOut), \
-        @"sourceAtop"      : @(NSCompositeSourceAtop), \
-        @"destinationOver" : @(NSCompositeDestinationOver), \
-        @"destinationIn"   : @(NSCompositeDestinationIn), \
-        @"destinationOut"  : @(NSCompositeDestinationOut), \
-        @"destinationAtop" : @(NSCompositeDestinationAtop), \
-        @"XOR"             : @(NSCompositeXOR), \
-        @"plusDarker"      : @(NSCompositePlusDarker), \
-        @"plusLighter"     : @(NSCompositePlusLighter), \
+    @"clear"           : @(NSCompositeClear), \
+    @"copy"            : @(NSCompositeCopy), \
+    @"sourceOver"      : @(NSCompositeSourceOver), \
+    @"sourceIn"        : @(NSCompositeSourceIn), \
+    @"sourceOut"       : @(NSCompositeSourceOut), \
+    @"sourceAtop"      : @(NSCompositeSourceAtop), \
+    @"destinationOver" : @(NSCompositeDestinationOver), \
+    @"destinationIn"   : @(NSCompositeDestinationIn), \
+    @"destinationOut"  : @(NSCompositeDestinationOut), \
+    @"destinationAtop" : @(NSCompositeDestinationAtop), \
+    @"XOR"             : @(NSCompositeXOR), \
+    @"plusDarker"      : @(NSCompositePlusDarker), \
+    @"plusLighter"     : @(NSCompositePlusLighter), \
 }
 
 #define WINDING_RULES @{ \
-        @"evenOdd" : @(NSEvenOddWindingRule), \
-        @"nonZero" : @(NSNonZeroWindingRule), \
+    @"evenOdd" : @(NSEvenOddWindingRule), \
+    @"nonZero" : @(NSNonZeroWindingRule), \
+}
+
+#define TEXTALIGNMENT_TYPES @{ \
+    @"left"      : @(NSTextAlignmentLeft), \
+    @"right"     : @(NSTextAlignmentRight), \
+    @"center"    : @(NSTextAlignmentCenter), \
+    @"justified" : @(NSTextAlignmentJustified), \
+    @"natural"   : @(NSTextAlignmentNatural), \
+}
+
+#define TEXTWRAP_TYPES @{ \
+    @"wordWrap"       : @( NSLineBreakByWordWrapping), \
+    @"charWrap"       : @(NSLineBreakByCharWrapping), \
+    @"clip"           : @(NSLineBreakByClipping), \
+    @"truncateHead"   : @(NSLineBreakByTruncatingHead), \
+    @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle), \
+    @"truncateTail"   : @(NSLineBreakByTruncatingTail), \
 }
 
 #pragma mark - Support Functions and Classes
+
+#ifdef HSDRAWING_REPLACEMENT
+static int cg_windowLevels(lua_State *L) ;
+#endif
 
 static NSDictionary *defineLanguageDictionary() {
     // the default shadow has no offset or blur radius, so lets setup one that is at least visible
@@ -481,6 +501,14 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"    : @(YES),
             @"requiredFor" : @[ @"text" ],
         },
+        @"textAlignment" : @{
+            @"class"       : @[ [NSString class] ],
+            @"luaClass"    : @"string",
+            @"values"      : [TEXTALIGNMENT_TYPES allKeys],
+            @"nullable"    : @(YES),
+            @"default"     : @"natural",
+            @"optionalFor" : @[ @"text" ],
+        },
         @"textColor" : @{
             @"class"       : @[ [NSColor class] ],
             @"luaClass"    : @"hs.drawing.color table",
@@ -493,6 +521,14 @@ static NSDictionary *defineLanguageDictionary() {
             @"luaClass"    : @"string",
             @"nullable"    : @(YES),
             @"default"     : [[NSFont systemFontOfSize: 27] fontName],
+            @"optionalFor" : @[ @"text" ],
+        },
+        @"textLineBreak" : @{
+            @"class"       : @[ [NSString class] ],
+            @"luaClass"    : @"string",
+            @"values"      : [TEXTWRAP_TYPES allKeys],
+            @"nullable"    : @(YES),
+            @"default"     : @"wordWrap",
             @"optionalFor" : @[ @"text" ],
         },
         @"textSize" : @{
@@ -1353,10 +1389,17 @@ static int userdata_gc(lua_State* L) ;
                     if ([textEntry isKindOfClass:[NSString class]]) {
                         NSString *myFont = [self getElementValueFor:@"textFont" atIndex:idx onlyIfSet:NO] ;
                         NSNumber *mySize = [self getElementValueFor:@"textSize" atIndex:idx onlyIfSet:NO] ;
+                        NSMutableParagraphStyle *theParagraphStyle = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+                        NSString *alignment = [self getElementValueFor:@"textAlignment" atIndex:idx onlyIfSet:NO] ;
+                        theParagraphStyle.alignment = [TEXTALIGNMENT_TYPES[alignment] unsignedIntValue] ;
+                        NSString *wrap = [self getElementValueFor:@"textLineBreak" atIndex:idx onlyIfSet:NO] ;
+                        theParagraphStyle.lineBreakMode = [TEXTWRAP_TYPES[wrap] unsignedIntValue] ;
                         NSDictionary *attributes = @{
                             NSForegroundColorAttributeName : [self getElementValueFor:@"textColor" atIndex:idx onlyIfSet:NO],
                             NSFontAttributeName            : [NSFont fontWithName:myFont size:[mySize doubleValue]],
+                            NSParagraphStyleAttributeName  : theParagraphStyle,
                         } ;
+
                         [(NSString *)textEntry drawInRect:frameRect withAttributes:attributes] ;
                     } else {
                         [(NSAttributedString *)textEntry drawInRect:frameRect] ;
@@ -1924,7 +1967,160 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
     return 1 ;
 }
 
+#ifdef HSDRAWING_REPLACEMENT
+/// hs._asm.canvas.disableScreenUpdates() -> None
+/// Function
+/// Tells the OS X window server to pause updating the physical displays for a short while.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * None
+///
+/// Notes:
+///  * This method can be used to allow multiple changes which are being made to the users display appear as if they all occur simultaneously by holding off on updating the screen on the regular schedule.
+///  * This method should always be balanced with a call to [hs._asm.canvas.enableScreenUpdates](#enableScreenUpdates) when your updates have been completed.  Failure to do so will be logged in the system logs.
+///
+///  * The window server will only allow you to pause updates for up to 1 second.  This prevents a rogue or hung process from locking the system`s display completely.  Updates will be resumed when [hs._asm.canvas.enableScreenUpdates](#enableScreenUpdates) is encountered or after 1 second, whichever comes first.
+static int disableUpdates(__unused lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    NSDisableScreenUpdates() ;
+    return 0 ;
+}
+
+/// hs._asm.canvas.enableScreenUpdates() -> None
+/// Function
+/// Tells the OS X window server to resume updating the physical displays after a previous pause.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * None
+///
+/// Notes:
+///  * In conjunction with [hs._asm.canvas.disableScreenUpdates](#disableScreenUpdates), this method can be used to allow multiple changes which are being made to the users display appear as if they all occur simultaneously by holding off on updating the screen on the regular schedule.
+///  * This method should always be preceded by a call to [hs._asm.canvas.disableScreenUpdates](#disableScreenUpdates).  Failure to do so will be logged in the system logs.
+///
+///  * The window server will only allow you to pause updates for up to 1 second.  This prevents a rogue or hung process from locking the system`s display completely.  Updates will be resumed when this function is encountered  or after 1 second, whichever comes first.
+static int enableUpdates(__unused lua_State *L) {
+    [[LuaSkin shared] checkArgs:LS_TBREAK] ;
+    NSEnableScreenUpdates() ;
+    return 0 ;
+}
+
+/// hs._asm.canvas.defaultTextStyle() -> `hs.styledtext` attributes table
+/// Function
+/// Returns a table containing the default font, size, color, and paragraphStyle used by `hs._asm.canvas` for text drawing objects.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing the default style attributes `hs._asm.canvas` uses for text drawing objects in the `hs.styledtext` attributes table format.
+///
+/// Notes:
+///  * This method is intended to be used in conjunction with `hs.styledtext` to create styledtext objects that are based on, or a slight variation of, the defaults used by `hs._asm.canvas`.
+static int default_textAttributes(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_newtable(L) ;
+    NSString *fontName = languageDictionary[@"textFont"][@"default"] ;
+    if (fontName) {
+        [skin pushNSObject:[NSFont fontWithName:fontName
+                                           size:[languageDictionary[@"textSize"][@"default"] doubleValue]]] ;
+        lua_setfield(L, -2, "font") ;
+        [skin pushNSObject:languageDictionary[@"textColor"][@"default"]] ;
+        lua_setfield(L, -2, "color") ;
+        [skin pushNSObject:[NSParagraphStyle defaultParagraphStyle]] ;
+        lua_setfield(L, -2, "paragraphStyle") ;
+    } else {
+        return luaL_error(L, "%s:unable to get default font name from element language dictionary", USERDATA_TAG) ;
+    }
+    return 1 ;
+}
+#endif
+
 #pragma mark - Module Methods
+
+/// hs._asm.canvas:minimumTextSize([index], text) -> table
+/// Method
+/// Returns a table specifying the size of the rectangle which can fully render the text with the specified style so that is will be completely visible.
+///
+/// Parameters:
+///  * `index` - an optional index specifying the element in the canvas which contains the text attributes which should be used when determining the size of the text. If not provided, the canvas defaults will be used instead. Ignored if `text` is an hs.styledtext object.
+///  * `text`  - a string or hs.styledtext object specifying the text.
+///
+/// Returns:
+///  * a size table specifying the height and width of a rectangle which could fully contain the text when displayed in the canvas
+///
+/// Notes:
+///  * Multi-line text (separated by a newline or return) is supported.  The height will be for the multiple lines and the width returned will be for the longest line.
+static int canvas_getTextElementSize(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    int        textIndex    = 2 ;
+    NSUInteger elementIndex = NSNotFound ;
+    if (lua_gettop(L) == 3) {
+        if (lua_type(L, 3) == LUA_TSTRING) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TSTRING, LS_TBREAK] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                            LS_TNUMBER | LS_TINTEGER,
+                            LS_TUSERDATA, "hs.styledtext",
+                            LS_TBREAK] ;
+        }
+        elementIndex = (NSUInteger)lua_tointeger(L, 2) - 1 ;
+        if ((NSInteger)elementIndex < 0 || elementIndex >= [canvasView.elementList count]) {
+            return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index %ld out of bounds", elementIndex + 1] UTF8String]) ;
+        }
+        textIndex = 3 ;
+    } else {
+        if (lua_type(L, 2) == LUA_TSTRING) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                            LS_TUSERDATA, "hs.styledtext",
+                            LS_TBREAK] ;
+        }
+    }
+    NSSize theSize = NSZeroSize ;
+    NSString *theText = [skin toNSObjectAtIndex:textIndex] ;
+
+    if (lua_type(L, textIndex) == LUA_TSTRING) {
+        NSString *myFont = (elementIndex == NSNotFound) ?
+            [canvasView getDefaultValueFor:@"textFont" onlyIfSet:NO] :
+            [canvasView getElementValueFor:@"textFont" atIndex:elementIndex onlyIfSet:NO] ;
+        NSNumber *mySize = (elementIndex == NSNotFound) ?
+            [canvasView getDefaultValueFor:@"textSize" onlyIfSet:NO] :
+            [canvasView getElementValueFor:@"textSize" atIndex:elementIndex onlyIfSet:NO] ;
+        NSMutableParagraphStyle *theParagraphStyle = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+        NSString *alignment = (elementIndex == NSNotFound) ?
+            [canvasView getDefaultValueFor:@"textAlignment" onlyIfSet:NO] :
+            [canvasView getElementValueFor:@"textAlignment" atIndex:elementIndex onlyIfSet:NO] ;
+        theParagraphStyle.alignment = [TEXTALIGNMENT_TYPES[alignment] unsignedIntValue] ;
+        NSString *wrap = (elementIndex == NSNotFound) ?
+            [canvasView getDefaultValueFor:@"textLineBreak" onlyIfSet:NO] :
+            [canvasView getElementValueFor:@"textLineBreak" atIndex:elementIndex onlyIfSet:NO] ;
+        theParagraphStyle.lineBreakMode = [TEXTWRAP_TYPES[wrap] unsignedIntValue] ;
+        NSColor *color = (elementIndex == NSNotFound) ?
+            [canvasView getDefaultValueFor:@"textColor" onlyIfSet:NO] :
+            [canvasView getElementValueFor:@"textColor" atIndex:elementIndex onlyIfSet:NO] ;
+        NSDictionary *attributes = @{
+            NSForegroundColorAttributeName : color,
+            NSFontAttributeName            : [NSFont fontWithName:myFont size:[mySize doubleValue]],
+            NSParagraphStyleAttributeName  : theParagraphStyle,
+        } ;
+        theSize = [theText sizeWithAttributes:attributes] ;
+    } else {
+//       NSAttributedString *theText = [skin luaObjectAtIndex:textIndex toClass:"NSAttributedString"] ;
+      theSize = [(NSAttributedString *)theText size] ;
+    }
+    [skin pushNSSize:theSize] ;
+    return 1 ;
+}
 
 /// hs._asm.canvas:transformation([matrix]) -> canvasObject | current value
 /// Method
@@ -2370,13 +2566,10 @@ static int canvas_orderBelow(lua_State *L) {
 /// Sets the window level more precisely than sendToBack and bringToFront.
 ///
 /// Parameters:
-///  * `level` - an optional level, specified as a number or as a string, specifying the new window level for the canvasObject. If it is a string, it must match one of the keys in `hs.drawing.windowLevels`.
+///  * `level` - an optional level, specified as a number or as a string, specifying the new window level for the canvasObject. If it is a string, it must match one of the keys in [hs._asm.canvas.windowLevels](#windowLevels).
 ///
 /// Returns:
 ///  * If an argument is provided, the canvas object; otherwise the current value.
-///
-/// Notes:
-///  * see the notes for `hs.drawing.windowLevels`
 static int canvas_level(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2396,24 +2589,13 @@ static int canvas_level(lua_State *L) {
                             LS_TBREAK] ;
             targetLevel = lua_tointeger(L, 2) ;
         } else {
-            if ([skin requireModule:"hs.drawing"]) {
-                if (lua_getfield(L, -1, "windowLevels") == LUA_TTABLE) {
-                    if (lua_getfield(L, -1, [[skin toNSObjectAtIndex:2] UTF8String]) == LUA_TNUMBER) {
-                        targetLevel = lua_tointeger(L, -1) ;
-                        lua_pop(L, 3) ; // value, windowLevels and hs.drawing
-                    } else {
-                        lua_pop(L, 3) ; // wrong value, windowLevels and hs.drawing
-                        return luaL_error(L, [[NSString stringWithFormat:@"unrecognized window level: %@", [skin toNSObjectAtIndex:2]] UTF8String]) ;
-                    }
-                } else {
-                    NSString *errorString = [NSString stringWithFormat:@"hs.drawing.windowLevels - table expected, found %s", lua_typename(L, (lua_type(L, -1)))] ;
-                    lua_pop(L, 2) ; // windowLevels and hs.drawing
-                    return luaL_error(L, [errorString UTF8String]) ;
-                }
+            cg_windowLevels(L) ;
+            if (lua_getfield(L, -1, [[skin toNSObjectAtIndex:2] UTF8String]) == LUA_TNUMBER) {
+                targetLevel = lua_tointeger(L, -1) ;
+                lua_pop(L, 2) ; // value and cg_windowLevels() table
             } else {
-                NSString *errorString = [NSString stringWithFormat:@"unable to load hs.drawing module to access windowLevels table:%s", lua_tostring(L, -1)] ;
-                lua_pop(L, 1) ;
-                return luaL_error(L, [errorString UTF8String]) ;
+                lua_pop(L, 2) ; // wrong value and cg_windowLevels() table
+                return luaL_error(L, [[NSString stringWithFormat:@"unrecognized window level: %@", [skin toNSObjectAtIndex:2]] UTF8String]) ;
             }
         }
 
@@ -2467,7 +2649,7 @@ static int canvas_wantsLayer(lua_State *L) {
 ///  * If an argument is provided, the canvas object; otherwise the current value.
 ///
 /// Notes:
-///  * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See `hs.drawing.windowBehaviors` for more information.
+///  * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See [hs._asm.canvas.windowBehaviors](#windowBehaviors) for more information.
 static int canvas_behavior(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -2891,7 +3073,7 @@ static int canvas_canvasDefaultKeys(lua_State *L) {
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     NSMutableSet *list = [[NSMutableSet alloc] initWithArray:[(NSDictionary *)canvasView.canvasDefaults allKeys]] ;
-    if ((lua_gettop(L) == 3) && lua_toboolean(L, 3)) {
+    if ((lua_gettop(L) == 2) && lua_toboolean(L, 2)) {
         [languageDictionary enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, NSDictionary *keyValue, __unused BOOL *stop) {
             if (keyValue[@"default"]) {
                 [list addObject:keyName] ;
@@ -3061,6 +3243,123 @@ static int pushCompositeTypes(__unused lua_State *L) {
     return 1 ;
 }
 
+#ifdef HSDRAWING_REPLACEMENT
+/// hs._asm.canvas.windowBehaviors[]
+/// Constant
+/// Array of window behavior labels for determining how a canvas, drawing, or webview object is handled in Spaces and Exposé
+///
+/// * `default`                   - The window can be associated to one space at a time.
+/// * `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.
+/// * `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.
+///
+/// Only one of these may be active at a time:
+///
+/// * `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.
+/// * `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.
+/// * `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.
+///
+/// The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but can be used with windows created by other modules (as of this writing, `hs.webview` and the Hammerspoon console itself)
+///
+/// Only one of these may be active at a time:
+///
+/// * `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.
+/// * `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.
+///
+/// Only one of these may be active at a time:
+///
+/// * `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.
+/// * `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.
+///
+/// Only one of these may be active at a time (Available in OS X 10.11 and later):
+///
+/// * `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.
+/// * `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile.
+static int pushCollectionTypeTable(lua_State *L) {
+    lua_newtable(L) ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorDefault) ;
+        lua_setfield(L, -2, "default") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorCanJoinAllSpaces) ;
+        lua_setfield(L, -2, "canJoinAllSpaces") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorMoveToActiveSpace) ;
+        lua_setfield(L, -2, "moveToActiveSpace") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorManaged) ;
+        lua_setfield(L, -2, "managed") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorTransient) ;
+        lua_setfield(L, -2, "transient") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorStationary) ;
+        lua_setfield(L, -2, "stationary") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorParticipatesInCycle) ;
+        lua_setfield(L, -2, "participatesInCycle") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorIgnoresCycle) ;
+        lua_setfield(L, -2, "ignoresCycle") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenPrimary) ;
+        lua_setfield(L, -2, "fullScreenPrimary") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAuxiliary) ;
+        lua_setfield(L, -2, "fullScreenAuxiliary") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAllowsTiling) ;
+        lua_setfield(L, -2, "fullScreenAllowsTiling") ;
+        lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenDisallowsTiling) ;
+        lua_setfield(L, -2, "fullScreenDisallowsTiling") ;
+    return 1 ;
+}
+
+/// hs._asm.canvas.windowLevels
+/// Constant
+/// A table of predefined window levels usable with [hs._asm.canvas:level](#level)
+///
+/// Predefined levels are:
+///  * _MinimumWindowLevelKey - lowest allowed window level
+///  * desktop
+///  * desktopIcon            - [hs._asm.canvas:sendToBack](#sendToBack) is equivalent to this level - 1
+///  * normal                 - normal application windows
+///  * tornOffMenu
+///  * floating               - equivalent to [hs._asm.canvas:bringToFront(false)](#bringToFront); where "Always Keep On Top" windows are usually set
+///  * modalPanel             - modal alert dialog
+///  * utility
+///  * dock                   - level of the Dock
+///  * mainMenu               - level of the Menubar
+///  * status
+///  * popUpMenu              - level of a menu when displayed (open)
+///  * overlay
+///  * help
+///  * dragging
+///  * screenSaver            - equivalent to [hs._asm.canvas:bringToFront(true)](#bringToFront)
+///  * assistiveTechHigh
+///  * cursor
+///  * _MaximumWindowLevelKey - highest allowed window level
+///
+/// Notes:
+///  * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.
+///  * Each window level is sorted separately and [hs._asm.canvas:orderAbove](#orderAbove) and [hs._asm.canvas:orderBelow](#orderBelow) only arrange windows within the same level.
+///  * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.
+static int cg_windowLevels(lua_State *L) {
+    lua_newtable(L) ;
+//       lua_pushinteger(L, CGWindowLevelForKey(kCGBaseWindowLevelKey)) ;              lua_setfield(L, -2, "kCGBaseWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMinimumWindowLevelKey)) ;           lua_setfield(L, -2, "_MinimumWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopWindowLevelKey)) ;           lua_setfield(L, -2, "desktop") ;
+//       lua_pushinteger(L, CGWindowLevelForKey(kCGBackstopMenuLevelKey)) ;            lua_setfield(L, -2, "kCGBackstopMenuLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGNormalWindowLevelKey)) ;            lua_setfield(L, -2, "normal") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGFloatingWindowLevelKey)) ;          lua_setfield(L, -2, "floating") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGTornOffMenuWindowLevelKey)) ;       lua_setfield(L, -2, "tornOffMenu") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDockWindowLevelKey)) ;              lua_setfield(L, -2, "dock") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMainMenuWindowLevelKey)) ;          lua_setfield(L, -2, "mainMenu") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGStatusWindowLevelKey)) ;            lua_setfield(L, -2, "status") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGModalPanelWindowLevelKey)) ;        lua_setfield(L, -2, "modalPanel") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGPopUpMenuWindowLevelKey)) ;         lua_setfield(L, -2, "popUpMenu") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDraggingWindowLevelKey)) ;          lua_setfield(L, -2, "dragging") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGScreenSaverWindowLevelKey)) ;       lua_setfield(L, -2, "screenSaver") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGMaximumWindowLevelKey)) ;           lua_setfield(L, -2, "_MaximumWindowLevelKey") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGOverlayWindowLevelKey)) ;           lua_setfield(L, -2, "overlay") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGHelpWindowLevelKey)) ;              lua_setfield(L, -2, "help") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGUtilityWindowLevelKey)) ;           lua_setfield(L, -2, "utility") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGDesktopIconWindowLevelKey)) ;       lua_setfield(L, -2, "desktopIcon") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGCursorWindowLevelKey)) ;            lua_setfield(L, -2, "cursor") ;
+      lua_pushinteger(L, CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey)) ; lua_setfield(L, -2, "assistiveTechHigh") ;
+//       lua_pushinteger(L, CGWindowLevelForKey(kCGNumberOfWindowLevelKeys)) ;         lua_setfield(L, -2, "kCGNumberOfWindowLevelKeys") ;
+    return 1 ;
+}
+#endif
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -3152,6 +3451,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementKeys",         canvas_elementKeysAtIndex},
     {"imageFromCanvas",     canvas_canvasAsImage},
     {"insertElement",       canvas_insertElementAtIndex},
+    {"minimumTextSize",     canvas_getTextElementSize},
     {"removeElement",       canvas_removeElementAtIndex},
 // affects whole canvas
     {"alpha",               canvas_alpha},
@@ -3179,10 +3479,13 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new",         canvas_new},
-    {"elementSpec", dumpLanguageDictionary},
+    {"defaultTextStyle",     default_textAttributes},
+    {"disableScreenUpdates", disableUpdates},
+    {"elementSpec",          dumpLanguageDictionary},
+    {"enableScreenUpdates",  enableUpdates},
+    {"new",                  canvas_new},
 
-    {NULL,          NULL}
+    {NULL,                   NULL}
 };
 
 int luaopen_hs__asm_canvas_internal(lua_State* L) {
@@ -3198,7 +3501,11 @@ int luaopen_hs__asm_canvas_internal(lua_State* L) {
     [skin registerLuaObjectHelper:toASMCanvasViewFromLua forClass:"ASMCanvasView"
                                               withUserdataMapping:USERDATA_TAG];
 
-    pushCompositeTypes(L) ; lua_setfield(L, -2, "compositeTypes") ;
+    pushCompositeTypes(L) ;     lua_setfield(L, -2, "compositeTypes") ;
+#ifdef HSDRAWING_REPLACEMENT
+    pushCollectionTypeTable(L); lua_setfield(L, -2, "windowBehaviors") ;
+    cg_windowLevels(L) ;        lua_setfield(L, -2, "windowLevels") ;
+#endif
 
     return 1;
 }
