@@ -9,8 +9,8 @@ OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
 HEADERS  = ${wildcard *.h}
 
-SOFILE  := $(OBJCFILE:.m=.so)
-# SOFILE  := internal.so
+# SOFILE  := $(OBJCFILE:.m=.so)
+SOFILE  := internal.so matrix_internal.so
 DEBUG_CFLAGS ?= -g
 
 # special vars for uninstall
@@ -30,10 +30,16 @@ EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
-all: verify $(SOFILE)
+all: verify internal.so matrix_internal.so
 
-.m.so: $(HEADERS) $(OBJCFILE)
+internal.so: internal.m imageAdditions.m $(HEADERS)
+	$(CC) internal.m imageAdditions.m $(CFLAGS) $(LDFLAGS) -o $@
+
+matrix_internal.so: matrix_internal.m
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+
+# .m.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 # internal.so: $(HEADERS) $(OBJCFILE)
 # 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
@@ -46,7 +52,7 @@ verify: $(LUAFILE)
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 # 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)

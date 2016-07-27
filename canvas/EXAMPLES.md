@@ -180,7 +180,8 @@ a = c.new{x = 100, y = 100, w = 200, h = 200 }:show()
 a[1] = {
   type="image",
   -- the Hammerspoon menu icon has this name within the Application bundle, so we can get it this way:
-  image = hs.image.imageFromName("statusicon")
+  image = hs.image.imageFromName("statusicon"),
+  imageScaling = "scaleToFit"
 }
 a[2] = {
   type = "rectangle",

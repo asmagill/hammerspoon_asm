@@ -1,7 +1,4 @@
-@import Cocoa ;
-@import LuaSkin ;
-
-#define HSDRAWING_REPLACEMENT
+#import "ASMCanvas.h"
 
 #define USERDATA_TAG "hs._asm.canvas"
 static int refTable = LUA_NOREF;
@@ -13,92 +10,15 @@ static NSDictionary *languageDictionary ;
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
-@interface ASMCanvasWindow : NSPanel <NSWindowDelegate>
-@end
-
-@interface ASMCanvasView : NSView
-@property int                 selfRef ;
-@property ASMCanvasWindow     *wrapperWindow ;
-@property int                 mouseCallbackRef ;
-@property BOOL                mouseTracking ;
-@property BOOL                canvasMouseDown ;
-@property BOOL                canvasMouseUp ;
-@property BOOL                canvasMouseEnterExit ;
-@property BOOL                canvasMouseMove ;
-@property NSUInteger          previousTrackedIndex ;
-@property NSMutableDictionary *canvasDefaults ;
-@property NSMutableArray      *elementList ;
-@property NSMutableArray      *elementBounds ;
-@property NSAffineTransform   *canvasTransform ;
-@end
-
 typedef NS_ENUM(NSInteger, attributeValidity) {
     attributeValid,
     attributeNulling,
     attributeInvalid,
 };
 
-#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text", @"canvas" ]
-#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text", @"canvas" ]
-#define PRIMITIVES @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"points", @"rectangle", @"segments" ]
-#define CLOSED     @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"rectangle", @"segments" ]
-
-
-#define STROKE_JOIN_STYLES @{ \
-    @"miter" : @(NSMiterLineJoinStyle), \
-    @"round" : @(NSBevelLineJoinStyle), \
-    @"bevel" : @(NSBevelLineJoinStyle), \
-}
-
-#define STROKE_CAP_STYLES @{ \
-    @"butt"   : @(NSButtLineCapStyle), \
-    @"round"  : @(NSRoundLineCapStyle), \
-    @"square" : @(NSSquareLineCapStyle), \
-}
-
-#define COMPOSITING_TYPES @{ \
-    @"clear"           : @(NSCompositeClear), \
-    @"copy"            : @(NSCompositeCopy), \
-    @"sourceOver"      : @(NSCompositeSourceOver), \
-    @"sourceIn"        : @(NSCompositeSourceIn), \
-    @"sourceOut"       : @(NSCompositeSourceOut), \
-    @"sourceAtop"      : @(NSCompositeSourceAtop), \
-    @"destinationOver" : @(NSCompositeDestinationOver), \
-    @"destinationIn"   : @(NSCompositeDestinationIn), \
-    @"destinationOut"  : @(NSCompositeDestinationOut), \
-    @"destinationAtop" : @(NSCompositeDestinationAtop), \
-    @"XOR"             : @(NSCompositeXOR), \
-    @"plusDarker"      : @(NSCompositePlusDarker), \
-    @"plusLighter"     : @(NSCompositePlusLighter), \
-}
-
-#define WINDING_RULES @{ \
-    @"evenOdd" : @(NSEvenOddWindingRule), \
-    @"nonZero" : @(NSNonZeroWindingRule), \
-}
-
-#define TEXTALIGNMENT_TYPES @{ \
-    @"left"      : @(NSTextAlignmentLeft), \
-    @"right"     : @(NSTextAlignmentRight), \
-    @"center"    : @(NSTextAlignmentCenter), \
-    @"justified" : @(NSTextAlignmentJustified), \
-    @"natural"   : @(NSTextAlignmentNatural), \
-}
-
-#define TEXTWRAP_TYPES @{ \
-    @"wordWrap"       : @( NSLineBreakByWordWrapping), \
-    @"charWrap"       : @(NSLineBreakByCharWrapping), \
-    @"clip"           : @(NSLineBreakByClipping), \
-    @"truncateHead"   : @(NSLineBreakByTruncatingHead), \
-    @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle), \
-    @"truncateTail"   : @(NSLineBreakByTruncatingTail), \
-}
-
 #pragma mark - Support Functions and Classes
 
-#ifdef HSDRAWING_REPLACEMENT
 static int cg_windowLevels(lua_State *L) ;
-#endif
 
 static NSDictionary *defineLanguageDictionary() {
     // the default shadow has no offset or blur radius, so lets setup one that is at least visible
@@ -373,7 +293,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"class"       : @[ [NSImage class] ],
             @"luaClass"    : @"hs.image object",
             @"nullable"    : @(YES),
-            @"default"     : [[NSImage alloc] initWithSize:NSMakeSize(1.0, 1.0)],
+            @"default"     : [NSNull null],
             @"optionalFor" : @[ @"image" ],
         },
         @"imageAlpha" : @{
@@ -383,6 +303,38 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : @(1.0),
             @"minNumber"   : @(0.0),
             @"maxNumber"   : @(1.0),
+            @"optionalFor" : @[ @"image" ],
+        },
+        @"imageAlignment" : @{
+            @"class"       : @[ [NSString class] ],
+            @"luaClass"    : @"string",
+            @"values"      : [IMAGEALIGNMENT_TYPES allKeys],
+            @"nullable"    : @(YES),
+            @"default"     : @"center",
+            @"optionalFor" : @[ @"image" ],
+        },
+        @"imageAnimationFrame" : @ {
+            @"class"       : @[ [NSNumber class] ],
+            @"objCType"    : @(@encode(lua_Integer)),
+            @"luaClass"    : @"integer",
+            @"nullable"    : @(YES),
+            @"default"     : @(0),
+            @"optionalFor" : @[ @"image" ],
+        },
+        @"imageAnimates" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"boolean",
+            @"objCType"    : @(@encode(BOOL)),
+            @"nullable"    : @(NO),
+            @"default"     : @(NO),
+            @"requiredFor" : @[ @"image" ],
+        },
+        @"imageScaling" : @{
+            @"class"       : @[ [NSString class] ],
+            @"luaClass"    : @"string",
+            @"values"      : [IMAGESCALING_TYPES allKeys],
+            @"nullable"    : @(YES),
+            @"default"     : @"scalePropertionally",
             @"optionalFor" : @[ @"image" ],
         },
         @"miterLimit" : @{
@@ -715,6 +667,13 @@ static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValu
                     }
                 }
 
+                if ([keyValue[subKeyName] isKindOfClass:[NSNumber class]] && !subKeyMiniDefinition[@"objCType"]) {
+                  if (!isfinite([keyValue[subKeyName] doubleValue])) {
+                      errorMessage = [NSString stringWithFormat:@"field %@ of %@ must be a finite number", subKeyName, keyName] ;
+                      break ;
+                  }
+                }
+
                 if (subKeyMiniDefinition[@"values"]) {
                     BOOL found = NO ;
                     NSString *subKeyValue = keyValue[subKeyName] ;
@@ -874,11 +833,6 @@ static int userdata_gc(lua_State* L) ;
     return self;
 }
 
-// - (BOOL)shouldDelayWindowOrderingForEvent:(__unused NSEvent *)theEvent {
-//     [LuaSkin logWarn:@"yeah, I'm needed"] ;
-//     return NO ;
-// }
-
 #pragma mark - NSWindowDelegate Methods
 
 - (BOOL)windowShouldClose:(id __unused)sender {
@@ -942,6 +896,7 @@ static int userdata_gc(lua_State* L) ;
         _elementList      = [[NSMutableArray alloc] init] ;
         _elementBounds    = [[NSMutableArray alloc] init] ;
         _canvasTransform  = [NSAffineTransform transform] ;
+        _imageAnimations  = [NSMapTable weakToStrongObjectsMapTable] ;
 
         _canvasMouseDown      = NO ;
         _canvasMouseUp        = NO ;
@@ -989,15 +944,17 @@ static int userdata_gc(lua_State* L) ;
                 [pointTransform invert] ;
                 actualPoint = [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
-                    NSImage *theImage = [self getElementValueFor:@"image" atIndex:elementIdx] ;
-                    NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
-                    NSRect imageRect = [box[@"frame"] rectValue] ;
-                    if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
-                                                                       context:nil
-                                                                         hints:nil
-                                                                       flipped:YES]) {
-                        targetIndex = idx ;
-                        *stop = YES ;
+                    NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
+                    if (theImage) {
+                        NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
+                        NSRect imageRect = [box[@"frame"] rectValue] ;
+                        if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
+                                                                           context:nil
+                                                                             hints:nil
+                                                                           flipped:YES]) {
+                            targetIndex = idx ;
+                            *stop = YES ;
+                        }
                     }
                 } else if ((box[@"frame"] && NSPointInRect(actualPoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualPoint])) {
                     targetIndex = idx ;
@@ -1118,16 +1075,18 @@ static int userdata_gc(lua_State* L) ;
                 [pointTransform invert] ;
                 actualPoint = [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
-                    NSImage *theImage = [self getElementValueFor:@"image" atIndex:elementIdx] ;
-                    NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
-                    NSRect imageRect = [box[@"frame"] rectValue] ;
-                    if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
-                                                                       context:nil
-                                                                         hints:nil
-                                                                       flipped:YES]) {
-                    targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
-                    if (!targetID) targetID = @(elementIdx + 1) ;
-                        *stop = YES ;
+                    NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
+                    if (theImage) {
+                        NSRect hitRect = NSMakeRect(actualPoint.x, actualPoint.y, 1.0, 1.0) ;
+                        NSRect imageRect = [box[@"frame"] rectValue] ;
+                        if ([theImage hitTestRect:hitRect withImageDestinationRect:imageRect
+                                                                           context:nil
+                                                                             hints:nil
+                                                                           flipped:YES]) {
+                        targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
+                        if (!targetID) targetID = @(elementIdx + 1) ;
+                            *stop = YES ;
+                        }
                     }
                 } else if ((box[@"frame"] && NSPointInRect(actualPoint, [box[@"frame"] rectValue])) || (box[@"path"] && [box[@"path"] containsPoint:actualPoint])) {
                     targetID = [self getElementValueFor:@"id" atIndex:elementIdx onlyIfSet:YES] ;
@@ -1359,22 +1318,18 @@ static int userdata_gc(lua_State* L) ;
 
     #pragma mark - IMAGE
                 if ([elementType isEqualToString:@"image"]) {
-                // to support drawing image attributes, we'd need to use subviews and some way to link view to element dictionary, since subviews is an array... gonna need thought if desired... only really useful missing option is animates; others can be created by hand or by adjusting transform or frame
-                    NSImage      *theImage = [self getElementValueFor:@"image" atIndex:idx onlyIfSet:YES] ;
-                    if (theImage) {
-                        NSNumber *alpha = [self getElementValueFor:@"imageAlpha" atIndex:idx] ;
-                        [theImage drawInRect:frameRect
-                                    fromRect:NSZeroRect
-                                   operation:[COMPOSITING_TYPES[CS] unsignedIntValue]
-                                    fraction:[alpha doubleValue]
-                              respectFlipped:YES
-                                       hints:nil] ;
+                    NSImage *theImage = self->_elementList[idx][@"image"] ;
+                    if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                        [self drawImage:theImage
+                                atIndex:idx
+                                 inRect:frameRect
+                              operation:[COMPOSITING_TYPES[CS] unsignedIntValue]] ;
+                        [self->_elementBounds addObject:@{
+                            @"index"         : @(idx),
+                            @"frame"         : [NSValue valueWithRect:frameRect],
+                            @"imageByBounds" : [self getElementValueFor:@"trackMouseByBounds" atIndex:idx]
+                        }] ;
                     }
-                    [self->_elementBounds addObject:@{
-                        @"index"         : @(idx),
-                        @"frame"         : [NSValue valueWithRect:frameRect],
-                        @"imageByBounds" : [self getElementValueFor:@"trackMouseByBounds" atIndex:idx]
-                    }] ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else
     #pragma mark - TEXT
@@ -1424,6 +1379,7 @@ static int userdata_gc(lua_State* L) ;
                             @"frame" : [NSValue valueWithRect:frameRect]
                         }] ;
                     }
+                    elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else
     #pragma mark - RESETCLIP
                 if ([elementType isEqualToString:@"resetClip"]) {
@@ -1670,7 +1626,7 @@ static int userdata_gc(lua_State* L) ;
                 break ;
         }
     }
-    self.needsDisplay = true ;
+    self.needsDisplay = YES ;
     return validityStatus ;
 }
 
@@ -1694,6 +1650,21 @@ static int userdata_gc(lua_State* L) ;
         foundObject = [foundObject mutableCopy] ;
     } else if ([[foundObject class] conformsToProtocol:@protocol(NSCopying)]) {
         foundObject = [foundObject copy] ;
+    }
+
+    if ([keyName isEqualToString:@"imageAnimationFrame"]) {
+        NSImage *theImage = _elementList[index][@"image"] ;
+        if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+            for (NSBitmapImageRep *representation in [theImage representations]) {
+                if ([representation isKindOfClass:[NSBitmapImageRep class]]) {
+                    NSNumber *currentFrame = [representation valueForProperty:NSImageCurrentFrame] ;
+                    if (currentFrame) {
+                        foundObject = currentFrame ;
+                        break ;
+                    }
+                }
+            }
+        }
     }
 
     if (foundObject && resolvePercentages) {
@@ -1852,8 +1823,7 @@ static int userdata_gc(lua_State* L) ;
                     }
                 }] ;
                 if (validityStatus == attributeInvalid) break ;
-            }
-            if ([keyName isEqualToString:@"canvas"]) {
+            } else if ([keyName isEqualToString:@"canvas"]) {
                 ASMCanvasView *newCanvas = (ASMCanvasView *)keyValue ;
                 ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
                 if (![newCanvas isEqualTo:oldCanvas] && [newCanvas.wrapperWindow isEqualTo:newCanvas.window] && ![newCanvas.window isVisible]) {
@@ -1865,12 +1835,53 @@ static int userdata_gc(lua_State* L) ;
                         [self addSubview:newCanvas] ;
                     } else {
                         [LuaSkin logWarn:[NSString stringWithFormat:@"%s:canvas for element %lu is already in use", USERDATA_TAG, index + 1]] ;
+                        validityStatus = attributeInvalid ;
+                        break ;
+                    }
+                }
+            } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
+                if ([[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue]) {
+                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:%@ cannot be changed when element %lu is animating", USERDATA_TAG, keyName, index + 1]] ;
+                    validityStatus = attributeInvalid ;
+                    break ;
+                } else {
+                    NSImage *theImage = _elementList[index][@"image"] ;
+                    if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                        for (NSBitmapImageRep *representation in [theImage representations]) {
+                            if ([representation isKindOfClass:[NSBitmapImageRep class]]) {
+                                NSNumber *maxFrames = [representation valueForProperty:NSImageFrameCount] ;
+                                if (maxFrames) {
+                                    lua_Integer newFrame = [keyValue integerValue] % [maxFrames integerValue] ;
+                                    while (newFrame < 0) newFrame = [maxFrames integerValue] + newFrame ;
+                                    [representation setProperty:NSImageCurrentFrame withValue:[NSNumber numberWithInteger:newFrame]] ;
+                                    break ;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if ([keyName isEqualToString:@"imageAnimates"]) {
+                NSImage *theImage = _elementList[index][@"image"] ;
+                if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                    BOOL shouldAnimate = [keyValue boolValue] ;
+                    if (shouldAnimate) {
+                        if (![_imageAnimations objectForKey:theImage]) {
+                            ASMGifAnimator *animator = [[ASMGifAnimator alloc] initWithImage:theImage forCanvas:self] ;
+                            if (animator) [_imageAnimations setObject:animator forKey:theImage] ;
+                        }
+                        if ([_imageAnimations objectForKey:theImage])
+                            [[_imageAnimations objectForKey:theImage] startAnimating] ;
+                    } else {
+                        if ([_imageAnimations objectForKey:theImage])
+                            [[_imageAnimations objectForKey:theImage] stopAnimating] ;
                     }
                 }
             }
-            _elementList[index][keyName] = keyValue ;
+
+            if (![keyName isEqualToString:@"imageAnimationFrame"]) _elementList[index][keyName] = keyValue ;
+
+            // add defaults, if not already present, for type (recurse into this method as needed)
             if ([keyName isEqualToString:@"type"]) {
-                // add defaults, if not already present, for type (recurse into this method as needed)
                 NSSet *defaultsForType = [languageDictionary keysOfEntriesPassingTest:^BOOL(NSString *typeName, NSDictionary *typeDefinition, __unused BOOL *stop){
                     return ![typeName isEqualToString:@"type"] && typeDefinition[@"requiredFor"] && [typeDefinition[@"requiredFor"] containsObject:keyValue] ;
                 }] ;
@@ -1886,7 +1897,45 @@ static int userdata_gc(lua_State* L) ;
                 ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
                 [oldCanvas removeFromSuperview] ;
                 oldCanvas.wrapperWindow.contentView = oldCanvas ;
+            } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
+                if ([[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue]) {
+                    [LuaSkin logWarn:[NSString stringWithFormat:@"%s:%@ cannot be changed when element %lu is animating", USERDATA_TAG, keyName, index + 1]] ;
+                    validityStatus = attributeInvalid ;
+                    break ;
+                } else {
+                    NSImage *theImage = _elementList[index][@"image"] ;
+                    if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                        NSNumber *imageFrame = [self getDefaultValueFor:@"imageAnimationFrame" onlyIfSet:NO] ;
+                        for (NSBitmapImageRep *representation in [theImage representations]) {
+                            if ([representation isKindOfClass:[NSBitmapImageRep class]]) {
+                                NSNumber *maxFrames = [representation valueForProperty:NSImageFrameCount] ;
+                                if (maxFrames) {
+                                    lua_Integer newFrame = [imageFrame integerValue] % [maxFrames integerValue] ;
+                                    [representation setProperty:NSImageCurrentFrame withValue:[NSNumber numberWithInteger:newFrame]] ;
+                                    break ;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if ([keyName isEqualToString:@"imageAnimates"]) {
+                NSImage *theImage = _elementList[index][@"image"] ;
+                if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                    BOOL shouldAnimate = [[self getDefaultValueFor:@"imageAnimates" onlyIfSet:NO] boolValue] ;
+                    if (shouldAnimate) {
+                        if (![_imageAnimations objectForKey:theImage]) {
+                            ASMGifAnimator *animator = [[ASMGifAnimator alloc] initWithImage:theImage forCanvas:self] ;
+                            if (animator) [_imageAnimations setObject:animator forKey:theImage] ;
+                        }
+                        if ([_imageAnimations objectForKey:theImage])
+                            [[_imageAnimations objectForKey:theImage] startAnimating] ;
+                    } else {
+                        if ([_imageAnimations objectForKey:theImage])
+                            [[_imageAnimations objectForKey:theImage] stopAnimating] ;
+                    }
+                }
             }
+
             [(NSMutableDictionary *)_elementList[index] removeObjectForKey:keyName] ;
             break ;
         case attributeInvalid:
@@ -1895,7 +1944,7 @@ static int userdata_gc(lua_State* L) ;
             [LuaSkin logWarn:@"unexpected validity status returned; notify developers"] ;
             break ;
     }
-    self.needsDisplay = true ;
+    self.needsDisplay = YES ;
     return validityStatus ;
 }
 
@@ -1967,7 +2016,6 @@ static int dumpLanguageDictionary(__unused lua_State *L) {
     return 1 ;
 }
 
-#ifdef HSDRAWING_REPLACEMENT
 /// hs._asm.canvas.disableScreenUpdates() -> None
 /// Function
 /// Tells the OS X window server to pause updating the physical displays for a short while.
@@ -2040,7 +2088,6 @@ static int default_textAttributes(lua_State *L) {
     }
     return 1 ;
 }
-#endif
 
 #pragma mark - Module Methods
 
@@ -2145,7 +2192,7 @@ static int canvas_canvasTransformation(lua_State *L) {
         NSAffineTransform *transform = [NSAffineTransform transform] ;
         if (lua_type(L, 2) == LUA_TTABLE) transform = [skin luaObjectAtIndex:2 toClass:"NSAffineTransform"] ;
         canvasView.canvasTransform = transform ;
-        canvasView.needsDisplay = true ;
+        canvasView.needsDisplay = YES ;
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -2629,7 +2676,7 @@ static int canvas_wantsLayer(lua_State *L) {
 
     if (lua_type(L, 2) != LUA_TNONE) {
         [canvasView setWantsLayer:(BOOL)lua_toboolean(L, 2)];
-        canvasView.needsDisplay = true ;
+        canvasView.needsDisplay = YES ;
         lua_pushvalue(L, 1) ;
     } else {
         lua_pushboolean(L, (BOOL)[canvasView wantsLayer]) ;
@@ -2867,7 +2914,7 @@ static int canvas_insertElementAtIndex(lua_State *L) {
         return luaL_argerror(L, 2, "invalid element definition; must contain key-value pairs");
     }
 
-    canvasView.needsDisplay = true ;
+    canvasView.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -2896,7 +2943,7 @@ static int canvas_removeElementAtIndex(lua_State *L) {
 
     [canvasView.elementList removeObjectAtIndex:(NSUInteger)tablePosition] ;
 
-    canvasView.needsDisplay = true ;
+    canvasView.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -3207,7 +3254,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
         }
     }
 
-    canvasView.needsDisplay = true ;
+    canvasView.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -3243,7 +3290,6 @@ static int pushCompositeTypes(__unused lua_State *L) {
     return 1 ;
 }
 
-#ifdef HSDRAWING_REPLACEMENT
 /// hs._asm.canvas.windowBehaviors[]
 /// Constant
 /// Array of window behavior labels for determining how a canvas, drawing, or webview object is handled in Spaces and Exposé
@@ -3358,7 +3404,6 @@ static int cg_windowLevels(lua_State *L) {
 //       lua_pushinteger(L, CGWindowLevelForKey(kCGNumberOfWindowLevelKeys)) ;         lua_setfield(L, -2, "kCGNumberOfWindowLevelKeys") ;
     return 1 ;
 }
-#endif
 
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
@@ -3502,10 +3547,8 @@ int luaopen_hs__asm_canvas_internal(lua_State* L) {
                                               withUserdataMapping:USERDATA_TAG];
 
     pushCompositeTypes(L) ;     lua_setfield(L, -2, "compositeTypes") ;
-#ifdef HSDRAWING_REPLACEMENT
     pushCollectionTypeTable(L); lua_setfield(L, -2, "windowBehaviors") ;
     cg_windowLevels(L) ;        lua_setfield(L, -2, "windowLevels") ;
-#endif
 
     return 1;
 }
