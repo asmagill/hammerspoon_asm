@@ -29,6 +29,9 @@
 --- end
 --- ~~~
 ---
+--- If you wish to load both for side-by-side comparisons, you can access the built in drawing module temporarily with:
+---      drawing = dofile(hs.processInfo.resourcePath .. "/extensions/hs/drawing/init.lua")
+---
 --- The intention is for this wrapper to provide all of the same functionality that `hs.drawing` does without requiring any additional changes to your currently existing code.
 ---
 --- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
