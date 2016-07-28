@@ -4,8 +4,8 @@
 // This file contains functions to replicate NSImageView functionality without actually
 // forcing the image to be handled by a subview.
 //
-// Portions of this file are modified from code found in the following files of the GNUStep
-// project at https://github.com/gnustep/gui
+// Portions of this file are modified from code found in the GNUStep, project at https://github.com/gnustep/gui
+// Primarily, but not necessarily limited to:
 //    * Source/NSImageView.m
 //    * Source/NSImageCell.m
 //

@@ -1,8 +1,14 @@
--- DO NOT USE YET
-
 --- === hs._asm.canvas.drawing ===
 ---
 --- An experimental wrapper, still in very early stages, to replace `hs.drawing` with `hs._asm.canvas`.
+---
+--- Known issues or differences that probably will be fixed:
+---  * rounded rects don't seem as smooth... still looking into why
+---  * baseline for text is lower than in the NSTextView used in hs.drawing
+---  * in `hs.drawing`, some images with callbacks appear to be displayed as if their NSImageCell is not enabled (i.e. dimmer), while others don't suffer from this.  This replacement module doesn't suffer from the problem, but I would still like to know why the difference in `hs.drawing`, since some of my alpha choices unknownling took this into account.
+---
+--- Known issues or differences that probably will *not* be fixed:
+---  * image frames from `hs.drawing` are approximated with additional canvas elements inserted into the canvas... the frames always looked semi-ugly to me, and since this module now allows you to create as complex a frame as you like... consider these as "examples", and poor ones at that.  Plus I'm not sure anyone used them anyways -- at the time I only really wanted rotation, the others (frame, alignment, and scaling) were just tacked on because they were available.
 ---
 --- This submodule is not loaded as part of the `hs._asm.canvas` module and has to be loaded explicitly. You can test the use of this wrapper with your Hammerspoon configuration by adding the following to the ***top*** of `~/.hammerspoon/init.lua` -- this needs to be executed before any other code has a chance to load `hs.drawing` first.
 ---
@@ -15,6 +21,7 @@
 ---    hs.drawing = M
 ---    package.loaded["hs.drawing"] = M   -- make sure require("hs.drawing") returns us
 ---    package.loaded["hs/drawing"] = M   -- make sure require("hs/drawing") returns us
+---    debug.getregistry()["hs.drawing"] = hs.getObjectMetatable("hs._asm.canvas.drawing")
 --- else
 ---    print()
 ---    print("**** Error with experimental hs.drawing wrapper: "..tostring(M))
@@ -27,11 +34,12 @@
 --- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
 
 local USERDATA_TAG = "hs._asm.canvas.drawing"
-local canvas       = require("hs.canvas")
-local canvasMT     = hs.getObjectMetatable("hs.canvas")
+local canvas       = require("hs._asm.canvas")
 local drawingMT    = {}
 
 local styledtext   = require("hs.styledtext")
+
+local module = {}
 
 -- private variables and methods -----------------------------------------
 
@@ -49,6 +57,7 @@ module._image = function(frame, imageObject)
         absolutePosition = false,
         absoluteSize     = false,
         image            = imageObject,
+        imageAnimates    = true,
     }
     return setmetatable(drawingObject, drawingMT)
 end
@@ -176,16 +185,18 @@ end
 
 module.getTextDrawingSize = function(message, textStyle)
     textStyle = textStyle or {}
-    local drawingObject = {
-        canvas = canvas.new(frame),
-    }
-    if textStyle.font      then drawingObject._default.textFont      = textStyle.font end
-    if textStyle.size      then drawingObject._default.textSize      = textStyle.size end
-    if textStyle.color     then drawingObject._default.textColor     = textStyle.color end
-    if textStyle.alignment then drawingObject._default.textAlignment = textStyle.alignment end
-    if textStyle.lineBreak then drawingObject._default.textLineBreak = textStyle.lineBreak end
-    local frameSize = a:minimumTextSize(message)
-    a:delete()
+    local drawingObject = canvas.new({})
+    if textStyle.paragraphStyle then
+        message = styledtext.new(message, textStyle)
+    else
+        if textStyle.font      then drawingObject._default.textFont      = textStyle.font end
+        if textStyle.size      then drawingObject._default.textSize      = textStyle.size end
+        if textStyle.color     then drawingObject._default.textColor     = textStyle.color end
+        if textStyle.alignment then drawingObject._default.textAlignment = textStyle.alignment end
+        if textStyle.lineBreak then drawingObject._default.textLineBreak = textStyle.lineBreak end
+    end
+    local frameSize = drawingObject:minimumTextSize(message)
+    drawingObject:delete()
     return frameSize
 end
 
@@ -208,15 +219,15 @@ drawingMT.clippingRectangle = function(self, ...)
     elseif type(args[1]) ~= "table" and type(args[1]) ~= "nil" then
         error(string.format("ERROR: incorrect type '%s' for argument 2 (expected table)", type(args[1])), 2)
     else
-        if args[1] and #self.canvas == 1 then
+        if args[1] and self.canvas[1].action ~= "clip" then
             self.canvas:insertElement({
                 type = "rectangle",
                 action = "clip",
                 frame = args[1]
             }, 1)
-        elseif args[1] then
+        elseif args[1] and self.canvas[1].action == "clip" then
             self.canvas[1].frame = args[1]
-        elseif #self.canvas == 2 then
+        elseif self.canvas[1].action == "clip" then
             self.canvas:removeElement(1)
         end
         return self
@@ -228,11 +239,76 @@ drawingMT.delete = function(self)
     setmetatable(self, nil)
 end
 
--- drawingMT.getStyledText = <function 10>,
--- drawingMT.setStyledText = <function 38>,
+drawingMT.getStyledText = function(self)
+    if ({ text = 1 })[self.canvas[#self.canvas].type] then
+        local text = self.canvas[#self.canvas].text
+        if type(text) == "string" then
+            return styledtext.new(text)
+        else
+            return text
+        end
+    else
+        error(string.format("calling 'getStyledText' on bad self (not an %s.text() object)", USERDATA_TAG), 2)
+    end
+end
 
--- drawingMT.setArcAngles = <function 21>,
--- drawingMT.setClickCallback = <function 24>,
+drawingMT.setStyledText = function(self, ...)
+    local args = table.pack(...)
+    if ({ text = 1 })[self.canvas[#self.canvas].type] then
+        local text = args[1]
+        if type(text) ~= "userdata" and type(text) ~= "table" then
+        -- we don't inherit from the textContainer like hs.drawing.text does
+            text = styledtext.new(text, {
+                font = {
+                    name = self.canvas[#self.canvas].textFont,
+                    size = self.canvas[#self.canvas].textSize,
+                },
+                color = self.canvas[#self.canvas].textColor,
+                paragraphStyle = {
+                    alignment = self.canvas[#self.canvas].textAlignment,
+                    lineBreak = self.canvas[#self.canvas].textLineBreak,
+                },
+            })
+        end
+        self.canvas[#self.canvas].text = text
+    else
+        error(string.format("calling 'getStyledText' on bad self (not an %s.text() object)", USERDATA_TAG), 2)
+    end
+    return self
+end
+
+drawingMT.setArcAngles = function(self, ...)
+    local args = table.pack(...)
+    if ({ ellipticalArc = 1 })[self.canvas[#self.canvas].type] then
+        if args.n ~= 2 then
+            error(string.format("ERROR: incorrect number of arguments. Expected 3, got %d", args.n), 2)
+        end
+        self.canvas[#self.canvas].startAngle = args[1]
+        self.canvas[#self.canvas].endAngle   = args[2]
+    else
+        error(string.format("%s:setArcAngles() can only be called on %s.arc() objects, not: %s", USERDATA_TAG, USERDATA_TAG, self.canvas[#self.canvas].type), 2)
+    end
+    return self
+end
+
+drawingMT.setClickCallback = function(self, ...)
+    local args = table.pack(...)
+    local mouseUpFn, mouseDnFn = args[1], args[2]
+    if (type(mouseUpFn) ~= "function" and type(mouseUpFn) ~= "nil") or args.n == 0 then
+        error(string.format("%s:setClickCallback() mouseUp argument must be a function or nil", USERDATA_TAG), 2)
+    end
+    if type(mouseDnFn) ~= "function" and type(mouseDnFn) ~= "nil" then
+        error(string.format("%s:setClickCallback() mouseDown argument must be a function or nil, or entirely absent", USERDATA_TAG), 2)
+    end
+
+    self.canvas:canvasMouseEvents(mouseDnFn and true or false, mouseUpFn and true or false)
+    self.canvas:mouseCallback(function(c, m, i, x, y)
+        if     m == "mouseUp"   and mouseUpFn then mouseUpFn()
+        elseif m == "mouseDown" and mouseDnFn then mouseDnFn()
+        end
+    end)
+    return self
+end
 
 drawingMT.setFill = function(self, ...)
     local args = table.pack(...)
@@ -392,7 +468,7 @@ end
 drawingMT.setTextSize = function(self, ...)
     local args = table.pack(...)
     if ({ text = 1 })[self.canvas[#self.canvas].type] then
-        self.canvas[#self.canvas].textFont = args[1]
+        self.canvas[#self.canvas].textSize = args[1]
     else
         error(string.format("%s:setTextSize() can only be called on %s.text() objects, not: %s", USERDATA_TAG, USERDATA_TAG, self.canvas[#self.canvas].type), 2)
     end
@@ -426,26 +502,234 @@ drawingMT.setTextStyle = function(self, ...)
     return self
 end
 
--- Not sure what to do about these...
--- drawingMT.imageAlignment = <function 12>,
--- drawingMT.imageAnimates = <function 13>,
--- drawingMT.imageFrame = <function 14>,
--- drawingMT.imageScaling = <function 15>,
--- drawingMT.rotateImage = <function 18>,
+drawingMT.imageAlignment = function(self, ...)
+    local args = table.pack(...)
+    if ({ image = 1 })[self.canvas[#self.canvas].type] then
+        if args.n == 0 then
+            return self.canvas[#self.canvas].imageAlignment
+        elseif args.n == 1 then
+            self.canvas[#self.canvas].imageAlignment = args[1]
+        else
+            error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
+        end
+    else
+        error(string.format("%s:imageAlignment() called on an hs.drawing object that isn't an image object", USERDATA_TAG), 2)
+    end
+    return self
+end
 
-drawingMT.alpha                   = function(self, ...) return self.canvas:alpha(...) end
+drawingMT.imageAnimates = function(self, ...)
+    local args = table.pack(...)
+    if ({ image = 1 })[self.canvas[#self.canvas].type] then
+        if args.n == 0 then
+            return self.canvas[#self.canvas].imageAnimates
+        elseif args.n == 1 then
+            self.canvas[#self.canvas].imageAnimates = args[1]
+        else
+            error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
+        end
+    else
+        error(string.format("%s:imageAnimates() called on an hs.drawing object that isn't an image object", USERDATA_TAG), 2)
+    end
+    return self
+end
+
+drawingMT.imageFrame = function(self, ...)
+    local args = table.pack(...)
+    if ({ image = 1 })[self.canvas[#self.canvas].type] then
+        if args.n == 0 then
+            return self._imageFrame or "none"
+        elseif args.n == 1 then
+            local style = args[1]
+            if ({ none = 1, photo = 1, bezel = 1, groove = 1, button = 1 })[style] then
+                local frameStart = (self.canvas[1].action == "clip") and 2 or 1
+                local frameEnd   = #self.canvas - 1
+                while frameEnd >= frameStart do
+                    self.canvas:removeElement(frameEnd)
+                    frameEnd = frameEnd - 1
+                end
+                self._imageFrame = nil
+                local padding = 0
+
+                local blackColor = module.color.colorsFor("System").controlDarkShadowColor
+                local darkColor  = module.color.colorsFor("System").controlShadowColor
+                local whiteColor = module.color.colorsFor("System").controlHighlightColor
+                local size = self.canvas:size()
+
+                if     style == "photo" then
+                    self.canvas:insertElement({
+                        type = "rectangle",
+                        action = "fill",
+                        fillColor = whiteColor,
+                    }, frameStart)
+                    self.canvas:insertElement({
+                        type = "segments",
+                        action = "stroke",
+                        strokeWidth = 2,
+                        closed = false,
+                        strokeColor = blackColor,
+                        coordinates = {
+                            { x = 0, y = size.h - 1 },
+                            { x = 0, y = 0 },
+                            { x = size.w - 1, y = 0 }
+                        }
+                    }, frameStart + 1)
+                    self.canvas:insertElement({
+                        type = "segments",
+                        action = "stroke",
+                        strokeWidth = 2,
+                        closed = false,
+                        strokeColor = darkColor,
+                        coordinates = {
+                            { x = size.w, y = 2 },
+                            { x = size.w, y = size.h },
+                            { x = 2, y = size.h }
+                        }
+                    }, frameStart + 2)
+                    self.canvas:insertElement({
+                        type = "segments",
+                        action = "stroke",
+                        strokeWidth = 2,
+                        closed = false,
+                        strokeColor = darkColor,
+                        coordinates = {
+                            { x = size.w - 1, y = 1 },
+                            { x = size.w - 1, y = size.h - 1 },
+                            { x = 1, y = size.h - 1 }
+                        }
+                    }, frameStart + 3)
+                    self._imageFrame = "photo"
+                    padding = 2
+                elseif style == "bezel" then
+                    self.canvas:insertElement({
+                        type = "rectangle",
+                        strokeColor = whiteColor,
+                        strokeWidth = 4,
+                        action = "stroke",
+                        roundedRectRadii = {
+                            xRadius = 9,
+                            yRadius = 9,
+                        }
+                    }, frameStart)
+                    self._imageFrame = "bezel"
+                    padding = 7
+                elseif style == "groove" then
+                    self.canvas:insertElement({
+                        type = "rectangle",
+                        action = "fill",
+                        fillColor = darkColor,
+                    }, frameStart)
+                    self.canvas:insertElement({
+                        type = "rectangle",
+                        action = "stroke",
+                        strokeColor = whiteColor,
+                        strokeWidth = 1,
+                        padding = 1,
+                        antialias = false,
+                    }, frameStart + 1)
+                    self._imageFrame = "groove"
+                    padding = 3
+                elseif style == "button" then
+                    self.canvas:insertElement({
+                        type = "rectangle",
+                        action = "fill",
+                        fillColor = darkColor,
+                    }, frameStart)
+                    self.canvas:insertElement({
+                        type = "segments",
+                        action = "stroke",
+                        strokeWidth = 2,
+                        closed = false,
+                        strokeColor = whiteColor,
+                        coordinates = {
+                            { x = 0, y = size.h },
+                            { x = 0, y = 0 },
+                            { x = size.w - 1, y = 0 }
+                        }
+                    }, frameStart + 1)
+                    self.canvas:insertElement({
+                        type = "segments",
+                        action = "stroke",
+                        strokeWidth = 2,
+                        closed = false,
+                        strokeColor = blackColor,
+                        coordinates = {
+                            { x = size.w, y = 0 },
+                            { x = size.w, y = size.h },
+                            { x = 1, y = size.h }
+                        }
+                    }, frameStart + 2)
+                    self._imageFrame = "button"
+                    padding = 2
+                end
+
+                self.canvas[#self.canvas].padding = padding
+            else
+                error(string.format("%s:frameStyle unrecognized frame specified", USERDATA_TAG), 2)
+            end
+        else
+            error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
+        end
+    else
+        error(string.format("%s:imageFrame() called on an hs.drawing object that isn't an image object", USERDATA_TAG), 2)
+    end
+    return self
+end
+
+drawingMT.imageScaling = function(self, ...)
+    local args = table.pack(...)
+    if ({ image = 1 })[self.canvas[#self.canvas].type] then
+        if args.n == 0 then
+            return self.canvas[#self.canvas].imageScaling
+        elseif args.n == 1 then
+            self.canvas[#self.canvas].imageScaling = args[1]
+        else
+            error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
+        end
+    else
+        error(string.format("%s:imageScaling() called on an hs.drawing object that isn't an image object", USERDATA_TAG), 2)
+    end
+    return self
+end
+
+drawingMT.rotateImage = function(self, ...)
+    local args = table.pack(...)
+    if ({ image = 1 })[self.canvas[#self.canvas].type] then
+        if args.n == 1 then
+            local size = self.canvas:size()
+            self.canvas:transformation(canvas.matrix:translate(size.w / 2, size.h / 2)
+                                                    :rotate(args[1])
+                                                    :translate(size.w / -2, size.h / -2))
+        else
+            error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
+        end
+    else
+        error(string.format("%s:rotateImage() called on an hs.drawing object that isn't an image object", USERDATA_TAG), 2)
+    end
+    return self
+end
+
+drawingMT.orderAbove = function(self, other)
+    self.canvas:orderAbove(other and other.canvas or nil)
+    return self
+end
+
+drawingMT.orderBelow = function(self, other)
+    self.canvas:orderBelow(other and other.canvas or nil)
+    return self
+end
+
+drawingMT.alpha                   = function(self, ...) return self.canvas:alpha() end
 drawingMT.setAlpha                = function(self, ...) self.canvas:alpha(...) ; return self end
-drawingMT.behavior                = function(self, ...) return self.canvas:behavior(...) end
+drawingMT.behavior                = function(self, ...) return self.canvas:behavior() end
 drawingMT.setBehavior             = function(self, ...) self.canvas:behavior(...) ; return self end
-drawingMT.behaviorAsLabels        = function(self, ...) return self.canvas:setBehaviorByLabels(...) end
-drawingMT.setBehaviorByLabels     = function(self, ...) self.canvas:setBehaviorByLabels(...) ; return self end
+drawingMT.behaviorAsLabels        = function(self, ...) return self.canvas:behaviorAsLabels() end
+drawingMT.setBehaviorByLabels     = function(self, ...) self.canvas:behaviorAsLabels(...) ; return self end
 drawingMT.bringToFront            = function(self, ...) self.canvas:bringToFront(...) ; return self end
 drawingMT.clickCallbackActivating = function(self, ...) self.canvas:clickActivating(...) ; return self end
-drawingMT.frame                   = function(self, ...) return self.canvas:frame(...) end
+drawingMT.frame                   = function(self, ...) return self.canvas:frame() end
 drawingMT.setFrame                = function(self, ...) self.canvas:frame(...) ; return self end
 drawingMT.hide                    = function(self, ...) self.canvas:hide(...) ; return self end
-drawingMT.orderAbove              = function(self, ...) self.canvas:orderAbove(...) ; return self end
-drawingMT.orderBelow              = function(self, ...) self.canvas:orderBelow(...) ; return self end
 drawingMT.sendToBack              = function(self, ...) self.canvas:sendToBack(...) ; return self end
 drawingMT.setLevel                = function(self, ...) self.canvas:level(...) ; return self end
 drawingMT.setSize                 = function(self, ...) self.canvas:size(...) ; return self end
@@ -453,15 +737,15 @@ drawingMT.setTopLeft              = function(self, ...) self.canvas:topLeft(...)
 drawingMT.show                    = function(self, ...) self.canvas:show(...) ; return self end
 drawingMT.wantsLayer              = function(self, ...) self.canvas:wantsLayer(...) ; return self end
 
+drawingMT.__index    = drawingMT
+drawingMT.__type     = USERDATA_TAG
+drawingMT.__tostring = function(_)
+    return USERDATA_TAG .. ": " .. _.canvas[#_.canvas].type
+end
+
 -- assign to the registry in case we ever need to access the metatable from the C side
 
-debug.getregistry()[USERDATA_TAG] = {
-    __type  = USERDATA_TAG,
-    __index = drawingMT,
-    __tostring = function(_)
-        return USERDATA_TAG .. ": " .. _.canvas[1].type .. tostring(_)
-    end,
-}
+debug.getregistry()[USERDATA_TAG] = drawingMT
 
 -- Return Module Object --------------------------------------------------
 

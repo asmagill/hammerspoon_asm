@@ -334,7 +334,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"luaClass"    : @"string",
             @"values"      : [IMAGESCALING_TYPES allKeys],
             @"nullable"    : @(YES),
-            @"default"     : @"scalePropertionally",
+            @"default"     : @"scaleProportionally",
             @"optionalFor" : @[ @"image" ],
         },
         @"miterLimit" : @{
@@ -780,12 +780,16 @@ static int canvas_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
     NSInteger       relativeTo = 0 ;
 
     if (lua_gettop(L) > 1) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                        LS_TUSERDATA, USERDATA_TAG,
-                        LS_TBREAK] ;
-        ASMCanvasView   *otherView   = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
-        ASMCanvasWindow *otherWindow = otherView.wrapperWindow ;
-        relativeTo = [otherWindow windowNumber] ;
+        if (lua_type(L, 2) == LUA_TNIL) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNIL, LS_TBREAK] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                            LS_TUSERDATA, USERDATA_TAG,
+                            LS_TBREAK] ;
+            ASMCanvasView   *otherView   = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
+            ASMCanvasWindow *otherWindow = otherView.wrapperWindow ;
+            relativeTo = [otherWindow windowNumber] ;
+        }
     }
 
     [canvasWindow orderWindow:mode relativeTo:relativeTo] ;
@@ -845,7 +849,17 @@ static int userdata_gc(lua_State* L) ;
     [self setAlphaValue:0.0];
     [self makeKeyAndOrderFront:nil];
     [NSAnimationContext beginGrouping];
+// #if __has_feature(objc_arc)
+//       __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
+// #else
+//       __block ASMCanvasWindow *bself = self;
+// #endif
       [[NSAnimationContext currentContext] setDuration:fadeTime];
+//       [[NSAnimationContext currentContext] setCompletionHandler:^{
+//           // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
+//           ASMCanvasWindow *mySelf = bself ;
+//           if (mySelf) [mySelf orderWindow:NSWindowAbove relativeTo:0] ;
+//       }];
       [[self animator] setAlphaValue:1.0];
     [NSAnimationContext endGrouping];
 }
@@ -927,7 +941,7 @@ static int userdata_gc(lua_State* L) ;
 }
 
 - (void)mouseMoved:(NSEvent *)theEvent {
-    BOOL canvasMouseEvents = _canvasMouseDown || _canvasMouseUp || _canvasMouseEnterExit || _canvasMouseMove ;
+    BOOL canvasMouseEvents = _canvasMouseEnterExit || _canvasMouseMove ;
 
     if ((_mouseCallbackRef != LUA_NOREF) && (_mouseTracking || canvasMouseEvents)) {
         NSPoint event_location = theEvent.locationInWindow;
@@ -1015,7 +1029,9 @@ static int userdata_gc(lua_State* L) ;
 }
 
 - (void)mouseExited:(NSEvent *)theEvent {
-    if (_mouseCallbackRef != LUA_NOREF) {
+    BOOL canvasMouseEvents = _canvasMouseEnterExit || _canvasMouseMove ;
+
+    if ((_mouseCallbackRef != LUA_NOREF) && (_mouseTracking || canvasMouseEvents)) {
         NSPoint event_location = theEvent.locationInWindow;
         NSPoint local_point = [self convertPoint:event_location fromView:nil];
         if (_previousTrackedIndex != NSNotFound) {
@@ -1121,12 +1137,15 @@ static int userdata_gc(lua_State* L) ;
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 
 - (NSBezierPath *)pathForElementAtIndex:(NSUInteger)idx {
+    NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+    NSRect frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                  [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+    return [self pathForElementAtIndex:idx withFrame:frameRect] ;
+}
+
+- (NSBezierPath *)pathForElementAtIndex:(NSUInteger)idx withFrame:(NSRect)frameRect {
     NSBezierPath *elementPath = nil ;
     NSString     *elementType = [self getElementValueFor:@"type" atIndex:idx] ;
-
-    NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-    NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                   [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
 #pragma mark - ARC
     if ([elementType isEqualToString:@"arc"]) {
@@ -1307,15 +1326,15 @@ static int userdata_gc(lua_State* L) ;
             NSAffineTransform *elementTransform = [self getElementValueFor:@"transformation" atIndex:idx] ;
             if (elementTransform) [elementTransform concat] ;
 
-            elementPath = [self pathForElementAtIndex:idx] ;
+            NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
+            NSRect frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
+                                          [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
+
+            elementPath = [self pathForElementAtIndex:idx withFrame:frameRect] ;
 
             // First, if it's not a path, make sure it's not an element which doesn't have a path...
 
             if (!elementPath) {
-                NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
-                NSRect  frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
-                                               [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
-
     #pragma mark - IMAGE
                 if ([elementType isEqualToString:@"image"]) {
                     NSImage *theImage = self->_elementList[idx][@"image"] ;
@@ -1726,6 +1745,8 @@ static int userdata_gc(lua_State* L) ;
     return foundObject ;
 }
 
+// FIXME: setting or nilling an image needs to clear and/or reset animation if imageAnimates is true
+
 - (attributeValidity)setElementValueFor:(NSString *)keyName atIndex:(NSUInteger)index to:(id)keyValue {
     if (index > [_elementList count]) return attributeInvalid ;
     keyValue = [self massageKeyValue:keyValue forKey:keyName] ;
@@ -1861,19 +1882,35 @@ static int userdata_gc(lua_State* L) ;
                     }
                 }
             } else if ([keyName isEqualToString:@"imageAnimates"]) {
-                NSImage *theImage = _elementList[index][@"image"] ;
-                if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                NSImage *currentImage = _elementList[index][@"image"] ;
+                if (currentImage && [currentImage isKindOfClass:[NSImage class]]) {
                     BOOL shouldAnimate = [keyValue boolValue] ;
+                    ASMGifAnimator *animator = [_imageAnimations objectForKey:currentImage] ;
                     if (shouldAnimate) {
-                        if (![_imageAnimations objectForKey:theImage]) {
-                            ASMGifAnimator *animator = [[ASMGifAnimator alloc] initWithImage:theImage forCanvas:self] ;
-                            if (animator) [_imageAnimations setObject:animator forKey:theImage] ;
+                        if (!animator) {
+                            animator = [[ASMGifAnimator alloc] initWithImage:currentImage forCanvas:self] ;
+                            if (animator) [_imageAnimations setObject:animator forKey:currentImage] ;
                         }
-                        if ([_imageAnimations objectForKey:theImage])
-                            [[_imageAnimations objectForKey:theImage] startAnimating] ;
+                        if (animator) [animator startAnimating] ;
                     } else {
-                        if ([_imageAnimations objectForKey:theImage])
-                            [[_imageAnimations objectForKey:theImage] stopAnimating] ;
+                        if (animator) [animator stopAnimating] ;
+                    }
+                }
+            } else if ([keyName isEqualToString:@"image"]) {
+                NSImage *currentImage = _elementList[index][@"image"] ;
+                if (currentImage && [currentImage isKindOfClass:[NSImage class]]) {
+                    ASMGifAnimator *animator = [_imageAnimations objectForKey:currentImage] ;
+                    if (animator) {
+                        [animator stopAnimating] ;
+                        [_imageAnimations removeObjectForKey:currentImage] ;
+                    }
+                }
+                BOOL shouldAnimate = [[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue] ;
+                if (shouldAnimate) {
+                    ASMGifAnimator *animator = [[ASMGifAnimator alloc] initWithImage:keyValue forCanvas:self] ;
+                    if (animator) {
+                        [_imageAnimations setObject:animator forKey:currentImage] ;
+                        [animator startAnimating] ;
                     }
                 }
             }
@@ -1919,19 +1956,27 @@ static int userdata_gc(lua_State* L) ;
                     }
                 }
             } else if ([keyName isEqualToString:@"imageAnimates"]) {
-                NSImage *theImage = _elementList[index][@"image"] ;
-                if (theImage && [theImage isKindOfClass:[NSImage class]]) {
+                NSImage *currentImage = _elementList[index][@"image"] ;
+                if (currentImage && [currentImage isKindOfClass:[NSImage class]]) {
                     BOOL shouldAnimate = [[self getDefaultValueFor:@"imageAnimates" onlyIfSet:NO] boolValue] ;
+                    ASMGifAnimator *animator = [_imageAnimations objectForKey:currentImage] ;
                     if (shouldAnimate) {
-                        if (![_imageAnimations objectForKey:theImage]) {
-                            ASMGifAnimator *animator = [[ASMGifAnimator alloc] initWithImage:theImage forCanvas:self] ;
-                            if (animator) [_imageAnimations setObject:animator forKey:theImage] ;
+                        if (!animator) {
+                            animator = [[ASMGifAnimator alloc] initWithImage:currentImage forCanvas:self] ;
+                            if (animator) [_imageAnimations setObject:animator forKey:currentImage] ;
                         }
-                        if ([_imageAnimations objectForKey:theImage])
-                            [[_imageAnimations objectForKey:theImage] startAnimating] ;
+                        if (animator) [animator startAnimating] ;
                     } else {
-                        if ([_imageAnimations objectForKey:theImage])
-                            [[_imageAnimations objectForKey:theImage] stopAnimating] ;
+                        if (animator) [animator stopAnimating] ;
+                    }
+                }
+            } else if ([keyName isEqualToString:@"image"]) {
+                NSImage *currentImage = _elementList[index][@"image"] ;
+                if (currentImage && [currentImage isKindOfClass:[NSImage class]]) {
+                    ASMGifAnimator *animator = [_imageAnimations objectForKey:currentImage] ;
+                    if (animator) {
+                        [animator stopAnimating] ;
+                        [_imageAnimations removeObjectForKey:currentImage] ;
                     }
                 }
             }
@@ -2222,6 +2267,7 @@ static int canvas_show(lua_State *L) {
     if ([canvasView.wrapperWindow isEqualTo:canvasView.window]) {
         if (lua_gettop(L) == 1) {
             [canvasWindow makeKeyAndOrderFront:nil];
+//             [canvasWindow orderWindow:NSWindowAbove relativeTo:0] ;
         } else {
             [canvasWindow fadeIn:lua_tonumber(L, 2)];
         }
@@ -2385,13 +2431,13 @@ static int canvas_canvasMouseEvents(lua_State *L) {
             canvasView.canvasMouseDown = (BOOL)lua_toboolean(L, 2) ;
         }
         if (lua_type(L, 3) == LUA_TBOOLEAN) {
-            canvasView.canvasMouseUp = (BOOL)lua_toboolean(L, 2) ;
+            canvasView.canvasMouseUp = (BOOL)lua_toboolean(L, 3) ;
         }
         if (lua_type(L, 4) == LUA_TBOOLEAN) {
-            canvasView.canvasMouseEnterExit = (BOOL)lua_toboolean(L, 2) ;
+            canvasView.canvasMouseEnterExit = (BOOL)lua_toboolean(L, 4) ;
         }
         if (lua_type(L, 5) == LUA_TBOOLEAN) {
-            canvasView.canvasMouseMove = (BOOL)lua_toboolean(L, 2) ;
+            canvasView.canvasMouseMove = (BOOL)lua_toboolean(L, 5) ;
         }
 
         lua_pushvalue(L, 1) ;
@@ -2563,13 +2609,15 @@ static int canvas_alpha(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+//     ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
 
     if (lua_gettop(L) == 1) {
-        lua_pushnumber(L, canvasWindow.alphaValue) ;
+//         lua_pushnumber(L, canvasWindow.alphaValue) ;
+        lua_pushnumber(L, canvasView.alphaValue) ;
     } else {
         CGFloat newLevel = luaL_checknumber(L, 2);
-        canvasWindow.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
+//         canvasWindow.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
+        canvasView.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
         lua_pushvalue(L, 1);
     }
 

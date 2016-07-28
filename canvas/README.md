@@ -7,8 +7,6 @@ A different approach to drawing in Hammerspoon
 
 This module works by designating a canvas and then assigning a series of graphical primitives to the canvas.  Included in this assignment list are rules about how the individual elements interact with each other within the canvas (compositing and clipping rules), and direct modification of the canvas itself (move, resize, etc.) causes all of the assigned elements to be adjusted as a group.
 
-This is an experimental work in progress, so we'll see how it goes...
-
 ### Overview
 
 The canvas elements are defined in an array, and each entry of the array is a table of key-value pairs describing the element at that position.  Elements are rendered in the order in which they are assigned to the array (i.e. element 1 is drawn before element 2, etc.).
@@ -17,6 +15,8 @@ Attributes for canvas elements are defined in [hs._asm.canvas.attributes](#attri
 
 Matrix operations which can be assigned to element `transformation` attributes can be found in the [MATRIX.md](MATRIX.md) file.
 Examples of this module in use can found in the [EXAMPLES.md](EXAMPLES.md) file.
+
+A wrapper for replacing the built-in `hs.drawing` with this module can be found in [hs._asm.canvas.drawing](drawing.lua).  This file is not loaded by default when `hs._asm.canvas` is loaded (i.e. `require("hs._asm.canvas")`), but instructions for using it can be found at the top of the file, should you wish to try it out.  It is still very experimental, but should function, with some known caveats described in the comments at the top of the file, with no changes required to your existing code.
 
 ### Installation
 
@@ -27,7 +27,7 @@ $ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
 $ tar -xzf ~/Downloads/canvas-v0.x.tar.gz # or wherever your downloads are located
 ~~~
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `internal.m`, `matrix.lua`, `matrix_internal.m`, `ASMCanvas.h`, `imageAdditions.m` and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `internal.m`, `matrix.lua`, `matrix_internal.m`, `ASMCanvas.h`, `imageAdditions.m` and `Makefile` (nothing else is required, though if you wish to try out the `hs.drawing` wrapper, include `drawing.lua` as well) into a directory of your choice and then do the following:
 
 ~~~sh
 $ cd wherever-you-downloaded-the-files
