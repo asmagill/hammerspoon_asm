@@ -46,7 +46,6 @@
 #define PRIMITIVES @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"points", @"rectangle", @"segments" ]
 #define CLOSED     @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"rectangle", @"segments" ]
 
-
 #define STROKE_JOIN_STYLES @{ \
     @"miter" : @(NSMiterLineJoinStyle), \
     @"round" : @(NSBevelLineJoinStyle), \

@@ -83,6 +83,14 @@ static NSDictionary *defineLanguageDictionary() {
             @"default"     : [NSNull null],
             @"requiredFor" : @[ @"canvas" ],
         },
+        @"clipToPath" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"boolean",
+            @"objCType"    : @(@encode(BOOL)),
+            @"nullable"    : @(YES),
+            @"default"     : @(NO),
+            @"optionalFor" : CLOSED,
+        },
         @"compositeRule" : @{
             @"class"       : @[ [NSString class] ],
             @"luaClass"    : @"string",
@@ -1330,6 +1338,9 @@ static int userdata_gc(lua_State* L) ;
             NSRect frameRect = NSMakeRect([frame[@"x"] doubleValue], [frame[@"y"] doubleValue],
                                           [frame[@"w"] doubleValue], [frame[@"h"] doubleValue]) ;
 
+//             // Converts the corners of a specified rectangle to lie on the center of device pixels, which is useful in compensating for rendering overscanning when the coordinate system has been scaled.
+//             frameRect = [self centerScanRect:frameRect] ;
+
             elementPath = [self pathForElementAtIndex:idx withFrame:frameRect] ;
 
             // First, if it's not a path, make sure it's not an element which doesn't have a path...
@@ -1413,6 +1424,7 @@ static int userdata_gc(lua_State* L) ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:drawRect - unrecognized type %@ at index %lu", USERDATA_TAG, elementType, idx + 1]] ;
+                    elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 }
             }
             // Now, if it's still not a path, we don't render it.  But if it is...
@@ -1452,6 +1464,13 @@ static int userdata_gc(lua_State* L) ;
                     renderPath = nil ;
 
                 } else if ([action isEqualToString:@"fill"] || [action isEqualToString:@"stroke"] || [action isEqualToString:@"strokeAndFill"]) {
+
+                    BOOL clipToPath = [[self getElementValueFor:@"clipToPath" atIndex:idx] boolValue] ;
+                    if ([CLOSED containsObject:elementType] && clipToPath) {
+                        [gc saveGraphicsState] ;
+                        [renderPath addClip] ;
+                    }
+
                     if (![elementType isEqualToString:@"points"] && ([action isEqualToString:@"fill"] || [action isEqualToString:@"strokeAndFill"])) {
                         NSString     *fillGradient   = [self getElementValueFor:@"fillGradient" atIndex:idx] ;
                         if (![fillGradient isEqualToString:@"none"] && ![renderPath isEmpty]) {
@@ -1496,6 +1515,11 @@ static int userdata_gc(lua_State* L) ;
 
                         [renderPath stroke] ;
                     }
+
+                    if ([CLOSED containsObject:elementType] && clipToPath) {
+                        [gc restoreGraphicsState] ;
+                    }
+
                     if ([[self getElementValueFor:@"trackMouseByBounds" atIndex:idx] boolValue]) {
                         NSRect objectBounds = NSZeroRect ;
                         if (![renderPath isEmpty]) objectBounds = [renderPath bounds] ;

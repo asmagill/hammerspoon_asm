@@ -3,8 +3,8 @@
 --- An experimental wrapper, still in very early stages, to replace `hs.drawing` with `hs._asm.canvas`.
 ---
 --- Known issues or differences that probably will be fixed:
----  * rounded rects don't seem as smooth... still looking into why
----  * baseline for text is lower than in the NSTextView used in hs.drawing
+---  * ~~rounded rects don't seem as smooth... still looking into why~~, fixed.
+---  * ~~baseline for text is lower than in the NSTextView used in hs.drawing~~, worked around, but not completely happy with solution.
 ---  * in `hs.drawing`, some images with callbacks appear to be displayed as if their NSImageCell is not enabled (i.e. dimmer), while others don't suffer from this.  This replacement module doesn't suffer from the problem, but I would still like to know why the difference in `hs.drawing`, since some of my alpha choices unknownling took this into account.
 ---
 --- Known issues or differences that probably will *not* be fixed:
@@ -37,14 +37,18 @@
 --- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
 
 local USERDATA_TAG = "hs._asm.canvas.drawing"
-local canvas       = require("hs._asm.canvas")
+local canvas       = require"hs._asm.canvas"
+local styledtext   = require"hs.styledtext"
 local drawingMT    = {}
 
-local styledtext   = require("hs.styledtext")
 
 local module = {}
 
 -- private variables and methods -----------------------------------------
+
+-- hs.drawing puts text into an NSTextField, which has an offset I haven't been able to formally identify.
+--    this is an approximation for the wrapper that seems to work, more or less.
+local textFrameOffsetForY = 4
 
 -- Public interface ------------------------------------------------------
 
@@ -54,13 +58,12 @@ module._image = function(frame, imageObject)
     local drawingObject = {
         canvas = canvas.new(frame),
     }
+    drawingObject.canvas._default.clipToPath = true
+
     drawingObject.canvas[1] = {
-        type             = "image",
-        padding          = 0,
-        absolutePosition = false,
-        absoluteSize     = false,
-        image            = imageObject,
-        imageAnimates    = true,
+        type          = "image",
+        image         = imageObject,
+        imageAnimates = true,
     }
     return setmetatable(drawingObject, drawingMT)
 end
@@ -90,10 +93,9 @@ module.circle = function(frame)
         canvas = canvas.new(frame),
     }
     drawingObject.canvas[1] = {
-        type               = "oval",
-        padding            = 0,
-        absolutePosition   = false,
-        absoluteSize       = false,
+        type        = "oval",
+        clipToPath  = true,
+        strokeWidth = 2,
     }
     return setmetatable(drawingObject, drawingMT)
 end
@@ -103,12 +105,11 @@ module.ellipticalArc = function(frame, startAngle, endAngle)
         canvas = canvas.new(frame),
     }
     drawingObject.canvas[1] = {
-        type             = "ellipticalArc",
-        padding          = 0,
-        absolutePosition = false,
-        absoluteSize     = false,
-        startAngle       = startAngle,
-        endAngle         = endAngle,
+        type        = "ellipticalArc",
+        startAngle  = startAngle,
+        endAngle    = endAngle,
+        clipToPath  = true,
+        strokeWidth = 2,
     }
     return setmetatable(drawingObject, drawingMT)
 end
@@ -144,7 +145,6 @@ module.line = function(originPoint, endingPoint)
     }
     drawingObject.canvas[1] = {
         type             = "segments",
-        padding          = 0,
         absolutePosition = false,
         absoluteSize     = false,
         coordinates      = { originPoint, endingPoint },
@@ -158,10 +158,8 @@ module.rectangle = function(frame)
         canvas = canvas.new(frame),
     }
     drawingObject.canvas[1] = {
-        type             = "rectangle",
-        padding          = 0,
-        absolutePosition = false,
-        absoluteSize     = false,
+        type       = "rectangle",
+        clipToPath = true,
     }
     return setmetatable(drawingObject, drawingMT)
 end
@@ -176,9 +174,17 @@ module.text = function(frame, message)
     local drawingObject = {
         canvas = canvas.new(frame),
     }
+
+    if type(message) == "string" then
+        frame.x =  0
+        frame.y = -1 * textFrameOffsetForY
+        frame.h = (frame.h or 0) + textFrameOffsetForY -- match the y offset to fully fill the visible area
+    else
+        frame.x, frame.y = 0, 0
+    end
     drawingObject.canvas[1] = {
         type             = "text",
-        padding          = 0,
+        frame            = frame,
         absolutePosition = false,
         absoluteSize     = false,
         text             = message,
@@ -274,6 +280,7 @@ drawingMT.setStyledText = function(self, ...)
             })
         end
         self.canvas[#self.canvas].text = text
+        self.canvas[#self.canvas].frame.y = 0
     else
         error(string.format("calling 'getStyledText' on bad self (not an %s.text() object)", USERDATA_TAG), 2)
     end
@@ -430,8 +437,10 @@ end
 
 drawingMT.setStrokeWidth = function(self, ...)
     local args = table.pack(...)
-    if ({ rectangle = 1, oval = 1, ellipticalArc = 1, segments = 1 })[self.canvas[#self.canvas].type] then
+    if ({ rectangle = 1, segments = 1 })[self.canvas[#self.canvas].type] then
         self.canvas[#self.canvas].strokeWidth = args[1]
+    elseif ({ oval = 1, ellipticalArc = 1 })[self.canvas[#self.canvas].type] then
+        self.canvas[#self.canvas].strokeWidth = args[1] * 2
     else
         error(string.format("%s:setStrokeWidth() can only be called on %s.rectangle(), %s.circle(), %s.line() or %s.arc() objects, not: %s", USERDATA_TAG, USERDATA_TAG, USERDATA_TAG, USERDATA_TAG, USERDATA_TAG, self.canvas[#self.canvas].type), 2)
     end
@@ -442,6 +451,7 @@ drawingMT.setText = function(self, ...)
     local args = table.pack(...)
     if ({ text = 1 })[self.canvas[#self.canvas].type] then
         self.canvas[#self.canvas].text = tostring(args[1])
+        self.canvas[#self.canvas].frame.y = -1 * textFrameOffsetForY
     else
         hs.luaSkinLog.ef("%s:setText() can only be called on %s.text() objects, not: %s", USERDATA_TAG, USERDATA_TAG, self.canvas[#self.canvas].type)
     end
@@ -610,8 +620,8 @@ drawingMT.imageFrame = function(self, ...)
                         strokeWidth = 4,
                         action = "stroke",
                         roundedRectRadii = {
-                            xRadius = 9,
-                            yRadius = 9,
+                            xRadius = 5,
+                            yRadius = 5,
                         }
                     }, frameStart)
                     self._imageFrame = "bezel"
@@ -626,9 +636,8 @@ drawingMT.imageFrame = function(self, ...)
                         type = "rectangle",
                         action = "stroke",
                         strokeColor = whiteColor,
-                        strokeWidth = 1,
+                        strokeWidth = 2,
                         padding = 1,
-                        antialias = false,
                     }, frameStart + 1)
                     self._imageFrame = "groove"
                     padding = 3
@@ -722,6 +731,20 @@ drawingMT.orderBelow = function(self, other)
     return self
 end
 
+drawingMT.setSize = function(self, ...)
+    self.canvas:size(...)
+    if self.canvas[#self.canvas].type == "text" and type(self.canvas[#self.canvas].text) == "string" then
+        self.canvas[#self.canvas].frame.y = -1 * textFrameOffsetForY
+    end
+    return self
+end
+
+drawingMT.setFrame = function(self, ...)
+    drawingMT.setSize(self, ...)
+    drawingMT.setTopLeft(self, ...)
+    return self
+end
+
 drawingMT.alpha                   = function(self, ...) return self.canvas:alpha() end
 drawingMT.setAlpha                = function(self, ...) self.canvas:alpha(...) ; return self end
 drawingMT.behavior                = function(self, ...) return self.canvas:behavior() end
@@ -731,11 +754,9 @@ drawingMT.setBehaviorByLabels     = function(self, ...) self.canvas:behaviorAsLa
 drawingMT.bringToFront            = function(self, ...) self.canvas:bringToFront(...) ; return self end
 drawingMT.clickCallbackActivating = function(self, ...) self.canvas:clickActivating(...) ; return self end
 drawingMT.frame                   = function(self, ...) return self.canvas:frame() end
-drawingMT.setFrame                = function(self, ...) self.canvas:frame(...) ; return self end
 drawingMT.hide                    = function(self, ...) self.canvas:hide(...) ; return self end
 drawingMT.sendToBack              = function(self, ...) self.canvas:sendToBack(...) ; return self end
 drawingMT.setLevel                = function(self, ...) self.canvas:level(...) ; return self end
-drawingMT.setSize                 = function(self, ...) self.canvas:size(...) ; return self end
 drawingMT.setTopLeft              = function(self, ...) self.canvas:topLeft(...) ; return self end
 drawingMT.show                    = function(self, ...) self.canvas:show(...) ; return self end
 drawingMT.wantsLayer              = function(self, ...) self.canvas:wantsLayer(...) ; return self end
