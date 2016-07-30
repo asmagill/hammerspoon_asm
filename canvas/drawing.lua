@@ -2,11 +2,17 @@
 ---
 --- An experimental wrapper, to replace `hs.drawing` with `hs._asm.canvas`.
 ---
---- Known issues/differences between this module and `hs.drawing`:
----  * images which are "template images" (i.e. some of the images with names in `hs.image.systemImageNames` and any image assigned/retrieved from an `hs.menubar` object) are displayed with an implicit `imageAlpha` of 0.5.  This closely mimics the NSImageView behavior observed with `hs.drawing`, but since Apple has not provided full details on how a template image is rendered when it is *not* used as a template, this is just a guess.
+--- ### Overview
 ---
+--- The intention is for this wrapper to provide all of the same functionality that `hs.drawing` does without requiring any additional changes to your currently existing code.
+---
+--- ### Known issues/differences between this module and `hs.drawing`:
+---
+---  * images which are "template images" (i.e. some of the images with names in `hs.image.systemImageNames` and any image retrieved from an `hs.menubar` object) are displayed with an implicit `imageAlpha` of 0.5.  This closely mimics the NSImageView behavior observed with `hs.drawing`, but since Apple has not provided full details on how a template image is rendered when it is *not* used as a template, this is just a guess.
+
 ---  * image frames from `hs.drawing` are approximated with additional canvas elements inserted into the canvas... the frames always looked semi-ugly to me, and since this module now allows you to create as complex a frame as you like... consider these as "examples", and poor ones at that.  Plus I'm not sure anyone used them anyways -- at the time I only really wanted rotation, the others (frame, alignment, and scaling) were just tacked on because they were available.
 ---
+--- ### Usage
 ---
 --- This submodule is not loaded as part of the `hs._asm.canvas` module and has to be loaded explicitly. You can test the use of this wrapper with your Hammerspoon configuration by adding the following to the ***top*** of `~/.hammerspoon/init.lua` -- this needs to be executed before any other code has a chance to load `hs.drawing` first.
 ---
@@ -27,12 +33,9 @@
 --- end
 --- ~~~
 ---
---- If you wish to load both for side-by-side comparisons, you can access the built in drawing module temporarily with:
----      drawing = dofile(hs.processInfo.resourcePath .. "/extensions/hs/drawing/init.lua")
----
---- The intention is for this wrapper to provide all of the same functionality that `hs.drawing` does without requiring any additional changes to your currently existing code.
----
---- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
+--- If you wish to load both for side-by-side comparisons, you can access the built in drawing module temporarily with: `drawing = dofile(hs.processInfo.resourcePath .. "/extensions/hs/drawing/init.lua")`
+
+To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
 
 local USERDATA_TAG = "hs._asm.canvas.drawing"
 local canvas       = require"hs._asm.canvas"
