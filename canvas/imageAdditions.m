@@ -144,7 +144,14 @@ static inline NSSize scaleProportionally(NSSize imageSize, NSSize canvasSize, BO
   NSString *scalingString = [self getElementValueFor:@"imageScaling" atIndex:idx onlyIfSet:NO] ;
   NSImageScaling scaling = [IMAGESCALING_TYPES[scalingString] unsignedIntValue] ;
 
-  NSNumber *alpha = [self getElementValueFor:@"imageAlpha" atIndex:idx] ;
+  NSNumber *alpha  ;
+  if ([theImage isTemplate]) {
+  // approximates NSCell's drawing of a template image since drawInRect bypasses Apple's template handling
+      alpha = [self getElementValueFor:@"imageAlpha" atIndex:idx onlyIfSet:YES] ;
+      if (!alpha) alpha = @(0.5) ;
+  } else {
+      alpha = [self getElementValueFor:@"imageAlpha" atIndex:idx] ;
+  }
 
   // draw actual image
   NSRect rect = [self realRectFor:theImage inFrame:cellFrame withScaling:scaling withAlignment:alignment] ;

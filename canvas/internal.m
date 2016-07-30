@@ -480,7 +480,7 @@ static NSDictionary *defineLanguageDictionary() {
             @"class"       : @[ [NSString class] ],
             @"luaClass"    : @"string",
             @"nullable"    : @(YES),
-            @"default"     : [[NSFont systemFontOfSize: 27] fontName],
+            @"default"     : [[NSFont systemFontOfSize:0] fontName],
             @"optionalFor" : @[ @"text" ],
         },
         @"textLineBreak" : @{
@@ -737,6 +737,14 @@ static attributeValidity isValueValidForDictionary(NSString *keyName, id keyValu
                     errorMessage = [NSString stringWithFormat:@"%@ must be an array of %@ values", keyName, attributeDefinition[@"memberLuaClass"]] ;
                     break ;
                 }
+            }
+        }
+
+        if ([keyName isEqualToString:@"textFont"]) {
+            NSFont *testFont = [NSFont fontWithName:keyValue size:0.0] ;
+            if (!testFont) {
+                errorMessage = [NSString stringWithFormat:@"%@ is not a recognized font name", keyValue] ;
+                break ;
             }
         }
     }
@@ -3512,7 +3520,7 @@ static id toASMCanvasViewFromLua(lua_State *L, int idx) {
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     ASMCanvasView *obj = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    NSString *title = NSStringFromRect(RectWithFlippedYCoordinate(obj.frame)) ;
+    NSString *title = NSStringFromRect(RectWithFlippedYCoordinate(obj.wrapperWindow.frame)) ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
     return 1 ;
 }
