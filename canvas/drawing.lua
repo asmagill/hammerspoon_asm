@@ -106,6 +106,7 @@ module.ellipticalArc = function(frame, startAngle, endAngle)
         startAngle  = startAngle,
         endAngle    = endAngle,
         clipToPath  = true,
+        arcRadii    = true,
         strokeWidth = 2,
     }
     return setmetatable(drawingObject, drawingMT)
@@ -212,19 +213,29 @@ module.windowLevels         = canvas.windowLevels
 
 drawingMT.clippingRectangle = function(self, ...)
     local args = table.pack(...)
+    local frame = { -- we need a copy, since we're going to modify it
+        x = args[1].x,
+        y = args[1].y,
+        w = args[1].w,
+        h = args[1].h,
+    }
     if args.n ~= 1 then
         error(string.format("ERROR: incorrect number of arguments. Expected 2, got %d", args.n), 2)
-    elseif type(args[1]) ~= "table" and type(args[1]) ~= "nil" then
+    elseif type(frame) ~= "table" and type(frame) ~= "nil" then
         error(string.format("ERROR: incorrect type '%s' for argument 2 (expected table)", type(args[1])), 2)
     else
-        if args[1] and self.canvas[1].action ~= "clip" then
-            self.canvas:insertElement({
-                type = "rectangle",
-                action = "clip",
-                frame = args[1]
-            }, 1)
-        elseif args[1] and self.canvas[1].action == "clip" then
-            self.canvas[1].frame = args[1]
+        if frame then
+            local parentFrame = self.canvas:frame()
+            frame.x, frame.y = frame.x - parentFrame.x, frame.y - parentFrame.y
+            if self.canvas[1].action ~= "clip" then
+                self.canvas:insertElement({
+                    type = "rectangle",
+                    action = "clip",
+                    frame = frame
+                }, 1)
+            elseif self.canvas[1].action == "clip" then
+                self.canvas[1].frame = frame
+            end
         elseif self.canvas[1].action == "clip" then
             self.canvas:removeElement(1)
         end
@@ -320,11 +331,17 @@ drawingMT.setFill = function(self, ...)
             elseif currentAction == "skip" then
                 self.canvas[#self.canvas].action = "fill"
             end
+            if self.canvas[#self.canvas].type == "ellipticalArc" then
+                self.canvas[#self.canvas].arcRadii = true
+            end
         else
             if currentAction == "strokeAndFill" then
                 self.canvas[#self.canvas].action = "stroke"
             elseif currentAction == "fill" then
                 self.canvas[#self.canvas].action = "skip"
+            end
+            if self.canvas[#self.canvas].type == "ellipticalArc" then
+                self.canvas[#self.canvas].arcRadii = false
             end
         end
     else
