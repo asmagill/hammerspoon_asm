@@ -16,7 +16,7 @@ Attributes for canvas elements are defined in [hs._asm.canvas.attributes](#attri
 Matrix operations which can be assigned to element `transformation` attributes can be found in the [MATRIX.md](MATRIX.md) file.
 Examples of this module in use can found in the [EXAMPLES.md](EXAMPLES.md) file.
 
-A wrapper for replacing the built-in `hs.drawing` with this module can be found in [hs._asm.canvas.drawing](drawing.lua).  This file is not loaded by default when `hs._asm.canvas` is loaded (i.e. `require("hs._asm.canvas")`), but instructions for using it can be found at the top of the file, should you wish to try it out.  It is still very experimental, but should function, with some known caveats described in the comments at the top of the file, with no changes required to your existing code.
+Documentation for a wrapper to replace the built-in `hs.drawing` with this module can be found in the [DRAWING.md](DRAWING.md) file, and the wrapper itself, if you wish to use it, can be found at [hs._asm.canvas.drawing](drawing.lua).  It is also included in the precompiled binary for this module.
 
 ### Installation
 
