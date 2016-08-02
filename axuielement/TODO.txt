@@ -1,0 +1,5 @@
+wastes memory -- by creating "selfRef" in luaRegistry, I think we're preventing Lua from GC when lua var goes out of scope
+
+Reason this was added was to allow for use of element userdata as key in table to detect duplicates.  better approach to add UUID at creation of object, then use method to get UUID and store this in lua table as key... UUID only created once, no matter how many times new userdata for same object is created.
+
+Have to think if this will work for CF type objects -- had thought while working on module using NSObjects... may still need to store in local CFDictionary, but at least keep out of lua registry.
