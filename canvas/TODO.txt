@@ -1,3 +1,26 @@
-+   text(??)/image(yes) mouseEvents for actual rendered area instead of frame?
+~   text(??)/image(yes) mouseEvents for actual rendered area instead of frame?
     text/image affect clipping region? would require converting text to glyphs... worth the trouble?
+
++   change `canvas` type to `view` type
+~   hs._asm.canvas.avplayer
+        can we gracefully handle fullscreen toggle, or should this be removed/made possible outside of canvas?
+        external URLs?
+
+    document how to write external type as NSView subclass, with AVPlayerView as example
+
++   check for methods - (void)willRemoveFromCanvas {}
++                     - (void)didRemoveFromCanvas {}
++                     - (void)willAddToCanvas {}
++                     - (void)didAddToCanvas {}
+
+    test callback/mousetracking in canvas containing canvas
+    canvas containing canvas containing canvas?
+
+    recheck methods for proper action when canvas is subview
+    document differences when canvas is a subview
+
++   removeElement, assingElement, __gc need to check for "removeFromSuperview" for elements
+
+    can we get rid of selfref?  I don't think so if we want to allow drawings to persist without lua objects.
+        can we tie it to something else?
 

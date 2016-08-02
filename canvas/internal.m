@@ -1,5 +1,7 @@
 #import "ASMCanvas.h"
 
+#define VIEW_DEBUG
+
 #define USERDATA_TAG "hs._asm.canvas"
 static int refTable = LUA_NOREF;
 
@@ -19,6 +21,19 @@ typedef NS_ENUM(NSInteger, attributeValidity) {
 #pragma mark - Support Functions and Classes
 
 static int cg_windowLevels(lua_State *L) ;
+
+static BOOL parentIsWindow(NSView *theView) {
+    BOOL isWindow = NO ;
+    NSWindow *owningWindow = theView.window ;
+    if (owningWindow && [owningWindow.contentView isEqualTo:theView]) isWindow = YES ;
+//     [LuaSkin logWarn:(isWindow ? @"parent is a window" : @"parent is a view")] ;
+    return isWindow ;
+}
+
+static void removeViewFromSuperview(NSView *theView) {
+    [theView removeFromSuperview] ;
+    if ([theView respondsToSelector:@selector(didRemoveFromCanvas)]) [theView performSelector:@selector(didRemoveFromCanvas)] ;
+}
 
 static NSDictionary *defineLanguageDictionary() {
     // the default shadow has no offset or blur radius, so lets setup one that is at least visible
@@ -75,13 +90,6 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"    : @(YES),
             @"default"     : @(YES),
             @"optionalFor" : @[ @"arc", @"ellipticalArc" ],
-        },
-        @"canvas" : @{
-            @"class"       : @[ [ASMCanvasView class] ],
-            @"luaClass"    : @"hs._asm.canvas object",
-            @"nullable"    : @(YES),
-            @"default"     : [NSNull null],
-            @"requiredFor" : @[ @"canvas" ],
         },
         @"clipToPath" : @{
             @"class"       : @[ [NSNumber class] ],
@@ -289,7 +297,7 @@ static NSDictionary *defineLanguageDictionary() {
                                    @"w" : @"100%",
                                },
             @"nullable"      : @(NO),
-            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image", @"canvas" ],
+            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image", @"view" ],
         },
         @"id" : @{
             @"class"       : @[ [NSString class], [NSNumber class] ],
@@ -552,6 +560,22 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"    : @(NO),
             @"requiredFor" : ALL_TYPES,
         },
+        @"view" : @{
+            @"class"       : @[ [NSView class] ],
+            @"luaClass"    : @"userdata object subclassing NSView",
+            @"nullable"    : @(YES),
+            @"default"     : [NSNull null],
+            @"requiredFor" : @[ @"view" ],
+        },
+        @"viewAlpha" : @{
+            @"class"       : @[ [NSNumber class] ],
+            @"luaClass"    : @"number",
+            @"nullable"    : @(YES),
+            @"default"     : @(1.0),
+            @"minNumber"   : @(0.0),
+            @"maxNumber"   : @(1.0),
+            @"optionalFor" : @[ @"view" ],
+        },
         @"windingRule" : @{
             @"class"       : @[ [NSString class] ],
             @"luaClass"    : @"string",
@@ -791,26 +815,31 @@ static int canvas_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
                     LS_TBREAK | LS_TVARARG] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    if (parentIsWindow(canvasView)) {
+        ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    NSInteger       relativeTo = 0 ;
+        NSInteger       relativeTo = 0 ;
 
-    if (lua_gettop(L) > 1) {
-        if (lua_type(L, 2) == LUA_TNIL) {
-            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNIL, LS_TBREAK] ;
-        } else {
-            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                            LS_TUSERDATA, USERDATA_TAG,
-                            LS_TBREAK] ;
-            ASMCanvasView   *otherView   = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
-            ASMCanvasWindow *otherWindow = otherView.wrapperWindow ;
-            relativeTo = [otherWindow windowNumber] ;
+        if (lua_gettop(L) > 1) {
+            if (lua_type(L, 2) == LUA_TNIL) {
+                [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNIL, LS_TBREAK] ;
+            } else {
+                [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                                LS_TUSERDATA, USERDATA_TAG,
+                                LS_TBREAK] ;
+                ASMCanvasView   *otherView   = [skin luaObjectAtIndex:2 toClass:"ASMCanvasView"] ;
+                ASMCanvasWindow *otherWindow = (ASMCanvasWindow *)otherView.window ;
+                if (otherWindow) relativeTo = [otherWindow windowNumber] ;
+            }
         }
+
+        if (canvasWindow) [canvasWindow orderWindow:mode relativeTo:relativeTo] ;
+
+        lua_pushvalue(L, 1);
+    } else {
+        return luaL_argerror(L, 1, "method unavailable for canvas as a subview") ;
     }
 
-    [canvasWindow orderWindow:mode relativeTo:relativeTo] ;
-
-    lua_pushvalue(L, 1);
     return 1 ;
 }
 
@@ -862,38 +891,39 @@ static int userdata_gc(lua_State* L) ;
 #pragma mark - Window Animation Methods
 
 - (void)fadeIn:(NSTimeInterval)fadeTime {
+    CGFloat alphaSetting = self.alphaValue ;
     [self setAlphaValue:0.0];
     [self makeKeyAndOrderFront:nil];
     [NSAnimationContext beginGrouping];
-// #if __has_feature(objc_arc)
-//       __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
-// #else
-//       __block ASMCanvasWindow *bself = self;
-// #endif
+      __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
       [[NSAnimationContext currentContext] setDuration:fadeTime];
-//       [[NSAnimationContext currentContext] setCompletionHandler:^{
-//           // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-//           ASMCanvasWindow *mySelf = bself ;
-//           if (mySelf) [mySelf orderWindow:NSWindowAbove relativeTo:0] ;
-//       }];
-      [[self animator] setAlphaValue:1.0];
+      [[NSAnimationContext currentContext] setCompletionHandler:^{
+          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
+          ASMCanvasWindow *mySelf = bself ;
+          if (mySelf) {
+              [((ASMCanvasView *)mySelf.contentView).elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+                  NSView *theView = element[@"view"] ;
+                  if (theView) {
+                      if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
+                  }
+              }] ;
+          }
+      }];
+      [[self animator] setAlphaValue:alphaSetting];
     [NSAnimationContext endGrouping];
 }
 
 - (void)fadeOut:(NSTimeInterval)fadeTime andDelete:(BOOL)deleteCanvas {
+    CGFloat alphaSetting = self.alphaValue ;
     [NSAnimationContext beginGrouping];
-#if __has_feature(objc_arc)
       __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
-#else
-      __block ASMCanvasWindow *bself = self;
-#endif
       [[NSAnimationContext currentContext] setDuration:fadeTime];
       [[NSAnimationContext currentContext] setCompletionHandler:^{
           // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
           ASMCanvasWindow *mySelf = bself ;
           if (mySelf) {
               if (deleteCanvas) {
-              LuaSkin *skin = [LuaSkin shared] ;
+                  LuaSkin *skin = [LuaSkin shared] ;
                   lua_State *L = [skin L] ;
                   lua_pushcfunction(L, userdata_gc) ;
                   [skin pushLuaRef:refTable ref:((ASMCanvasView *)mySelf.contentView).selfRef] ;
@@ -903,8 +933,14 @@ static int userdata_gc(lua_State* L) ;
                       [mySelf close] ;  // the least we can do is close the canvas if an error occurs with __gc
                   }
               } else {
+                  [((ASMCanvasView *)mySelf.contentView).elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+                      NSView *theView = element[@"view"] ;
+                      if (theView) {
+                          if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
+                      }
+                  }] ;
                   [mySelf orderOut:nil];
-                  [mySelf setAlphaValue:1.0];
+                  [mySelf setAlphaValue:alphaSetting];
               }
           }
       }];
@@ -918,23 +954,23 @@ static int userdata_gc(lua_State* L) ;
 - (instancetype)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect];
     if (self) {
-        _selfRef          = LUA_NOREF ;
-        _wrapperWindow    = nil ;
+        _selfRef               = LUA_NOREF ;
+        _wrapperWindow         = nil ;
 
-        _mouseCallbackRef = LUA_NOREF;
-        _canvasDefaults   = [[NSMutableDictionary alloc] init] ;
-        _elementList      = [[NSMutableArray alloc] init] ;
-        _elementBounds    = [[NSMutableArray alloc] init] ;
-        _canvasTransform  = [NSAffineTransform transform] ;
-        _imageAnimations  = [NSMapTable weakToStrongObjectsMapTable] ;
+        _mouseCallbackRef      = LUA_NOREF;
+        _canvasDefaults        = [[NSMutableDictionary alloc] init] ;
+        _elementList           = [[NSMutableArray alloc] init] ;
+        _elementBounds         = [[NSMutableArray alloc] init] ;
+        _canvasTransform       = [NSAffineTransform transform] ;
+        _imageAnimations       = [NSMapTable weakToStrongObjectsMapTable] ;
 
-        _canvasMouseDown      = NO ;
-        _canvasMouseUp        = NO ;
-        _canvasMouseEnterExit = NO ;
-        _canvasMouseMove      = NO ;
+        _canvasMouseDown       = NO ;
+        _canvasMouseUp         = NO ;
+        _canvasMouseEnterExit  = NO ;
+        _canvasMouseMove       = NO ;
 
-        _mouseTracking        = NO ;
-        _previousTrackedIndex = NSNotFound ;
+        _mouseTracking         = NO ;
+        _previousTrackedIndex  = NSNotFound ;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wassign-enum"
         [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:frameRect
@@ -1151,6 +1187,26 @@ static int userdata_gc(lua_State* L) ;
 - (void)mouseUp:(NSEvent *)theEvent        { [self mouseDown:theEvent] ; }
 - (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
+
+- (void)didAddSubview:(NSView *)subview {
+    if ([subview respondsToSelector:@selector(didAddToCanvas)]) [subview performSelector:@selector(didAddToCanvas)] ;
+}
+
+- (void)willRemoveSubview:(NSView *)subview {
+    if ([subview respondsToSelector:@selector(willRemoveFromCanvas)]) [subview performSelector:@selector(willRemoveFromCanvas)] ;
+
+    // in case we're not called because of setElementValueFor:atIndex:to:, we have to locate the view element it belongs to...
+    // TODO: Actually, I want to try moving this into drawRect: and see if we can figure out when something like AVPlayerView goes into full screen mode... see if we can determine how to keep it valid in the element array so that when it leaves full screen mode it "goes back" and isn't somehow orphaned in the subviews array with no corresponding element array reference...  But don't forget that we also need to be able to handle when it is formally deleted/removed out from underneath us...
+    __block BOOL viewFound = NO ;
+    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, BOOL *stop){
+        if ([element[@"view"] isEqualTo:subview]) {
+            [element removeObjectForKey:@"view"] ;
+            viewFound = YES ;
+            *stop = YES ;
+        }
+    }] ;
+    if (!viewFound) [LuaSkin logError:@"view removed from canvas superview does not belong to any known canvas element"] ;
+}
 
 - (NSBezierPath *)pathForElementAtIndex:(NSUInteger)idx {
     NSDictionary *frame = [self getElementValueFor:@"frame" atIndex:idx resolvePercentages:YES] ;
@@ -1403,15 +1459,14 @@ static int userdata_gc(lua_State* L) ;
                     }] ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else
-    #pragma mark - CANVAS
-                if ([elementType isEqualToString:@"canvas"]) {
-                    ASMCanvasView *canvasView = [self getElementValueFor:@"canvas" atIndex:idx onlyIfSet:NO] ;
-                    if ([canvasView isKindOfClass:[ASMCanvasView class]]) {
-                        if (![canvasView isDescendantOf:self]) {
-                            [self addSubview:canvasView] ;
-                        }
-                        canvasView.needsDisplay = YES ;
-                        [canvasView setFrame:frameRect] ;
+    #pragma mark - VIEW
+                if ([elementType isEqualToString:@"view"]) {
+                    NSView *externalView = [self getElementValueFor:@"view" atIndex:idx onlyIfSet:NO] ;
+                    if ([externalView isKindOfClass:[NSView class]]) {
+                        externalView.needsDisplay = YES ;
+                        NSNumber *alpha = [self getElementValueFor:@"viewAlpha" atIndex:idx onlyIfSet:YES] ;
+                        if (alpha) externalView.alphaValue = [alpha doubleValue] ;
+                        [externalView setFrame:frameRect] ;
                         [self->_elementBounds addObject:@{
                             @"index" : @(idx),
                             @"frame" : [NSValue valueWithRect:frameRect]
@@ -1777,8 +1832,6 @@ static int userdata_gc(lua_State* L) ;
     return foundObject ;
 }
 
-// FIXME: setting or nilling an image needs to clear and/or reset animation if imageAnimates is true
-
 - (attributeValidity)setElementValueFor:(NSString *)keyName atIndex:(NSUInteger)index to:(id)keyValue {
     if (index > [_elementList count]) return attributeInvalid ;
     keyValue = [self massageKeyValue:keyValue forKey:keyName] ;
@@ -1876,18 +1929,19 @@ static int userdata_gc(lua_State* L) ;
                     }
                 }] ;
                 if (validityStatus == attributeInvalid) break ;
-            } else if ([keyName isEqualToString:@"canvas"]) {
-                ASMCanvasView *newCanvas = (ASMCanvasView *)keyValue ;
-                ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
-                if (![newCanvas isEqualTo:oldCanvas] && [newCanvas.wrapperWindow isEqualTo:newCanvas.window] && ![newCanvas.window isVisible]) {
-                    if (![newCanvas isDescendantOf:self]) {
-                        [oldCanvas removeFromSuperview] ;
-                        oldCanvas.wrapperWindow.contentView = oldCanvas ;
-                // a view can have only one parent
-                        newCanvas.wrapperWindow.contentView = nil ;
-                        [self addSubview:newCanvas] ;
+            } else if ([keyName isEqualToString:@"view"]) {
+                NSView *newView = (NSView *)keyValue ;
+                NSView *oldView = (NSView *)_elementList[index][keyName] ;
+                if (![newView isEqualTo:oldView]) {
+                    if (![newView isDescendantOf:self] && ((!newView.window) || (newView.window && ![newView.window isVisible]))) {
+                        if (oldView) {
+                            removeViewFromSuperview(oldView) ;
+                        }
+
+                        if ([newView respondsToSelector:@selector(willAddToCanvas)]) [newView performSelector:@selector(willAddToCanvas)] ;
+                        [self addSubview:newView] ;
                     } else {
-                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:canvas for element %lu is already in use", USERDATA_TAG, index + 1]] ;
+                        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:view for element %lu is already in use", USERDATA_TAG, index + 1]] ;
                         validityStatus = attributeInvalid ;
                         break ;
                     }
@@ -1962,10 +2016,9 @@ static int userdata_gc(lua_State* L) ;
             }
         }   break ;
         case attributeNulling:
-            if ([keyName isEqualToString:@"canvas"]) {
-                ASMCanvasView *oldCanvas = (ASMCanvasView *)_elementList[index][keyName] ;
-                [oldCanvas removeFromSuperview] ;
-                oldCanvas.wrapperWindow.contentView = oldCanvas ;
+            if ([keyName isEqualToString:@"view"]) {
+                NSView *oldView = (NSView *)_elementList[index][keyName] ;
+                removeViewFromSuperview(oldView) ;
             } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
                 if ([[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue]) {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:%@ cannot be changed when element %lu is animating", USERDATA_TAG, keyName, index + 1]] ;
@@ -2036,6 +2089,119 @@ static int userdata_gc(lua_State* L) ;
     return image;
 }
 
+#pragma mark - View Animation Methods
+
+- (void)fadeIn:(NSTimeInterval)fadeTime {
+    CGFloat alphaSetting = self.alphaValue ;
+    [self setAlphaValue:0.0];
+    [self setHidden:NO];
+    [NSAnimationContext beginGrouping];
+      __weak ASMCanvasView *bself = self; // in ARC, __block would increase retain count
+      [[NSAnimationContext currentContext] setDuration:fadeTime];
+      [[NSAnimationContext currentContext] setCompletionHandler:^{
+          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
+          ASMCanvasView *mySelf = bself ;
+          if (mySelf) {
+              [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+                  NSView *theView = element[@"view"] ;
+                  if (theView) {
+                      if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
+                  }
+              }] ;
+          }
+      }];
+      [[self animator] setAlphaValue:alphaSetting];
+    [NSAnimationContext endGrouping];
+}
+
+- (void)fadeOut:(NSTimeInterval)fadeTime andDelete:(BOOL)deleteView {
+    CGFloat alphaSetting = self.alphaValue ;
+    [NSAnimationContext beginGrouping];
+      __weak ASMCanvasView *bself = self; // in ARC, __block would increase retain count
+      [[NSAnimationContext currentContext] setDuration:fadeTime];
+      [[NSAnimationContext currentContext] setCompletionHandler:^{
+          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
+          ASMCanvasView *mySelf = bself ;
+          if (mySelf) {
+              if (deleteView) {
+                  removeViewFromSuperview(mySelf) ;
+              } else {
+                  [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+                      NSView *theView = element[@"view"] ;
+                      if (theView) {
+                          if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
+                      }
+                  }] ;
+                  [mySelf setHidden:YES];
+                  [mySelf setAlphaValue:alphaSetting];
+              }
+          }
+      }];
+      [[self animator] setAlphaValue:0.0];
+    [NSAnimationContext endGrouping];
+}
+
+#pragma mark - Optional Notifications for Third-Party subvies
+
+// This also removes compiler warnings about unknown selectors
+- (void)willRemoveFromCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logWarn:@"canvas in willRemoveFromCanvas"] ;
+#endif
+}
+- (void)didRemoveFromCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logWarn:@"canvas in didRemoveFromCanvas"] ;
+#endif
+    _wrapperWindow.contentView = self ;
+}
+- (void)willAddToCanvas      {
+#ifdef VIEW_DEBUG
+    [LuaSkin logWarn:@"canvas in willAddToCanvas"] ;
+#endif
+    _wrapperWindow.contentView = nil ;
+}
+- (void)didAddToCanvas       {
+#ifdef VIEW_DEBUG
+    [LuaSkin logWarn:@"canvas in didAddToCanvas"] ;
+#endif
+}
+
+- (void)canvasWillHide {
+    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasWillHide)]) [theView performSelector:@selector(canvasWillHide)] ;
+        }
+    }] ;
+}
+
+- (void)canvasDidHide {
+    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
+        }
+    }] ;
+}
+
+- (void)canvasWillShow {
+    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasWillShow)]) [theView performSelector:@selector(canvasWillShow)] ;
+        }
+    }] ;
+}
+
+- (void)canvasDidShow {
+    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
+        }
+    }] ;
+}
 
 @end
 
@@ -2294,19 +2460,35 @@ static int canvas_show(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    if ([canvasView.wrapperWindow isEqualTo:canvasView.window]) {
-        if (lua_gettop(L) == 1) {
-            [canvasWindow makeKeyAndOrderFront:nil];
-//             [canvasWindow orderWindow:NSWindowAbove relativeTo:0] ;
-        } else {
-            [canvasWindow fadeIn:lua_tonumber(L, 2)];
+    [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasWillShow)]) [theView performSelector:@selector(canvasWillShow)] ;
         }
-        lua_pushvalue(L, 1);
+    }] ;
+
+    if (lua_gettop(L) == 1) {
+        if (parentIsWindow(canvasView)) {
+            [canvasWindow makeKeyAndOrderFront:nil];
+        } else {
+            canvasView.hidden = NO ;
+        }
+        [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSView *theView = element[@"view"] ;
+            if (theView) {
+                if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
+            }
+        }] ;
     } else {
-        return luaL_error(L, "canvas is in use as an element of another canvas") ;
+        if (parentIsWindow(canvasView)) {
+            [canvasWindow fadeIn:lua_tonumber(L, 2)];
+        } else {
+            [canvasView fadeIn:lua_tonumber(L, 2)];
+        }
     }
+    lua_pushvalue(L, 1);
     return 1;
 }
 
@@ -2326,12 +2508,33 @@ static int canvas_hide(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+
+    [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSView *theView = element[@"view"] ;
+        if (theView) {
+            if ([theView respondsToSelector:@selector(canvasWillHide)]) [theView performSelector:@selector(canvasWillHide)] ;
+        }
+    }] ;
 
     if (lua_gettop(L) == 1) {
-        [canvasWindow orderOut:nil];
+        if (parentIsWindow(canvasView)) {
+            [canvasWindow orderOut:nil];
+        } else {
+            canvasView.hidden = YES ;
+        }
+        [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSView *theView = element[@"view"] ;
+            if (theView) {
+                if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
+            }
+        }] ;
     } else {
-        [canvasWindow fadeOut:lua_tonumber(L, 2) andDelete:NO];
+        if (parentIsWindow(canvasView)) {
+            [canvasWindow fadeOut:lua_tonumber(L, 2) andDelete:NO];
+        } else {
+            [canvasView fadeOut:lua_tonumber(L, 2) andDelete:NO];
+        }
     }
 
     lua_pushvalue(L, 1);
@@ -2496,16 +2699,20 @@ static int canvas_topLeft(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
-    NSRect oldFrame = RectWithFlippedYCoordinate(canvasWindow.frame);
+    if (parentIsWindow(canvasView)) {
+        ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+        NSRect oldFrame = RectWithFlippedYCoordinate(canvasWindow.frame);
 
-    if (lua_gettop(L) == 1) {
-        [skin pushNSPoint:oldFrame.origin] ;
+        if (lua_gettop(L) == 1) {
+            [skin pushNSPoint:oldFrame.origin] ;
+        } else {
+            NSPoint newCoord = [skin tableToPointAtIndex:2] ;
+            NSRect  newFrame = RectWithFlippedYCoordinate(NSMakeRect(newCoord.x, newCoord.y, oldFrame.size.width, oldFrame.size.height)) ;
+            [canvasWindow setFrame:newFrame display:YES animate:NO];
+            lua_pushvalue(L, 1);
+        }
     } else {
-        NSPoint newCoord = [skin tableToPointAtIndex:2] ;
-        NSRect  newFrame = RectWithFlippedYCoordinate(NSMakeRect(newCoord.x, newCoord.y, oldFrame.size.width, oldFrame.size.height)) ;
-        [canvasWindow setFrame:newFrame display:YES animate:NO];
-        lua_pushvalue(L, 1);
+        return luaL_argerror(L, 1, "method unavailable for canvas as a subview") ;
     }
     return 1;
 }
@@ -2557,70 +2764,74 @@ static int canvas_size(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    if (parentIsWindow(canvasView)) {
+        ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    NSRect oldFrame = canvasWindow.frame;
+        NSRect oldFrame = canvasWindow.frame;
 
-    if (lua_gettop(L) == 1) {
-        [skin pushNSSize:oldFrame.size] ;
-    } else {
-        NSSize newSize  = [skin tableToSizeAtIndex:2] ;
-        NSRect newFrame = NSMakeRect(oldFrame.origin.x, oldFrame.origin.y + oldFrame.size.height - newSize.height, newSize.width, newSize.height);
+        if (lua_gettop(L) == 1) {
+            [skin pushNSSize:oldFrame.size] ;
+        } else {
+            NSSize newSize  = [skin tableToSizeAtIndex:2] ;
+            NSRect newFrame = NSMakeRect(oldFrame.origin.x, oldFrame.origin.y + oldFrame.size.height - newSize.height, newSize.width, newSize.height);
 
-        CGFloat xFactor = newFrame.size.width / oldFrame.size.width ;
-        CGFloat yFactor = newFrame.size.height / oldFrame.size.height ;
+            CGFloat xFactor = newFrame.size.width / oldFrame.size.width ;
+            CGFloat yFactor = newFrame.size.height / oldFrame.size.height ;
 
-        for (NSUInteger i = 0 ; i < [canvasView.elementList count] ; i++) {
-            NSNumber *absPos = [canvasView getElementValueFor:@"absolutePosition" atIndex:i] ;
-            NSNumber *absSiz = [canvasView getElementValueFor:@"absoluteSize" atIndex:i] ;
-            if (absPos && absSiz) {
-                BOOL absolutePosition = absPos ? [absPos boolValue] : YES ;
-                BOOL absoluteSize     = absSiz ? [absSiz boolValue] : YES ;
-                NSMutableDictionary *attributeDefinition = canvasView.elementList[i] ;
-                if (!absolutePosition) {
-                    [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
-                        if ([keyName isEqualToString:@"center"] || [keyName isEqualToString:@"frame"]) {
-                            if ([keyValue[@"x"] isKindOfClass:[NSNumber class]]) {
-                                keyValue[@"x"] = [NSNumber numberWithDouble:([keyValue[@"x"] doubleValue] * xFactor)] ;
-                            }
-                            if ([keyValue[@"y"] isKindOfClass:[NSNumber class]]) {
-                                keyValue[@"y"] = [NSNumber numberWithDouble:([keyValue[@"y"] doubleValue] * yFactor)] ;
-                            }
-                        } else if ([keyName isEqualTo:@"coordinates"]) {
-                            [(NSMutableArray *)keyValue enumerateObjectsUsingBlock:^(NSMutableDictionary *subItem, __unused NSUInteger idx, __unused BOOL *stop2) {
-                                for (NSString *field in @[ @"x", @"y", @"c1x", @"c1y", @"c2x", @"c2y" ]) {
-                                    if (subItem[field] && [subItem[field] isKindOfClass:[NSNumber class]]) {
-                                        CGFloat ourFactor = [field hasSuffix:@"x"] ? xFactor : yFactor ;
-                                        subItem[field] = [NSNumber numberWithDouble:([subItem[field] doubleValue] * ourFactor)] ;
-                                    }
+            for (NSUInteger i = 0 ; i < [canvasView.elementList count] ; i++) {
+                NSNumber *absPos = [canvasView getElementValueFor:@"absolutePosition" atIndex:i] ;
+                NSNumber *absSiz = [canvasView getElementValueFor:@"absoluteSize" atIndex:i] ;
+                if (absPos && absSiz) {
+                    BOOL absolutePosition = absPos ? [absPos boolValue] : YES ;
+                    BOOL absoluteSize     = absSiz ? [absSiz boolValue] : YES ;
+                    NSMutableDictionary *attributeDefinition = canvasView.elementList[i] ;
+                    if (!absolutePosition) {
+                        [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
+                            if ([keyName isEqualToString:@"center"] || [keyName isEqualToString:@"frame"]) {
+                                if ([keyValue[@"x"] isKindOfClass:[NSNumber class]]) {
+                                    keyValue[@"x"] = [NSNumber numberWithDouble:([keyValue[@"x"] doubleValue] * xFactor)] ;
                                 }
-                            }] ;
+                                if ([keyValue[@"y"] isKindOfClass:[NSNumber class]]) {
+                                    keyValue[@"y"] = [NSNumber numberWithDouble:([keyValue[@"y"] doubleValue] * yFactor)] ;
+                                }
+                            } else if ([keyName isEqualTo:@"coordinates"]) {
+                                [(NSMutableArray *)keyValue enumerateObjectsUsingBlock:^(NSMutableDictionary *subItem, __unused NSUInteger idx, __unused BOOL *stop2) {
+                                    for (NSString *field in @[ @"x", @"y", @"c1x", @"c1y", @"c2x", @"c2y" ]) {
+                                        if (subItem[field] && [subItem[field] isKindOfClass:[NSNumber class]]) {
+                                            CGFloat ourFactor = [field hasSuffix:@"x"] ? xFactor : yFactor ;
+                                            subItem[field] = [NSNumber numberWithDouble:([subItem[field] doubleValue] * ourFactor)] ;
+                                        }
+                                    }
+                                }] ;
 
-                        }
-                    }] ;
+                            }
+                        }] ;
+                    }
+                    if (!absoluteSize) {
+                        [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
+                            if ([keyName isEqualToString:@"frame"]) {
+                                if ([keyValue[@"h"] isKindOfClass:[NSNumber class]]) {
+                                    keyValue[@"h"] = [NSNumber numberWithDouble:([keyValue[@"h"] doubleValue] * yFactor)] ;
+                                }
+                                if ([keyValue[@"w"] isKindOfClass:[NSNumber class]]) {
+                                    keyValue[@"w"] = [NSNumber numberWithDouble:([keyValue[@"w"] doubleValue] * xFactor)] ;
+                                }
+                            } else if ([keyName isEqualToString:@"radius"]) {
+                                if ([keyValue isKindOfClass:[NSNumber class]]) {
+                                    attributeDefinition[keyName] = [NSNumber numberWithDouble:([keyValue doubleValue] * xFactor)] ;
+                                }
+                            }
+                        }] ;
+                    }
+                } else {
+                    [skin logError:[NSString stringWithFormat:@"%s:unable to get absolute positioning info for index position %lu", USERDATA_TAG, i + 1]] ;
                 }
-                if (!absoluteSize) {
-                    [attributeDefinition enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
-                        if ([keyName isEqualToString:@"frame"]) {
-                            if ([keyValue[@"h"] isKindOfClass:[NSNumber class]]) {
-                                keyValue[@"h"] = [NSNumber numberWithDouble:([keyValue[@"h"] doubleValue] * yFactor)] ;
-                            }
-                            if ([keyValue[@"w"] isKindOfClass:[NSNumber class]]) {
-                                keyValue[@"w"] = [NSNumber numberWithDouble:([keyValue[@"w"] doubleValue] * xFactor)] ;
-                            }
-                        } else if ([keyName isEqualToString:@"radius"]) {
-                            if ([keyValue isKindOfClass:[NSNumber class]]) {
-                                attributeDefinition[keyName] = [NSNumber numberWithDouble:([keyValue doubleValue] * xFactor)] ;
-                            }
-                        }
-                    }] ;
-                }
-            } else {
-                [skin logError:[NSString stringWithFormat:@"%s:unable to get absolute positioning info for index position %lu", USERDATA_TAG, i + 1]] ;
             }
+            [canvasWindow setFrame:newFrame display:YES animate:NO];
+            lua_pushvalue(L, 1);
         }
-        [canvasWindow setFrame:newFrame display:YES animate:NO];
-        lua_pushvalue(L, 1);
+    } else {
+        return luaL_argerror(L, 1, "method unavailable for canvas as a subview") ;
     }
     return 1;
 }
@@ -2641,15 +2852,21 @@ static int canvas_alpha(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-//     ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
     if (lua_gettop(L) == 1) {
-//         lua_pushnumber(L, canvasWindow.alphaValue) ;
-        lua_pushnumber(L, canvasView.alphaValue) ;
+        if (parentIsWindow(canvasView)) {
+            lua_pushnumber(L, canvasWindow.alphaValue) ;
+        } else {
+            lua_pushnumber(L, canvasView.alphaValue) ;
+        }
     } else {
         CGFloat newLevel = luaL_checknumber(L, 2);
-//         canvasWindow.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
-        canvasView.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
+        if (parentIsWindow(canvasView)) {
+            canvasWindow.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
+        } else {
+            canvasView.alphaValue = ((newLevel < 0.0) ? 0.0 : ((newLevel > 1.0) ? 1.0 : newLevel)) ;
+        }
         lua_pushvalue(L, 1);
     }
 
@@ -2704,31 +2921,35 @@ static int canvas_level(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    if (parentIsWindow(canvasView)) {
+        ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    if (lua_gettop(L) == 1) {
-        lua_pushinteger(L, [canvasWindow level]) ;
-    } else {
-        lua_Integer targetLevel ;
-        if (lua_type(L, 2) == LUA_TNUMBER) {
-            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                            LS_TNUMBER | LS_TINTEGER,
-                            LS_TBREAK] ;
-            targetLevel = lua_tointeger(L, 2) ;
+        if (lua_gettop(L) == 1) {
+            lua_pushinteger(L, [canvasWindow level]) ;
         } else {
-            cg_windowLevels(L) ;
-            if (lua_getfield(L, -1, [[skin toNSObjectAtIndex:2] UTF8String]) == LUA_TNUMBER) {
-                targetLevel = lua_tointeger(L, -1) ;
-                lua_pop(L, 2) ; // value and cg_windowLevels() table
+            lua_Integer targetLevel ;
+            if (lua_type(L, 2) == LUA_TNUMBER) {
+                [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                                LS_TNUMBER | LS_TINTEGER,
+                                LS_TBREAK] ;
+                targetLevel = lua_tointeger(L, 2) ;
             } else {
-                lua_pop(L, 2) ; // wrong value and cg_windowLevels() table
-                return luaL_error(L, [[NSString stringWithFormat:@"unrecognized window level: %@", [skin toNSObjectAtIndex:2]] UTF8String]) ;
+                cg_windowLevels(L) ;
+                if (lua_getfield(L, -1, [[skin toNSObjectAtIndex:2] UTF8String]) == LUA_TNUMBER) {
+                    targetLevel = lua_tointeger(L, -1) ;
+                    lua_pop(L, 2) ; // value and cg_windowLevels() table
+                } else {
+                    lua_pop(L, 2) ; // wrong value and cg_windowLevels() table
+                    return luaL_error(L, [[NSString stringWithFormat:@"unrecognized window level: %@", [skin toNSObjectAtIndex:2]] UTF8String]) ;
+                }
             }
-        }
 
-        targetLevel = (targetLevel < CGWindowLevelForKey(kCGMinimumWindowLevelKey)) ? CGWindowLevelForKey(kCGMinimumWindowLevelKey) : ((targetLevel > CGWindowLevelForKey(kCGMaximumWindowLevelKey)) ? CGWindowLevelForKey(kCGMaximumWindowLevelKey) : targetLevel) ;
-        [canvasWindow setLevel:targetLevel] ;
-        lua_pushvalue(L, 1) ;
+            targetLevel = (targetLevel < CGWindowLevelForKey(kCGMinimumWindowLevelKey)) ? CGWindowLevelForKey(kCGMinimumWindowLevelKey) : ((targetLevel > CGWindowLevelForKey(kCGMaximumWindowLevelKey)) ? CGWindowLevelForKey(kCGMaximumWindowLevelKey) : targetLevel) ;
+            [canvasWindow setLevel:targetLevel] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        return luaL_argerror(L, 1, "method unavailable for canvas as a subview") ;
     }
 
     return 1 ;
@@ -2784,24 +3005,28 @@ static int canvas_behavior(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
+    if (parentIsWindow(canvasView)) {
+        ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    if (lua_gettop(L) == 1) {
-        lua_pushinteger(L, [canvasWindow collectionBehavior]) ;
+        if (lua_gettop(L) == 1) {
+            lua_pushinteger(L, [canvasWindow collectionBehavior]) ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                            LS_TNUMBER | LS_TINTEGER,
+                            LS_TBREAK] ;
+
+            NSInteger newLevel = lua_tointeger(L, 2);
+            @try {
+                [canvasWindow setCollectionBehavior:(NSWindowCollectionBehavior)newLevel] ;
+            }
+            @catch ( NSException *theException ) {
+                return luaL_error(L, "%s: %s", [[theException name] UTF8String], [[theException reason] UTF8String]) ;
+            }
+
+            lua_pushvalue(L, 1);
+        }
     } else {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                        LS_TNUMBER | LS_TINTEGER,
-                        LS_TBREAK] ;
-
-        NSInteger newLevel = lua_tointeger(L, 2);
-        @try {
-            [canvasWindow setCollectionBehavior:(NSWindowCollectionBehavior)newLevel] ;
-        }
-        @catch ( NSException *theException ) {
-            return luaL_error(L, "%s: %s", [[theException name] UTF8String], [[theException reason] UTF8String]) ;
-        }
-
-        lua_pushvalue(L, 1);
+        return luaL_argerror(L, 1, "method unavailable for canvas as a subview") ;
     }
 
     return 1 ;
@@ -2862,8 +3087,12 @@ static int canvas_isShowing(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
-    lua_pushboolean(L, [canvasWindow isVisible]) ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+    if (parentIsWindow(canvasView)) {
+        lua_pushboolean(L, [canvasWindow isVisible]) ;
+    } else {
+        lua_pushboolean(L, !canvasView.hidden && [canvasWindow isVisible]) ;
+    }
     return 1 ;
 }
 
@@ -2888,8 +3117,12 @@ static int canvas_isOccluded(lua_State *L) {
                     LS_TBREAK] ;
 
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = canvasView.wrapperWindow ;
-    lua_pushboolean(L, ([canvasWindow occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible) ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+    if (parentIsWindow(canvasView)) {
+        lua_pushboolean(L, ([canvasWindow occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible) ;
+    } else {
+        lua_pushboolean(L, canvasView.hidden || (([canvasWindow occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible)) ;
+    }
     return 1 ;
 }
 
@@ -3021,7 +3254,11 @@ static int canvas_removeElementAtIndex(lua_State *L) {
         return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index %ld out of bounds", tablePosition + 1] UTF8String]) ;
     }
 
-    [canvasView.elementList removeObjectAtIndex:(NSUInteger)tablePosition] ;
+    NSUInteger realIndex = (NSUInteger)tablePosition ;
+    if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
+        removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]);
+    }
+    [canvasView.elementList removeObjectAtIndex:realIndex] ;
 
     canvasView.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
@@ -3266,7 +3503,7 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
         }
     } else {
         NSString *itemType = canvasView.elementList[idx][@"type"] ;
-        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"canvas"]) {
+        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"view"]) {
             NSDictionary *frame = [canvasView getElementValueFor:@"frame"
                                                          atIndex:idx
                                               resolvePercentages:YES] ;
@@ -3320,12 +3557,16 @@ static int canvas_assignElementAtIndex(lua_State *L) {
         if ([element isKindOfClass:[NSDictionary class]]) {
             NSString *elementType = element[@"type"] ;
             if (elementType && [ALL_TYPES containsObject:elementType]) {
-                canvasView.elementList[tablePosition] = [[NSMutableDictionary alloc] init] ;
+                NSUInteger realIndex = (NSUInteger)tablePosition ;
+                if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
+                    removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]) ;
+                }
+                canvasView.elementList[realIndex] = [[NSMutableDictionary alloc] init] ;
                 [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
                     // skip type in here to minimize the need to copy in defaults just to be overwritten
-                    if (![keyName isEqualTo:@"type"]) [canvasView setElementValueFor:keyName atIndex:(NSUInteger)tablePosition to:keyValue] ;
+                    if (![keyName isEqualTo:@"type"]) [canvasView setElementValueFor:keyName atIndex:realIndex to:keyValue] ;
                 }] ;
-                [canvasView setElementValueFor:@"type" atIndex:(NSUInteger)tablePosition to:elementType] ;
+                [canvasView setElementValueFor:@"type" atIndex:realIndex to:elementType] ;
             } else {
                 return luaL_argerror(L, 2, [[NSString stringWithFormat:@"invalid type %@; must be one of %@", elementType, [ALL_TYPES componentsJoinedByString:@", "]] UTF8String]) ;
             }
@@ -3520,7 +3761,12 @@ static id toASMCanvasViewFromLua(lua_State *L, int idx) {
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     ASMCanvasView *obj = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    NSString *title = NSStringFromRect(RectWithFlippedYCoordinate(obj.wrapperWindow.frame)) ;
+    NSString *title ;
+    if (parentIsWindow(obj)) {
+        title = NSStringFromRect(RectWithFlippedYCoordinate(obj.window.frame)) ;
+    } else {
+        title = NSStringFromRect(obj.frame) ;
+    }
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
     return 1 ;
 }
@@ -3543,11 +3789,28 @@ static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     ASMCanvasView *theView = get_objectFromUserdata(__bridge_transfer ASMCanvasView, L, 1, USERDATA_TAG) ;
     if (theView) {
-        ASMCanvasWindow *theWindow = theView.wrapperWindow ;
+        if (!parentIsWindow(theView)) removeViewFromSuperview(theView) ;
 
+        // ensure that our subviews get the appropriate notifications
+        [theView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSView *subview = element[@"view"] ;
+            if (subview) {
+#ifdef VIEW_DEBUG
+                [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc removing view with frame %@ at index %lu", USERDATA_TAG, NSStringFromRect(subview.frame), idx]] ;
+#endif
+                removeViewFromSuperview(subview) ;
+            }
+        }] ;
+#ifdef VIEW_DEBUG
+        for (NSView *subview in [theView subviews]) {
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc orphan subview with frame %@ found after element subview purge", USERDATA_TAG, NSStringFromRect(subview.frame)]] ;
+        }
+#endif
         theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         theView.selfRef          = [skin luaUnref:refTable ref:theView.selfRef] ;
         theView.wrapperWindow    = nil ;
+
+        ASMCanvasWindow *theWindow = theView.wrapperWindow ;
         if (theWindow) [theWindow close];
     }
 

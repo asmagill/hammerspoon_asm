@@ -30,10 +30,22 @@
 - (void)drawImage:(NSImage *)theImage atIndex:(NSUInteger)idx inRect:(NSRect)cellFrame operation:(NSUInteger)compositeType ;
 @end
 
+@interface ASMCanvasView (viewNotifications)
+- (void)willRemoveFromCanvas ;
+- (void)didRemoveFromCanvas ;
+- (void)willAddToCanvas ;
+- (void)didAddToCanvas ;
+
+- (void)canvasWillHide ;
+- (void)canvasDidHide ;
+- (void)canvasWillShow ;
+- (void)canvasDidShow ;
+
+@end
+
 @interface ASMGifAnimator : NSObject
 @property (weak) NSBitmapImageRep *animatingRepresentation ;
 @property (weak) ASMCanvasView    *inCanvas ;
-// @property NSTimer          *timer ;
 @property BOOL             isRunning ;
 
 -(instancetype)initWithImage:(NSImage *)image forCanvas:(ASMCanvasView *)canvas ;
@@ -41,8 +53,8 @@
 -(void)stopAnimating ;
 @end
 
-#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text", @"canvas" ]
-#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text", @"canvas" ]
+#define ALL_TYPES  @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"resetClip", @"segments", @"text", @"view" ]
+#define VISIBLE    @[ @"arc", @"circle", @"ellipticalArc", @"image", @"oval", @"points", @"rectangle", @"segments", @"text", @"view" ]
 #define PRIMITIVES @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"points", @"rectangle", @"segments" ]
 #define CLOSED     @[ @"arc", @"circle", @"ellipticalArc", @"oval", @"rectangle", @"segments" ]
 
