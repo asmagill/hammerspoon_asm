@@ -1173,7 +1173,7 @@ The canvas element of type `view` is special in that it provides a placeholder f
 
 Notes:
  * Views can only be covered by other views - they exist above the other non-view canvas elements in the owning canvas. If you need to "draw" on top of a `view` element, you will need to add a new canvas as an additional `view` element to the parent canvas.
- * A view with it's own controls can only receive mouse clicks if the canvas can.  This requires that the canvas has a callback function defined, even though mouse button clicks affecting the view are not handled by the callback function.  `canvasObject:mouseCallback(function() end)` is sufficient for this purpose if no other canvas element requires the callback function.
+ * A view with it's own controls can only receive mouse events if the canvas can.  This requires that the canvas has a callback function defined, even though mouse events affecting the view are not handled by the canvas callback function. `canvasObject:mouseCallback(function() end)` is sufficient for this purpose if no other canvas element requires the callback function.
 
 Candidate `view` objects:
  * A canvas object, which is not currently being shown, conforms to these requirements, so it is possible to use this element type to embed a canvas within another canvas.

@@ -30,6 +30,7 @@ static void *myKVOContext = &myKVOContext;
 @property BOOL       pauseWhenHidden ;
 @property BOOL       trackCompleted ;
 @property BOOL       trackRate ;
+@property BOOL       trackStatus ;
 @property int        callbackRef ;
 @property id         periodicObserver ;
 @property lua_Number periodicPeriod ;
@@ -52,6 +53,7 @@ static void *myKVOContext = &myKVOContext;
         _pauseWhenHidden                 = YES ;
         _trackCompleted                  = NO ;
         _trackRate                       = NO ;
+        _trackStatus                     = NO ;
         _periodicObserver                = nil ;
         _periodicPeriod                  = 0.0 ;
 
@@ -59,7 +61,7 @@ static void *myKVOContext = &myKVOContext;
 
 //         self.player                      = nil ;
         self.player                      = [[AVPlayer alloc] init] ;
-        self.controlsStyle               = AVPlayerViewControlsStyleMinimal ;
+        self.controlsStyle               = AVPlayerViewControlsStyleDefault ;
         self.showsFrameSteppingButtons   = NO ;
         self.showsSharingServiceButton   = NO ;
         self.showsFullScreenToggleButton = NO ;
@@ -79,16 +81,22 @@ static void *myKVOContext = &myKVOContext;
         _callbackRef = [skin luaUnref:refTable ref:_callbackRef] ;
     }
 
-    // remove observers -- should have been done by didRemoveFromCanvas, but just to on the safe side...
+    // remove observers -- should have been done by didRemoveFromCanvas, but just to be on the safe side...
     if (_periodicObserver) {
         [self.player removeTimeObserver:_periodicObserver] ;
         _periodicObserver = nil ;
         _periodicPeriod = 0.0 ;
     }
+
     if (self.player.currentItem) {
-        [[NSNotificationCenter defaultCenter] removeObserver:self
-                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-                                                      object:self.player.currentItem] ;
+        if (_trackCompleted) {
+            [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                            name:AVPlayerItemDidPlayToEndTimeNotification
+                                                          object:self.player.currentItem] ;
+        }
+        if (_trackStatus) {
+            [self.player.currentItem removeObserver:self forKeyPath:@"status" context:myKVOContext] ;
+        }
     }
     if (_trackRate) {
         [self.player removeObserver:self forKeyPath:@"rate" context:myKVOContext] ;
@@ -119,7 +127,7 @@ static void *myKVOContext = &myKVOContext;
             BOOL isPause = (self.player.rate == 0.0f) ;
             LuaSkin *skin = [LuaSkin shared] ;
             lua_State *L  = [skin L] ;
-            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
+            [skin pushLuaRef:refTable ref:_callbackRef] ;
             [skin pushNSObject:self] ;
             [skin pushNSObject:(isPause ? @"pause" : @"play")] ;
             lua_pushnumber(L, (lua_Number)self.player.rate) ;
@@ -127,6 +135,38 @@ static void *myKVOContext = &myKVOContext;
                 NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
                 lua_pop(L, 1) ;
                 [skin logError:[NSString stringWithFormat:@"%s:trackRate callback error:%@", USERDATA_TAG, errorMessage]] ;
+            }
+        }
+    } else if (_trackStatus && context == myKVOContext && [keyPath isEqualToString:@"status"]) {
+        if (_callbackRef != LUA_NOREF) {
+            int argCount = 3 ;
+            LuaSkin *skin = [LuaSkin shared] ;
+            lua_State *L  = [skin L] ;
+            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            [skin pushNSObject:self] ;
+            [skin pushNSObject:@"status"] ;
+            switch(self.player.currentItem.status) {
+                case AVPlayerStatusUnknown:
+                    [skin pushNSObject:@"unknown"] ;
+                    break ;
+                case AVPlayerStatusReadyToPlay:
+                    [skin pushNSObject:@"readyToPlay"] ;
+                    break ;
+                case AVPlayerStatusFailed:
+                    [skin pushNSObject:@"failed"] ;
+                    [skin pushNSObject:[self.player.currentItem.error localizedDescription]] ;
+                    argCount++ ;
+                    break ;
+                default:
+                    [skin pushNSObject:@"unrecognized status"] ;
+                    lua_pushinteger(L, self.player.currentItem.status) ;
+                    argCount++ ;
+                    break ;
+            }
+            if (![skin protectedCallAndTraceback:argCount nresults:0]) {
+                NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+                lua_pop(L, 1) ;
+                [skin logError:[NSString stringWithFormat:@"%s:trackStatus callback error:%@", USERDATA_TAG, errorMessage]] ;
             }
         }
     } else {
@@ -159,6 +199,8 @@ static void *myKVOContext = &myKVOContext;
     }
 }
 
+// Methods which are invoked by the canvas on us
+
 - (void)canvasWillHide {
     if (_pauseWhenHidden) {
         rateWhenHidden = self.player.rate ;
@@ -176,27 +218,29 @@ static void *myKVOContext = &myKVOContext;
     }
 }
 
-- (void)willRemoveFromCanvas {
-#ifdef VIEW_DEBUG
-    [LuaSkin logInfo:@"avplayer in willRemoveFromCanvas"] ;
-#endif
-}
+// - (void)willRemoveFromCanvas {}
 
 - (void)didRemoveFromCanvas {
     self.player.rate = 0.0f ;
 
-// remove observers -- was preventing deallocation, so I assume they contain strong references to us
-// side effect is that you have to re-set them if you are moving it to another canvas...
+// remove observers when we're not part of a canvas -- prevents deallocation if going bye-bye
     if (_periodicObserver) {
         [self.player removeTimeObserver:_periodicObserver] ;
         _periodicObserver = nil ;
         _periodicPeriod = 0.0 ;
     }
+
     if (self.player.currentItem) {
-        [[NSNotificationCenter defaultCenter] removeObserver:self
-                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-                                                      object:self.player.currentItem] ;
-        _trackCompleted = NO ;
+        if (_trackCompleted) {
+            [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                            name:AVPlayerItemDidPlayToEndTimeNotification
+                                                          object:self.player.currentItem] ;
+            _trackCompleted = NO ;
+        }
+        if (_trackStatus) {
+            [self.player.currentItem removeObserver:self forKeyPath:@"status" context:myKVOContext] ;
+            _trackStatus = NO ;
+        }
     }
     if (_trackRate) {
         [self.player removeObserver:self forKeyPath:@"rate" context:myKVOContext] ;
@@ -208,26 +252,8 @@ static void *myKVOContext = &myKVOContext;
 #endif
 }
 
-- (void)willAddToCanvas {
-#ifdef VIEW_DEBUG
-    [LuaSkin logInfo:@"avplayer in willAddToCanvas"] ;
-#endif
-}
-- (void)didAddToCanvas {
-    // since this is created by loadFile when currentItem is set, if we were just moved to another
-    // canvas, restart the observer.  Leave tracking off, though, to be consistent with trackRate and
-    // trackProgress.
-    if (self.player.currentItem) {
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(didFinishPlaying:)
-                                                     name:AVPlayerItemDidPlayToEndTimeNotification
-                                                   object:self.player.currentItem] ;
-    }
-
-#ifdef VIEW_DEBUG
-    [LuaSkin logInfo:@"avplayer in didAddToCanvas"] ;
-#endif
-}
+// - (void)willAddToCanvas {}
+// - (void)didAddToCanvas {}
 
 @end
 
@@ -358,10 +384,23 @@ static NSMenu *menuMaker(NSArray *menuItems, id actionTarget) {
 
 #pragma mark - Module Functions
 
-static int avplayer_new(__unused lua_State *L) {
+/// hs._asm.canvas.avplayer.new([frame]) -> avplayerObject
+/// Constructor
+/// Creates a new AVPlayer object which can display audiovisual media within an `hs._asm.canvas` object.
+///
+/// Parameters:
+///  * `frame` - an optional frame table specifying the position and size the object is initialized with.
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * The `frame` argument is ignored by `hs._asm.canvas`.  When an object is added as a `view` element to an `hs._asm.canvas` object, it is assigned the frame defined for the canvas element.  This parameter is allowed in case it proves necessary for the use of an avplayer object in future contexts (i.e. future Hammerspoon modules).
+static int avplayer_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
-    ASMAVPlayerView *playerView = [[ASMAVPlayerView alloc] initWithFrame:[skin tableToRectAtIndex:1]];
+    [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
+    NSRect frameRect = (lua_gettop(L) == 1) ? [skin tableToRectAtIndex:1] : NSZeroRect ;
+    ASMAVPlayerView *playerView = [[ASMAVPlayerView alloc] initWithFrame:frameRect];
     [skin pushNSObject:playerView] ;
     return 1 ;
 }
@@ -370,6 +409,24 @@ static int avplayer_new(__unused lua_State *L) {
 
 #pragma mark - ASMAVPlayerView methods
 
+/// hs._asm.canvas.avplayer:controlsStyle([style]) -> avplayerObject | current value
+/// Method
+/// Get or set the style of controls displayed in the avplayerObject for controlling media playback.
+///
+/// Parameters:
+///  * `style` - an optional string, default "default", specifying the stye of the controls displayed for controlling media playback.  The string may be one of the following:
+///    * `none`     - no controls are provided -- playback must be managed programmatically through Hammerspoon Lua code.
+///    * `inline`   - media controls are displayed in an autohiding status bar at the bottom of the media display.
+///    * `floating` - media controls are displayed in an autohiding panel which floats over the media display.
+///    * `minimal`  - media controls are displayed as a round circle in the center of the media display.
+///    * `none`     - no media controls are displayed in the media display.
+///    * `default`  - use the OS X default control style; under OS X 10.11, this is the "inline".
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
+///
+/// Notes:
+///  * Media controls can only receive mouse events if the canvas can.  This requires that the canvas has a callback function defined, even though mouse events affecting the view are not handled by the canvas callback function. `canvasObject:mouseCallback(function() end)` is sufficient for this purpose if no other canvas element requires the callback function.
 static int avplayer_controlsStyle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -398,6 +455,18 @@ static int avplayer_controlsStyle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:fullScreenButton([state]) -> avplayerObject | current value
+/// Method
+/// Get or set whether or not the full screen toggle button should be included in the media controls.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
+///
+/// Notes:
+///  * this method is experimental -- currently it causes problems with keeping the avplayer object properly assigned within the canvas.  This method may be removed until a reliable solution cannot be found.
 static int avplayer_showsFullScreenToggleButton(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -411,6 +480,15 @@ static int avplayer_showsFullScreenToggleButton(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value
+/// Method
+/// Get or set whether frame stepping or scrubbing controls are included in the media controls.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether frame stepping (true) or scrubbing (false) controls are included in the media controls.
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
 static int avplayer_showsFrameSteppingButtons(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -424,6 +502,15 @@ static int avplayer_showsFrameSteppingButtons(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:sharingServiceButton([state]) -> avplayerObject | current value
+/// Method
+/// Get or set whether or not the sharing services button is included in the media controls.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
 static int avplayer_showsSharingServiceButton(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -437,6 +524,19 @@ static int avplayer_showsSharingServiceButton(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:flashChapterAndTitle(number, [string]) -> avplayerObject
+/// Method
+/// Flashes the number and optional string over the media playback display momentarily.
+///
+/// Parameters:
+///  * `number` - an integer specifying the chapter number to display.
+///  * `string` - an optional string specifying the chapter name to display.
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * If only a number is provided, the text "Chapter #" is displayed.  If a string is also provided, "#. string" is displayed.
 static int avplayer_flashChapterAndTitle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -452,6 +552,15 @@ static int avplayer_flashChapterAndTitle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value
+/// Method
+/// Get or set whether or not playback of media should be paused when the canvas it belongs to is hidden.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default true, specifying whether or not media playback should be paused when the canvas it belongs to is hidden.
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
 static int avplayer_pauseWhenHidden(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -465,6 +574,28 @@ static int avplayer_pauseWhenHidden(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:setCallback(fn) -> avplayerObject
+/// Method
+/// Set the callback function for the avplayerObject.
+///
+/// Parameters:
+///  * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * The callback function should expect 2 or more arguments.  The first two arguments will always be:
+///    * `avplayObject` - the avplayerObject userdata
+///    * `message`      - a string specifying the reason for the callback.
+///  * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:
+///    * `actionMenu` - [hs._asm.canvas.avplayer:actionMenu](#actionMenu)
+///    * `finished`   - [hs._asm.canvas.avplayer:trackCompleted](#trackCompleted)
+///    * `pause`      - [hs._asm.canvas.avplayer:trackRate](#trackRate)
+///    * `play`       - [hs._asm.canvas.avplayer:trackRate](#trackRate)
+///    * `progress`   - [hs._asm.canvas.avplayer:trackProgress](#trackProgress)
+///    * `seek`       - [hs._asm.canvas.avplayer:seek](#seek)
+///    * `status`     - [hs._asm.canvas.avplayer:trackStatus](#trackStatus)
 static int avplayer_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -485,6 +616,23 @@ static int avplayer_callback(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.canvas.avplayer:actionMenu(menutable | nil) -> avplayerObject
+/// Method
+/// Set or remove the additional actions menu from the media controls for the avplayer.
+///
+/// Parameters:
+///  * `menutable` - a table containing a menu definition as described in the documentation for `hs.menubar:setMenu`.  If `nil` is specified, any existing menu is removed.
+///
+/// Parameters:
+///  * the avplayerObject
+///
+/// Notes:
+///  * All menu keys supported by `hs.menubar:setMenu`, except for the `fn` key, are supported by this method.
+///  * When a menu item is selected, the callback function (see [hs._asm.canvas.avplayer:setCallback](#setCallback)) is invoked with the following 4 arguments:
+///    * the avplayerObject
+///    * "actionMenu"
+///    * the `title` field of the menu item selected
+///    * a table containing the following keys set to true or false indicating which key modifiers were down when the menu item was selected: "cmd", "shift", "alt", "ctrl", and "fn".
 static int avplayer_actionMenu(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNIL, LS_TBREAK] ;
@@ -505,38 +653,57 @@ static int avplayer_actionMenu(lua_State *L) {
         }
         playerView.actionPopUpButtonMenu = menuMaker(menuItems, playerView) ;
     }
+    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
 #pragma mark - AVPlayer methods
 
-static int avplayer_loadFile(lua_State *L) {
+static int avplayer_load(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL, LS_TBREAK] ;
     ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
     AVPlayer        *player = playerView.player ;
 
     if (player.currentItem) {
-        [[NSNotificationCenter defaultCenter] removeObserver:playerView
-                                                        name:AVPlayerItemDidPlayToEndTimeNotification
-                                                      object:player.currentItem] ;
+        if (playerView.trackCompleted) {
+            [[NSNotificationCenter defaultCenter] removeObserver:playerView
+                                                            name:AVPlayerItemDidPlayToEndTimeNotification
+                                                          object:player.currentItem] ;
+        }
+        if (playerView.trackStatus) {
+            [player.currentItem removeObserver:playerView forKeyPath:@"status" context:myKVOContext] ;
+        }
     }
 
     player.rate = 0.0f ; // any load should start in a paused state
-    if (lua_type(L, 2) == LUA_TNIL) {
-        [player replaceCurrentItemWithPlayerItem:nil] ;
-    } else {
+    [player replaceCurrentItemWithPlayerItem:nil] ;
+    if (lua_type(L, 2) != LUA_TNIL) {
         NSString *path    = [skin toNSObjectAtIndex:2] ;
-        NSURL    *fileURL = [NSURL fileURLWithPath:[path stringByExpandingTildeInPath]] ;
+        NSURL    *theURL ;
 
-        [player replaceCurrentItemWithPlayerItem:[AVPlayerItem playerItemWithURL:fileURL]] ;
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[path stringByExpandingTildeInPath]]) {
+            theURL = [NSURL fileURLWithPath:[path stringByExpandingTildeInPath]] ;
+        } else {
+            theURL = [NSURL URLWithString:path] ;
+        }
+
+        [player replaceCurrentItemWithPlayerItem:[AVPlayerItem playerItemWithURL:theURL]] ;
     }
 
     if (player.currentItem) {
-        [[NSNotificationCenter defaultCenter] addObserver:playerView
-                                                 selector:@selector(didFinishPlaying:)
-                                                     name:AVPlayerItemDidPlayToEndTimeNotification
-                                                   object:player.currentItem] ;
+        if (playerView.trackCompleted) {
+            [[NSNotificationCenter defaultCenter] addObserver:playerView
+                                                     selector:@selector(didFinishPlaying:)
+                                                         name:AVPlayerItemDidPlayToEndTimeNotification
+                                                       object:player.currentItem] ;
+        }
+        if (playerView.trackStatus) {
+            [player.currentItem addObserver:playerView
+                                 forKeyPath:@"status"
+                                    options:NSKeyValueObservingOptionNew
+                                    context:myKVOContext] ;
+        }
     }
 
     lua_pushvalue(L, 1) ;
@@ -550,7 +717,7 @@ static int avplayer_play(lua_State *L) {
     AVPlayer        *player = playerView.player ;
 
     if (lua_gettop(L) == 2 && lua_toboolean(L, 2)) {
-        [player seekToTime:CMTimeMakeWithSeconds(0.0, PREFERRED_TIMESCALE)] ;
+        [player seekToTime:kCMTimeZero toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero] ;
     }
     [player play] ;
     lua_pushvalue(L, 1) ;
@@ -706,6 +873,7 @@ static int avplayer_trackRate(lua_State *L) {
         }
 
         playerView.trackRate = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
 
         if (playerView.trackRate) {
             [player addObserver:playerView
@@ -713,27 +881,54 @@ static int avplayer_trackRate(lua_State *L) {
                         options:NSKeyValueObservingOptionNew
                         context:myKVOContext] ;
         }
-
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-static int avplayer_trackCompleted(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, playerView.trackCompleted) ;
-    } else {
-        playerView.trackCompleted = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
 
 #pragma mark - AVPlayerItem methods
+
+/// hs._asm.canvas.avplayer:playerInformation() -> table
+/// Method
+/// Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a table containing the following media characteristics:
+///    * "playbackLikelyToKeepUp" - Indicates whether the item will likely play through without stalling.  Note that this is only a prediction.
+///    * "playbackBufferEmpty"    - Indicates whether playback has consumed all buffered media and that playback may stall or end.
+///    * "playbackBufferFull"     - Indicates whether the internal media buffer is full and that further I/O is suspended.
+///    * "canPlayReverse"         - A Boolean value indicating whether the item can be played with a rate of -1.0.
+///    * "canPlayFastForward"     - A Boolean value indicating whether the item can be played at rates greater than 1.0.
+///    * "canPlayFastReverse"     - A Boolean value indicating whether the item can be played at rates less than –1.0.
+///    * "canPlaySlowForward"     - A Boolean value indicating whether the item can be played at a rate between 0.0 and 1.0.
+///    * "canPlaySlowReverse"     - A Boolean value indicating whether the item can be played at a rate between -1.0 and 0.0.
+static int avplayer_playbackInformation(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+    AVPlayerItem    *playerItem = playerView.player.currentItem ;
+
+    if (playerItem) {
+        lua_newtable(L) ;
+        lua_pushboolean(L, playerItem.playbackLikelyToKeepUp) ; lua_setfield(L, -2, "playbackLikelyToKeepUp") ;
+        lua_pushboolean(L, playerItem.playbackBufferEmpty) ;    lua_setfield(L, -2, "playbackBufferEmpty") ;
+        lua_pushboolean(L, playerItem.playbackBufferFull) ;     lua_setfield(L, -2, "playbackBufferFull") ;
+        lua_pushboolean(L, playerItem.canPlayReverse) ;         lua_setfield(L, -2, "canPlayReverse") ;
+        lua_pushboolean(L, playerItem.canPlayFastForward) ;     lua_setfield(L, -2, "canPlayFastForward") ;
+        lua_pushboolean(L, playerItem.canPlayFastReverse) ;     lua_setfield(L, -2, "canPlayFastReverse") ;
+        lua_pushboolean(L, playerItem.canPlaySlowForward) ;     lua_setfield(L, -2, "canPlaySlowForward") ;
+        lua_pushboolean(L, playerItem.canPlaySlowReverse) ;     lua_setfield(L, -2, "canPlaySlowReverse") ;
+
+// Not currently supported by the module since it involves tracks
+//         lua_pushboolean(L, playerItem.canStepBackward) ;        lua_setfield(L, -2, "canStepBackward") ;
+//         lua_pushboolean(L, playerItem.canStepForward) ;         lua_setfield(L, -2, "canStepForward") ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
 
 static int avplayer_status(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -763,6 +958,60 @@ static int avplayer_status(lua_State *L) {
         lua_pushnil(L) ;
     }
     return returnCount ;
+}
+
+static int avplayer_trackCompleted(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+    AVPlayerItem    *playerItem = playerView.player.currentItem ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, playerView.trackCompleted) ;
+    } else {
+        if (playerItem && playerView.trackCompleted) {
+            [[NSNotificationCenter defaultCenter] removeObserver:playerView
+                                                            name:AVPlayerItemDidPlayToEndTimeNotification
+                                                          object:playerItem] ;
+        }
+
+        playerView.trackCompleted = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+
+        if (playerItem && playerView.trackCompleted) {
+            [[NSNotificationCenter defaultCenter] addObserver:playerView
+                                                     selector:@selector(didFinishPlaying:)
+                                                         name:AVPlayerItemDidPlayToEndTimeNotification
+                                                       object:playerItem] ;
+        }
+    }
+    return 1 ;
+}
+
+static int avplayer_trackStatus(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+    AVPlayerItem    *playerItem = playerView.player.currentItem ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, playerView.trackStatus) ;
+    } else {
+        if (playerItem && playerView.trackStatus) {
+            [playerItem removeObserver:playerView forKeyPath:@"status" context:myKVOContext] ;
+        }
+
+        playerView.trackStatus = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+
+        if (playerItem && playerView.trackStatus) {
+            [playerItem addObserver:playerView
+                         forKeyPath:@"status"
+                            options:NSKeyValueObservingOptionNew
+                            context:myKVOContext] ;
+        }
+    }
+    return 1 ;
 }
 
 static int avplayer_currentTime(lua_State *L) {
@@ -803,7 +1052,7 @@ static int avplayer_seekToTime(lua_State *L) {
     if (playerItem) {
         CMTime positionAsCMTime = CMTimeMakeWithSeconds(desiredPosition, PREFERRED_TIMESCALE) ;
         if (lua_gettop(L) == 3 && lua_toboolean(L, 3)) {
-            [playerItem seekToTime:positionAsCMTime completionHandler:^(BOOL finished) {
+            [playerItem seekToTime:positionAsCMTime toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero completionHandler:^(BOOL finished) {
                 if (playerView.callbackRef != LUA_NOREF) {
                     [skin pushLuaRef:refTable ref:playerView.callbackRef] ;
                     [skin pushNSObject:playerView] ;
@@ -818,7 +1067,7 @@ static int avplayer_seekToTime(lua_State *L) {
                 }
             }] ;
         } else {
-            [playerItem seekToTime:positionAsCMTime] ;
+            [playerItem seekToTime:positionAsCMTime toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero] ;
         }
         lua_pushvalue(L, 1) ;
     } else {
@@ -883,13 +1132,15 @@ static int userdata_gc(lua_State* L) {
     ASMAVPlayerView *obj = get_objectFromUserdata(__bridge_transfer ASMAVPlayerView, L, 1, USERDATA_TAG) ;
     if (obj) {
 
-// FIXME: if we have a selfRef, like canvas or drawing, we have to have a delete function and the user has
+// If we have a selfRef, like canvas or drawing, we have to have a delete function and the user has
 // to use it. Skipping the callback deref wastes memory by leaving a dangling function reference in lua,
 // but that's less memory then leaving an AVPlayerView object that's no longer strongly held in a canvas's
-// element list or in a lua variable. So, I will ponder, but for now accept dangling function references in
-// the lua registry as the lesser evil...
+// element list or in a lua variable.
 //
-// UPDATE: Trying out object dealloc method to handle releasing the function
+// Moving function deref into object dealloc method mitigates this, but only if we make sure that no
+// strong references exist to/within the object or its observers (see didRemoveFromCanvas).  Since the
+// only use for this module right now *is* as a member of a canvas this seems reasonable.  Will have to
+// reconsider if someone comes up with another use for this submodule/
 //
 //         obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
 
@@ -915,35 +1166,34 @@ static int userdata_gc(lua_State* L) {
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
 // ASMAVPlayerView methods
+    {"actionMenu",            avplayer_actionMenu},
     {"controlsStyle",         avplayer_controlsStyle},
     {"flashChapterAndTitle",  avplayer_flashChapterAndTitle},
-    {"pauseWhenHidden",       avplayer_pauseWhenHidden},
-    {"sharingServiceButton",  avplayer_showsSharingServiceButton},
     {"frameSteppingButtons",  avplayer_showsFrameSteppingButtons},
+    {"pauseWhenHidden",       avplayer_pauseWhenHidden},
     {"setCallback",           avplayer_callback},
-    {"actionMenu",            avplayer_actionMenu},
+    {"sharingServiceButton",  avplayer_showsSharingServiceButton},
 
 // AVPlayer methods
-    {"loadFile",              avplayer_loadFile},
-    {"play",                  avplayer_play},
-    {"pause",                 avplayer_pause},
-    {"rate",                  avplayer_rate},
-    {"mute",                  avplayer_mute},
-    {"volume",                avplayer_volume},
-    {"externalPlayback",      avplayer_externalPlaybackActive},
     {"ccEnabled",             avplayer_closedCaptionDisplayEnabled},
+    {"externalPlayback",      avplayer_externalPlaybackActive},
+    {"load",                  avplayer_load},
+    {"mute",                  avplayer_mute},
+    {"pause",                 avplayer_pause},
+    {"play",                  avplayer_play},
+    {"rate",                  avplayer_rate},
     {"trackProgress",         avplayer_trackProgress},
     {"trackRate",             avplayer_trackRate},
-    {"trackCompleted",        avplayer_trackCompleted},
+    {"volume",                avplayer_volume},
 
 // AVPlayerItem methods
+    {"duration",              avplayer_duration},
+    {"playbackInformation",   avplayer_playbackInformation},
+    {"seek",                  avplayer_seekToTime},
     {"status",                avplayer_status},
     {"time",                  avplayer_currentTime},
-    {"duration",              avplayer_duration},
-    {"seek",                  avplayer_seekToTime},
-
-// loadURL? need some examples to test with...
-// considered using AVQueuePlayer, but this can be easily handled on Lua side
+    {"trackStatus",           avplayer_trackStatus},
+    {"trackCompleted",        avplayer_trackCompleted},
 
 // FIXME: subview release/loss from canvas with fullscreen (maybe AirPlay as well?)
     {"fullScreenButton",      avplayer_showsFullScreenToggleButton},
@@ -978,5 +1228,6 @@ int luaopen_hs__asm_canvas_avplayer_internal(lua_State* __unused L) {
     [skin registerPushNSHelper:pushASMAVPlayerView         forClass:"ASMAVPlayerView"];
     [skin registerLuaObjectHelper:toASMAVPlayerViewFromLua forClass:"ASMAVPlayerView"
                                              withUserdataMapping:USERDATA_TAG];
+
     return 1;
 }

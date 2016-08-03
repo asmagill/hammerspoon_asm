@@ -5,7 +5,8 @@ MODULE := $(current_dir)
 PREFIX ?= ~/.hammerspoon
 HS_APPLICATION ?= /Applications
 
-OBJCFILE = ${wildcard *.m}
+# OBJCFILE = ${wildcard *.m}
+OBJCFILE = internal.m
 LUAFILE  = ${wildcard *.lua}
 HEADERS  = ${wildcard *.h}
 

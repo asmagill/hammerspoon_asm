@@ -4,14 +4,10 @@
 +   change `canvas` type to `view` type
 ~   hs._asm.canvas.avplayer
         can we gracefully handle fullscreen toggle, or should this be removed/made possible outside of canvas?
-        external URLs?
+        rethink using notificationcenter for playing ended tracker
+        move status tracker to playerItem... will have to adjust load to disable/re-enable KVO... canvasDidAdd as well
 
     document how to write external type as NSView subclass, with AVPlayerView as example
-
-+   check for methods - (void)willRemoveFromCanvas {}
-+                     - (void)didRemoveFromCanvas {}
-+                     - (void)willAddToCanvas {}
-+                     - (void)didAddToCanvas {}
 
     test callback/mousetracking in canvas containing canvas
     canvas containing canvas containing canvas?
