@@ -1,3 +1,14 @@
+
+// TODO:
+//  * document, document, document!
+//  * shorter, writeup-version for sample?
+//
+// NOTE:
+//  * fullscreen toggle and allows external playback are not supported
+//    * made some progress with overriding replaceSubview:With: in canvas and tracking view swaps, but...
+//      - was crashing due to unmet constraints during dealloc that seem pretty deep in Apple's code... not sure what to test for, so can't really even debug properly at present.
+//      - don't have a way to test external playback atm, and suspect it may also involve swapped views, so...
+
 @import Cocoa ;
 @import AVKit;
 @import AVFoundation;
@@ -12,7 +23,7 @@ static const int32_t PREFERRED_TIMESCALE = 60000 ;
 
 static void *myKVOContext = &myKVOContext;
 
-#define VIEW_DEBUG
+// #define VIEW_DEBUG
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
@@ -59,8 +70,9 @@ static void *myKVOContext = &myKVOContext;
 
         rateWhenHidden                   = 0.0f ;
 
-//         self.player                      = nil ;
-        self.player                      = [[AVPlayer alloc] init] ;
+        self.player                        = [[AVPlayer alloc] init] ;
+        self.player.allowsExternalPlayback = NO ;
+
         self.controlsStyle               = AVPlayerViewControlsStyleDefault ;
         self.showsFrameSteppingButtons   = NO ;
         self.showsSharingServiceButton   = NO ;
@@ -72,7 +84,7 @@ static void *myKVOContext = &myKVOContext;
 
 - (void)dealloc {
 #ifdef VIEW_DEBUG
-        [LuaSkin logInfo:[NSString stringWithFormat:@"%s dealloc for AVPlayerView with frame %@", USERDATA_TAG, NSStringFromRect(self.frame)]] ;
+        [LuaSkin logInfo:[NSString stringWithFormat:@"%s - dealloc for AVPlayerView with frame %@", USERDATA_TAG, NSStringFromRect(self.frame)]] ;
 #endif
     LuaSkin *skin = [LuaSkin shared] ;
 
@@ -218,9 +230,11 @@ static void *myKVOContext = &myKVOContext;
     }
 }
 
-// - (void)willRemoveFromCanvas {}
-
 - (void)didRemoveFromCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - in didRemoveFromCanvas", USERDATA_TAG]] ;
+#endif
+
     self.player.rate = 0.0f ;
 
 // remove observers when we're not part of a canvas -- prevents deallocation if going bye-bye
@@ -246,14 +260,23 @@ static void *myKVOContext = &myKVOContext;
         [self.player removeObserver:self forKeyPath:@"rate" context:myKVOContext] ;
         _trackRate = NO ;
     }
-
-#ifdef VIEW_DEBUG
-    [LuaSkin logInfo:@"avplayer in didRemoveFromCanvas"] ;
-#endif
 }
 
-// - (void)willAddToCanvas {}
-// - (void)didAddToCanvas {}
+- (void)willRemoveFromCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - in willRemoveFromCanvas", USERDATA_TAG]] ;
+#endif
+}
+- (void)willAddToCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - in willAddToCanvas", USERDATA_TAG]] ;
+#endif
+}
+- (void)didAddToCanvas {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - in didAddToCanvas", USERDATA_TAG]] ;
+#endif
+}
 
 @end
 
@@ -455,30 +478,31 @@ static int avplayer_controlsStyle(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.canvas.avplayer:fullScreenButton([state]) -> avplayerObject | current value
-/// Method
-/// Get or set whether or not the full screen toggle button should be included in the media controls.
-///
-/// Parameters:
-///  * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.
-///
-/// Returns:
-///  * if an argument is provided, the avplayerObject; otherwise the current value.
-///
-/// Notes:
-///  * this method is experimental -- currently it causes problems with keeping the avplayer object properly assigned within the canvas.  This method may be removed until a reliable solution cannot be found.
-static int avplayer_showsFullScreenToggleButton(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, playerView.showsFullScreenToggleButton) ;
-    } else {
-        playerView.showsFullScreenToggleButton = (BOOL)lua_toboolean(L, 2) ;
-    }
-    return 1 ;
-}
+// /// hs._asm.canvas.avplayer:fullScreenButton([state]) -> avplayerObject | current value
+// /// Method
+// /// Get or set whether or not the full screen toggle button should be included in the media controls.
+// ///
+// /// Parameters:
+// ///  * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.
+// ///
+// /// Returns:
+// ///  * if an argument is provided, the avplayerObject; otherwise the current value.
+// ///
+// /// Notes:
+// ///  * this method is experimental -- currently it causes problems with keeping the avplayer object properly assigned within the canvas.  This method may be removed until a reliable solution cannot be found.
+// static int avplayer_showsFullScreenToggleButton(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+//     ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+//
+//     if (lua_gettop(L) == 1) {
+//         lua_pushboolean(L, playerView.showsFullScreenToggleButton) ;
+//     } else {
+//         playerView.showsFullScreenToggleButton = (BOOL)lua_toboolean(L, 2) ;
+//         lua_pushvalue(L, 1) ;
+//     }
+//     return 1 ;
+// }
 
 /// hs._asm.canvas.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value
 /// Method
@@ -498,6 +522,7 @@ static int avplayer_showsFrameSteppingButtons(lua_State *L) {
         lua_pushboolean(L, playerView.showsFrameSteppingButtons) ;
     } else {
         playerView.showsFrameSteppingButtons = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -520,6 +545,7 @@ static int avplayer_showsSharingServiceButton(lua_State *L) {
         lua_pushboolean(L, playerView.showsSharingServiceButton) ;
     } else {
         playerView.showsSharingServiceButton = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -570,6 +596,7 @@ static int avplayer_pauseWhenHidden(lua_State *L) {
         lua_pushboolean(L, playerView.pauseWhenHidden) ;
     } else {
         playerView.pauseWhenHidden = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -659,6 +686,19 @@ static int avplayer_actionMenu(lua_State *L) {
 
 #pragma mark - AVPlayer methods
 
+/// hs._asm.canvas.avplayer:load(path) -> avplayerObject
+/// Method
+/// Load the specified resource for playback.
+///
+/// Parameters:
+///  * `path` - a string specifying the file path or URL to the audiovisual resource.
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * If the path or URL are malformed, unreachable, or otherwise unavailable, [hs._asm.canvas.avplayer:status](#status) will return "failed".
+///  * Because a remote URL may not respond immediately, you can also setup a callback with [hs._asm.canvas.avplayer:trackStatus](#trackStatus) to be notified when the item has loaded or if it hs failed.
 static int avplayer_load(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL, LS_TBREAK] ;
@@ -678,14 +718,14 @@ static int avplayer_load(lua_State *L) {
 
     player.rate = 0.0f ; // any load should start in a paused state
     [player replaceCurrentItemWithPlayerItem:nil] ;
-    if (lua_type(L, 2) != LUA_TNIL) {
-        NSString *path    = [skin toNSObjectAtIndex:2] ;
-        NSURL    *theURL ;
 
-        if ([[NSFileManager defaultManager] fileExistsAtPath:[path stringByExpandingTildeInPath]]) {
+    if (lua_type(L, 2) != LUA_TNIL) {
+        NSString *path   = [skin toNSObjectAtIndex:2] ;
+        NSURL    *theURL = [NSURL URLWithString:path] ;
+
+        if (!theURL) {
+            [LuaSkin logInfo:@"trying as fileURL"] ;
             theURL = [NSURL fileURLWithPath:[path stringByExpandingTildeInPath]] ;
-        } else {
-            theURL = [NSURL URLWithString:path] ;
         }
 
         [player replaceCurrentItemWithPlayerItem:[AVPlayerItem playerItemWithURL:theURL]] ;
@@ -710,6 +750,18 @@ static int avplayer_load(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:play([fromBeginning]) -> avplayerObject
+/// Method
+/// Play the audiovisual media currently loaded in the avplayer object.
+///
+/// Parameters:
+///  * `fromBeginning` - an optional boolean, default false, specifying whether or not the media playback should start from the beginning or from the current location.
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * this is equivalent to setting the rate to 1.0 (see [hs._asm.canvas.avplayer:rate(1.0)](#rate)`)
 static int avplayer_play(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -724,6 +776,18 @@ static int avplayer_play(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.avplayer:pause() -> avplayerObject
+/// Method
+/// Pause the audiovisual media currently loaded in the avplayer object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the avplayerObject
+///
+/// Notes:
+///  * this is equivalent to setting the rate to 0.0 (see [hs._asm.canvas.avplayer:rate(0.0)](#rate)`)
 static int avplayer_pause(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -760,6 +824,7 @@ static int avplayer_mute(lua_State *L) {
         lua_pushboolean(L, player.muted) ;
     } else {
         player.muted = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -775,33 +840,35 @@ static int avplayer_volume(lua_State *L) {
     } else {
         float newLevel = (float)lua_tonumber(L, 2) ;
         player.volume = ((newLevel < 0.0f) ? 0.0f : ((newLevel > 1.0f) ? 1.0f : newLevel)) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
 
-static int avplayer_allowsExternalPlayback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
-    AVPlayer        *player = playerView.player ;
+// static int avplayer_allowsExternalPlayback(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+//     ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+//     AVPlayer        *player = playerView.player ;
+//
+//     if (lua_gettop(L) == 1) {
+//         lua_pushboolean(L, player.allowsExternalPlayback) ;
+//     } else {
+//         player.allowsExternalPlayback = (BOOL)lua_toboolean(L, 2) ;
+//         lua_pushvalue(L, 1) ;
+//     }
+//     return 1 ;
+// }
 
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, player.allowsExternalPlayback) ;
-    } else {
-        player.allowsExternalPlayback = (BOOL)lua_toboolean(L, 2) ;
-    }
-    return 1 ;
-}
-
-static int avplayer_externalPlaybackActive(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
-    AVPlayer        *player = playerView.player ;
-
-    lua_pushboolean(L, player.externalPlaybackActive) ;
-    return 1 ;
-}
+// static int avplayer_externalPlaybackActive(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+//     ASMAVPlayerView *playerView = [skin toNSObjectAtIndex:1] ;
+//     AVPlayer        *player = playerView.player ;
+//
+//     lua_pushboolean(L, player.externalPlaybackActive) ;
+//     return 1 ;
+// }
 
 static int avplayer_closedCaptionDisplayEnabled(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -813,6 +880,7 @@ static int avplayer_closedCaptionDisplayEnabled(lua_State *L) {
         lua_pushboolean(L, player.closedCaptionDisplayEnabled) ;
     } else {
         player.closedCaptionDisplayEnabled = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -1170,13 +1238,15 @@ static const luaL_Reg userdata_metaLib[] = {
     {"controlsStyle",         avplayer_controlsStyle},
     {"flashChapterAndTitle",  avplayer_flashChapterAndTitle},
     {"frameSteppingButtons",  avplayer_showsFrameSteppingButtons},
+//     {"fullScreenButton",      avplayer_showsFullScreenToggleButton},
     {"pauseWhenHidden",       avplayer_pauseWhenHidden},
     {"setCallback",           avplayer_callback},
     {"sharingServiceButton",  avplayer_showsSharingServiceButton},
 
 // AVPlayer methods
+//     {"allowExternalPlayback", avplayer_allowsExternalPlayback},
     {"ccEnabled",             avplayer_closedCaptionDisplayEnabled},
-    {"externalPlayback",      avplayer_externalPlaybackActive},
+//     {"externalPlayback",      avplayer_externalPlaybackActive},
     {"load",                  avplayer_load},
     {"mute",                  avplayer_mute},
     {"pause",                 avplayer_pause},
@@ -1194,10 +1264,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"time",                  avplayer_currentTime},
     {"trackStatus",           avplayer_trackStatus},
     {"trackCompleted",        avplayer_trackCompleted},
-
-// FIXME: subview release/loss from canvas with fullscreen (maybe AirPlay as well?)
-    {"fullScreenButton",      avplayer_showsFullScreenToggleButton},
-    {"allowExternalPlayback", avplayer_allowsExternalPlayback},
 
 // Lua meta-methods
     {"__tostring",            userdata_tostring},

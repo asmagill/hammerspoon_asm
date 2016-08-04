@@ -1,6 +1,6 @@
 #import "ASMCanvas.h"
 
-#define VIEW_DEBUG
+// #define VIEW_DEBUG
 
 #define USERDATA_TAG "hs._asm.canvas"
 static int refTable = LUA_NOREF;
@@ -1189,14 +1189,18 @@ static int userdata_gc(lua_State* L) ;
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 
 - (void)didAddSubview:(NSView *)subview {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - didAddSubview for %@", USERDATA_TAG, subview]] ;
+#endif
     if ([subview respondsToSelector:@selector(didAddToCanvas)]) [subview performSelector:@selector(didAddToCanvas)] ;
 }
 
 - (void)willRemoveSubview:(NSView *)subview {
+#ifdef VIEW_DEBUG
+    [LuaSkin logInfo:[NSString stringWithFormat:@"%s - willRemoveSubview for %@", USERDATA_TAG, subview]] ;
+#endif
     if ([subview respondsToSelector:@selector(willRemoveFromCanvas)]) [subview performSelector:@selector(willRemoveFromCanvas)] ;
 
-    // in case we're not called because of setElementValueFor:atIndex:to:, we have to locate the view element it belongs to...
-    // TODO: Actually, I want to try moving this into drawRect: and see if we can figure out when something like AVPlayerView goes into full screen mode... see if we can determine how to keep it valid in the element array so that when it leaves full screen mode it "goes back" and isn't somehow orphaned in the subviews array with no corresponding element array reference...  But don't forget that we also need to be able to handle when it is formally deleted/removed out from underneath us...
     __block BOOL viewFound = NO ;
     [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, BOOL *stop){
         if ([element[@"view"] isEqualTo:subview]) {
@@ -2146,24 +2150,24 @@ static int userdata_gc(lua_State* L) ;
 // This also removes compiler warnings about unknown selectors
 - (void)willRemoveFromCanvas {
 #ifdef VIEW_DEBUG
-    [LuaSkin logWarn:@"canvas in willRemoveFromCanvas"] ;
+    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in willRemoveFromCanvas", USERDATA_TAG]] ;
 #endif
 }
 - (void)didRemoveFromCanvas {
 #ifdef VIEW_DEBUG
-    [LuaSkin logWarn:@"canvas in didRemoveFromCanvas"] ;
+    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in didRemoveFromCanvas", USERDATA_TAG]] ;
 #endif
     _wrapperWindow.contentView = self ;
 }
 - (void)willAddToCanvas      {
 #ifdef VIEW_DEBUG
-    [LuaSkin logWarn:@"canvas in willAddToCanvas"] ;
+    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in willAddToCanvas", USERDATA_TAG]] ;
 #endif
     _wrapperWindow.contentView = nil ;
 }
 - (void)didAddToCanvas       {
 #ifdef VIEW_DEBUG
-    [LuaSkin logWarn:@"canvas in didAddToCanvas"] ;
+    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in didAddToCanvas", USERDATA_TAG]] ;
 #endif
 }
 
