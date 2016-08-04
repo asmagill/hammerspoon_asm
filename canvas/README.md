@@ -18,6 +18,8 @@ Examples of this module in use can found in the [EXAMPLES.md](EXAMPLES.md) file.
 
 Documentation for a wrapper to replace the built-in `hs.drawing` with this module can be found in the [DRAWING.md](DRAWING.md) file, and the wrapper itself, if you wish to use it, can be found at [hs._asm.canvas.drawing](drawing.lua).  It is also included in the precompiled binary for this module.
 
+An example of a module which provides a view compatibile with the [views](#views) element type can be found in the [avplayer](avplayer) directory of this module.  This example submodule adds support for playing audiovisual media within a canvas.
+
 ### Installation
 
 A precompiled version of this module may be found in this directory with the name `canvas-v0.x.tar.gz`. This can be installed by downloading the file and then expanding it as follows:
@@ -1179,7 +1181,7 @@ Candidate `view` objects:
  * A canvas object, which is not currently being shown, conforms to these requirements, so it is possible to use this element type to embed a canvas within another canvas.
  * `hs.webview` objects currently do not meet these requirements, but the necessary changes are currently under consideration.
  * `hs.drawing` objects do not meet these requirements, but as this module is under consideration as a replacement for `hs.drawing`, this will likely not change.  See `hs._asm.canvas.drawing` for the status of a wrapper for replacing the `hs.drawing` module.
- * An example of a "separate" module which can act as a valid object for this element type is being worked on as `hs._asm.canvas.avplayer`; updates will be added here as they occur.
+ * An example of a "separate" module which can act as a valid object for this element type is located in the [avplayer](avplayer) directory of this repository.  More targeted HOWTO documentation is also being considered.
 
 - - -
 

@@ -1008,7 +1008,8 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                actualPoint = [pointTransform transformPoint:local_point] ;
+                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"view"] ;
+                actualPoint = isView ? local_point : [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
                     NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
                     if (theImage) {
@@ -1141,7 +1142,8 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                actualPoint = [pointTransform transformPoint:local_point] ;
+                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"view"] ;
+                actualPoint = isView ? local_point : [pointTransform transformPoint:local_point] ;                actualPoint = [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
                     NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
                     if (theImage) {

@@ -2,11 +2,11 @@
 ---
 --- Provides an AudioVisual player view element type for `hs._asm.canvas`.
 ---
---- VERY EXPERIMENTAL -- and needs documentation...
----
 --- This sub-module provides a new type of view which can be assigned to the `view` attribute of and `hs._asm.canvas` element of type `view`.  This module requires `hs._asm.canvas` to actual display the content, but all playback selection and control is provided by this module.
 ---
---- Note that this submodule is provided as an example of providing external content for use within `hs._asm.canvas`.  While it is sufficient for my needs with regards to displaying video content under Hammerspoon control, it is by no means a fully functional video player.  Additional contributions are welcome!
+--- Playback of remote or streaming content has not been thoroughly tested; it's not something I do very often.  However, it has been tested against http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8, which is a sample URL provided in the Apple documentation at https://developer.apple.com/library/prerelease/content/documentation/AudioVideo/Conceptual/AVFoundationPG/Articles/02_Playback.html#//apple_ref/doc/uid/TP40010188-CH3-SW4
+---
+--- This submodule was intended to provide an example of providing external content for use within `hs._asm.canvas`, but has grown larger than anticipated. While it still serves as an example, I am working on a more narrowly targeted example which should be added to this repository soon.
 
 local USERDATA_TAG = "hs._asm.canvas.avplayer"
 local module       = require(USERDATA_TAG..".internal")
