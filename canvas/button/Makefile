@@ -6,7 +6,8 @@ PREFIX ?= ~/.hammerspoon
 HS_APPLICATION ?= /Applications
 
 OBJCFILE = ${wildcard *.m}
-LUAFILE  = ${wildcard *.lua}
+# LUAFILE  = ${wildcard *.lua}
+LUAFILE  = init.lua
 HEADERS  = ${wildcard *.h}
 
 SOFILE  := $(OBJCFILE:.m=.so)
