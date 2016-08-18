@@ -5,6 +5,7 @@
 local USERDATA_TAG = "hs._asm.cifilter"
 require("hs.image")
 require("hs.drawing")
+require("hs._asm.canvas") -- for NSAffineTransform conversions
 
 local module       = require(USERDATA_TAG..".internal")
 local IKUIInternal = hs.getObjectMetatable("hs._asm.ikfilteruiview")

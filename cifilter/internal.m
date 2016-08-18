@@ -1,7 +1,7 @@
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
-#import <CoreImage/CoreImage.h>
-#import <Quartz/Quartz.h>
+@import Cocoa ;
+@import LuaSkin ;
+@import CoreImage ;
+@import Quartz ;
 
 #define USERDATA_TAG    "hs._asm.cifilter"
 #define CIIMAGE_UD_TAG  "hs._asm.ciimage"
@@ -495,36 +495,38 @@ static id toCIFilterFromLua(lua_State *L, int idx) {
     return value ;
 }
 
-static int pushNSAffineTransform(lua_State *L, id obj) {
-    NSAffineTransformStruct theTransform = [(NSAffineTransform *)obj transformStruct] ;
-    lua_newtable(L) ;
-    lua_pushnumber(L, theTransform.m11) ; lua_setfield(L, -2, "m11") ;
-    lua_pushnumber(L, theTransform.m12) ; lua_setfield(L, -2, "m12") ;
-    lua_pushnumber(L, theTransform.m21) ; lua_setfield(L, -2, "m21") ;
-    lua_pushnumber(L, theTransform.m22) ; lua_setfield(L, -2, "m22") ;
-    lua_pushnumber(L, theTransform.tX) ;  lua_setfield(L, -2, "tX") ;
-    lua_pushnumber(L, theTransform.tY) ;  lua_setfield(L, -2, "tY") ;
-    return 1 ;
-}
-
-static id toNSAffineTransformFromLua(lua_State *L, int idx) {
-    NSAffineTransform *theTransform ;
-    if (lua_type(L, idx) == LUA_TTABLE) {
-        NSAffineTransformStruct transformHolder = { 1.0, 0.0, 0.0, 1.0, 0.0, 0.0 } ;
-        if (lua_getfield(L, idx, "m11") == LUA_TNUMBER) transformHolder.m11 = lua_tonumber(L, -1) ;
-        if (lua_getfield(L, idx, "m12") == LUA_TNUMBER) transformHolder.m12 = lua_tonumber(L, -1) ;
-        if (lua_getfield(L, idx, "m21") == LUA_TNUMBER) transformHolder.m21 = lua_tonumber(L, -1) ;
-        if (lua_getfield(L, idx, "m22") == LUA_TNUMBER) transformHolder.m22 = lua_tonumber(L, -1) ;
-        if (lua_getfield(L, idx, "tX") == LUA_TNUMBER)  transformHolder.tX  = lua_tonumber(L, -1) ;
-        if (lua_getfield(L, idx, "tY") == LUA_TNUMBER)  transformHolder.tY  = lua_tonumber(L, -1) ;
-        lua_pop(L, 6) ; // all at once is a little faster, since we're not doing anything complex that affects the stack with intermediate stuff
-        theTransform = [NSAffineTransform transform] ;
-        [theTransform setTransformStruct:transformHolder] ;
-    } else {
-        [[LuaSkin shared] logError:[NSString stringWithFormat:@"NSAffineTransform expects table, found %s", lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return theTransform ;
-}
+// In hs._asm.canvas, which may be added to core soon
+//
+// static int pushNSAffineTransform(lua_State *L, id obj) {
+//     NSAffineTransformStruct theTransform = [(NSAffineTransform *)obj transformStruct] ;
+//     lua_newtable(L) ;
+//     lua_pushnumber(L, theTransform.m11) ; lua_setfield(L, -2, "m11") ;
+//     lua_pushnumber(L, theTransform.m12) ; lua_setfield(L, -2, "m12") ;
+//     lua_pushnumber(L, theTransform.m21) ; lua_setfield(L, -2, "m21") ;
+//     lua_pushnumber(L, theTransform.m22) ; lua_setfield(L, -2, "m22") ;
+//     lua_pushnumber(L, theTransform.tX) ;  lua_setfield(L, -2, "tX") ;
+//     lua_pushnumber(L, theTransform.tY) ;  lua_setfield(L, -2, "tY") ;
+//     return 1 ;
+// }
+//
+// static id toNSAffineTransformFromLua(lua_State *L, int idx) {
+//     NSAffineTransform *theTransform ;
+//     if (lua_type(L, idx) == LUA_TTABLE) {
+//         NSAffineTransformStruct transformHolder = { 1.0, 0.0, 0.0, 1.0, 0.0, 0.0 } ;
+//         if (lua_getfield(L, idx, "m11") == LUA_TNUMBER) transformHolder.m11 = lua_tonumber(L, -1) ;
+//         if (lua_getfield(L, idx, "m12") == LUA_TNUMBER) transformHolder.m12 = lua_tonumber(L, -1) ;
+//         if (lua_getfield(L, idx, "m21") == LUA_TNUMBER) transformHolder.m21 = lua_tonumber(L, -1) ;
+//         if (lua_getfield(L, idx, "m22") == LUA_TNUMBER) transformHolder.m22 = lua_tonumber(L, -1) ;
+//         if (lua_getfield(L, idx, "tX") == LUA_TNUMBER)  transformHolder.tX  = lua_tonumber(L, -1) ;
+//         if (lua_getfield(L, idx, "tY") == LUA_TNUMBER)  transformHolder.tY  = lua_tonumber(L, -1) ;
+//         lua_pop(L, 6) ; // all at once is a little faster, since we're not doing anything complex that affects the stack with intermediate stuff
+//         theTransform = [NSAffineTransform transform] ;
+//         [theTransform setTransformStruct:transformHolder] ;
+//     } else {
+//         [[LuaSkin shared] logError:[NSString stringWithFormat:@"NSAffineTransform expects table, found %s", lua_typename(L, lua_type(L, idx))]] ;
+//     }
+//     return theTransform ;
+// }
 
 static int pushCIVector(lua_State *L, id obj) {
     CIVector *theVector = obj ;
@@ -541,7 +543,10 @@ static id toCIVectorFromLua(lua_State *L, int idx) {
     if (lua_type(L, idx) == LUA_TTABLE) {
         size_t count = (size_t) luaL_len(L, idx) ;
         if (count > 0) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvla"
             CGFloat vectorParts[count] ;
+#pragma clang diagnostic pop
             for (size_t i = 0 ; i < count ; i++) {
                 if (lua_rawgeti(L, idx, (int)(i + 1)) == LUA_TNUMBER) {
                     vectorParts[i] = lua_tonumber(L, -1) ;
@@ -680,7 +685,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_cifilter_internal(lua_State* __unused L) {
+int luaopen_hs__asm_cifilter_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -699,8 +704,8 @@ int luaopen_hs__asm_cifilter_internal(lua_State* __unused L) {
     [skin registerPushNSHelper:pushCIImage         forClass:"CIImage"] ;
     [skin registerLuaObjectHelper:toCIImageFromLua forClass:"CIImage"];
 
-    [skin registerPushNSHelper:pushNSAffineTransform         forClass:"NSAffineTransform"] ;
-    [skin registerLuaObjectHelper:toNSAffineTransformFromLua forClass:"NSAffineTransform"];
+//     [skin registerPushNSHelper:pushNSAffineTransform         forClass:"NSAffineTransform"] ;
+//     [skin registerLuaObjectHelper:toNSAffineTransformFromLua forClass:"NSAffineTransform"];
 
     [skin registerPushNSHelper:pushCIVector         forClass:"CIVector"] ;
     [skin registerLuaObjectHelper:toCIVectorFromLua forClass:"CIVector"];
