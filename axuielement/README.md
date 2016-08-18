@@ -12,7 +12,7 @@ $ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
 $ tar -xzf ~/Downloads/axuielement-v0.x.tar.gz # or wherever your downloads are located
 ~~~
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything) is to download `init.lua`, `internal.m`, and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything) is to download `init.lua`, `internal.m`, `window.h`, `application.h`, and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
 
 ~~~sh
 $ cd wherever-you-downloaded-the-files
@@ -24,6 +24,48 @@ If your Hammerspoon application is located in `/Applications`, you can leave out
 As always, whichever method you chose, if you are updating from an earlier version it is recommended to fully quit and restart Hammerspoon after installing this module to ensure that the latest version of the module is loaded into memory.
 
 - - -
+
+### Newer Examples
+
+These will probably move to the examples folder at some point, but since they have been mentioned in Hammerspoon GitHub issues, I want to put them in here as well so that I can easily find them again if I need to...
+
+##### Activate Dock item by position in Dock [#953](https://github.com/Hammerspoon/hammerspoon/issues/953)
+~~~lua
+ax = require("hs._asm.axuielement")
+d = hs.application("Dock")
+iconNumber = 1 -- position in the dock, starting with 1 being the furthest left item
+icon = ax.applicationElement(d)[1][iconNumber]
+if icon:roleDescription() == "application dock item" then
+    icon:doPress()
+else
+    print ("not an application")
+end
+~~~
+
+##### Dock Item context menu [#887](https://github.com/Hammerspoon/hammerspoon/issues/887)
+~~~lua
+ax = require"hs._asm.axuielement"
+SPDockItem = ax.applicationElement(hs.application("Dock")):elementSearch{title="System Preferences"}[1]
+SPDockItem:doShowMenu()
+SPDockItem[1]:elementSearch{title="General"}[1]:doPress()
+~~~
+
+##### Toggle Dictation Commands window when Dictation is enabled, [used in my personal setup](https://github.com/asmagill/hammerspoon-config/blob/master/utils/speech.lua#L161)
+~~~lua
+-- get all of the Dictation windows with buttons
+local dictationWindows = hs.fnutils.ifilter(hs.window.allWindows(), function(_)
+    return _:role() == "AXButton" and _:application():name() == "Dictation"
+end)
+
+-- if there is only one, it's the "Show" button of the hovering microphone
+-- otherwise, look for the window with a Close button
+target = (#dictationWindows == 1) and dictationWindows[1]
+             or hs.fnutils.find(dictationWindows, function(_) return _:subrole() == "AXCloseButton" end)
+
+-- whichever we got, "press" it
+ax = require("hs._asm.axuielement")
+ax.windowElement(target):doPress()
+~~~
 
 ### Previous Documentation, untouched (for now)
 
