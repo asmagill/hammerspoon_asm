@@ -882,6 +882,20 @@ static int userdata_gc(lua_State* L) ;
     return self;
 }
 
+- (BOOL)canBecomeKeyWindow {
+    __block BOOL allowKey = NO ;
+    if (self.contentView && [self.contentView isKindOfClass:[ASMCanvasView class]]) {
+        NSArray *elementList = ((ASMCanvasView *)self.contentView).elementList ;
+        [elementList enumerateObjectsUsingBlock:^(NSDictionary *element, __unused NSUInteger idx, BOOL *stop) {
+            if (element[@"view"] && [element[@"view"] respondsToSelector:@selector(canBecomeKeyView)]) {
+                allowKey = [element[@"view"] canBecomeKeyView] ;
+                *stop = YES ;
+            }
+        }] ;
+    }
+    return allowKey ;
+}
+
 #pragma mark - NSWindowDelegate Methods
 
 - (BOOL)windowShouldClose:(id __unused)sender {
@@ -990,6 +1004,17 @@ static int userdata_gc(lua_State* L) ;
 - (BOOL)acceptsFirstMouse:(__unused NSEvent *)theEvent {
     if (self.window == nil) return NO;
     return !self.window.ignoresMouseEvents;
+}
+
+- (BOOL)canBecomeKeyView {
+    __block BOOL allowKey = NO ;
+    [_elementList enumerateObjectsUsingBlock:^(NSDictionary *element, __unused NSUInteger idx, BOOL *stop) {
+        if (element[@"view"] && [element[@"view"] respondsToSelector:@selector(canBecomeKeyView)]) {
+            allowKey = [element[@"view"] canBecomeKeyView] ;
+            *stop = YES ;
+        }
+    }] ;
+    return allowKey ;
 }
 
 - (void)mouseMoved:(NSEvent *)theEvent {
@@ -1104,7 +1129,7 @@ static int userdata_gc(lua_State* L) ;
 }
 
 - (void)doMouseCallback:(NSString *)message for:(id)elementIdentifier at:(NSPoint)location {
-    if (elementIdentifier) {
+    if (elementIdentifier && _mouseCallbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared];
         [skin pushLuaRef:refTable ref:_mouseCallbackRef];
         [skin pushLuaRef:refTable ref:_selfRef] ;
@@ -1118,6 +1143,21 @@ static int userdata_gc(lua_State* L) ;
                                                       message,
                                                       lua_tostring(skin.L, -1)]];
             lua_pop(skin.L, 1) ;
+        }
+    }
+}
+
+- (void)subviewCallback:(id)sender {
+    if (_mouseCallbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared];
+        [skin pushLuaRef:refTable ref:_mouseCallbackRef];
+        [skin pushLuaRef:refTable ref:_selfRef] ;
+        [skin pushNSObject:@"_subview_"] ;
+        [skin pushNSObject:sender] ;
+        if (![skin protectedCallAndTraceback:3 nresults:0]) {
+            NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+            lua_pop(skin.L, 1) ;
+            [skin logError:[NSString stringWithFormat:@"%s:buttonCallback error:%@", USERDATA_TAG, errorMessage]] ;
         }
     }
 }
@@ -2339,6 +2379,60 @@ static int default_textAttributes(lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+/// hs._asm.canvas:windowTitle([title]) -> canvasObject
+/// Method
+/// Sets the title for the canvas window.
+///
+/// Parameters:
+///  * `title` - if specified and not nil, the title to set for the webview window.
+///
+/// Returns:
+///  * The canvas Object
+///
+/// Notes:
+///  * The title will be hidden unless the window style includes the "titled" style (see [hs._asm.canvas:windowStyle](#windowStyle) and `hs.webview.windowMasks`)
+static int canvas_windowTitle(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+
+    if (lua_gettop(L) == 1) {
+      [skin pushNSObject:canvasWindow.title] ;
+    } else {
+        canvasWindow.title = [skin toNSObjectAtIndex:2] ;
+    }
+
+    lua_settop(L, 1) ;
+    return 1 ;
+}
+
+static int canvas_windowStyle(lua_State *L) {
+// NOTE:  This method is wrapped in init.lua
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
+
+    if (lua_type(L, 2) == LUA_TNONE) {
+        lua_pushinteger(L, (lua_Integer)canvasWindow.styleMask) ;
+    } else {
+            @try {
+            // Because we're using NSPanel, the title is reset when the style is changed
+                NSString *theTitle = canvasWindow.title ;
+            // Also, some styles don't get properly set unless we start from a clean slate
+                [canvasWindow setStyleMask:0] ;
+                [canvasWindow setStyleMask:(NSUInteger)luaL_checkinteger(L, 2)] ;
+                if (theTitle) canvasWindow.title = theTitle ;
+            }
+            @catch ( NSException *theException ) {
+                return luaL_error(L, "Invalid style mask: %s, %s", [[theException name] UTF8String], [[theException reason] UTF8String]) ;
+            }
+        lua_settop(L, 1) ;
+    }
+    return 1 ;
+}
 
 /// hs._asm.canvas:minimumTextSize([index], text) -> table
 /// Method
@@ -3732,6 +3826,49 @@ static int cg_windowLevels(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.canvas.windowMasks[]
+/// Constant
+/// A table containing valid masks for the webview window.
+///
+/// Table Keys:
+///  * `borderless`           - The window has no border decorations (default)
+///  * `titled`               - The window title bar is displayed
+///  * `closable`             - The window has a close button
+///  * `miniaturizable`       - The window has a minimize button
+///  * `resizable`            - The window is resizable
+///  * `texturedBackground`   - The window has a texturized background
+///  * `fullSizeContentView`  - If titled, the titlebar is within the frame size specified at creation, not above it.  Shrinks actual content area by the size of the titlebar, if present.
+///  * `utility`              - If titled, the window shows a utility panel titlebar (thinner than normal)
+///  * `nonactivating`        - If the window is activated, it won't bring other Hammerspoon windows forward as well
+///  * `HUD`                  - Requires utility; the window titlebar is shown dark and can only show the close button and title (if they are set)
+///
+/// Need to test and document better
+///  * unifiedTitleAndToolbar - The window's title bar and toolbar have a unified look—that is, a continuous background. A horizontal separator line appears under the title bar and toolbar .
+///  * fullScreen             - The window can appear full screen. A fullscreen window does not draw its title bar, and may have special handling for its toolbar. This mask is automatically toggled when toggleFullScreen: is called.
+///  * docModal               - The panel is created as a modal sheet.
+///
+/// Notes:
+///  * The Maximize button in the window title is enabled when Resizable is set.
+///  * The Close, Minimize, and Maximize buttons are only visible when the Window is also Titled.
+static int canvas_windowMasksTable(lua_State *L) {
+    lua_newtable(L) ;
+      lua_pushinteger(L, NSBorderlessWindowMask) ;             lua_setfield(L, -2, "borderless") ;
+      lua_pushinteger(L, NSTitledWindowMask) ;                 lua_setfield(L, -2, "titled") ;
+      lua_pushinteger(L, NSClosableWindowMask) ;               lua_setfield(L, -2, "closable") ;
+      lua_pushinteger(L, NSMiniaturizableWindowMask) ;         lua_setfield(L, -2, "miniaturizable") ;
+      lua_pushinteger(L, NSResizableWindowMask) ;              lua_setfield(L, -2, "resizable") ;
+      lua_pushinteger(L, NSTexturedBackgroundWindowMask) ;     lua_setfield(L, -2, "texturedBackground") ;
+      lua_pushinteger(L, NSUnifiedTitleAndToolbarWindowMask) ; lua_setfield(L, -2, "unifiedTitleAndToolbar") ;
+      lua_pushinteger(L, NSFullScreenWindowMask) ;             lua_setfield(L, -2, "fullScreen") ;
+      lua_pushinteger(L, NSFullSizeContentViewWindowMask) ;    lua_setfield(L, -2, "fullSizeContentView") ;
+      lua_pushinteger(L, NSUtilityWindowMask) ;                lua_setfield(L, -2, "utility") ;
+      lua_pushinteger(L, NSDocModalWindowMask) ;               lua_setfield(L, -2, "docModal") ;
+      lua_pushinteger(L, NSNonactivatingPanelMask) ;           lua_setfield(L, -2, "nonactivating") ;
+      lua_pushinteger(L, NSHUDWindowMask) ;                    lua_setfield(L, -2, "HUD") ;
+    return 1 ;
+}
+
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -3865,6 +4002,11 @@ static const luaL_Reg userdata_metaLib[] = {
     {"transformation",      canvas_canvasTransformation},
     {"wantsLayer",          canvas_wantsLayer},
 
+//     {"closeOnEscape",              webview_closeOnEscape},
+//     {"deleteOnClose",              webview_deleteOnClose},
+    {"windowTitle",         canvas_windowTitle},
+    {"_windowStyle",        canvas_windowStyle},
+
     {"__tostring",          userdata_tostring},
     {"__eq",                userdata_eq},
     {"__gc",                userdata_gc},
@@ -3895,9 +4037,10 @@ int luaopen_hs__asm_canvas_internal(lua_State* L) {
     [skin registerLuaObjectHelper:toASMCanvasViewFromLua forClass:"ASMCanvasView"
                                               withUserdataMapping:USERDATA_TAG];
 
-    pushCompositeTypes(L) ;     lua_setfield(L, -2, "compositeTypes") ;
-    pushCollectionTypeTable(L); lua_setfield(L, -2, "windowBehaviors") ;
-    cg_windowLevels(L) ;        lua_setfield(L, -2, "windowLevels") ;
+    pushCompositeTypes(L) ;      lua_setfield(L, -2, "compositeTypes") ;
+    pushCollectionTypeTable(L) ; lua_setfield(L, -2, "windowBehaviors") ;
+    cg_windowLevels(L) ;         lua_setfield(L, -2, "windowLevels") ;
+    canvas_windowMasksTable(L) ; lua_setfield(L, -2, "windowMasks") ;
 
     return 1;
 }

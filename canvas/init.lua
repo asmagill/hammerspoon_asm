@@ -209,6 +209,50 @@ end
 module.compositeTypes  = _makeConstantsTable(module.compositeTypes)
 module.windowBehaviors = _makeConstantsTable(module.windowBehaviors)
 module.windowLevels    = _makeConstantsTable(module.windowLevels)
+module.windowMasks     = _makeConstantsTable(module.windowMasks)
+
+--- hs._asm.canvas:windowStyle(mask) -> canvasObject | currentMask
+--- Method
+--- Get or set the window display style
+---
+--- Parameters:
+---  * mask - if present, this mask should be a combination of values found in [hs._asm.canvas.windowMasks](#windowMasks) describing the window style.  The mask should be provided as one of the following:
+---    * integer - a number representing the style which can be created by combining values found in [hs._asm.canvas.windowMasks](#windowMasks) with the logical or operator.
+---    * string  - a single key from [hs._asm.canvas.windowMasks](#windowMasks) which will be toggled in the current window style.
+---    * table   - a list of keys from [hs._asm.canvas.windowMasks](#windowMasks) which will be combined to make the final style by combining their values with the logical or operator.
+---
+--- Returns:
+---  * if a mask is provided, then the canvasObject is returned; otherwise the current mask value is returned.
+canvasMT.windowStyle = function(self, ...)
+    local arg = table.pack(...)
+    local theMask = canvasMT._windowStyle(self)
+
+    if arg.n ~= 0 then
+        if type(arg[1]) == "number" then
+            theMask = arg[1]
+        elseif type(arg[1]) == "string" then
+            if module.windowMasks[arg[1]] then
+                theMask = theMask ~ module.windowMasks[arg[1]]
+            else
+                return error("unrecognized style specified: "..arg[1])
+            end
+        elseif type(arg[1]) == "table" then
+            theMask = 0
+            for i,v in ipairs(arg[1]) do
+                if module.windowMasks[v] then
+                    theMask = theMask | module.windowMasks[v]
+                else
+                    return error("unrecognized style specified: "..v)
+                end
+            end
+        else
+            return error("invalid type: number, string, or table expected, got "..type(arg[1]))
+        end
+        return canvasMT._windowStyle(self, theMask)
+    else
+        return theMask
+    end
+end
 
 --- hs._asm.canvas:behaviorAsLabels(behaviorTable) -> canvasObject | currentValue
 --- Method
