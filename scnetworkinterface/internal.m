@@ -40,7 +40,7 @@ static int getInterfaces(lua_State *L) {
 
 #pragma mark - Module Methods
 
-static int interfaceMPU(lua_State *L) {
+static int interfaceMTU(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     SCNetworkInterfaceRef theInterface = get_cfobjectFromUserdata(SCNetworkInterfaceRef, L, 1) ;
@@ -319,7 +319,7 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"mpu",                  interfaceMPU},
+    {"mtu",                  interfaceMTU},
     {"bsdName",              interfaceBSDName},
     {"hardwareAddress",      interfaceHardwareAddress},
     {"type",                 interfaceType},
