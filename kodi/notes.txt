@@ -1,0 +1,9 @@
+* add default server/port via hs.settings
+
++ copy itunes-like methods into module functions which use defaults... userdata form with methods will offer more functionality built from API returned by JSONRPC.Introspection -- mostly done... need to decide on getAlbum/getTrack/getArtist since the results are very different between video/audio... and both can technically be playing at the same time.
+
+  add watcher for network access?
+  add notification for up/down changes?
+  add support for basic authentication?
+
+  add/switch to websockets... having problems getting it to connect, which is why I went this route, and reading online, people using primarily IPv4 seem to have similar problems, so need to test and consider some more...
