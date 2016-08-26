@@ -301,6 +301,205 @@ module.version_compare = function(a,b)
     return false
 end
 
+--- hs._asm.extras.bundleIDForApp(app) -> bundleID
+--- Function
+--- Returns the bundle id for the application with the specified name, if it can be found.
+---
+--- Parameters:
+---  * app - the name of the application
+---
+--- Returns:
+---  * the bundle id or ": could not find ." if it could not be found
+---
+--- Notes:
+---  * this function uses `mdls` to search for the application in the Spotlight metadata.
+module.bundleIDForApp = function(app)
+    return (hs.execute([[mdls -name kMDItemCFBundleIdentifier -r "$(mdfind 'kMDItemKind==Application' | grep /]] .. app .. [[.app | head -1)"]]))
+end
+
+--- hs._asm.extras.caseInsensitivePattern(string) -> pattern
+--- Functions
+--- Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.
+---
+--- Parameters:
+---  * string - a string to match
+---
+--- Returns:
+---  * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.
+---
+--- Notes:
+---  * Example: `hs._asm.extras.caseInsensitivePattern("content-length: %d+")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.
+---
+---  * Based on code found at http://stackoverflow.com/a/11402486
+---  * May be added to the Hammerspoon core somewhere at some point.
+module.caseInsensitivePattern = function(pattern)
+    -- find an optional '%' (group 1) followed by any character (group 2)
+    local p = pattern:gsub("(%%?)(.)", function(percent, letter)
+        if percent ~= "" or not letter:match("%a") then
+            -- if the '%' matched, or `letter` is not a letter, return "as is"
+            return percent .. letter
+        else
+            -- else, return a case-insensitive character class of the matched letter
+            return string.format("[%s%s]", letter:lower(), letter:upper())
+        end
+    end)
+    return p
+end
+
+--- hs._asm.extras.tobits(integer, [width]) -> bitmask
+--- Function
+--- Returns the specified integer as a bitmask (boolean).
+---
+--- Parameters:
+---  * integer - the integer to convert to a bitmask
+---  * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.
+---
+--- Returns:
+---  * the bitmask for the specified integer
+---
+--- Notes:
+---  * May be added to the Hammerspoon core somewhere at some point.
+module.tobits = function(num, bits)
+    bits = bits or (math.floor(math.log(num,2) / 8) + 1) * 8
+    if bits == -(1/0) then bits = 8 end
+    local value = ""
+    for i = (bits - 1), 0, -1 do
+        value = value..tostring((num >> i) & 0x1)
+    end
+    return value
+end
+
+--- hs._asm.extras.isinf(number) -> boolean
+--- Function
+--- Returns true or false specifying if the number provided represents infinity
+---
+--- Parameters:
+---  * number - the number to check
+---
+--- Returns:
+---  * true if the number represents infinity or false if it is a finite number
+---
+--- Notes:
+---  * Lua represents infinity internally and displays "inf" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`.
+module.isinf = function(x) return x == math.huge end
+
+--- hs._asm.extras.isnan(number) -> boolean
+--- Function
+--- Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.
+---
+--- Parameters:
+---  * number - the number to check
+---
+--- Returns:
+---  * true if the number is NaN or false if it is a finite number
+---
+--- Notes:
+---  * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.
+---  * Lua represents NaN internally and displays "nan" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.
+module.isnan = function(x) return x ~= x end
+
+--- hs._asm.extrasn.colorsFor(listName) -> none
+--- Function
+--- Prints the colors contained within the specified hs.drawing.color list name.
+---
+--- Parameters:
+---  * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`
+---
+--- Returns:
+---  * None.  Displays the list of colors in a colored background to match each name in the console.
+module.colorsFor = function(name)
+    local a = stext.new("")
+    for i,v in require"hs.fnutils".sortByKeys(require"hs.drawing.color".colorsFor(name)) do
+        a = a..stext.new(i.."\n", { color = { white = .5 }, backgroundColor = v })
+    end
+    require"hs.console".printStyledtext(a)
+end
+
+--- hs._asm.extrasn.colorDump() -> none
+--- Function
+--- Prints all of the colors defined in hs.drawing.color's lists.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * None.  Displays the list of colors in a colored background to match each name in the console.
+module.colorDump = function()
+    for i,v in require"hs.fnutils".sortByKeys(require"hs.drawing.color".lists()) do
+        print(i)
+        module.colorsFor(i)
+    end
+end
+
+--- hs._asm.extras.idunno
+--- Variable
+--- A string containing ¯\_(ツ)_/¯.
+---
+--- I don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday.
+module.idunno = "¯\\_(ツ)_/¯"
+
+--- hs._asm.extras.graphpaperImage
+--- Variable
+--- An `hs.image` object containing an image of graph paper suitable for use as a color pattern.
+---
+--- The image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed.
+module.graphpaperImage = require"hs.image".imageFromASCII([[
+.........1.........3.........5.........7.........N
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+A................................................A
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+C................................................C
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+E................................................E
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+G................................................G
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+..................................................
+L........1.........3.........5.........7.........M
+]],
+{
+    [9]  = { strokeColor = { blue = 1, alpha = 1 } },
+    [10] = { strokeColor = { white = .25, alpha = 1 }, fillColor = { alpha = 0 }, shouldClose = false },
+})
+
 -- Return Module Object --------------------------------------------------
 
 return module
