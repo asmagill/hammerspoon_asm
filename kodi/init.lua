@@ -27,9 +27,10 @@ local settings = require("hs.settings")
 local timer    = require("hs.timer")
 local fnutils  = require("hs.fnutils")
 
-local logLabel = (#USERDATA_TAG <= 10) and USERDATA_TAG
-                                       or hsutf8.codepointToUTF8(0x2026) .. USERDATA_TAG:sub(-7)
-local log      = logger.new(logLabel, settings.get(USERDATA_TAG .. ".logLevel") or "warning")
+-- local logLabel = (#USERDATA_TAG <= 10) and USERDATA_TAG
+--                                        or hsutf8.codepointToUTF8(0x2026) .. USERDATA_TAG:sub(-7)
+-- local log      = logger.new(logLabel, settings.get(USERDATA_TAG .. ".logLevel") or "warning")
+local log = logger.new(USERDATA_TAG, settings.get(USERDATA_TAG .. ".logLevel") or "warning")
 
 -- private variables and methods -----------------------------------------
 
