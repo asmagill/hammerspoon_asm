@@ -59,7 +59,9 @@ static int pushParsedICMPPayload(NSData *payloadData) {
             lua_setfield(L, -2, "payload") ;
         }
     } else {
-        [skin logError:[NSString stringWithFormat:@"malformed ICMP data:%@", payloadData]] ;
+        [skin logDebug:[NSString stringWithFormat:@"malformed ICMP data:%@", payloadData]] ;
+        lua_pushstring(L, "ICMP header is too short -- malformed ICMP packet") ;
+        lua_setfield(L, -2, "error") ;
     }
     [skin pushNSObject:payloadData] ;
     lua_setfield(L, -2, "_raw") ;
