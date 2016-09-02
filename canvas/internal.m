@@ -1405,6 +1405,13 @@ static int userdata_gc(lua_State* L) ;
     [[self getDefaultValueFor:@"fillColor" onlyIfSet:NO] setFill] ;
     [[self getDefaultValueFor:@"strokeColor" onlyIfSet:NO] setStroke] ;
 
+    // because of changes to the elements, skip actions, etc, previous tracking info may change...
+    NSUInteger previousTrackedRealIndex = NSNotFound ;
+    if (_previousTrackedIndex != NSNotFound) {
+        previousTrackedRealIndex = [_elementBounds[_previousTrackedIndex][@"index"] unsignedIntegerValue] ;
+        _previousTrackedIndex = NSNotFound ;
+    }
+
     _elementBounds = [[NSMutableArray alloc] init] ;
 
     // renderPath needs to persist through iterations, so define it here
@@ -1649,8 +1656,8 @@ static int userdata_gc(lua_State* L) ;
             }
             // to keep nesting correct, this was already done if we adjusted clipping this round
             if (!wasClippingChanged) [gc restoreGraphicsState] ;
-//         } else if ([action isEqualToString:@"skip"]) {
-//             renderPath = nil ;
+
+            if (idx == previousTrackedRealIndex) self->_previousTrackedIndex = [self->_elementBounds count] - 1 ;
         }
     }] ;
 
