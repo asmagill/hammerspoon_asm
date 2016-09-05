@@ -8,24 +8,23 @@ local USERDATA_TAG = "hs._asm.kodi"
 local module       = {}
 local kodiMT       = {}
 
--- shouldn't be less than 60, as 60s is the timeout for http requests, so a lower ping time would
--- cause a new request to be made before the last one has failed if the server is no longer on
--- the network.
-local pingTime = 120
+local pingTime      = 120
+local reconnectTime = 30
 
 local instances = setmetatable({}, { __mode = "k" })
 local mappings  = setmetatable({}, { __mode = "v" })
 
-local http     = require("hs.http")
-local alert    = require("hs.alert")
-local json     = require("hs.json")
-local host     = require("hs.host")
-local hsutf8   = require("hs.utf8")
-local logger   = require("hs.logger")
-local inspect  = require("hs.inspect")
-local settings = require("hs.settings")
-local timer    = require("hs.timer")
-local fnutils  = require("hs.fnutils")
+local http       = require("hs.http")
+local alert      = require("hs.alert")
+local json       = require("hs.json")
+local host       = require("hs.host")
+local hsutf8     = require("hs.utf8")
+local logger     = require("hs.logger")
+local inspect    = require("hs.inspect")
+local settings   = require("hs.settings")
+local timer      = require("hs.timer")
+local fnutils    = require("hs.fnutils")
+local caffeinate = require("hs.caffeinate")
 
 -- local logLabel = (#USERDATA_TAG <= 10) and USERDATA_TAG
 --                                        or hsutf8.codepointToUTF8(0x2026) .. USERDATA_TAG:sub(-7)
@@ -89,7 +88,7 @@ backgroundConnection = function(id)
                                             selfInternals.pingPong = nil
                                             log.df("%s offline", cleanServerString(selfInternals.URL, true))
                                             selfInternals.API = nil
-                                            selfInternals.reconnect = timer.doEvery(pingTime, function()
+                                            selfInternals.reconnect = timer.doEvery(reconnectTime, function()
                                                 backgroundConnection(id)
                                             end)
                                         else
@@ -113,7 +112,7 @@ backgroundConnection = function(id)
                     if not selfInternals.reconnect then
                         log.df("%s offline", cleanServerString(selfInternals.URL, true))
                         selfInternals.API = nil
-                        selfInternals.reconnect = timer.doEvery(pingTime, function()
+                        selfInternals.reconnect = timer.doEvery(reconnectTime, function()
                             backgroundConnection(id)
                         end)
                     end
@@ -138,6 +137,28 @@ local getAPIifConnected = function(self, withAlert)
     end
     return API
 end
+
+local sleepWatcher = caffeinate.watcher.new(function(state)
+    if state == caffeinate.watcher.systemDidWake then
+        for i, v in pairs(instances) do
+            log.df("%s waking up", cleanServerString(v.URL, true))
+            backgroundConnection(v.id)
+        end
+    elseif state == caffeinate.watcher.systemWillSleep then
+        for i, v in pairs(instances) do
+            log.df("%s going to sleep", cleanServerString(v.URL, true))
+            v.API = nil
+            if v.reconnect then
+                v.reconnect:stop()
+                v.reconnect = nil
+            end
+            if v.pingPong then
+                v.pingPong:stop()
+                v.pingPong = nil
+            end
+        end
+    end
+end):start()
 
 -- Public interface ------------------------------------------------------
 
@@ -666,45 +687,24 @@ kodiMT.definition = function(self, cmd)
     end
 end
 
+kodiMT.resetConnection = function(self)
+    local internalSelf = instances[self]
+    internalSelf.API = nil
+    if internalSelf.reconnect then
+        internalSelf.reconnect:stop()
+        internalSelf.reconnect = nil
+    end
+    if internalSelf.pingPong then
+        internalSelf.pingPong:stop()
+        internalSelf.pingPong = nil
+    end
+    backgroundConnection(self.id)
+    return self
+end
+
 kodiMT.__name  = USERDATA_TAG
 kodiMT.__type  = USERDATA_TAG
 kodiMT.__index = kodiMT
-
--- kodiMT.__index = function(self, key)
---     local KODIself, currentDepth, currentMethod = self, 1, ""
---     if getmetatable(self).__name == USERDATA_TAG then
---         if kodiMT[key] then return kodiMT[key] end
---     else
---         KODIself, currentDepth, currentMethod = rawget(self, "_self"), rawget(self, "_depth"), rawget(self, "_method")
---     end
---
---     if not instances[KODIself].API then
---         log.e("KODI instance not connected")
---         return nil
---     end
---
---     local nameSoFar = (#currentMethod > 0) and (currentMethod .. "." .. key) or key
--- --     print(nameSoFar)
---     for methodName, methodDescription in pairs(instances[KODIself].API.methods) do
---         local parts = fnutils.split(methodName, "%.")
---         local partialMethod = table.concat(parts, ".", 1, currentDepth)
---         if nameSoFar:lower() == partialMethod:lower() then -- case-insensitive match
--- --             print(" --> " .. partialMethod)
---             if #parts == currentDepth then
---                 return function(...) return methodDescription end
---             else
---                 return setmetatable({
---                     _self = KODIself,
---                     _depth = currentDepth + 1,
---                     _method = partialMethod
---                 }, {
---                     __index = kodiMT.__index
---                 })
---             end
---         end
---     end
---     return nil
--- end
 
 kodiMT.__call = function(self, cmd, params, callback)
     assert(type(cmd) == "string", "method must be specified as a string")
@@ -789,6 +789,8 @@ end
 ---
 --- If you wish to manage multiple KODI instances, or if you need to change the server based upon your current network, you should use [hs._asm.kodi.new](#new) and use the compatibility functions as methods, rather than as functions.
 module.KODI = autoconnect()
+
+module._sleepWatcher = sleepWatcher
 
 debug.getregistry()[USERDATA_TAG] = kodiMT
 return module
