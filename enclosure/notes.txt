@@ -1,0 +1,243 @@
+// NSWindow Methods
+// -   - (BOOL)autorecalculatesContentBorderThicknessForEdge:(NSRectEdge)edge
+//     - (BOOL)makeFirstResponder:(NSResponder *)responder
+//     - (BOOL)setFrameUsingName:(NSString *)frameName
+//     - (BOOL)setFrameUsingName:(NSString *)frameName force:(BOOL)force
+//     - (BOOL)tryToPerform:(SEL)selector with:(id)object
+//     - (CGFloat)contentBorderThicknessForEdge:(NSRectEdge)edge
+//     - (CGFloat)userSpaceScaleFactor
+//     - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType
+//     - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)windowStyle backing:(NSBackingStoreType)bufferingType defer:(BOOL)deferCreation
+//     - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)windowStyle backing:(NSBackingStoreType)bufferingType defer:(BOOL)deferCreation screen:(NSScreen *)screen
+//     - (NSButton *)standardWindowButton:(NSWindowButton)windowButtonKind
+//     - (NSData *)dataWithEPSInsideRect:(NSRect)rect
+//     - (NSData *)dataWithPDFInsideRect:(NSRect)rect
+//     - (NSEvent *)nextEventMatchingMask:(NSUInteger)eventMask
+//     - (NSEvent *)nextEventMatchingMask:(NSUInteger)eventMask untilDate:(NSDate *)expirationDate inMode:(NSString *)runLoopMode dequeue:(BOOL)dequeue
+//     - (NSInteger)gState
+//     - (NSLayoutAttribute)anchorAttributeForOrientation:(NSLayoutConstraintOrientation)orientation
+//     - (NSPoint)cascadeTopLeftFromPoint:(NSPoint)topLeft
+//     - (NSPoint)convertBaseToScreen:(NSPoint)point
+//     - (NSPoint)convertScreenToBase:(NSPoint)point
+//     - (NSRect)backingAlignedRect:(NSRect)aRect options:(NSAlignmentOptions)options
+//     - (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen
+//     - (NSRect)contentRectForFrameRect:(NSRect)windowFrame
+//     - (NSRect)convertRectFromBacking:(NSRect)aRect
+//     - (NSRect)convertRectFromScreen:(NSRect)aRect
+//     - (NSRect)convertRectToBacking:(NSRect)aRect
+//     - (NSRect)convertRectToScreen:(NSRect)aRect
+//     - (NSRect)frameRectForContentRect:(NSRect)windowContent
+//     - (NSText *)fieldEditor:(BOOL)createWhenNeeded forObject:(id)anObject
+//     - (NSTimeInterval)animationResizeTime:(NSRect)newWindowFrame
+//     - (NSWindow *)initWithWindowRef:(void *)carbonWindowRef
+//     - (void)addChildWindow:(NSWindow *)childWindow ordered:(NSWindowOrderingMode)orderingMode
+//     - (void)addTitlebarAccessoryViewController:(NSTitlebarAccessoryViewController *)childViewController
+//     - (void)becomeKeyWindow
+//     - (void)becomeMainWindow
+//     - (void)beginCriticalSheet:(NSWindow *)sheetWindow completionHandler:(void (^)(NSModalResponse returnCode))handler
+//     - (void)beginSheet:(NSWindow *)sheetWindow completionHandler:(void (^)(NSModalResponse returnCode))handler
+//     - (void)cacheImageInRect:(NSRect)rectangle
+//     - (void)center
+//     - (void)close
+//     - (void)deminiaturize:(id)sender
+//     - (void)disableCursorRects
+//     - (void)disableFlushWindow
+//     - (void)disableKeyEquivalentForDefaultButtonCell
+//     - (void)disableScreenUpdatesUntilFlush
+//     - (void)disableSnapshotRestoration
+//     - (void)discardCachedImage
+//     - (void)discardCursorRects
+//     - (void)discardEventsMatchingMask:(NSUInteger)eventMask beforeEvent:(NSEvent *)lastEvent
+//     - (void)display
+//     - (void)displayIfNeeded
+//     - (void)dragImage:(NSImage *)image at:(NSPoint)imageLocation offset:(NSSize)initialOffset event:(NSEvent *)event pasteboard:(NSPasteboard *)pasteboard source:(id)sourceObject slideBack:(BOOL)slideBack
+//     - (void)enableCursorRects
+//     - (void)enableFlushWindow
+//     - (void)enableKeyEquivalentForDefaultButtonCell
+//     - (void)enableSnapshotRestoration
+//     - (void)endEditingFor:(id)object
+//     - (void)endSheet:(NSWindow *)sheetWindow
+//     - (void)endSheet:(NSWindow *)sheetWindow returnCode:(NSModalResponse)returnCode
+//     - (void)flushWindow
+//     - (void)flushWindowIfNeeded
+//     - (void)insertTitlebarAccessoryViewController:(NSTitlebarAccessoryViewController *)childViewController atIndex:(NSInteger)index
+//     - (void)invalidateCursorRectsForView:(NSView *)view
+//     - (void)invalidateShadow
+//     - (void)keyDown:(NSEvent *)event
+//     - (void)layoutIfNeeded
+//     - (void)makeKeyAndOrderFront:(id)sender
+//     - (void)makeKeyWindow
+//     - (void)makeMainWindow
+//     - (void)miniaturize:(id)sender
+//     - (void)orderBack:(id)sender
+//     - (void)orderFront:(id)sender
+//     - (void)orderFrontRegardless
+//     - (void)orderOut:(id)sender
+//     - (void)orderWindow:(NSWindowOrderingMode)orderingMode relativeTo:(NSInteger)otherWindowNumber
+//     - (void)performClose:(id)sender
+//     - (void)performMiniaturize:(id)sender
+//     - (void)performWindowDragWithEvent:(NSEvent *)event
+//     - (void)performZoom:(id)sender
+//     - (void)postEvent:(NSEvent *)event atStart:(BOOL)atStart
+//     - (void)print:(id)sender
+//     - (void)recalculateKeyViewLoop
+//     - (void)registerForDraggedTypes:(NSArray<NSString *> *)pasteboardTypes
+//     - (void)removeChildWindow:(NSWindow *)childWindow
+//     - (void)removeTitlebarAccessoryViewControllerAtIndex:(NSInteger)index
+//     - (void)resetCursorRects
+//     - (void)resignKeyWindow
+//     - (void)resignMainWindow
+//     - (void)restoreCachedImage
+//     - (void)runToolbarCustomizationPalette:(id)sender
+//     - (void)saveFrameUsingName:(NSString *)frameName
+//     - (void)selectKeyViewFollowingView:(NSView *)referenceView
+//     - (void)selectKeyViewPrecedingView:(NSView *)referenceView
+//     - (void)selectNextKeyView:(id)sender
+//     - (void)selectPreviousKeyView:(id)sender
+//     - (void)sendEvent:(NSEvent *)event
+//     - (void)setAnchorAttribute:(NSLayoutAttribute)attr forOrientation:(NSLayoutConstraintOrientation)orientation
+//     - (void)setAutorecalculatesContentBorderThickness:(BOOL)autorecalculateContentBorderThickness forEdge:(NSRectEdge)edge
+//     - (void)setCanBeVisibleOnAllSpaces:(BOOL)flag
+//     - (void)setContentBorderThickness:(CGFloat)borderThickness forEdge:(NSRectEdge)edge
+//     - (void)setContentSize:(NSSize)size
+//     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews
+//     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews animate:(BOOL)performAnimation
+//     - (void)setFrameFromString:(NSString *)frameString
+//     - (void)setFrameOrigin:(NSPoint)point
+//     - (void)setFrameTopLeftPoint:(NSPoint)point
+//     - (void)setTitleWithRepresentedFilename:(NSString *)filePath
+//     - (void)toggleFullScreen:(id)sender
+//     - (void)toggleToolbarShown:(id)sender
+//     - (void)trackEventsMatchingMask:(NSEventMask)mask timeout:(NSTimeInterval)timeout mode:(NSString *)mode handler:(void (^)(NSEvent *event, BOOL *stop))trackingHandler
+//     - (void)unregisterDraggedTypes
+//     - (void)update
+//     - (void)updateConstraintsIfNeeded
+//     - (void)useOptimizedDrawing:(BOOL)optimizedDrawing
+//     - (void)visualizeConstraints:(NSArray<NSLayoutConstraint *> *)constraints
+//     - (void)zoom:(id)sender
+//
+
+// // NSPanel Properties
+// //     @property BOOL becomesKeyOnlyIfNeeded
+// //     @property BOOL worksWhenModal
+// //     @property(getter=isFloatingPanel) BOOL floatingPanel
+
+// NSWindow Properties
+// // Not supported now (maybe ever)
+//     @property BOOL canBecomeVisibleWithoutLogin
+//     @property(getter=isOneShot) BOOL oneShot
+//     @property(getter=isReleasedWhenClosed) BOOL releasedWhenClosed
+//     @property(getter=isRestorable) BOOL restorable
+//     @property BOOL autorecalculatesKeyViewLoop
+//     @property BOOL viewsNeedDisplay
+//     @property(getter=isAutodisplay) BOOL autodisplay
+//     @property NSBackingStoreType backingType
+//     @property NSWindowBackingLocation preferredBackingLocation
+
+//     @property(retain) NSButtonCell *defaultButtonCell
+
+//     @property(strong) NSToolbar *toolbar
+//     @property(strong) __kindof NSView *contentView
+//     @property(assign) NSView *initialFirstResponder
+
+//     @property(copy) NSArray <__kindof NSTitlebarAccessoryViewController *> *titlebarAccessoryViewControllers
+//     @property(assign) Class< NSWindowRestoration > restorationClass
+
+//     @property(assign) __kindof NSWindowController *windowController
+//     @property(strong) NSViewController *contentViewController
+//     @property(assign) id< NSWindowDelegate > delegate
+//     @property(strong) NSColorSpace *colorSpace
+//     @property(assign) NSWindow *parentWindow
+
+//     @property(getter=isFlushWindowDisabled, readonly) BOOL flushWindowDisabled
+//     @property(getter=isKeyWindow, readonly) BOOL keyWindow
+//     @property(getter=isMainWindow, readonly) BOOL mainWindow
+//     @property(getter=isMiniaturized, readonly) BOOL miniaturized
+//     @property(getter=isOnActiveSpace, readonly) BOOL onActiveSpace
+//     @property(getter=isSheet, readonly) BOOL sheet
+//     @property(getter=isVisible, readonly) BOOL visible
+//     @property(getter=isZoomed, readonly) BOOL zoomed
+//     @property(readonly, assign) NSResponder *firstResponder
+//     @property(readonly, copy) NSArray <__kindof NSWindow *> *childWindows
+//     @property(readonly, copy) NSArray <__kindof NSWindow *> *sheets
+//     @property(readonly, copy) NSArray <NSDrawer *> *drawers
+//     @property(readonly, copy) NSDictionary <NSString *,id> *deviceDescription
+//     @property(readonly, copy) NSString *frameAutosaveName
+//     @property(readonly, copy) NSString *stringWithSavedFrame
+//     @property(readonly, strong) NSDockTile *dockTile
+//     @property(readonly, strong) NSEvent *currentEvent
+//     @property(readonly, strong) NSGraphicsContext *graphicsContext
+//     @property(readonly, strong) NSScreen *deepestScreen
+//     @property(readonly, strong) NSScreen *screen
+//     @property(readonly, strong) NSWindow *attachedSheet
+//     @property(readonly, strong) NSWindow *sheetParent
+//     @property(readonly) BOOL areCursorRectsEnabled
+//     @property(readonly) BOOL canBecomeKeyWindow
+//     @property(readonly) BOOL canBecomeMainWindow
+//     @property(readonly) BOOL hasDynamicDepthLimit
+//     @property(readonly) BOOL inLiveResize
+//     @property(readonly) BOOL worksWhenModal
+//     @property(readonly) CGFloat backingScaleFactor
+//     @property(readonly) id contentLayoutGuide
+//     @property(readonly) NSInteger resizeFlags
+//     @property(readonly) NSInteger windowNumber
+//     @property(readonly) NSPoint mouseLocationOutsideOfEventStream
+//     @property(readonly) NSRect contentLayoutRect
+//     @property(readonly) NSRect frame
+//     @property(readonly) NSSelectionDirection keyViewSelectionDirection
+//     @property(readonly) NSWindowBackingLocation backingLocation
+//     @property(readonly) NSWindowOcclusionState occlusionState
+//     @property(readonly) void *windowRef
+
+// NSWindowDelegate methods
+//     - (BOOL)window:(NSWindow *)window shouldDragDocumentWithEvent:(NSEvent *)event from:(NSPoint)dragImageLocation withPasteboard:(NSPasteboard *)pasteboard
+//     - (BOOL)window:(NSWindow *)window shouldPopUpDocumentPathMenu:(NSMenu *)menu
+//     - (BOOL)windowShouldClose:(id)sender
+//     - (BOOL)windowShouldZoom:(NSWindow *)window toFrame:(NSRect)newFrame
+//     - (id)windowWillReturnFieldEditor:(NSWindow *)sender toObject:(id)client
+//     - (NSApplicationPresentationOptions)window:(NSWindow *)window willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+//     - (NSArray<NSWindow *> *)customWindowsToEnterFullScreenForWindow:(NSWindow *)window
+//     - (NSArray<NSWindow *> *)customWindowsToEnterFullScreenForWindow:(NSWindow *)window onScreen:(NSScreen *)screen
+//     - (NSArray<NSWindow *> *)customWindowsToExitFullScreenForWindow:(NSWindow *)window
+//     - (NSRect)window:(NSWindow *)window willPositionSheet:(NSWindow *)sheet usingRect:(NSRect)rect
+//     - (NSRect)windowWillUseStandardFrame:(NSWindow *)window defaultFrame:(NSRect)newFrame
+//     - (NSSize)window:(NSWindow *)window willResizeForVersionBrowserWithMaxPreferredSize:(NSSize)maxPreferredSize maxAllowedSize:(NSSize)maxAllowedSize
+//     - (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)proposedSize
+//     - (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)frameSize
+//     - (NSUndoManager *)windowWillReturnUndoManager:(NSWindow *)window
+//     - (void)window:(NSWindow *)window didDecodeRestorableState:(NSCoder *)state
+//     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenOnScreen:(NSScreen *)screen withDuration:(NSTimeInterval)duration
+//     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenWithDuration:(NSTimeInterval)duration
+//     - (void)window:(NSWindow *)window startCustomAnimationToExitFullScreenWithDuration:(NSTimeInterval)duration
+//     - (void)window:(NSWindow *)window willEncodeRestorableState:(NSCoder *)state
+//     - (void)windowDidBecomeKey:(NSNotification *)notification
+//     - (void)windowDidBecomeMain:(NSNotification *)notification
+//     - (void)windowDidChangeBackingProperties:(NSNotification *)notification
+//     - (void)windowDidChangeOcclusionState:(NSNotification *)notification
+//     - (void)windowDidChangeScreen:(NSNotification *)notification
+//     - (void)windowDidChangeScreenProfile:(NSNotification *)notification
+//     - (void)windowDidDeminiaturize:(NSNotification *)notification
+//     - (void)windowDidEndLiveResize:(NSNotification *)notification
+//     - (void)windowDidEndSheet:(NSNotification *)notification
+//     - (void)windowDidEnterFullScreen:(NSNotification *)notification
+//     - (void)windowDidEnterVersionBrowser:(NSNotification *)notification
+//     - (void)windowDidExitFullScreen:(NSNotification *)notification
+//     - (void)windowDidExitVersionBrowser:(NSNotification *)notification
+//     - (void)windowDidExpose:(NSNotification *)notification
+//     - (void)windowDidFailToEnterFullScreen:(NSWindow *)window
+//     - (void)windowDidFailToExitFullScreen:(NSWindow *)window
+//     - (void)windowDidMiniaturize:(NSNotification *)notification
+//     - (void)windowDidMove:(NSNotification *)notification
+//     - (void)windowDidResignKey:(NSNotification *)notification
+//     - (void)windowDidResignMain:(NSNotification *)notification
+//     - (void)windowDidResize:(NSNotification *)notification
+//     - (void)windowDidUpdate:(NSNotification *)notification
+//     - (void)windowWillBeginSheet:(NSNotification *)notification
+//     - (void)windowWillClose:(NSNotification *)notification
+//     - (void)windowWillEnterFullScreen:(NSNotification *)notification
+//     - (void)windowWillEnterVersionBrowser:(NSNotification *)notification
+//     - (void)windowWillExitFullScreen:(NSNotification *)notification
+//     - (void)windowWillExitVersionBrowser:(NSNotification *)notification
+//     - (void)windowWillMiniaturize:(NSNotification *)notification
+//     - (void)windowWillMove:(NSNotification *)notification
+//     - (void)windowWillStartLiveResize:(NSNotification *)notification
