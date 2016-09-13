@@ -37,7 +37,8 @@
 ---
 --- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
 
-local USERDATA_TAG = "hs._asm.canvas.drawing"
+-- local USERDATA_TAG = "hs._asm.canvas.drawing"
+local USERDATA_TAG = "hs.drawing"
 local canvas       = require"hs._asm.canvas"
 local styledtext   = require"hs.styledtext"
 local drawingMT    = {}

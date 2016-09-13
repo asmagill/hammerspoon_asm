@@ -9,8 +9,8 @@ OBJCFILE = ${wildcard *.m}
 LUAFILE  = ${wildcard *.lua}
 HEADERS  = ${wildcard *.h}
 
-# SOFILE  := $(OBJCFILE:.m=.so)
-SOFILE  := internal.so matrix_internal.so
+SOFILE  := $(OBJCFILE:.m=.so)
+# SOFILE  := internal.so
 DEBUG_CFLAGS ?= -g
 
 # special vars for uninstall
@@ -30,21 +30,16 @@ EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
-all: verify internal.so matrix_internal.so
+all: verify $(SOFILE)
 
-internal.so: internal.m imageAdditions.m $(HEADERS)
-	$(CC) internal.m imageAdditions.m $(CFLAGS) $(LDFLAGS) -o $@
-
-matrix_internal.so: matrix_internal.m
+.m.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
-
-# .m.so: $(HEADERS) $(OBJCFILE)
-# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
 # internal.so: $(HEADERS) $(OBJCFILE)
 # 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
-install: verify install-objc install-lua
+# install: verify install-objc install-lua
+install: verify install-lua
 
 verify: $(LUAFILE)
 	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
@@ -52,7 +47,7 @@ verify: $(LUAFILE)
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
-	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 # 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
 
 install-lua: $(LUAFILE)
