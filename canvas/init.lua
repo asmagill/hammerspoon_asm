@@ -139,6 +139,10 @@ simplifiedMT.mouseCallback = function(self, ...)
         local callback = args[1]
         if type(callback) == "function" or type(callback) == "nil" then
             self.window:ignoresMouseEvents(true)
+            if callback then
+                local originalCallback = callback
+                callback = function(c, ...) originalCallback(self, ...) end
+            end
             self.canvas:mouseCallback(callback)
             if callback then self.window:ignoresMouseEvents(false) end
         else
@@ -182,8 +186,7 @@ module.new = function(frame)
                                                                   :hidesOnDeactivate(false)
                                                                   :backgroundColor{ white = 0.0, alpha = 0.0 }
                                                                   :animationBehavior("none")
-    frame.x, frame.y = 0, 0
-    self.canvas = canvas.newView(frame)
+    self.canvas = canvas.newView(self.window:contentViewBounds())
     self.window:contentView(self.canvas)
 
     return setmetatable(self, simplifiedMT)

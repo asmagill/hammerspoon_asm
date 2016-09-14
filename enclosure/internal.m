@@ -229,6 +229,18 @@ static int enclosure_contentView(lua_State *L) {
     return 1 ;
 }
 
+static int enclosue_contentViewBounds(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    NSRect boundsRect = NSZeroRect ;
+    if (window.contentView) { // should never be nil, but just in case, we don't want to crash
+        boundsRect = window.contentView.bounds ;
+    }
+    [skin pushNSRect:boundsRect] ;
+    return 1 ;
+}
+
 static int enclosure_honorPerformClose(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1199,6 +1211,32 @@ static int enclosure_isOccluded(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.enclosure:hswindow() -> hs.window object
+/// Method
+/// Returns an hs.window object for the enclosure so that you can use hs.window methods on it.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an hs.window object
+///
+/// Notes:
+///  * hs.window:minimize only works if the webview is minimizable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:setSize only works if the webview is resizable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:close only works if the webview is closable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:maximize will reposition the webview to the upper left corner of your screen, but will only resize the webview if the webview is resizable; see [hs._asm.enclosure.styleMask](#styleMask)
+static int enclosure_hswindow(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    CGWindowID windowID = (CGWindowID)[window windowNumber];
+    [skin requireModule:"hs.window"] ;
+    lua_getfield(L, -1, "windowForID") ;
+    lua_pushinteger(L, windowID) ;
+    lua_call(L, 1, 1) ;
+    return 1 ;
+}
 
 #pragma mark - Module Constants
 
@@ -1364,6 +1402,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"clickActivating",                         enclosure_clickActivating},
     {"closeOnEscape",                           enclosure_closeOnEscape},
     {"contentView",                             enclosure_contentView},
+    {"contentViewBounds",                       enclosue_contentViewBounds},
     {"delete",                                  enclosure_delete},
     {"hide",                                    enclosure_hide},
     {"honorClose",                              enclosure_honorPerformClose},
@@ -1397,6 +1436,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"excludedFromWindowsMenu",                 window_excludedFromWindowsMenu},
     {"floatingPanel",                           panel_floatingPanel},
     {"hasShadow",                               window_hasShadow},
+    {"hswindow",                                enclosure_hswindow},
     {"hidesOnDeactivate",                       window_hidesOnDeactivate},
     {"ignoresMouseEvents",                      window_ignoresMouseEvents},
     {"level",                                   window_level},

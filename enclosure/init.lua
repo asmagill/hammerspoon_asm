@@ -1,11 +1,13 @@
 
 local USERDATA_TAG = "hs._asm.enclosure"
 local module       = require(USERDATA_TAG..".internal")
+module.toolbar     = require(USERDATA_TAG..".toolbar")
 
 local windowMT = hs.getObjectMetatable(USERDATA_TAG)
 
 local submodules = {
-    toolbar = USERDATA_TAG .. ".toolbar",
+    canvas  = USERDATA_TAG .. ".canvas",
+    webview = USERDATA_TAG .. ".webview",
 }
 
 require("hs.drawing.color")
@@ -236,6 +238,7 @@ windowMT.sendToBack = function(self, ...)
 end
 
 windowMT.isVisible = function(self, ...) return not self:isOccluded(...) end
+windowMT.toolbar   = module.toolbar.attachToolbar
 
 module.behaviors = _makeConstantsTable(module.behaviors)
 module.levels    = _makeConstantsTable(module.levels)

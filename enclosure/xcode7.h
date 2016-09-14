@@ -67,6 +67,13 @@ typedef NSUInteger NSWindowStyleMask ;
 #define NSEventTypeRightMouseDown NSRightMouseDown
 #define NSEventTypeOtherMouseDown NSOtherMouseDown
 
+#define NSEventModifierFlagCapsLock NSAlphaShiftKeyMask
+#define NSEventModifierFlagShift    NSShiftKeyMask
+#define NSEventModifierFlagControl  NSControlKeyMask
+#define NSEventModifierFlagOption   NSAlternateKeyMask
+#define NSEventModifierFlagCommand  NSCommandKeyMask
+#define NSEventModifierFlagFunction NSFunctionKeyMask
+
 // #define EKWeekdaySunday    EKSunday
 // #define EKWeekdayMonday    EKMonday
 // #define EKWeekdayTuesday   EKTuesday
