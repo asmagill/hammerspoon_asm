@@ -240,9 +240,43 @@ end
 windowMT.isVisible = function(self, ...) return not self:isOccluded(...) end
 windowMT.toolbar   = module.toolbar.attachToolbar
 
-module.behaviors = _makeConstantsTable(module.behaviors)
-module.levels    = _makeConstantsTable(module.levels)
-module.masks     = _makeConstantsTable(module.masks)
+windowMT.forwardMethods = function(self, ...)
+    local userTable = debug.getuservalue(self)
+    if not userTable then
+        userTable = { forwardMethods = false }
+        debug.setuservalue(self, userTable)
+    end
+    local args = table.pack(...)
+    if args.n == 0 then
+        return userTable.forwardMethods
+    elseif args.n == 1 and type(args[1]) == "boolean" then
+        userTable.forwardMethods = args[1]
+        debug.setuservalue(self, userTable)
+    else
+        error("expected an optional boolean", 2)
+    end
+    return self
+end
+
+windowMT.__index = function(self, key)
+    if windowMT[key] then
+        return windowMT[key]
+    else
+        local userTable = debug.getuservalue(self) or {}
+        if userTable.forwardMethods then
+            local cv = self:contentView()
+            if type(cv) == "userdata" then
+                return function(_, ...) return cv[key](cv, ...) end
+            end
+        end
+    end
+    return nil
+end
+
+module.behaviors     = _makeConstantsTable(module.behaviors)
+module.levels        = _makeConstantsTable(module.levels)
+module.masks         = _makeConstantsTable(module.masks)
+module.notifications = _makeConstantsTable(module.notifications)
 
 -- Return Module Object --------------------------------------------------
 

@@ -21,6 +21,7 @@ static const char *USERDATA_DS_TAG  = "hs._asm.enclosure.webview.datastore" ;
 
 @interface HSWebViewView : WKWebView <WKNavigationDelegate, WKUIDelegate>
 @property int          navigationCallback ;
+@property int          referenceCount ;
 @property int          policyCallback ;
 @property int          sslCallback ;
 @property BOOL         allowNewWindows ;

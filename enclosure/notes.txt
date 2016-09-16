@@ -136,8 +136,8 @@
 
 //     @property(retain) NSButtonCell *defaultButtonCell
 
-//     @property(strong) NSToolbar *toolbar
-//     @property(strong) __kindof NSView *contentView
+// ?      @property(strong) NSToolbar *toolbar -- is current toolbar module injection function sufficient?
+// //     @property(strong) __kindof NSView *contentView
 //     @property(assign) NSView *initialFirstResponder
 
 //     @property(copy) NSArray <__kindof NSTitlebarAccessoryViewController *> *titlebarAccessoryViewControllers
@@ -145,7 +145,7 @@
 
 //     @property(assign) __kindof NSWindowController *windowController
 //     @property(strong) NSViewController *contentViewController
-//     @property(assign) id< NSWindowDelegate > delegate
+// //     @property(assign) id< NSWindowDelegate > delegate
 //     @property(strong) NSColorSpace *colorSpace
 //     @property(assign) NSWindow *parentWindow
 
@@ -192,7 +192,7 @@
 // NSWindowDelegate methods
 //     - (BOOL)window:(NSWindow *)window shouldDragDocumentWithEvent:(NSEvent *)event from:(NSPoint)dragImageLocation withPasteboard:(NSPasteboard *)pasteboard
 //     - (BOOL)window:(NSWindow *)window shouldPopUpDocumentPathMenu:(NSMenu *)menu
-//     - (BOOL)windowShouldClose:(id)sender
+// //     - (BOOL)windowShouldClose:(id)sender
 //     - (BOOL)windowShouldZoom:(NSWindow *)window toFrame:(NSRect)newFrame
 //     - (id)windowWillReturnFieldEditor:(NSWindow *)sender toObject:(id)client
 //     - (NSApplicationPresentationOptions)window:(NSWindow *)window willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
@@ -205,39 +205,39 @@
 //     - (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)proposedSize
 //     - (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)frameSize
 //     - (NSUndoManager *)windowWillReturnUndoManager:(NSWindow *)window
-//     - (void)window:(NSWindow *)window didDecodeRestorableState:(NSCoder *)state
-//     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenOnScreen:(NSScreen *)screen withDuration:(NSTimeInterval)duration
-//     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenWithDuration:(NSTimeInterval)duration
-//     - (void)window:(NSWindow *)window startCustomAnimationToExitFullScreenWithDuration:(NSTimeInterval)duration
-//     - (void)window:(NSWindow *)window willEncodeRestorableState:(NSCoder *)state
-//     - (void)windowDidBecomeKey:(NSNotification *)notification
-//     - (void)windowDidBecomeMain:(NSNotification *)notification
-//     - (void)windowDidChangeBackingProperties:(NSNotification *)notification
-//     - (void)windowDidChangeOcclusionState:(NSNotification *)notification
-//     - (void)windowDidChangeScreen:(NSNotification *)notification
-//     - (void)windowDidChangeScreenProfile:(NSNotification *)notification
-//     - (void)windowDidDeminiaturize:(NSNotification *)notification
-//     - (void)windowDidEndLiveResize:(NSNotification *)notification
-//     - (void)windowDidEndSheet:(NSNotification *)notification
-//     - (void)windowDidEnterFullScreen:(NSNotification *)notification
-//     - (void)windowDidEnterVersionBrowser:(NSNotification *)notification
-//     - (void)windowDidExitFullScreen:(NSNotification *)notification
-//     - (void)windowDidExitVersionBrowser:(NSNotification *)notification
-//     - (void)windowDidExpose:(NSNotification *)notification
-//     - (void)windowDidFailToEnterFullScreen:(NSWindow *)window
-//     - (void)windowDidFailToExitFullScreen:(NSWindow *)window
-//     - (void)windowDidMiniaturize:(NSNotification *)notification
-//     - (void)windowDidMove:(NSNotification *)notification
-//     - (void)windowDidResignKey:(NSNotification *)notification
-//     - (void)windowDidResignMain:(NSNotification *)notification
-//     - (void)windowDidResize:(NSNotification *)notification
-//     - (void)windowDidUpdate:(NSNotification *)notification
-//     - (void)windowWillBeginSheet:(NSNotification *)notification
-//     - (void)windowWillClose:(NSNotification *)notification
-//     - (void)windowWillEnterFullScreen:(NSNotification *)notification
-//     - (void)windowWillEnterVersionBrowser:(NSNotification *)notification
-//     - (void)windowWillExitFullScreen:(NSNotification *)notification
-//     - (void)windowWillExitVersionBrowser:(NSNotification *)notification
-//     - (void)windowWillMiniaturize:(NSNotification *)notification
-//     - (void)windowWillMove:(NSNotification *)notification
-//     - (void)windowWillStartLiveResize:(NSNotification *)notification
+// //     - (void)window:(NSWindow *)window didDecodeRestorableState:(NSCoder *)state
+// //     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenOnScreen:(NSScreen *)screen withDuration:(NSTimeInterval)duration
+// //     - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenWithDuration:(NSTimeInterval)duration
+// //     - (void)window:(NSWindow *)window startCustomAnimationToExitFullScreenWithDuration:(NSTimeInterval)duration
+// //     - (void)window:(NSWindow *)window willEncodeRestorableState:(NSCoder *)state
+// //     - (void)windowDidBecomeKey:(NSNotification *)notification
+// //     - (void)windowDidBecomeMain:(NSNotification *)notification
+// //     - (void)windowDidChangeBackingProperties:(NSNotification *)notification
+// //     - (void)windowDidChangeOcclusionState:(NSNotification *)notification
+// //     - (void)windowDidChangeScreen:(NSNotification *)notification
+// //     - (void)windowDidChangeScreenProfile:(NSNotification *)notification
+// //     - (void)windowDidDeminiaturize:(NSNotification *)notification
+// //     - (void)windowDidEndLiveResize:(NSNotification *)notification
+// //     - (void)windowDidEndSheet:(NSNotification *)notification
+// //     - (void)windowDidEnterFullScreen:(NSNotification *)notification
+// //     - (void)windowDidEnterVersionBrowser:(NSNotification *)notification
+// //     - (void)windowDidExitFullScreen:(NSNotification *)notification
+// //     - (void)windowDidExitVersionBrowser:(NSNotification *)notification
+// //     - (void)windowDidExpose:(NSNotification *)notification
+// //     - (void)windowDidFailToEnterFullScreen:(NSWindow *)window
+// //     - (void)windowDidFailToExitFullScreen:(NSWindow *)window
+// //     - (void)windowDidMiniaturize:(NSNotification *)notification
+// //     - (void)windowDidMove:(NSNotification *)notification
+// //     - (void)windowDidResignKey:(NSNotification *)notification
+// //     - (void)windowDidResignMain:(NSNotification *)notification
+// //     - (void)windowDidResize:(NSNotification *)notification
+// //     - (void)windowDidUpdate:(NSNotification *)notification
+// //     - (void)windowWillBeginSheet:(NSNotification *)notification
+// //     - (void)windowWillClose:(NSNotification *)notification
+// //     - (void)windowWillEnterFullScreen:(NSNotification *)notification
+// //     - (void)windowWillEnterVersionBrowser:(NSNotification *)notification
+// //     - (void)windowWillExitFullScreen:(NSNotification *)notification
+// //     - (void)windowWillExitVersionBrowser:(NSNotification *)notification
+// //     - (void)windowWillMiniaturize:(NSNotification *)notification
+// //     - (void)windowWillMove:(NSNotification *)notification
+// //     - (void)windowWillStartLiveResize:(NSNotification *)notification

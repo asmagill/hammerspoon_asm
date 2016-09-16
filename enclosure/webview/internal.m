@@ -17,6 +17,7 @@ static int SecCertificateRef_toLua(lua_State *L, SecCertificateRef certRef) ;
     if (self) {
         self.navigationDelegate     = self ;
         self.UIDelegate             = self ;
+        _referenceCount             = 0 ;
         _navigationCallback         = LUA_NOREF ;
         _policyCallback             = LUA_NOREF ;
         _sslCallback                = LUA_NOREF ;
@@ -36,6 +37,7 @@ static int SecCertificateRef_toLua(lua_State *L, SecCertificateRef certRef) ;
 }
 
 - (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow] ;
     if (_titleFollow) {
         NSString *windowTitle = self.title ? self.title : @"<no title>" ;
         if (self.window) {
@@ -1043,7 +1045,6 @@ static int webview_newView(lua_State *L) {
             config.suppressesIncrementalRendering = (BOOL)lua_toboolean(L, -1) ;
         }
         lua_pop(L, 1) ;
-
         config.preferences = myPreferences ;
     }
 
@@ -1210,6 +1211,7 @@ static int webview_pushCertificateOIDs(lua_State *L) {
 
 static int HSWebViewView_toLua(lua_State *L, id obj) {
     HSWebViewView *value = obj;
+    value.referenceCount++ ;
     void** valuePtr = lua_newuserdata(L, sizeof(HSWebViewView *));
     *valuePtr = (__bridge_retained void *)value;
     luaL_getmetatable(L, USERDATA_TAG);
@@ -1536,13 +1538,16 @@ static int userdata_gc(lua_State* L) {
     HSWebViewView *theView = [skin toNSObjectAtIndex:1] ;
 
     if (theView) {
-        theView.navigationCallback = [skin luaUnref:refTable ref:theView.navigationCallback] ;
-        theView.policyCallback     = [skin luaUnref:refTable ref:theView.policyCallback] ;
-        theView.sslCallback        = [skin luaUnref:refTable ref:theView.sslCallback] ;
+        theView.referenceCount-- ;
+        if (theView.referenceCount == 0) {
+            theView.navigationCallback = [skin luaUnref:refTable ref:theView.navigationCallback] ;
+            theView.policyCallback     = [skin luaUnref:refTable ref:theView.policyCallback] ;
+            theView.sslCallback        = [skin luaUnref:refTable ref:theView.sslCallback] ;
 
-        theView.navigationDelegate = nil ;
-        theView.UIDelegate         = nil ;
-        theView                    = nil ;
+            theView.navigationDelegate = nil ;
+            theView.UIDelegate         = nil ;
+            theView                    = nil ;
+        }
     }
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid

@@ -12,6 +12,7 @@ module.toolbar     = require("hs._asm.enclosure.toolbar")
 
 local enclosure = require("hs._asm.enclosure")
 local webview   = require("hs._asm.enclosure.webview")
+local fnutils   = require("hs.fnutils")
 
 local enclosureMT = hs.getObjectMetatable("hs._asm.enclosure")
 local webviewMT   = hs.getObjectMetatable("hs._asm.enclosure.webview")
@@ -35,8 +36,8 @@ local simplifiedMT = {
 simplifiedMT.__index = function(self, key)
     if simplifiedMT[key] then
         return simplifiedMT[key]
---     elseif math.type(key) == "integer" then
---         return self.webview[key]
+    elseif math.type(key) == "integer" then
+        return internals[self].children[key]
     else
         return nil
     end
@@ -44,10 +45,25 @@ end
 simplifiedMT.__eq = function(self, other)
     return self.window == other.window and self.webview == other.webview
 end
--- simplifiedMT.__len = function(self)
---     return #self.webview
--- end
+simplifiedMT.__len = function(self)
+    return #internals[self].children
+end
 simplifiedMT.__gc = function(self)
+    if internals[self].parent then
+        local idx = 0
+        for i,v in ipairs(internals[internals[self].parent].children) do
+            if v == self then
+                idx = i
+                break
+            end
+        end
+        if idx > 0 then
+            table.remove(internals[internals[self].parent].children, idx)
+        end
+    end
+    for i,v in ipairs(internals[self].children) do
+        internals[v].parent = nil
+    end
     self.window:contentView(nil)
     self.webview = nil ; -- don't think we need a delete, but we'll see... self.webview:delete()
     self.window = self.window:delete()
@@ -77,9 +93,6 @@ for k, v in pairs(webviewMT) do
     end
 end
 
--- except for XXXX -- we're tying those effects to the window
--- simplifiedMT.hidden, simplifiedMT.alphaValue = nil, nil
-
 simplifiedMT.alpha           = function(self, ...) return runForKeyOf(self, "window", "alphaValue", ...) end
 simplifiedMT.behavior        = function(self, ...) return runForKeyOf(self, "window", "collectionBehavior", ...) end
 simplifiedMT.bringToFront    = function(self, ...) return runForKeyOf(self, "window", "bringToFront", ...) end
@@ -91,11 +104,6 @@ simplifiedMT.show            = function(self, ...) return runForKeyOf(self, "win
 simplifiedMT.hswindow        = function(self, ...) return runForKeyOf(self, "window", "hswindow", ...) end
 simplifiedMT.toolbar         = function(self, ...) return runForKeyOf(self, "window", "toolbar", ...) end
 simplifiedMT.windowStyle     = function(self, ...) return runForKeyOf(self, "window", "styleMask", ...) end
-
--- got to through hswindow/asHSWindow, which should really go away or use deprecated wrapper
--- simplifiedMT.frame           = function(self, ...) return runForKeyOf(self, "window", "frame", ...) end
--- simplifiedMT.size            = function(self, ...) return runForKeyOf(self, "window", "size", ...) end
--- simplifiedMT.topLeft         = function(self, ...) return runForKeyOf(self, "window", "topLeft", ...) end
 
 simplifiedMT.allowTextEntry = function(self, ...)
     local args = table.pack(...)
@@ -114,7 +122,7 @@ simplifiedMT.transparent = function(self, ...)
     local args = table.pack(...)
     if args.n ~= 0 then
         self.webview:transparent(...)
-        self.window:opaque(!self.webview:transparent())
+        self.window:opaque(not self.webview:transparent())
         return self
     else
         return self.webview:transparent()
@@ -164,15 +172,12 @@ simplifiedMT.sslCallback = function(self, ...)
     else
         local callback = args[1]
         if type(callback) == "function" or type(callback) == "nil" then
-            if callback then
-                local originalCallback = callback
-                callback = function(v, ...) originalCallback(self, ...) end
-            end
-            self.webview:sslCallback(callback)
+            internals[self].sslCallback = callback
         else
             error("argument must be a function or nil", 2)
         end
     end
+    return self
 end
 
 simplifiedMT.navigationCallback = function(self, ...)
@@ -182,15 +187,12 @@ simplifiedMT.navigationCallback = function(self, ...)
     else
         local callback = args[1]
         if type(callback) == "function" or type(callback) == "nil" then
-            if callback then
-                local originalCallback = callback
-                callback = function(m, v, ...) originalCallback(m, self, ...) end
-            end
-            self.webview:navigationCallback(callback)
+            internals[self].navigationCallback = callback
         else
             error("argument must be a function or nil", 2)
         end
     end
+    return self
 end
 
 simplifiedMT.policyCallback = function(self, ...)
@@ -200,15 +202,12 @@ simplifiedMT.policyCallback = function(self, ...)
     else
         local callback = args[1]
         if type(callback) == "function" or type(callback) == "nil" then
-            if callback then
-                local originalCallback = callback
-                callback = function(m, v, ...) originalCallback(m, self, ...) end
-            end
-            self.webview:policyCallback(callback)
+            internals[self].policyCallback = callback
         else
             error("argument must be a function or nil", 2)
         end
     end
+    return self
 end
 
 simplifiedMT.orderAbove = function(self, other)
@@ -280,38 +279,163 @@ simplifiedMT.asHSDrawing = setmetatable({}, {
     end,
 })
 
+simplifiedMT.parent = function(self, ...)
+    if table.pack(...).n ~= 0 then
+      error("expected no arguments", 2)
+    end
+    return internals[self].parent
+end
+
+simplifiedMT.children = function(self, ...)
+    if table.pack(...).n ~= 0 then
+      error("expected no arguments", 2)
+    end
+    return fnutils.copy(internals[self].children)
+end
+
+simplifiedMT.deleteOnClose = function(self, ...)
+    local args = table.pack(...)
+    if args.n == 0 then
+        return internals[self].deleteOnClose
+    elseif args.n == 1 and type(args[1]) == "boolean" then
+        internals[self].deleteOnClose = args[1]
+        return self
+    else
+        error("expected optional boolean", 2)
+    end
+end
+
 module.windowMasks = enclosure.masks
 
 for k, v in pairs(webview) do module[k] = v end
 
+local generateNavigationCallback = function(self)
+    return function(m, v, ...)
+        if internals[self].navigationCallback then
+            return internals[self].navigationCallback(m, self, ...)
+        end
+    end
+end
+
+local generateSSLCallback = function(self)
+    return function(v, ...)
+        if internals[self].sslCallback then
+            return internals[self].sslCallback(self, ...)
+        else
+            return false
+        end
+    end
+end
+
+local generatePolicyCallback
+generatePolicyCallback = function(self)
+    return function(m, v, ...)
+        if m == "newWindow" then
+            local newFrame = self.window:frame()
+            newFrame.x, newFrame.y = newFrame.x + 20, newFrame.y + 20
+            local newSelf = {}
+            internals[newSelf] = {
+                label = tostring(newSelf):match("^table: (.+)$"),
+                allowTextEntry = internals[self].allowTextEntry,
+                children = {},
+                deleteOnClose = true,
+                parent = self,
+            }
+
+            newSelf.window = enclosure.new(newFrame, self.window:styleMask())
+            newSelf.window:level(self.window:level())
+                          :opaque(self.window:opaque())
+                          :hasShadow(false)
+                          :ignoresMouseEvents(false)
+                          :hidesOnDeactivate(false)
+                          :backgroundColor{ white = 0.0, alpha = 0.0 }
+                          :animationBehavior("none")
+                          :closeOnEscape(self.window:closeOnEscape())
+                          :specifyCanBecomeKeyWindow(internals[mySelf].allowTextEntry)
+                          :notificationMessages("willClose")
+                          :notificationCallback(function(w, m)
+                              if internals[newSelf].deleteOnClose then
+                                  newSelf:delete()
+                              end
+                          end)
+                          :forwardMethods(true)
+            newSelf.webview = v
+            newSelf.webview:policyCallback(generatePolicyCallback(newSelf))
+                           :navigationCallback(generateNavigationCallback(newSelf))
+                           :sslCallback(generateSSLCallback(newSelf))
+            newSelf.window:contentView(newSelf.webview)
+            setmetatable(newSelf, simplifiedMT)
+
+            if internals[self].policyCallback then
+                local answer = internals[self].policyCallback(m, newSelf, ...)
+                if answer then
+                    table.insert(internals[self].children, newSelf)
+                else
+                    newSelf:delete()
+                end
+                return answer
+            else
+                return true
+            end
+
+        else
+            if internals[self].policyCallback then
+                return internals[self].policyCallback(m, self, ...)
+            else
+                return true
+            end
+        end
+    end
+end
+
 module.new = function(frame, ...)
     local self = {}
+    internals[self] = {
+        label = tostring(self):match("^table: (.+)$"),
+        allowTextEntry = false,
+        children = {},
+        deleteOnClose = false,
+    }
 
-    internals[self] = { label = tostring(self):match("^table: (.+)$"), allowTextEntry = false }
-
-    self.window = enclosure.new(frame, enclosure.masks.borderless):level(module.windowLevels.normal)
-                                                                  :opaque(true)
-                                                                  :hasShadow(false)
-                                                                  :ignoresMouseEvents(false)
-                                                                  :hidesOnDeactivate(false)
-                                                                  :backgroundColor{ white = 0.0, alpha = 0.0 }
-                                                                  :animationBehavior("none")
-                                                                  :closeOnEscape(false)
-                                                                  :specifyCanBecomeKeyWindow(false)
---         self.parent             = nil ;
---         self.children           = [[NSMutableArray alloc] init] ;
+    self.window = enclosure.new(frame, enclosure.masks.borderless)
+    self.window:level(enclosure.levels.normal)
+               :opaque(true)
+               :hasShadow(false)
+               :ignoresMouseEvents(false)
+               :hidesOnDeactivate(false)
+               :backgroundColor{ white = 0.0, alpha = 0.0 }
+               :animationBehavior("none")
+               :closeOnEscape(false)
+               :specifyCanBecomeKeyWindow(false)
+               :notificationMessages("willClose")
+               :notificationCallback(function(w, m)
+                   if internals[self].deleteOnClose then
+                       self:delete()
+                   end
+               end)
+               :forwardMethods(true)
 
     self.webview = webview.newView(self.window:contentViewBounds(), ...)
+    self.webview:policyCallback(generatePolicyCallback(self))
+                :navigationCallback(generateNavigationCallback(self))
+                :sslCallback(generateSSLCallback(self))
     self.window:contentView(self.webview)
 
     return setmetatable(self, simplifiedMT)
 end
 
 module.newBrowser = function(...)
-    return module.new(...):windowStyle(1+2+4+8)
+    return module.new(...):windowStyle(
+                                enclosure.masks.titled        |
+                                enclosure.masks.closable      |
+                                enclosure.masks.miniturizable |
+                                enclosure.masks.resizable
+                          )
                           :allowTextEntry(true)
                           :allowGestures(true)
 end
+
+module._internals = internals
 
 -- Return Module Object --------------------------------------------------
 

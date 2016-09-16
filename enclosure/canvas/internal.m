@@ -2665,13 +2665,15 @@ static int userdata_gc(lua_State* L) {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc removing view with frame %@ at index %lu", USERDATA_TAG, NSStringFromRect(subview.frame), idx]] ;
 #endif
                     removeViewFromSuperview(subview) ;
+                    element[@"view"] = nil ;
                 }
             }] ;
 #ifdef VIEW_DEBUG
-            for (NSView *subview in [theView subviews]) {
+            for (NSView *subview in theView.subviews) {
                 [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc orphan subview with frame %@ found after element subview purge", USERDATA_TAG, NSStringFromRect(subview.frame)]] ;
             }
 #endif
+            theView.subviews = [NSArray array] ;
             theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         }
     }

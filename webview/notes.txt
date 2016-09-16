@@ -1,14 +1,13 @@
-// Add callback and close notification to enclosure (others as well? yes, but now?)
-// wrap policyCallback so we can handle newWindow -- new webview does no window management for us
-// track children/parents here
+  window __init to pass method search to contentView if LuaSkin recognizes it?
+      run into wrong self issue, so can toolbar figure it out for hs.webview?
+  why is HTML rendered, but invisible?
 
-  children = <function 19>,
-  deleteOnClose = <function 23>,
-  parent = <function 41>,
+# // Add callback and close notification to enclosure (others as well? yes, but now?)
+# // wrap policyCallback so we can handle newWindow -- new webview does no window management for us
+# // delete and __gc need to be made aware of window managment
+# // track children/parents here
 
-
-
-
+// for comparison when replacement wrapper is swapped in
 > inspect1(hs.webview)
 {
   certificateOIDs = {...},
