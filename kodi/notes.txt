@@ -4,6 +4,5 @@
 
   add watcher for network access?
   add notification for up/down changes?
-  add support for basic authentication?
 
   add/switch to websockets... having problems getting it to connect, which is why I went this route, and reading online, people using primarily IPv4 seem to have similar problems, so need to test and consider some more...
