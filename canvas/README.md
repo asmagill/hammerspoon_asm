@@ -1,6 +1,15 @@
 hs._asm.canvas
 ==============
 
+### *Update September 16, 2016*
+This module as a stand alone module is no longer being developed.  It has been moved into a submodule of `hs._asm.enclosure` which aims to provide a merging and expansion of `hs.webview`, `hs.drawing`, `hs._asm.canvas`, and other NSView based submodules under a single umbrella to allow more flexibility in combining a wide variety of visual elements into a Hammerspoon controlable whole.
+
+The documentation listed here remains valid -- a wrapper for `hs._asm.canvas` is included in the `hs._asm.enclosure` hierarchy which allows use of "canvas" as described in here with minimal to no changes in your code (no promises that things might not change as I continue with the expansion, but for right now, the sample code provided here, including the `hs.drawing` wrapper, does work with no change from what is documented here.)
+
+<hr>
+
+### Original documentation
+
 A different approach to drawing in Hammerspoon
 
 `hs.drawing` approaches graphical images as independant primitives, each "shape" being a separate drawing object based on the core primitives: ellipse, rectangle, point, line, text, etc.  This model works well with graphical elements that are expected to be managed individually and don't have complex clipping interactions, but does not scale well when more complex combinations or groups of drawing elements need to be moved or manipulated as a group, and only allows for simple inclusionary clipping regions.
