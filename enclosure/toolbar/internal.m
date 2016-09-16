@@ -1318,6 +1318,7 @@ static int modifyToolbarItem(lua_State *L) {
             [toolbar.itemDefDictionary[identifier] addEntriesFromDictionary:newDict] ;
         }
     }
+    [toolbar validateVisibleItems] ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }

@@ -8,6 +8,9 @@
 static const char *USERDATA_TAG  = "hs._asm.enclosure" ;
 static int refTable = LUA_NOREF;
 
+// non-constant (or simple) NSObject's cannot be defined outside of a context; values set in init function
+static NSArray *validNotifications ;
+
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 typedef enum {
@@ -20,14 +23,14 @@ typedef enum {
 
 @interface ASMWindow : NSPanel <NSWindowDelegate>
 @property int          selfRef ;
+@property int          notificationCallback ;
+@property NSMutableSet *notifyFor ;
 @property triStateBOOL specifiedKeyWindowState ;
 @property triStateBOOL specifiedMainWindowState ;
 @property BOOL         honorPerformClose ;
 @property BOOL         closeOnEscape ;
 @property BOOL         assignedHSView ;
 @end
-
-#pragma mark -
 
 static int userdata_gc(lua_State* L) ;
 
@@ -83,6 +86,8 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         [self setFrameOrigin:RectWithFlippedYCoordinate(contentRect).origin];
 
         _selfRef                  = LUA_NOREF ;
+        _notificationCallback     = LUA_NOREF ;
+        _notifyFor                = [[NSMutableSet alloc] init] ;
         _specifiedKeyWindowState  = Undefined ;
         _specifiedMainWindowState = Undefined ;
         _honorPerformClose        = YES ;
@@ -166,6 +171,127 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
     return _honorPerformClose ;
 }
 
+#pragma mark * NSWindowDelegate Notifications
+
+- (void)performNotificationCallbackFor:(NSString *)message with:(NSNotification *)notification {
+    if (_notificationCallback != LUA_NOREF && [_notifyFor containsObject:message]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            LuaSkin *skin = [LuaSkin shared] ;
+            [skin pushLuaRef:refTable ref:self->_notificationCallback] ;
+            [skin pushNSObject:notification.object] ;
+            [skin pushNSObject:message] ;
+            if (![skin protectedCallAndTraceback:2 nresults:0]) {
+                NSString *errorMsg = [skin toNSObjectAtIndex:-1] ;
+                lua_pop([skin L], 1) ;
+                [skin logError:[NSString stringWithFormat:@"%s:%@ notification callback error:%@", USERDATA_TAG, message, errorMsg]] ;
+            }
+        }) ;
+    }
+}
+
+// - (void)window:(NSWindow *)window didDecodeRestorableState:(NSCoder *)state {}
+// - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenOnScreen:(NSScreen *)screen withDuration:(NSTimeInterval)duration {}
+// - (void)window:(NSWindow *)window startCustomAnimationToEnterFullScreenWithDuration:(NSTimeInterval)duration {}
+// - (void)window:(NSWindow *)window startCustomAnimationToExitFullScreenWithDuration:(NSTimeInterval)duration {}
+// - (void)window:(NSWindow *)window willEncodeRestorableState:(NSCoder *)state {}
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didBecomeKey" with:notification] ;
+}
+- (void)windowDidBecomeMain:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didBecomeMain" with:notification] ;
+}
+- (void)windowDidChangeBackingProperties:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didChangeBackingProperties" with:notification] ;
+}
+- (void)windowDidChangeOcclusionState:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didChangeOcclusionState" with:notification] ;
+}
+- (void)windowDidChangeScreen:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didChangeScreen" with:notification] ;
+}
+- (void)windowDidChangeScreenProfile:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didChangeScreenProfile" with:notification] ;
+}
+- (void)windowDidDeminiaturize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didDeminiaturize" with:notification] ;
+}
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didEndLiveResize" with:notification] ;
+}
+- (void)windowDidEndSheet:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didEndSheet" with:notification] ;
+}
+- (void)windowDidEnterFullScreen:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didEnterFullScreen" with:notification] ;
+}
+- (void)windowDidEnterVersionBrowser:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didEnterVersionBrowser" with:notification] ;
+}
+- (void)windowDidExitFullScreen:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didExitFullScreen" with:notification] ;
+}
+- (void)windowDidExitVersionBrowser:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didExitVersionBrowser" with:notification] ;
+}
+- (void)windowDidExpose:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didExpose" with:notification] ;
+}
+- (void)windowDidFailToEnterFullScreen:(NSWindow *)window {
+    [self performNotificationCallbackFor:@"didFailToEnterFullScreen"
+                                    with:[NSNotification notificationWithName:@"didFailToEnterFullScreen"
+                                                                       object:window]] ;
+}
+- (void)windowDidFailToExitFullScreen:(NSWindow *)window {
+    [self performNotificationCallbackFor:@"didFailToExitFullScreen"
+                                    with:[NSNotification notificationWithName:@"didFailToExitFullScreen"
+                                                                       object:window]] ;
+}
+- (void)windowDidMiniaturize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didMiniaturize" with:notification] ;
+}
+- (void)windowDidMove:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didMove" with:notification] ;
+}
+- (void)windowDidResignKey:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didResignKey" with:notification] ;
+}
+- (void)windowDidResignMain:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didResignMain" with:notification] ;
+}
+- (void)windowDidResize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didResize" with:notification] ;
+}
+- (void)windowDidUpdate:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"didUpdate" with:notification] ;
+}
+- (void)windowWillBeginSheet:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willBeginSheet" with:notification] ;
+}
+- (void)windowWillClose:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willClose" with:notification] ;
+}
+- (void)windowWillEnterFullScreen:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willEnterFullScreen" with:notification] ;
+}
+- (void)windowWillEnterVersionBrowser:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willEnterVersionBrowser" with:notification] ;
+}
+- (void)windowWillExitFullScreen:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willExitFullScreen" with:notification] ;
+}
+- (void)windowWillExitVersionBrowser:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willExitVersionBrowser" with:notification] ;
+}
+- (void)windowWillMiniaturize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willMiniaturize" with:notification] ;
+}
+- (void)windowWillMove:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willMove" with:notification] ;
+}
+- (void)windowWillStartLiveResize:(NSNotification *)notification {
+    [self performNotificationCallbackFor:@"willStartLiveResize" with:notification] ;
+}
+
 @end
 
 #pragma mark - Module Functions
@@ -203,6 +329,67 @@ static int enableUpdates(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
+static int enclosure_notificationCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
+    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    // either way, lets release any function which may already be stored in the registry
+    window.notificationCallback = [skin luaUnref:refTable ref:window.notificationCallback] ;
+    if (lua_type(L, 2) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 2) ;
+        window.notificationCallback = [skin luaRef:refTable] ;
+    }
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int enlosure_notificationWatchFor(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:window.notifyFor] ;
+    } else {
+        NSArray *watchingFor ;
+        if (lua_type(L, 2) == LUA_TSTRING) {
+            watchingFor = @[ [skin toNSObjectAtIndex:2] ] ;
+        } else {
+            watchingFor = [skin toNSObjectAtIndex:2] ;
+            BOOL isGood = YES ;
+            if ([watchingFor isKindOfClass:[NSArray class]]) {
+                for (NSString *item in watchingFor) {
+                    if (![item isKindOfClass:[NSString class]]) {
+                        isGood = NO ;
+                        break ;
+                    }
+                }
+            } else {
+                isGood = NO ;
+            }
+            if (!isGood) {
+                return luaL_argerror(L, 2, "expected a string or an array of strings") ;
+            }
+        }
+        BOOL willAdd = (lua_gettop(L) == 2) ? YES : (BOOL)lua_toboolean(L, 3) ;
+        for (NSString *item in watchingFor) {
+            if (![validNotifications containsObject:item]) {
+                return luaL_argerror(L, 2, [[NSString stringWithFormat:@"must be one or more of the following:%@", [validNotifications componentsJoinedByString:@", "]] UTF8String]) ;
+            }
+        }
+        for (NSString *item in watchingFor) {
+            if (willAdd) {
+                [window.notifyFor addObject:item] ;
+            } else {
+                [window.notifyFor removeObject:item] ;
+            }
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int enclosure_contentView(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -217,15 +404,35 @@ static int enclosure_contentView(lua_State *L) {
     } else {
         if (lua_type(L, 2) == LUA_TNIL) {
             window.assignedHSView = NO ;
+            // placeholder, since a window/panel always has one after init, let's follow that pattern
             window.contentView = [[NSView alloc] initWithFrame:window.contentView.bounds] ;
         } else if (lua_type(L, 2) == LUA_TUSERDATA) {
-            window.assignedHSView = YES ;
-            window.contentView = [skin toNSObjectAtIndex:2] ;
+            NSView *newView = [skin toNSObjectAtIndex:2] ;
+            if ([newView isKindOfClass:[NSView class]]) {
+                window.assignedHSView = YES ;
+//                 newView.bounds = window.contentView.bounds ;
+                window.contentView = newView ;
+//                 [window setFrameOrigin:RectWithFlippedYCoordinate(window.frame).origin];
+            } else {
+                return luaL_argerror(L, 2, "userdata object representing an NSView expected") ;
+            }
         } else {
-            return luaL_argerror(L, 2, "expected userdata object representing an NSView") ;
+            return luaL_argerror(L, 2, "expected userdata or nil") ;
         }
         lua_pushvalue(L, 1) ;
     }
+    return 1 ;
+}
+
+static int enclosue_contentViewBounds(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    NSRect boundsRect = NSZeroRect ;
+    if (window.contentView) { // should never be nil, but just in case, we don't want to crash
+        boundsRect = window.contentView.bounds ;
+    }
+    [skin pushNSRect:boundsRect] ;
     return 1 ;
 }
 
@@ -1199,6 +1406,32 @@ static int enclosure_isOccluded(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.enclosure:hswindow() -> hs.window object
+/// Method
+/// Returns an hs.window object for the enclosure so that you can use hs.window methods on it.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an hs.window object
+///
+/// Notes:
+///  * hs.window:minimize only works if the webview is minimizable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:setSize only works if the webview is resizable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:close only works if the webview is closable; see [hs._asm.enclosure.styleMask](#styleMask)
+///  * hs.window:maximize will reposition the webview to the upper left corner of your screen, but will only resize the webview if the webview is resizable; see [hs._asm.enclosure.styleMask](#styleMask)
+static int enclosure_hswindow(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    CGWindowID windowID = (CGWindowID)[window windowNumber];
+    [skin requireModule:"hs.window"] ;
+    lua_getfield(L, -1, "windowForID") ;
+    lua_pushinteger(L, windowID) ;
+    lua_call(L, 1, 1) ;
+    return 1 ;
+}
 
 #pragma mark - Module Constants
 
@@ -1284,6 +1517,45 @@ static int window_windowMasksTable(lua_State *L) {
     return 1 ;
 }
 
+static int window_notifications(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    validNotifications = @[
+        @"didBecomeKey",
+        @"didBecomeMain",
+        @"didChangeBackingProperties",
+        @"didChangeOcclusionState",
+        @"didChangeScreen",
+        @"didChangeScreenProfile",
+        @"didDeminiaturize",
+        @"didEndLiveResize",
+        @"didEndSheet",
+        @"didEnterFullScreen",
+        @"didEnterVersionBrowser",
+        @"didExitFullScreen",
+        @"didExitVersionBrowser",
+        @"didExpose",
+        @"didFailToEnterFullScreen",
+        @"didFailToExitFullScreen",
+        @"didMiniaturize",
+        @"didMove",
+        @"didResignKey",
+        @"didResignMain",
+        @"didResize",
+        @"didUpdate",
+        @"willBeginSheet",
+        @"willClose",
+        @"willEnterFullScreen",
+        @"willEnterVersionBrowser",
+        @"willExitFullScreen",
+        @"willExitVersionBrowser",
+        @"willMiniaturize",
+        @"willMove",
+        @"willStartLiveResize",
+    ] ;
+    [skin pushNSObject:validNotifications] ;
+    return 1 ;
+}
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -1345,6 +1617,8 @@ static int userdata_gc(lua_State* L) {
     ASMWindow *obj = get_objectFromUserdata(__bridge_transfer ASMWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
         obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
+        obj.notificationCallback = [skin luaUnref:refTable ref:obj.notificationCallback] ;
+        obj.contentView = nil ;
         obj.delegate = nil ;
         [obj close] ;
         obj = nil ;
@@ -1364,6 +1638,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"clickActivating",                         enclosure_clickActivating},
     {"closeOnEscape",                           enclosure_closeOnEscape},
     {"contentView",                             enclosure_contentView},
+    {"contentViewBounds",                       enclosue_contentViewBounds},
     {"delete",                                  enclosure_delete},
     {"hide",                                    enclosure_hide},
     {"honorClose",                              enclosure_honorPerformClose},
@@ -1376,6 +1651,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"specifyCanBecomeKeyWindow",               enclosure_specifyCanBecomeKeyWindow},
     {"specifyCanBecomeMainWindow",              enclosure_specifyCanBecomeMainWindow},
     {"topLeft",                                 enclosure_topLeft},
+    {"notificationCallback",                    enclosure_notificationCallback},
+    {"notificationMessages",                    enlosure_notificationWatchFor},
 
     {"acceptsMouseMovedEvents",                 window_acceptsMouseMovedEvents},
     {"allowsConcurrentViewDrawing",             window_allowsConcurrentViewDrawing},
@@ -1397,6 +1674,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"excludedFromWindowsMenu",                 window_excludedFromWindowsMenu},
     {"floatingPanel",                           panel_floatingPanel},
     {"hasShadow",                               window_hasShadow},
+    {"hswindow",                                enclosure_hswindow},
     {"hidesOnDeactivate",                       window_hidesOnDeactivate},
     {"ignoresMouseEvents",                      window_ignoresMouseEvents},
     {"level",                                   window_level},
@@ -1456,6 +1734,7 @@ int luaopen_hs__asm_enclosure_internal(lua_State* L) {
     window_collectionTypeTable(L) ; lua_setfield(L, -2, "behaviors") ;
     window_windowLevels(L) ;        lua_setfield(L, -2, "levels") ;
     window_windowMasksTable(L) ;    lua_setfield(L, -2, "masks") ;
+    window_notifications(L) ;       lua_setfield(L, -2, "notifications") ;
 
     return 1;
 }

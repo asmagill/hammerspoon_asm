@@ -1,6 +1,6 @@
 #import "ASMCanvas.h"
 
-// #define VIEW_DEBUG
+#define VIEW_DEBUG
 
 static const char *USERDATA_TAG = "hs._asm.enclosure.canvas" ;
 static int refTable = LUA_NOREF;
@@ -17,11 +17,6 @@ typedef NS_ENUM(NSInteger, attributeValidity) {
 };
 
 #pragma mark - Support Functions and Classes
-
-static void removeViewFromSuperview(NSView *theView) {
-    [theView removeFromSuperview] ;
-//     if ([theView respondsToSelector:@selector(didRemoveFromCanvas)]) [theView performSelector:@selector(didRemoveFromCanvas)] ;
-}
 
 static NSDictionary *defineLanguageDictionary() {
     // the default shadow has no offset or blur radius, so lets setup one that is at least visible
@@ -972,6 +967,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     }
 }
 
+// NOTE: Do we need/want this?
 - (void)subviewCallback:(id)sender {
     if (_mouseCallbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared];
@@ -1055,18 +1051,18 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 - (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 
-- (void)didAddSubview:(__unused NSView *)subview {
 #ifdef VIEW_DEBUG
+- (void)didAddSubview:(NSView *)subview {
+    [super didAddSubview:subview] ;
     [LuaSkin logInfo:[NSString stringWithFormat:@"%s - didAddSubview for %@", USERDATA_TAG, subview]] ;
-#endif
-//     if ([subview respondsToSelector:@selector(didAddToCanvas)]) [subview performSelector:@selector(didAddToCanvas)] ;
 }
+#endif
 
 - (void)willRemoveSubview:(NSView *)subview {
+    [super willRemoveSubview:subview] ;
 #ifdef VIEW_DEBUG
     [LuaSkin logInfo:[NSString stringWithFormat:@"%s - willRemoveSubview for %@", USERDATA_TAG, subview]] ;
 #endif
-//     if ([subview respondsToSelector:@selector(willRemoveFromCanvas)]) [subview performSelector:@selector(willRemoveFromCanvas)] ;
 
     __block BOOL viewFound = NO ;
     [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, BOOL *stop){
@@ -1813,10 +1809,9 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
                 if (![newView isEqualTo:oldView]) {
                     if (![newView isDescendantOf:self] && ((!newView.window) || (newView.window && ![newView.window isVisible]))) {
                         if (oldView) {
-                            removeViewFromSuperview(oldView) ;
+                            [oldView removeFromSuperview] ;
                         }
 
-//                         if ([newView respondsToSelector:@selector(willAddToCanvas)]) [newView performSelector:@selector(willAddToCanvas)] ;
                         [self addSubview:newView] ;
                     } else {
                         [LuaSkin logWarn:[NSString stringWithFormat:@"%s:view for element %lu is already in use", USERDATA_TAG, index + 1]] ;
@@ -1896,7 +1891,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         case attributeNulling:
             if ([keyName isEqualToString:@"view"]) {
                 NSView *oldView = (NSView *)_elementList[index][keyName] ;
-                removeViewFromSuperview(oldView) ;
+                [oldView removeFromSuperview] ;
             } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
                 if ([[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue]) {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:%@ cannot be changed when element %lu is animating", USERDATA_TAG, keyName, index + 1]] ;
@@ -1967,58 +1962,6 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     return image;
 }
 
-#pragma mark - View Animation Methods
-
-- (void)fadeIn:(NSTimeInterval)fadeTime {
-    CGFloat alphaSetting = self.alphaValue ;
-    [self setAlphaValue:0.0];
-    [self setHidden:NO];
-    [NSAnimationContext beginGrouping];
-//       __weak ASMCanvasView *bself = self; // in ARC, __block would increase retain count
-      [[NSAnimationContext currentContext] setDuration:fadeTime];
-//       [[NSAnimationContext currentContext] setCompletionHandler:^{
-//           // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-//           ASMCanvasView *mySelf = bself ;
-//           if (mySelf) {
-//               [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-//                   NSView *theView = element[@"view"] ;
-//                   if (theView) {
-//                       if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
-//                   }
-//               }] ;
-//           }
-//       }];
-      [[self animator] setAlphaValue:alphaSetting];
-    [NSAnimationContext endGrouping];
-}
-
-- (void)fadeOut:(NSTimeInterval)fadeTime andDelete:(BOOL)deleteView {
-    CGFloat alphaSetting = self.alphaValue ;
-    [NSAnimationContext beginGrouping];
-      __weak ASMCanvasView *bself = self; // in ARC, __block would increase retain count
-      [[NSAnimationContext currentContext] setDuration:fadeTime];
-      [[NSAnimationContext currentContext] setCompletionHandler:^{
-          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-          ASMCanvasView *mySelf = bself ;
-          if (mySelf) {
-              if (deleteView) {
-                  removeViewFromSuperview(mySelf) ;
-              } else {
-//                   [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-//                       NSView *theView = element[@"view"] ;
-//                       if (theView) {
-//                           if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
-//                       }
-//                   }] ;
-//                   [mySelf setHidden:YES];
-                  [mySelf setAlphaValue:alphaSetting];
-              }
-          }
-      }];
-      [[self animator] setAlphaValue:0.0];
-    [NSAnimationContext endGrouping];
-}
-
 @end
 
 #pragma mark - Module Functions
@@ -2082,24 +2025,14 @@ static int canvas_alphaValue(lua_State *L) {
 
 static int canvas_hidden(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMCanvasView *canvasView = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, canvasView.hidden) ;
     } else {
-        BOOL fadeOut = (BOOL)lua_toboolean(L, 2) ;
-        NSTimeInterval fadeTime = (lua_gettop(L) == 3) ? lua_tonumber(L, 3) : 0.0 ;
-        if (fadeTime == 0.0) {
-            canvasView.hidden = fadeOut ;
-        } else {
-            if (fadeOut && !canvasView.hidden) {
-                [canvasView fadeOut:fadeTime andDelete:NO] ;
-            } else if (!fadeOut && canvasView.hidden) {
-                [canvasView fadeIn:fadeTime] ;
-            }
-        }
-        lua_pushboolean(L, 1) ;
+        canvasView.hidden = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -2359,7 +2292,7 @@ static int canvas_removeElementAtIndex(lua_State *L) {
 
     NSUInteger realIndex = (NSUInteger)tablePosition ;
     if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-        removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]);
+        [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
     }
     [canvasView.elementList removeObjectAtIndex:realIndex] ;
 
@@ -2573,7 +2506,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
             if (elementType && [ALL_TYPES containsObject:elementType]) {
                 NSUInteger realIndex = (NSUInteger)tablePosition ;
                 if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-                    removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]) ;
+                    [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
                 }
                 canvasView.elementList[realIndex] = [[NSMutableDictionary alloc] init] ;
                 [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
@@ -2664,14 +2597,16 @@ static int userdata_gc(lua_State* L) {
 #ifdef VIEW_DEBUG
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc removing view with frame %@ at index %lu", USERDATA_TAG, NSStringFromRect(subview.frame), idx]] ;
 #endif
-                    removeViewFromSuperview(subview) ;
+                    [subview removeFromSuperview] ;
+                    element[@"view"] = nil ;
                 }
             }] ;
 #ifdef VIEW_DEBUG
-            for (NSView *subview in [theView subviews]) {
+            for (NSView *subview in theView.subviews) {
                 [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc orphan subview with frame %@ found after element subview purge", USERDATA_TAG, NSStringFromRect(subview.frame)]] ;
             }
 #endif
+            theView.subviews = [NSArray array] ;
             theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         }
     }

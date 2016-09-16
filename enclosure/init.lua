@@ -1,18 +1,26 @@
 
 local USERDATA_TAG = "hs._asm.enclosure"
 local module       = require(USERDATA_TAG..".internal")
+module.toolbar     = require(USERDATA_TAG..".toolbar")
 
 local windowMT = hs.getObjectMetatable(USERDATA_TAG)
 
 local submodules = {
-    toolbar = USERDATA_TAG .. ".toolbar",
+    avplayer   = USERDATA_TAG .. ".avplayer",
+    button     = USERDATA_TAG .. ".button",
+    canvas     = USERDATA_TAG .. ".canvas",
+    progress   = USERDATA_TAG .. ".progress",
+    scrollview = USERDATA_TAG .. ".scrollview",
+    textview   = USERDATA_TAG .. ".textview",
+    toolbar    = USERDATA_TAG .. ".toolbar", -- included for completeness, but explicitly included above
+    webview    = USERDATA_TAG .. ".webview",
 }
 
 require("hs.drawing.color")
 require("hs.image")
 
 -- don't load until needed as some of them can be required directly without requiring
--- that this module be loaded
+-- that this module actually be loaded
 module = setmetatable(module, {
     __index = function(self, key)
         if not rawget(self, key) and submodules[key] then
@@ -236,10 +244,45 @@ windowMT.sendToBack = function(self, ...)
 end
 
 windowMT.isVisible = function(self, ...) return not self:isOccluded(...) end
+windowMT.toolbar   = module.toolbar.attachToolbar
 
-module.behaviors = _makeConstantsTable(module.behaviors)
-module.levels    = _makeConstantsTable(module.levels)
-module.masks     = _makeConstantsTable(module.masks)
+windowMT.forwardMethods = function(self, ...)
+    local userTable = debug.getuservalue(self)
+    if not userTable then
+        userTable = { forwardMethods = false }
+        debug.setuservalue(self, userTable)
+    end
+    local args = table.pack(...)
+    if args.n == 0 then
+        return userTable.forwardMethods
+    elseif args.n == 1 and type(args[1]) == "boolean" then
+        userTable.forwardMethods = args[1]
+        debug.setuservalue(self, userTable)
+    else
+        error("expected an optional boolean", 2)
+    end
+    return self
+end
+
+windowMT.__index = function(self, key)
+    if windowMT[key] then
+        return windowMT[key]
+    else
+        local userTable = debug.getuservalue(self) or {}
+        if userTable.forwardMethods then
+            local cv = self:contentView()
+            if type(cv) == "userdata" then
+                return function(_, ...) return cv[key](cv, ...) end
+            end
+        end
+    end
+    return nil
+end
+
+module.behaviors     = _makeConstantsTable(module.behaviors)
+module.levels        = _makeConstantsTable(module.levels)
+module.masks         = _makeConstantsTable(module.masks)
+module.notifications = _makeConstantsTable(module.notifications)
 
 -- Return Module Object --------------------------------------------------
 
