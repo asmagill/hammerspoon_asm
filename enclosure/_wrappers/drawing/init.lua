@@ -11,40 +11,25 @@
 ---  * images which are "template images" (i.e. some of the images with names in `hs.image.systemImageNames` and any image retrieved from an `hs.menubar` object) are displayed with an implicit `imageAlpha` of 0.5.  This closely mimics the NSImageView behavior observed with `hs.drawing`, but since Apple has not provided full details on how a template image is rendered when it is *not* used as a template, this is just a guess.
 
 ---  * image frames from `hs.drawing` are approximated with additional canvas elements inserted into the canvas... the frames always looked semi-ugly to me, and since this module now allows you to create as complex a frame as you like... consider these as "examples", and poor ones at that.  Plus I'm not sure anyone used them anyways -- at the time I only really wanted rotation, the others (frame, alignment, and scaling) were just tacked on because they were available.
----
---- ### Usage
----
---- This submodule is not loaded as part of the `hs._asm.canvas` module and has to be loaded explicitly. You can test the use of this wrapper with your Hammerspoon configuration by adding the following to the ***top*** of `~/.hammerspoon/init.lua` -- this needs to be executed before any other code has a chance to load `hs.drawing` first.
----
---- ~~~lua
---- local R, M = pcall(require,"hs._asm.canvas.drawing")
---- if R then
----    print()
----    print("**** Replacing internal hs.drawing with experimental wrapper.")
----    print()
----    hs.drawing = M
----    package.loaded["hs.drawing"] = M   -- make sure require("hs.drawing") returns us
----    package.loaded["hs/drawing"] = M   -- make sure require("hs/drawing") returns us
----    debug.getregistry()["hs.drawing"] = hs.getObjectMetatable("hs._asm.canvas.drawing")
---- else
----    print()
----    print("**** Error with experimental hs.drawing wrapper: "..tostring(M))
----    print()
---- end
---- ~~~
----
---- If you wish to load both for side-by-side comparisons, you can access the built in drawing module temporarily with: `drawing = dofile(hs.processInfo.resourcePath .. "/extensions/hs/drawing/init.lua")`
----
---- To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
 
--- local USERDATA_TAG = "hs._asm.canvas.drawing"
 local USERDATA_TAG = "hs.drawing"
+
+if not require"hs.settings".get("useEnclosureWrappedDrawing") then
+    local oldPath, oldCPath = package.path, package.cpath
+    local appPath = hs.processInfo.resourcePath
+    package.path  = appPath .. "/extensions/?.lua;" .. appPath .. "/extensions/?/init.lua;" .. package.path
+    package.cpath = appPath .. "/extensions/?.so;" .. package.cpath
+    local module = require(USERDATA_TAG)
+    package.path, package.cpath = oldPath, oldCPath
+    return module
+end
+
+local module = {}
+module.color = require(USERDATA_TAG .. ".color")
+
 local canvas       = require"hs._asm.canvas"
 local styledtext   = require"hs.styledtext"
 local drawingMT    = {}
-
-
-local module = {}
 
 -- private variables and methods -----------------------------------------
 
@@ -200,7 +185,6 @@ module.getTextDrawingSize = function(message, textStyle)
     return frameSize
 end
 
-module.color                = require("hs.drawing.color")
 module.defaultTextStyle     = canvas.defaultTextStyle
 module.disableScreenUpdates = canvas.disableScreenUpdates
 module.enableScreenUpdates  = canvas.enableScreenUpdates

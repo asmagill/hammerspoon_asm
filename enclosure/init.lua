@@ -6,15 +6,21 @@ module.toolbar     = require(USERDATA_TAG..".toolbar")
 local windowMT = hs.getObjectMetatable(USERDATA_TAG)
 
 local submodules = {
-    canvas  = USERDATA_TAG .. ".canvas",
-    webview = USERDATA_TAG .. ".webview",
+    avplayer   = USERDATA_TAG .. ".avplayer",
+    button     = USERDATA_TAG .. ".button",
+    canvas     = USERDATA_TAG .. ".canvas",
+    progress   = USERDATA_TAG .. ".progress",
+    scrollview = USERDATA_TAG .. ".scrollview",
+    textview   = USERDATA_TAG .. ".textview",
+    toolbar    = USERDATA_TAG .. ".toolbar", -- included for completeness, but explicitly included above
+    webview    = USERDATA_TAG .. ".webview",
 }
 
 require("hs.drawing.color")
 require("hs.image")
 
 -- don't load until needed as some of them can be required directly without requiring
--- that this module be loaded
+-- that this module actually be loaded
 module = setmetatable(module, {
     __index = function(self, key)
         if not rawget(self, key) and submodules[key] then

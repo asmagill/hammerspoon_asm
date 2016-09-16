@@ -74,6 +74,10 @@ typedef NSUInteger NSWindowStyleMask ;
 #define NSEventModifierFlagCommand  NSCommandKeyMask
 #define NSEventModifierFlagFunction NSFunctionKeyMask
 
+#define NSControlSizeMini    NSMiniControlSize
+#define NSControlSizeRegular NSRegularControlSize
+#define NSControlSizeSmall   NSSmallControlSize
+
 // #define EKWeekdaySunday    EKSunday
 // #define EKWeekdayMonday    EKMonday
 // #define EKWeekdayTuesday   EKTuesday

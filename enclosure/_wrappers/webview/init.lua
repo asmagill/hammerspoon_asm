@@ -1,5 +1,15 @@
 local USERDATA_TAG = "hs.webview"
 
+if not require"hs.settings".get("useEnclosureWrappedWebview") then
+    local oldPath, oldCPath = package.path, package.cpath
+    local appPath = hs.processInfo.resourcePath
+    package.path  = appPath .. "/extensions/?.lua;" .. appPath .. "/extensions/?/init.lua;" .. package.path
+    package.cpath = appPath .. "/extensions/?.so;" .. package.cpath
+    local module = require(USERDATA_TAG)
+    package.path, package.cpath = oldPath, oldCPath
+    return module
+end
+
 local osVersion = require"hs.host".operatingSystemVersion()
 if (osVersion["major"] == 10 and osVersion["minor"] < 10) then
     hs.luaSkinLog.wf("%s is only available on OS X 10.10 or later", USERDATA_TAG)
@@ -8,7 +18,7 @@ if (osVersion["major"] == 10 and osVersion["minor"] < 10) then
 end
 
 local module       = {} -- require(USERDATA_TAG..".internal")
-module.toolbar     = require("hs._asm.enclosure.toolbar")
+module.toolbar     = require(USERDATA_TAG..".toolbar")
 
 local enclosure = require("hs._asm.enclosure")
 local webview   = require("hs._asm.enclosure.webview")
@@ -441,7 +451,6 @@ module._internals = internals
 
 -- assign to the registry in case we ever need to access the metatable from the C side
 debug.getregistry()[USERDATA_TAG] = simplifiedMT
-debug.getregistry()[USERDATA_TAG .. ".toolbar"]     = debug.getregistry()["hs._asm.enclosure.toolbar"]
 debug.getregistry()[USERDATA_TAG .. ".datastore"]   = debug.getregistry()["hs._asm.enclosure.webview.datastore"]
 debug.getregistry()[USERDATA_TAG .. ".usercontent"] = debug.getregistry()["hs._asm.enclosure.webview.usercontent"]
 
