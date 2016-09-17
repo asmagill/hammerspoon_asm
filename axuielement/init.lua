@@ -28,8 +28,10 @@
 
 local USERDATA_TAG = "hs._asm.axuielement"
 local module       = require(USERDATA_TAG..".internal")
-local log          = require("hs.logger").new("axuielement","warning")
+local log          = require("hs.logger").new(USERDATA_TAG,"warning")
 module.log         = log
+
+local fnutils = require("hs.fnutils")
 
 require("hs.styledtext")
 
@@ -121,8 +123,8 @@ elementSearchHamster = function(element, searchParameters, isPattern, includePar
 -- check an AXUIElement and its attributes
 
     if getmetatable(element) == hs.getObjectMetatable(USERDATA_TAG) then
-        if seen[element] then return results end
-        seen[element] = true
+        if fnutils.find(seen, function(_) return _ == element end) then return results end
+        table.insert(seen, element)
 
     -- first check if this element itself belongs in the result set
         if object.matches(element, searchParameters, isPattern) then
@@ -277,14 +279,19 @@ object.__index = function(self, _)
     end
 end
 
+object.__call = function(_, cmd, ...)
+    local fn = object.__index(_, cmd)
+    if fn and type(fn) == "function" then
+        return fn(_, ...)
+    elseif fn then
+        return fn
+    else
+        error(tostring(cmd) .. " is not a recognized attribute or action", 2)
+    end
+end
+
 object.__pairs = function(_)
     local keys = {}
-
---     local k, v = nil, nil
---     repeat
---         k, v = next(object, k)
---         if k then keys[k] = true end
---     until not k
 
      -- getters and setters for attributeNames
     for i, v in ipairs(object.attributeNames(_) or {}) do

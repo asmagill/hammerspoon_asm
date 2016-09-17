@@ -1,7 +1,3 @@
-// TODO: Notifications/Observers?
-//       clean up browse?
-//       document
-
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -11,32 +7,17 @@
 // #import "AXTextMarker.h"
 
 #define USERDATA_TAG "hs._asm.axuielement"
-static int                    refTable = LUA_NOREF ;
-static CFMutableDictionaryRef knownAXUIElements ;
+static int refTable = LUA_NOREF ;
+
 #define get_axuielementref(L, idx, tag) *((AXUIElementRef*)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions
 
 static int pushAXUIElement(lua_State *L, AXUIElementRef theElement) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CFNumberRef refAsCFNumber = CFDictionaryGetValue(knownAXUIElements, theElement) ;
-    if (refAsCFNumber) {
-        int refAsInt ;
-        CFNumberGetValue(refAsCFNumber, kCFNumberIntType, &refAsInt) ;
-        [skin pushLuaRef:refTable ref:refAsInt] ;
-        CFRelease(refAsCFNumber);
-    } else {
-        AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef)) ;
-        *thePtr = CFRetain(theElement) ;
-        luaL_getmetatable(L, USERDATA_TAG) ;
-        lua_setmetatable(L, -2) ;
-        lua_pushvalue(L, -1) ;
-        int newRefAsInt = [skin luaRef:refTable];
-        CFNumberRef newRefAsCFNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &newRefAsInt);
-        CFDictionarySetValue(knownAXUIElements, theElement, newRefAsCFNumber);
-        CFRelease(newRefAsCFNumber);
-    }
-
+    AXUIElementRef* thePtr = lua_newuserdata(L, sizeof(AXUIElementRef)) ;
+    *thePtr = CFRetain(theElement) ;
+    luaL_getmetatable(L, USERDATA_TAG) ;
+    lua_setmetatable(L, -2) ;
     return 1 ;
 }
 
@@ -79,11 +60,12 @@ static BOOL isApplicationOrSystem(AXUIElementRef theRef) {
     return result ;
 }
 
-static int errorWrapper(lua_State *L, AXError err) {
-    luaL_where(L, 0) ;
-    const char *where = lua_tostring(L, -1) ;
-    [LuaSkin logVerbose:[NSString stringWithFormat:@"%s.%s AXError %d: %s", USERDATA_TAG, where, err, AXErrorAsString(err)]] ;
-    lua_pop(L, 1) ;
+static int errorWrapper(lua_State *L, NSString *where, NSString *what, AXError err) {
+    if (what) {
+        [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:%@ AXError %d for %@: %s", USERDATA_TAG, where, err, what, AXErrorAsString(err)]] ;
+    } else {
+        [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:%@ AXError %d: %s", USERDATA_TAG, where, err, AXErrorAsString(err)]] ;
+    }
     lua_pushnil(L) ;
     return 1 ;
 }
@@ -210,7 +192,7 @@ static int definedTypes(lua_State *L) {
     lua_pushstring(L, "SecTrust") ;              lua_seti(L, -2, (lua_Integer)SecTrustGetTypeID()) ;
     lua_pushstring(L, "SecTrustedApplication") ; lua_seti(L, -2, (lua_Integer)SecTrustedApplicationGetTypeID()) ;
 
-// Crashes... crap.
+// Crashes... crap.  Safari uses these...
 //     lua_pushstring(L, "AXTextMarker") ;          lua_seti(L, -2, (lua_Integer)wkGetAXTextMarkerTypeID()) ;
 //     lua_pushstring(L, "AXTextMarkerRange") ;     lua_seti(L, -2, (lua_Integer)wkGetAXTextMarkerRangeTypeID()) ;
 
@@ -583,14 +565,14 @@ static void getAllAXUIElements_searchHamster(CFTypeRef theRef, BOOL includeParen
                         }
                     } else {
                         if (errorState != kAXErrorNoValue) {
-                            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d for %@: %s", USERDATA_TAG, errorState, name, AXErrorAsString(errorState)]] ;
+                            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:getAllChildElements AXError %d for %@: %s", USERDATA_TAG, errorState, name, AXErrorAsString(errorState)]] ;
                         }
                     }
                     if (value) CFRelease(value) ;
                 }
             }
         } else {
-            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:AXError %d getting attribute names: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
+            [LuaSkin logVerbose:[NSString stringWithFormat:@"%s:getAllChildElements AXError %d getting attribute names: %s", USERDATA_TAG, errorState, AXErrorAsString(errorState)]] ;
         }
         if (attributeNames) CFRelease(attributeNames) ;
     } /* else {
@@ -691,7 +673,7 @@ static int getAttributeNames(lua_State *L) {
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"attributeNames", nil, errorState) ;
     }
     if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
@@ -722,7 +704,7 @@ static int getActionNames(lua_State *L) {
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"actionNames", nil, errorState) ;
     }
     if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
@@ -752,7 +734,7 @@ static int getActionDescription(lua_State *L) {
     } else if (errorState == kAXErrorNoValue) {
         lua_pushnil(L) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"actionDescription", action, errorState) ;
     }
     if (description) CFRelease(description) ;
     return 1 ;
@@ -779,7 +761,7 @@ static int getAttributeValue(lua_State *L) {
     } else if (errorState == kAXErrorNoValue) {
         lua_pushnil(L) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"attributeValue", attribute, errorState) ;
     }
     if (value) CFRelease(value) ;
     return 1 ;
@@ -804,7 +786,7 @@ static int getAttributeValueCount(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, count) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"attributeValueCount", attribute, errorState) ;
     }
     return 1 ;
 }
@@ -831,7 +813,7 @@ static int getParameterizedAttributeNames(lua_State *L) {
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"parameterizedAttributeNames", nil, errorState) ;
     }
     if (attributeNames) CFRelease(attributeNames) ;
     return 1 ;
@@ -856,7 +838,7 @@ static int isAttributeSettable(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushboolean(L, settable) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"isAttributeSettable", attribute, errorState) ;
     }
     return 1 ;
 }
@@ -879,7 +861,7 @@ static int getPid(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushinteger(L, (lua_Integer)thePid) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"pid", nil, errorState) ;
     }
     return 1 ;
 }
@@ -907,7 +889,7 @@ static int performAction(lua_State *L) {
     } else if (errorState == kAXErrorCannotComplete) {
         lua_pushboolean(L, NO) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"performAction", action, errorState) ;
     }
     return 1 ;
 }
@@ -950,7 +932,7 @@ static int getElementAtPosition(lua_State *L) {
         if (errorState == kAXErrorSuccess) {
             pushAXUIElement(L, value) ;
         } else {
-            errorWrapper(L, errorState) ;
+            errorWrapper(L, @"elementAtPosition", nil, errorState) ;
         }
         if (value) CFRelease(value) ;
     } else {
@@ -985,7 +967,7 @@ static int getParameterizedAttributeValue(lua_State *L) {
     } else if (errorState == kAXErrorNoValue) {
         lua_pushnil(L) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"parameterizedAttributeValue", attribute, errorState) ;
     }
     if (value) CFRelease(value) ;
     if (parameter) CFRelease(parameter) ;
@@ -1015,7 +997,7 @@ static int setAttributeValue(lua_State *L) {
     if (errorState == kAXErrorSuccess) {
         lua_pushvalue(L, 1) ;
     } else {
-        errorWrapper(L, errorState) ;
+        errorWrapper(L, @"setAttributeValue", attribute, errorState) ;
     }
     if (value) CFRelease(value) ;
     return 1 ;
@@ -1556,16 +1538,7 @@ static int userdata_tostring(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
     AXUIElementRef theRef = get_axuielementref(L, 1, USERDATA_TAG) ;
-    CFNumberRef refAsCFNumber = CFDictionaryGetValue(knownAXUIElements, theRef) ;
-    if (refAsCFNumber) {
-        int refAsInt ;
-        CFNumberGetValue(refAsCFNumber, kCFNumberIntType, &refAsInt) ;
-        [skin luaUnref:refTable ref:refAsInt] ;
-        CFRelease(refAsCFNumber);
-        CFDictionaryRemoveValue(knownAXUIElements, theRef);
-    }
     CFRelease(theRef) ;
     lua_pushnil(L) ;
     lua_setmetatable(L, 1) ;
@@ -1579,29 +1552,9 @@ static int userdata_eq(lua_State* L) {
     return 1 ;
 }
 
-static void metaGCHelper(__unused const void *key, const void *value, __unused void *context ) {
-    LuaSkin *skin = [LuaSkin shared];
-    lua_State *L = [skin L];
-    int refAsInt ;
-    CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &refAsInt) ;
-    lua_pushcfunction(L, userdata_gc);
-    [skin pushLuaRef:refTable ref:refAsInt];
-    lua_pcall(L, 1, 0, 0);
-}
-
-static int meta_gc(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CFIndex count = CFDictionaryGetCount(knownAXUIElements);
-    if (count > 0) {
-        [skin logWarn:[NSString stringWithFormat:@"%s:knownAXUIElements has count %ld in module __gc", USERDATA_TAG, count]];
-        CFDictionaryApplyFunction(knownAXUIElements, metaGCHelper, NULL);
-        CFDictionaryRemoveAllValues(knownAXUIElements);
-    }
-    CFRelease(knownAXUIElements) ;
-    knownAXUIElements = nil ;
-    refTable = LUA_NOREF ;
-    return 0 ;
-}
+// static int meta_gc(lua_State* __unused L) {
+//     return 0 ;
+// }
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
@@ -1637,20 +1590,18 @@ static luaL_Reg moduleLib[] = {
     {NULL,                       NULL}
 } ;
 
-// Metatable for module, if needed
-static const luaL_Reg module_metaLib[] = {
-    {"__gc", meta_gc},
-    {NULL,   NULL}
-} ;
+// // Metatable for module, if needed
+// static const luaL_Reg module_metaLib[] = {
+//     {"__gc", meta_gc},
+//     {NULL,   NULL}
+// } ;
 
 int luaopen_hs__asm_axuielement_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib
-                                             metaFunctions:module_metaLib
+                                             metaFunctions:nil
                                            objectFunctions:userdata_metaLib] ;
-
-    knownAXUIElements = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks) ;
 
 // For reference, since the object __init wrapper in init.lua and the keys for elementSearch don't
 // actually use them in case the user wants to use an Application defined attribute or action not
@@ -1671,6 +1622,5 @@ int luaopen_hs__asm_axuielement_internal(lua_State* L) {
     pushNotificationsTable(L) ;           lua_setfield(L, -2, "notifications") ;
 
     definedTypes(L) ; lua_setfield(L, -2, "types") ;
-
     return 1 ;
 }

@@ -1,8 +1,8 @@
 #ifndef Window_application_h
 #define Window_application_h
 
-#import <Foundation/Foundation.h>
-#import <LuaSkin/LuaSkin.h>
+@import Foundation ;
+@import LuaSkin ;
 
 extern AXError _AXUIElementGetWindow(AXUIElementRef, CGWindowID* out);
 
