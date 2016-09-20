@@ -30,6 +30,8 @@ typedef enum {
 @property BOOL         honorPerformClose ;
 @property BOOL         closeOnEscape ;
 @property BOOL         assignedHSView ;
+@property NSString     *subroleOverride ;
+@property NSNumber     *animationTime ;
 @end
 
 static int userdata_gc(lua_State* L) ;
@@ -93,6 +95,8 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         _honorPerformClose        = YES ;
         _closeOnEscape            = NO ;
         _assignedHSView           = NO ;
+        _subroleOverride          = nil ;
+        _animationTime            = nil ;
 
         // memory management becomes *much* harder if we allow these to be changeable from
         // Lua; better to just not support them unless/until required for something
@@ -157,7 +161,27 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 //     [invocation getReturnValue:&result] ;
 //     return result ;
 // }
-//
+
+- (NSString *)accessibilitySubrole {
+    if (_subroleOverride) {
+        if ([_subroleOverride isEqualToString:@""]) {
+            return [super accessibilitySubrole] ;
+        } else {
+            return _subroleOverride ;
+        }
+    } else {
+        return [[super accessibilitySubrole] stringByAppendingString:@".Hammerspoon"] ;
+    }
+}
+
+- (NSTimeInterval)animationResizeTime:(NSRect)newWindowFrame {
+    if (_animationTime) {
+        return [_animationTime doubleValue] ;
+    } else {
+        return [super animationResizeTime:newWindowFrame] ;
+    }
+}
+
 #pragma mark - NSResponder overrides
 
 // used in hs.webview to support escape to close window
@@ -1202,6 +1226,38 @@ static int window_miniwindowTitle(lua_State *L) {
     return 1 ;
 }
 
+static int enclosure_accessibilitySubrole(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+
+    if (lua_gettop(L) == 1) {
+      [skin pushNSObject:window.subroleOverride] ;
+    } else {
+        window.subroleOverride = lua_isstring(L, 2) ? [skin toNSObjectAtIndex:2] : nil ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+static int enclosure_animationDuration(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:window.animationTime] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            window.animationTime = nil ;
+        } else {
+            window.animationTime = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int window_representedFilename(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1320,10 +1376,36 @@ static int enclosure_clickActivating(lua_State *L) {
     return 1;
 }
 
+static int enclosure_frame(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TTABLE | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+
+    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    NSRect oldFrame = RectWithFlippedYCoordinate(window.frame);
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSRect:oldFrame] ;
+    } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                        LS_TTABLE,
+                        LS_TBOOLEAN | LS_TOPTIONAL,
+                        LS_TBREAK] ;
+        NSRect newFrame = RectWithFlippedYCoordinate([skin tableToRectAtIndex:2]) ;
+        BOOL animate = (lua_gettop(L) == 3) ? (BOOL)lua_toboolean(L, 3) : NO ;
+        [window setFrame:newFrame display:YES animate:animate];
+        lua_pushvalue(L, 1);
+    }
+    return 1;
+}
+
 static int enclosure_topLeft(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TTABLE | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
     ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
@@ -1332,9 +1414,14 @@ static int enclosure_topLeft(lua_State *L) {
     if (lua_gettop(L) == 1) {
         [skin pushNSPoint:oldFrame.origin] ;
     } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                        LS_TTABLE,
+                        LS_TBOOLEAN | LS_TOPTIONAL,
+                        LS_TBREAK] ;
         NSPoint newCoord = [skin tableToPointAtIndex:2] ;
+        BOOL animate = (lua_gettop(L) == 3) ? (BOOL)lua_toboolean(L, 3) : NO ;
         NSRect  newFrame = RectWithFlippedYCoordinate(NSMakeRect(newCoord.x, newCoord.y, oldFrame.size.width, oldFrame.size.height)) ;
-        [window setFrame:newFrame display:YES animate:NO];
+        [window setFrame:newFrame display:YES animate:animate];
         lua_pushvalue(L, 1);
     }
     return 1;
@@ -1344,6 +1431,7 @@ static int enclosure_size(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TTABLE | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
     ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
@@ -1352,10 +1440,15 @@ static int enclosure_size(lua_State *L) {
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:oldFrame.size] ;
     } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                        LS_TTABLE,
+                        LS_TBOOLEAN | LS_TOPTIONAL,
+                        LS_TBREAK] ;
         NSSize newSize  = [skin tableToSizeAtIndex:2] ;
+        BOOL animate = (lua_gettop(L) == 3) ? (BOOL)lua_toboolean(L, 3) : NO ;
         NSRect newFrame = NSMakeRect(oldFrame.origin.x, oldFrame.origin.y + oldFrame.size.height - newSize.height, newSize.width, newSize.height);
 
-        [window setFrame:newFrame display:YES animate:NO];
+        [window setFrame:newFrame display:YES animate:animate];
         lua_pushvalue(L, 1);
     }
     return 1;
@@ -1635,11 +1728,13 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
+    {"animationDuration",                       enclosure_animationDuration},
     {"clickActivating",                         enclosure_clickActivating},
     {"closeOnEscape",                           enclosure_closeOnEscape},
     {"contentView",                             enclosure_contentView},
     {"contentViewBounds",                       enclosue_contentViewBounds},
     {"delete",                                  enclosure_delete},
+    {"frame",                                   enclosure_frame},
     {"hide",                                    enclosure_hide},
     {"honorClose",                              enclosure_honorPerformClose},
     {"isOccluded",                              enclosure_isOccluded},
@@ -1653,6 +1748,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"topLeft",                                 enclosure_topLeft},
     {"notificationCallback",                    enclosure_notificationCallback},
     {"notificationMessages",                    enlosure_notificationWatchFor},
+    {"accessibilitySubrole",                    enclosure_accessibilitySubrole},
 
     {"acceptsMouseMovedEvents",                 window_acceptsMouseMovedEvents},
     {"allowsConcurrentViewDrawing",             window_allowsConcurrentViewDrawing},

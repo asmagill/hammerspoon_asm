@@ -28,7 +28,7 @@
 //     - (NSRect)convertRectToScreen:(NSRect)aRect
 //     - (NSRect)frameRectForContentRect:(NSRect)windowContent
 //     - (NSText *)fieldEditor:(BOOL)createWhenNeeded forObject:(id)anObject
-//     - (NSTimeInterval)animationResizeTime:(NSRect)newWindowFrame
+// //     - (NSTimeInterval)animationResizeTime:(NSRect)newWindowFrame
 //     - (NSWindow *)initWithWindowRef:(void *)carbonWindowRef
 //     - (void)addChildWindow:(NSWindow *)childWindow ordered:(NSWindowOrderingMode)orderingMode
 //     - (void)addTitlebarAccessoryViewController:(NSTitlebarAccessoryViewController *)childViewController
@@ -100,8 +100,8 @@
 //     - (void)setCanBeVisibleOnAllSpaces:(BOOL)flag
 //     - (void)setContentBorderThickness:(CGFloat)borderThickness forEdge:(NSRectEdge)edge
 //     - (void)setContentSize:(NSSize)size
-//     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews
-//     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews animate:(BOOL)performAnimation
+// //     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews
+// //     - (void)setFrame:(NSRect)windowFrame display:(BOOL)displayViews animate:(BOOL)performAnimation
 //     - (void)setFrameFromString:(NSString *)frameString
 //     - (void)setFrameOrigin:(NSPoint)point
 //     - (void)setFrameTopLeftPoint:(NSPoint)point
@@ -183,10 +183,10 @@
 //     @property(readonly) NSInteger windowNumber
 //     @property(readonly) NSPoint mouseLocationOutsideOfEventStream
 //     @property(readonly) NSRect contentLayoutRect
-//     @property(readonly) NSRect frame
+// //     @property(readonly) NSRect frame
 //     @property(readonly) NSSelectionDirection keyViewSelectionDirection
 //     @property(readonly) NSWindowBackingLocation backingLocation
-//     @property(readonly) NSWindowOcclusionState occlusionState
+// //     @property(readonly) NSWindowOcclusionState occlusionState
 //     @property(readonly) void *windowRef
 
 // NSWindowDelegate methods

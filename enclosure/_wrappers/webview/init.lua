@@ -424,6 +424,7 @@ module.new = function(frame, ...)
                    end
                end)
                :forwardMethods(true)
+               :accessibilitySubrole("")
 
     self.webview = webview.newView(self.window:contentViewBounds(), ...)
     self.webview:policyCallback(generatePolicyCallback(self))

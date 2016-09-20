@@ -33,13 +33,21 @@ local drawingMT    = {}
 
 -- private variables and methods -----------------------------------------
 
+local newDrawing = function(...)
+    local result = canvas.new(...)
+    if result then
+        result.window:accessibilitySubrole("hammerspoonDrawing")
+    end
+    return result
+end
+
 -- Public interface ------------------------------------------------------
 
 -- functions/tables from hs.drawing
 
 module._image = function(frame, imageObject)
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
     drawingObject.canvas._default.clipToPath = true
 
@@ -73,7 +81,7 @@ end
 
 module.circle = function(frame)
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
     drawingObject.canvas[1] = {
         type        = "oval",
@@ -85,7 +93,7 @@ end
 
 module.ellipticalArc = function(frame, startAngle, endAngle)
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
     drawingObject.canvas[1] = {
         type        = "ellipticalArc",
@@ -125,7 +133,7 @@ module.line = function(originPoint, endingPoint)
     originPoint.x, originPoint.y = originPoint.x - frame.x, originPoint.y - frame.y
     endingPoint.x, endingPoint.y = endingPoint.x - frame.x, endingPoint.y - frame.y
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
     drawingObject.canvas[1] = {
         type             = "segments",
@@ -139,7 +147,7 @@ end
 
 module.rectangle = function(frame)
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
     drawingObject.canvas[1] = {
         type       = "rectangle",
@@ -156,7 +164,7 @@ module.text = function(frame, message)
         message = tostring(message)
     end
     local drawingObject = {
-        canvas = canvas.new(frame),
+        canvas = newDrawing(frame),
     }
 
     drawingObject.canvas[1] = {
@@ -170,7 +178,7 @@ end
 
 module.getTextDrawingSize = function(message, textStyle)
     textStyle = textStyle or {}
-    local drawingObject = canvas.new({})
+    local drawingObject = newDrawing({})
     if textStyle.paragraphStyle then
         message = styledtext.new(message, textStyle)
     else
@@ -297,11 +305,15 @@ drawingMT.setClickCallback = function(self, ...)
     end
 
     self.canvas:canvasMouseEvents(mouseDnFn and true or false, mouseUpFn and true or false)
-    self.canvas:mouseCallback(function(c, m, i, x, y)
-        if     m == "mouseUp"   and mouseUpFn then mouseUpFn()
-        elseif m == "mouseDown" and mouseDnFn then mouseDnFn()
-        end
-    end)
+    if mouseDnFn or mouseUpFn then
+        self.canvas:mouseCallback(function(c, m, i, x, y)
+            if     m == "mouseUp"   and mouseUpFn then mouseUpFn()
+            elseif m == "mouseDown" and mouseDnFn then mouseDnFn()
+            end
+        end)
+    else
+        self.canvas:mouseCallback(nil)
+    end
     return self
 end
 

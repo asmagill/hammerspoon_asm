@@ -195,29 +195,29 @@ windowMT.level = function(self, ...) -- add nice wrapper version
     end
 end
 
-windowMT.frame = function(self, ...)
-    local args = table.pack(...)
-
-    if args.n == 0 then
-        local topLeft = self:topLeft()
-        local size    = self:size()
-        return {
-            __luaSkinType = "NSRect",
-            x = topLeft.x,
-            y = topLeft.y,
-            h = size.h,
-            w = size.w,
-        }
-    elseif args.n == 1 and type(args[1]) == "table" then
-        self:size(args[1])
-        self:topLeft(args[1])
-        return self
-    elseif args.n > 1 then
-        error("frame method expects 0 or 1 arguments", 2)
-    else
-        error("frame method argument must be a table", 2)
-    end
-end
+-- windowMT.frame = function(self, ...)
+--     local args = table.pack(...)
+--
+--     if args.n == 0 then
+--         local topLeft = self:topLeft()
+--         local size    = self:size()
+--         return {
+--             __luaSkinType = "NSRect",
+--             x = topLeft.x,
+--             y = topLeft.y,
+--             h = size.h,
+--             w = size.w,
+--         }
+--     elseif args.n == 1 and type(args[1]) == "table" then
+--         self:size(args[1])
+--         self:topLeft(args[1])
+--         return self
+--     elseif args.n > 1 then
+--         error("frame method expects 0 or 1 arguments", 2)
+--     else
+--         error("frame method argument must be a table", 2)
+--     end
+-- end
 
 windowMT.bringToFront = function(self, ...)
     local args = table.pack(...)

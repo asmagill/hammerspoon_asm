@@ -78,6 +78,8 @@ typedef NSUInteger NSWindowStyleMask ;
 #define NSControlSizeRegular NSRegularControlSize
 #define NSControlSizeSmall   NSSmallControlSize
 
+#define kCLAuthorizationStatusAuthorizedAlways kCLAuthorizationStatusAuthorized
+
 // #define EKWeekdaySunday    EKSunday
 // #define EKWeekdayMonday    EKMonday
 // #define EKWeekdayTuesday   EKTuesday
