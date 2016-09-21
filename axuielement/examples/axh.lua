@@ -1,7 +1,7 @@
 local module = {}
 local ax      = require("hs._asm.axuielement")
 local fnutils = require("hs.fnutils")
-local inspect = require("inspect")
+local inspect = require("hs.inspect")
 
 local hierarchy
 hierarchy = function(obj, indent, seen)
