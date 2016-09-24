@@ -229,6 +229,15 @@ static int location_authorizationStatus(__unused lua_State *L) {
     return 1 ;
 }
 
+static int location_distanceBetween(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TTABLE, LS_TTABLE, LS_TBREAK] ;
+    CLLocation *pointA = [skin luaObjectAtIndex:1 toClass:"CLLocation"] ;
+    CLLocation *pointB = [skin luaObjectAtIndex:2 toClass:"CLLocation"] ;
+    lua_pushnumber(L, [pointA distanceFromLocation:pointB]) ;
+    return 1;
+}
+
 #pragma mark - Module Methods
 
 static int location_start(lua_State *L) {
@@ -329,6 +338,17 @@ static int location_location(__unused lua_State *L) {
     [skin pushNSObject:manager.location] ;
     return 1 ;
 }
+
+static int location_distanceFrom(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TBREAK] ;
+    ASMLocation       *obj = [skin toNSObjectAtIndex:1] ;
+    CLLocationManager *manager = obj.manager ;
+    CLLocation        *pointB = [skin luaObjectAtIndex:2 toClass:"CLLocation"] ;
+    lua_pushnumber(L, [manager.location distanceFromLocation:pointB]) ;
+    return 1;
+}
+
 
 static int location_distanceFilter(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -443,6 +463,44 @@ static int pushCLCircularRegion(lua_State *L, id obj) {
     return 1 ;
 }
 
+static id CLLocationFromLua(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    CLLocation *theLocation ;
+
+    if (lua_type(L, idx) == LUA_TTABLE) {
+        CLLocationCoordinate2D location   = { 0.0, 0.0 } ;
+        CLLocationDistance     altitude   =  0.0 ;
+        CLLocationAccuracy     hAccuracy  =  0.0 ;
+        CLLocationAccuracy     vAccuracy  = -1.0 ; // invalid unless explicitly specified
+        CLLocationDirection    course     = -1.0 ; // invalid unless explicitly specified
+        CLLocationSpeed        speed      = -1.0 ; // invalid unless explicitly specified
+        NSDate                 *timestamp = [NSDate date] ;
+
+        if (lua_getfield(L, idx, "latitude") == LUA_TNUMBER) location.latitude = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "longitude") == LUA_TNUMBER) location.longitude = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "altitude") == LUA_TNUMBER) altitude = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "horizontalAccuracy") == LUA_TNUMBER) hAccuracy = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "verticalAccuracy") == LUA_TNUMBER) vAccuracy = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "course") == LUA_TNUMBER) course = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "speed") == LUA_TNUMBER) speed = lua_tonumber(L, -1) ;
+        if (lua_getfield(L, idx, "timestamp") == LUA_TNUMBER)
+            timestamp = [NSDate dateWithTimeIntervalSince1970:lua_tonumber(L, -1)] ;
+        lua_pop(L, 8) ;
+
+        theLocation = [[CLLocation alloc] initWithCoordinate:location
+                                                    altitude:altitude
+                                          horizontalAccuracy:hAccuracy
+                                            verticalAccuracy:vAccuracy
+                                                      course:course
+                                                       speed:speed
+                                                   timestamp:timestamp] ;
+    } else {
+        [skin logError:[NSString stringWithFormat:@"%s:CLLocationFromLua expected table, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, idx))]] ;
+    }
+
+    return theLocation ;
+}
+
 static id CLCircularRegionFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
     CLCircularRegion *theRegion ;
@@ -528,6 +586,7 @@ static int userdata_gc(lua_State* L) {
 static const luaL_Reg userdata_metaLib[] = {
     {"start",                 location_start},
     {"stop",                  location_stop},
+    {"distanceFrom",          location_distanceFrom},
     {"monitoredRegions",      location_monitoredRegions},
     {"addMonitoredRegion",    location_addMonitoredRegion},
     {"removeMonitoredRegion", location_removeMonitoredRegion},
@@ -545,6 +604,7 @@ static const luaL_Reg userdata_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"manager",                 location_manager},
+    {"distanceBetween",         location_distanceBetween},
     {"locationServicesEnabled", location_locationServicesEnabled},
     {"authorizationStatus",     location_authorizationStatus},
     {NULL,                      NULL}
@@ -568,7 +628,9 @@ int luaopen_hs__asm_location_internal(lua_State* __unused L) {
     [skin registerLuaObjectHelper:toASMLocationFromLua forClass:"ASMLocation"
                                              withUserdataMapping:USERDATA_TAG];
 
-    [skin registerPushNSHelper:pushCLLocation forClass:"CLLocation"] ;
+    [skin registerPushNSHelper:pushCLLocation       forClass:"CLLocation"] ;
+    [skin registerLuaObjectHelper:CLLocationFromLua forClass:"CLLocation"
+                                            withTableMapping:"CLLocation"] ;
 
     [skin registerPushNSHelper:pushCLCircularRegion       forClass:"CLCircularRegion"] ;
     [skin registerLuaObjectHelper:CLCircularRegionFromLua forClass:"CLCircularRegion"

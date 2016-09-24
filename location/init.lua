@@ -4,6 +4,7 @@
 
 local USERDATA_TAG = "hs._asm.location"
 local module       = require(USERDATA_TAG..".internal")
+local objectMT     = hs.getObjectMetatable(USERDATA_TAG)
 
 -- private variables and methods -----------------------------------------
 
@@ -82,6 +83,21 @@ local module       = require(USERDATA_TAG..".internal")
 -- end
 
 -- Public interface ------------------------------------------------------
+
+objectMT.currentRegion = function(self)
+    local location = self:location()
+    local regions  = self:monitoredRegions()
+    local currentRegion, currentRadius = nil, math.huge
+
+    for i,v in ipairs(regions) do
+        if module.distanceBetween(location, v) < v.radius and v.radius < currentRadius then
+            currentRadius = v.radius
+            currentRegion = v.identifier
+        end
+    end
+
+    return currentRegion
+end
 
 -- Return Module Object --------------------------------------------------
 
