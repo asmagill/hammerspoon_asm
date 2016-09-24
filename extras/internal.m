@@ -1,6 +1,7 @@
 @import Cocoa ;
 @import Carbon ;
 @import LuaSkin ;
+@import AVFoundation;
 // @import AddressBook ;
 @import SystemConfiguration ;
 #import "LuaSkinThread.h"
@@ -389,7 +390,19 @@ static int boolTest(lua_State *L) {
     return 1 ;
 }
 
+static int avcapturedevices(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_newtable(L) ;
+    for (AVCaptureDevice *dev in [AVCaptureDevice devices]) {
+        [skin pushNSObject:[dev localizedName]] ;
+        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    }
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
+    {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
