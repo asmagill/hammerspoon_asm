@@ -24,10 +24,9 @@ static int        refTable      = LUA_NOREF;
 #pragma mark - Support Functions and Classes
 
 @interface ASMLocation : NSObject <CLLocationManagerDelegate>
-@property (strong, atomic) CLLocationManager* manager ;
-@property                  int                callbackRef ;
-@property                  int                referenceCount ;
-@property                  BOOL               isReceiving ;
+@property CLLocationManager* manager ;
+@property int                callbackRef ;
+@property int                referenceCount ;
 @end
 
 @implementation ASMLocation
@@ -43,10 +42,17 @@ static int        refTable      = LUA_NOREF;
         _manager          = [[CLLocationManager alloc] init];
         _manager.delegate = self ;
         _callbackRef      = LUA_NOREF ;
-        _isReceiving      = NO ;
         _referenceCount   = 0 ;
     }
     return self;
+}
+
+- (void)dealloc {
+    if (_manager) {
+        for (CLRegion *region in [_manager monitoredRegions]) {
+            [_manager stopMonitoringForRegion:region] ;
+        }
+    }
 }
 
 - (void)locationManager:(__unused CLLocationManager *)manager didUpdateLocations:(NSArray *)locations {
@@ -245,12 +251,7 @@ static int location_start(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMLocation       *obj = [skin toNSObjectAtIndex:1] ;
     CLLocationManager *manager = obj.manager ;
-    if (!obj.isReceiving) {
-        [manager startUpdatingLocation] ;
-        obj.isReceiving = YES ;
-    } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:location updates already started", USERDATA_TAG]] ;
-    }
+    [manager startUpdatingLocation] ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -260,12 +261,7 @@ static int location_stop(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMLocation       *obj = [skin toNSObjectAtIndex:1] ;
     CLLocationManager *manager = obj.manager ;
-    if (obj.isReceiving) {
-        [manager stopUpdatingLocation] ;
-        obj.isReceiving = NO ;
-    } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:location updates not currently running", USERDATA_TAG]] ;
-    }
+    [manager stopUpdatingLocation] ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -561,13 +557,12 @@ static int userdata_gc(lua_State* L) {
         if (obj.referenceCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
             obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
-            if (obj.isReceiving) {
-                [obj.manager stopUpdatingLocation] ;
-                obj.isReceiving = NO ;
-                for (CLRegion *region in [obj.manager monitoredRegions]) {
-                    [obj.manager stopMonitoringForRegion:region] ;
-                }
+            obj.manager.delegate = nil ;
+            [obj.manager stopUpdatingLocation] ;
+            for (CLRegion *region in [obj.manager monitoredRegions]) {
+                [obj.manager stopMonitoringForRegion:region] ;
             }
+            obj.manager = nil ;
             obj = nil ;
         }
     }
