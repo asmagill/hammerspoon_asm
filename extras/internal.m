@@ -401,13 +401,27 @@ static int avcapturedevices(lua_State *L) {
     return 1 ;
 }
 
+static int hotkeys(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    CFArrayRef hotkeys = NULL ;
+    OSStatus status = CopySymbolicHotKeys(&hotkeys) ;
+    if (status != noErr) {
+        lua_pushinteger(L, status) ;
+    } else if (hotkeys) {
+        [skin pushNSObject:(__bridge_transfer NSArray *)hotkeys withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
     {"volumeInformation",    hs_volumeInformation},
-
+    {"hotkeys",              hotkeys},
     {"lookup",               lookup},
 
     {"listWindows",          listWindows},
