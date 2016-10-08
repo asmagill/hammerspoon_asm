@@ -20,7 +20,7 @@ local function getKeycode(s)
   elseif type(s)~='string' then error('key must be a string or a number',3)
   elseif (s:sub(1, 1) == '#') then n=tonumber(s:sub(2))
   else n=keycodes.map[slower(s)] end
-  if not n then error('Invalid key: '..s,3) end
+  if not n then error('Invalid key: '..s..' - this may mean that the key requested does not exist in your keymap (particularly if you switch keyboard layouts frequently)',3) end
   return n
 end
 
@@ -70,7 +70,8 @@ local function enable(self,force,isModal)
   local returnVal = self._hk:enable() --objc
   log[isModal and 'df' or 'f']('Enabled hotkey %s%s',self.msg,isModal and ' (in modal)' or '')
   tinsert(hotkeys[idx],self) -- bring to the top of the stack
-  return returnVal
+--   return returnVal
+    return self
 end
 
 --- hs.hotkey:disable() -> hs.hotkey object
@@ -144,6 +145,19 @@ local function getIndex(mods,keycode) -- key for hotkeys table
   key=key and supper(key) or '[#'..keycode..']'
   return mods..key
 end
+
+local function getFunc(f)
+  if f == nil then return nil end
+  if type(f) == 'function' then return f end
+  if type(f) == 'table' then
+    local m = getmetatable(f)
+    if m and m.__call and type(m.__call) == 'function' then
+      return function() m.__call(f) end
+    end
+  end
+  return nil
+end
+
 --- hs.hotkey.new(mods, key, [message,] pressedfn, releasedfn, repeatfn) -> hs.hotkey object
 --- Constructor
 --- Creates a new hotkey
@@ -177,10 +191,13 @@ function hotkey.new(mods, key, message, pressedfn, releasedfn, repeatfn)
   local keycode = getKeycode(key)
   mods = getMods(mods)
   -- message can be omitted
-  if message==nil or type(message)=='function' then
+  if message==nil or getFunc(message) then
     repeatfn=releasedfn releasedfn=pressedfn pressedfn=message message=nil -- shift down arguments
   end
-  if type(pressedfn)~='function' and type(releasedfn)~='function' and type(repeatfn)~='function' then
+  pressedfn = getFunc(pressedfn)
+  releasedfn = getFunc(releasedfn)
+  repeatfn = getFunc(repeatfn)
+  if not pressedfn and not releasedfn and not repeatfn then
     error('At least one of pressedfn, releasedfn or repeatfn must be a function',2) end
   if type(message)~='string' then message=nil end
   local idx = getIndex(mods,keycode)
