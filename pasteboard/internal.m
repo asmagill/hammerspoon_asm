@@ -498,7 +498,7 @@ static int writePropertyListForType(lua_State *L) {
         // uses setData:forType: which is documented to throw exceptions for errors
         @try {
             [pb clearContents];
-            lua_pushboolean(L, [pb setData:data forType:type]) ;
+            lua_pushboolean(L, [pb setPropertyList:data forType:type]) ;
         } @catch (NSException *exception) {
             return luaL_error(L, [[exception reason] UTF8String]) ;
         }
