@@ -2,6 +2,8 @@
 @import Carbon ;
 @import LuaSkin ;
 @import AVFoundation;
+#include <mach/mach.h>
+
 // @import AddressBook ;
 @import SystemConfiguration ;
 #import "LuaSkinThread.h"
@@ -401,6 +403,11 @@ static int avcapturedevices(lua_State *L) {
     return 1 ;
 }
 
+static int absoluteTime(lua_State *L) {
+    lua_pushinteger(L, (lua_Integer)mach_absolute_time()) ;
+    return 1 ;
+}
+
 static int hotkeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CFArrayRef hotkeys = NULL ;
@@ -442,6 +449,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"lockscreen",           lockscreen},
     {"sizeAndAlignment",     sizeAndAlignment},
+
+    {"absoluteTime",         absoluteTime},
 
     {NULL,                   NULL}
 };
