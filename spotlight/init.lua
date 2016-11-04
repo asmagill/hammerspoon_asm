@@ -2,9 +2,18 @@
 ---
 --- Stuff about the module
 
+--- === hs._asm.spotlight.group ===
+---
+--- Stuff about the module
+
+--- === hs._asm.spotlight.item ===
+---
+--- Stuff about the module
+
 local USERDATA_TAG = "hs._asm.spotlight"
 local module       = require(USERDATA_TAG..".internal")
 local objectMT     = hs.getObjectMetatable(USERDATA_TAG)
+local itemObjMT    = hs.getObjectMetatable(USERDATA_TAG .. ".item")
 local groupObjMT   = hs.getObjectMetatable(USERDATA_TAG .. ".group")
 
 -- private variables and methods -----------------------------------------
@@ -188,6 +197,26 @@ end
 objectMT.__len = function(self)
     return self:resultCount()
 end
+
+itemObjMT.__index = function(self, key)
+    if itemObjMT[key] then return itemObjMT[key] end
+    return self:valueForAttribute(key)
+end
+
+itemObjMT.__pairs = function(self)
+    local keys = self:attributes()
+    return function(_, k)
+              k = table.remove(keys)
+              if k then
+                  return k, self:valueForAttribute(k)
+              else
+                  return nil
+              end
+           end, self, nil
+end
+
+-- no numeric indexes, so...
+-- itemObjMT.__len = function(self) return 0 end
 
 groupObjMT.__index = function(self, key)
     if groupObjMT[key] then return groupObjMT[key] end

@@ -1,18 +1,14 @@
-// Change NSMetadataItem into userdata as well
-// Figure out entitlement that allows us to get file url, etc.
-
 @import Cocoa ;
 @import LuaSkin ;
 
 static const char       *USERDATA_TAG = "hs._asm.spotlight" ;
+static const char       *ITEM_UD_TAG  = "hs._asm.spotlight.item" ;
 static const char       *GROUP_UD_TAG = "hs._asm.spotlight.group" ;
 
 static int              refTable = LUA_NOREF;
 static NSOperationQueue *moduleSearchQueue ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
 
@@ -104,6 +100,23 @@ static int spotlight_new(__unused lua_State *L) {
     return 1 ;
 }
 
+static int spotlight_searchWithin(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+
+    ASMMetadataQuery *newQuery = [[ASMMetadataQuery alloc] init] ;
+    if (newQuery) {
+        [query.metadataSearch disableUpdates] ;
+        newQuery.metadataSearch.searchItems = query.metadataSearch.results ;
+        [query.metadataSearch enableUpdates] ;
+    }
+
+    [skin pushNSObject:newQuery] ;
+    return 1 ;
+}
+
+
 #pragma mark - Module Methods
 
 static int spotlight_searchScopes(lua_State *L) {
@@ -117,29 +130,42 @@ static int spotlight_searchScopes(lua_State *L) {
         NSMutableArray *newScopes = [[NSMutableArray alloc] init] ;
         NSString __block *errorMessage ;
         NSArray *items = [skin toNSObjectAtIndex:2] ;
-        if (![items isKindOfClass:[NSArray class]]) items = [NSArray arrayWithObject:items] ;
-        [items enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-            if ([obj isKindOfClass:[NSString class]]) {
-                [newScopes addObject:[(NSString *)obj stringByExpandingTildeInPath]] ;
-            } else if ([obj isKindOfClass:[NSDictionary class]]) {
-                NSString *stringAsURL = [(NSDictionary *)obj objectForKey:@"url"] ;
-                if (stringAsURL) {
-                    NSURL *newURL = [NSURL URLWithString:stringAsURL] ;
-                    if (!newURL.fileURL) {
+        if (items) {
+            if (![items isKindOfClass:[NSArray class]]) items = [NSArray arrayWithObject:items] ;
+            [items enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+                if ([obj isKindOfClass:[NSString class]]) {
+                    [newScopes addObject:[(NSString *)obj stringByExpandingTildeInPath]] ;
+                } else if ([obj isKindOfClass:[NSURL class]]) {
+                // Handle automatic translation when table includes __luaSkinType="NSURL"
+                    if (![(NSURL *)obj isFileURL]) {
                         errorMessage = [NSString stringWithFormat:@"index %lu does not represent a file URL", idx + 1] ;
                         *stop = YES ;
                     } else {
-                        [newScopes addObject:newURL] ;
+                        [newScopes addObject:obj] ;
+                    }
+                } else if ([obj isKindOfClass:[NSDictionary class]]) {
+                // and handle conversion when table doesn't include __luaSkinType="NSURL"
+                    NSString *stringAsURL = [(NSDictionary *)obj objectForKey:@"url"] ;
+                    if (stringAsURL) {
+                        NSURL *newURL = [NSURL URLWithString:stringAsURL] ;
+                        if (!newURL.fileURL) {
+                            errorMessage = [NSString stringWithFormat:@"index %lu does not represent a file URL", idx + 1] ;
+                            *stop = YES ;
+                        } else {
+                            [newScopes addObject:newURL] ;
+                        }
+                    } else {
+                        errorMessage = [NSString stringWithFormat:@"index %lu does not represent a file URL", idx + 1] ;
+                        *stop = YES ;
                     }
                 } else {
-                    errorMessage = [NSString stringWithFormat:@"index %lu does not represent a file URL", idx + 1] ;
+                    errorMessage = [NSString stringWithFormat:@"index %lu is not a path string or a file URL", idx + 1] ;
                     *stop = YES ;
                 }
-            } else {
-                errorMessage = [NSString stringWithFormat:@"index %lu is not a path string or a file URL", idx + 1] ;
-                *stop = YES ;
-            }
-        }] ;
+            }] ;
+        } else {
+            errorMessage = @"unexpected type conversion error" ;
+        }
         if (errorMessage) {
             return luaL_argerror(L, 2, errorMessage.UTF8String) ;
         } else {
@@ -231,26 +257,30 @@ static int spotlight_sortDescriptors(lua_State *L) {
     } else {
         NSMutableArray *newDescriptors = [[NSMutableArray alloc] init] ;
         NSArray        *hopefuls       = [skin toNSObjectAtIndex:2] ;
-        if (![hopefuls isKindOfClass:[NSArray class]]) hopefuls = [NSArray arrayWithObject:hopefuls] ;
         NSString __block *errorMessage ;
-        if ([hopefuls isKindOfClass:[NSArray class]]) {
-            [hopefuls enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-                if ([obj isKindOfClass:[NSSortDescriptor class]]) {
-                    [newDescriptors addObject:obj] ;
-                } else {
-                    lua_rawgeti(L, 2, (lua_Integer)(idx + 1)) ;
-                    NSSortDescriptor *candidate = toNSSortDescriptorFromLua(L, -1) ;
-                    if (candidate) {
-                        [newDescriptors addObject:candidate] ;
+        if (hopefuls) {
+            if (![hopefuls isKindOfClass:[NSArray class]]) hopefuls = [NSArray arrayWithObject:hopefuls] ;
+            if ([hopefuls isKindOfClass:[NSArray class]]) {
+                [hopefuls enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+                    if ([obj isKindOfClass:[NSSortDescriptor class]]) {
+                        [newDescriptors addObject:obj] ;
                     } else {
-                        errorMessage = [NSString stringWithFormat:@"expected string or NSSortDescriptor table at index %lu", idx + 1] ;
-                        *stop = YES ;
+                        lua_rawgeti(L, 2, (lua_Integer)(idx + 1)) ;
+                        NSSortDescriptor *candidate = toNSSortDescriptorFromLua(L, -1) ;
+                        if (candidate) {
+                            [newDescriptors addObject:candidate] ;
+                        } else {
+                            errorMessage = [NSString stringWithFormat:@"expected string or NSSortDescriptor table at index %lu", idx + 1] ;
+                            *stop = YES ;
+                        }
+                        lua_pop(L, 1) ;
                     }
-                    lua_pop(L, 1) ;
-                }
-            }] ;
+                }] ;
+            } else {
+                errorMessage = @"expected an array of sort descriptors" ;
+            }
         } else {
-            errorMessage = @"expected an array of sort descriptors" ;
+            errorMessage = @"unexpected type conversion error" ;
         }
         if (errorMessage) {
             return luaL_argerror(L, 2, errorMessage.UTF8String) ;
@@ -410,19 +440,6 @@ static int spotlight_resultCount(lua_State *L) {
     return 1 ;
 }
 
-// faster and more memory efficient to mimic through metamethods
-// static int spotlight_results(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
-//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-//     ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
-//
-//     lua_newtable(L) ;
-//     [query.metadataSearch enumerateResultsUsingBlock:^(id result, NSUInteger idx, __unused BOOL *stop){
-//         [skin pushNSObject:result withOptions:LS_NSDescribeUnknownTypes] ; lua_rawseti(L, -2, (lua_Integer)(idx + 1)) ;
-//     }] ;
-//     return 1 ;
-// }
-
 static int spotlight_resultAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER| LS_TINTEGER, LS_TBREAK] ;
@@ -440,72 +457,8 @@ static int spotlight_resultAtIndex(lua_State *L) {
         [query.metadataSearch disableUpdates] ;
         NSMetadataItem *item = [query.metadataSearch resultAtIndex:(NSUInteger)(index - 1)] ;
         [query.metadataSearch enableUpdates] ;
-        [skin pushNSObject:item withOptions:LS_NSDescribeUnknownTypes] ;
+        [skin pushNSObject:item] ;
     }
-    return 1 ;
-}
-
-static int spotlight_attributesAtIndex(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER| LS_TINTEGER, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
-
-    lua_Integer index = lua_tointeger(L, 2) ;
-    NSUInteger  count = query.metadataSearch.resultCount ;
-    if (index < 1 || index >(lua_Integer)count) {
-        if (count == 0) {
-            return luaL_argerror(L, 2, "result set is empty") ;
-        } else {
-            return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index must be between 1 and %lu inclusive", count] UTF8String]) ;
-        }
-    } else {
-        [query.metadataSearch disableUpdates] ;
-        NSMetadataItem *item = [query.metadataSearch resultAtIndex:(NSUInteger)(index - 1)] ;
-        [query.metadataSearch enableUpdates] ;
-        if (item) {
-            [skin pushNSObject:[item attributes] withOptions:LS_NSDescribeUnknownTypes] ;
-        } else {
-            lua_pushnil(L) ;
-        }
-    }
-    return 1 ;
-}
-
-static int spotlight_attributeValueAtIndex(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TNUMBER| LS_TINTEGER, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
-
-    NSString *attribute = [skin toNSObjectAtIndex:2] ;
-    lua_Integer index = lua_tointeger(L, 3) ;
-    NSUInteger  count = query.metadataSearch.resultCount ;
-    if (index < 1 || index >(lua_Integer)count) {
-        if (count == 0) {
-            return luaL_argerror(L, 2, "result set is empty") ;
-        } else {
-            return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index must be between 1 and %lu inclusive", count] UTF8String]) ;
-        }
-    } else {
-        [query.metadataSearch disableUpdates] ;
-        [skin pushNSObject:[query.metadataSearch valueOfAttribute:attribute forResultAtIndex:(NSUInteger)(index - 1)] withOptions:LS_NSDescribeUnknownTypes] ;
-        [query.metadataSearch enableUpdates] ;
-    }
-    return 1 ;
-}
-
-static int spotlight_refinedSearch(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
-
-    ASMMetadataQuery *newQuery = [[ASMMetadataQuery alloc] init] ;
-    if (newQuery) {
-        [query.metadataSearch disableUpdates] ;
-        newQuery.metadataSearch.searchItems = query.metadataSearch.results ;
-        [query.metadataSearch enableUpdates] ;
-    }
-
-    [skin pushNSObject:newQuery] ;
     return 1 ;
 }
 
@@ -581,6 +534,27 @@ static int group_subgroups(__unused lua_State *L) {
     NSMetadataQueryResultGroup *resultGroup = [skin toNSObjectAtIndex:1] ;
 
     [skin pushNSObject:resultGroup.subgroups] ;
+    return 1 ;
+}
+
+#pragma mark - Module Item Methods
+
+static int item_attributes(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, ITEM_UD_TAG, LS_TBREAK] ;
+    NSMetadataItem *item = [skin toNSObjectAtIndex:1] ;
+
+    [skin pushNSObject:item.attributes] ;
+    return 1 ;
+}
+
+static int item_valueForAttribute(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, ITEM_UD_TAG, LS_TSTRING, LS_TBREAK] ;
+    NSMetadataItem *item = [skin toNSObjectAtIndex:1] ;
+
+    NSString *attribute = [skin toNSObjectAtIndex:2] ;
+    [skin pushNSObject:[item valueForAttribute:attribute] withOptions:LS_NSDescribeUnknownTypes] ;
     return 1 ;
 }
 
@@ -835,13 +809,34 @@ static int pushNSMetadataQueryResultGroup(lua_State *L, id obj) {
     return 1;
 }
 
-static id toNSMetadataQueryResultGroup(lua_State *L, int idx) {
+static id toNSMetadataQueryResultGroupFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSMetadataQueryResultGroup *value ;
     if (luaL_testudata(L, idx, GROUP_UD_TAG)) {
         value = get_objectFromUserdata(__bridge NSMetadataQueryResultGroup, L, idx, GROUP_UD_TAG) ;
     } else {
         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", GROUP_UD_TAG,
+                                                   lua_typename(L, lua_type(L, idx))]] ;
+    }
+    return value ;
+}
+
+static int pushNSMetadataItem(lua_State *L, id obj) {
+    NSMetadataItem *value = obj;
+    void** valuePtr = lua_newuserdata(L, sizeof(NSMetadataItem *));
+    *valuePtr = (__bridge_retained void *)value;
+    luaL_getmetatable(L, ITEM_UD_TAG);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+static id toNSMetadataItemFromLua(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSMetadataItem *value ;
+    if (luaL_testudata(L, idx, ITEM_UD_TAG)) {
+        value = get_objectFromUserdata(__bridge NSMetadataItem, L, idx, ITEM_UD_TAG) ;
+    } else {
+        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", ITEM_UD_TAG,
                                                    lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
@@ -881,52 +876,6 @@ static id toNSSortDescriptorFromLua(lua_State *L, int idx) {
                                                    lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
-}
-
-static int pushNSMetadataItem(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    NSMetadataItem *item = obj ;
-
-// // because I want to figure out why we never get a URL when the docs suggest we should, at least when in our
-// // own documents directory...
-//     NSURL *URL = [item valueForAttribute:NSMetadataItemURLKey];
-//     [skin logWarn:[NSString stringWithFormat:@"Forcing a URL:%@ (%@)", URL, [URL absoluteString]]] ;
-
-    NSArray *attributes = item.attributes ;
-    if (attributes) {
-// under some circumstances, returns nil because of CFTypeRef conversion error... apparently something isn't
-// bridging, causing entire conversion to fail
-//         [skin pushNSObject:[item valuesForAttributes:attributes] withOptions:LS_NSDescribeUnknownTypes] ;
-//     } else {
-        lua_newtable(L) ;
-        [attributes enumerateObjectsUsingBlock:^(NSString *key, __unused NSUInteger idx, __unused BOOL *stop) {
-            id value = [item valueForAttribute:key] ;
-            if (value) {
-                [skin pushNSObject:value withOptions:LS_NSDescribeUnknownTypes] ;
-                lua_setfield(L, -2, key.UTF8String) ;
-            } else {
-                CFTypeRef cfValue = (__bridge_retained CFTypeRef)[item valueForAttribute:key] ;
-                if (cfValue) {
-                    CFTypeID theType = CFGetTypeID(cfValue) ;
-                    if (theType == CFBooleanGetTypeID()) {
-                        lua_pushboolean(L, CFBooleanGetValue(cfValue)) ; lua_setfield(L, -2, key.UTF8String) ;
-                    } else {
-                        [skin logDebug:[NSString stringWithFormat:@"%s:pushNSMetadataItem - unknown CFTypeID of %ld for value for key %@ of %@", USERDATA_TAG, theType, key, item]] ;
-                    }
-                    CFRelease(cfValue) ;
-                } else {
-                    [skin logDebug:[NSString stringWithFormat:@"%s:pushNSMetadataItem - nil value for key %@ of %@", USERDATA_TAG, key, item]] ;
-                }
-            }
-        }] ;
-    } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:pushNSMetadataItem - no attributes list for %@", USERDATA_TAG, item]] ;
-        lua_pushnil(L) ;
-    }
-    if (lua_type(L, -1) == LUA_TTABLE) {
-        lua_pushstring(L, "NSMetadataItem") ; lua_setfield(L, -2, "__luaSkinType") ;
-    }
-    return 1 ;
 }
 
 static int pushNSURL(lua_State *L, id obj) {
@@ -1048,6 +997,38 @@ static int group_userdata_gc(lua_State* L) {
     return 0 ;
 }
 
+static int item_userdata_tostring(lua_State* L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSMetadataItem *obj = [skin luaObjectAtIndex:1 toClass:"NSMetadataItem"] ;
+    NSString *title = [obj valueForAttribute:NSMetadataItemFSNameKey] ;
+    if (!title) title = @"<undefined>" ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", GROUP_UD_TAG, title, lua_topointer(L, 1)]] ;
+    return 1 ;
+}
+
+static int item_userdata_eq(lua_State* L) {
+// can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
+// so use luaL_testudata before the macro causes a lua error
+    if (luaL_testudata(L, 1, ITEM_UD_TAG) && luaL_testudata(L, 2, ITEM_UD_TAG)) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        NSMetadataItem *obj1 = [skin luaObjectAtIndex:1 toClass:"NSMetadataItem"] ;
+        NSMetadataItem *obj2 = [skin luaObjectAtIndex:2 toClass:"NSMetadataItem"] ;
+        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
+    } else {
+        lua_pushboolean(L, NO) ;
+    }
+    return 1 ;
+}
+
+static int item_userdata_gc(lua_State* L) {
+    NSMetadataItem *obj = get_objectFromUserdata(__bridge_transfer NSMetadataItem, L, 1, ITEM_UD_TAG) ;
+    if (obj) obj = nil ;
+    // Remove the Metatable so future use of the variable in Lua won't think its valid
+    lua_pushnil(L) ;
+    lua_setmetatable(L, 1) ;
+    return 0 ;
+}
+
 static int meta_gc(lua_State* __unused L) {
     if (moduleSearchQueue) {
         [moduleSearchQueue cancelAllOperations] ;
@@ -1071,20 +1052,25 @@ static const luaL_Reg userdata_metaLib[] = {
     {"isRunning",             spotlight_isRunning},
     {"isGathering",           spotlight_isGathering},
     {"queryString",           spotlight_predicate},
-// faster and more memory efficient to mimic through metamethods
-//     {"results",               spotlight_results},
     {"resultCount",           spotlight_resultCount},
     {"resultAtIndex",         spotlight_resultAtIndex},
-    {"attributesAtIndex",     spotlight_attributesAtIndex},
-    {"attributeValueAtIndex", spotlight_attributeValueAtIndex},
     {"valueLists",            spotlight_valueLists},
     {"groupedResults",        spotlight_groupedResults},
-    {"newRefinedQuery",       spotlight_refinedSearch},
 
     {"__tostring",            userdata_tostring},
     {"__eq",                  userdata_eq},
     {"__gc",                  userdata_gc},
     {NULL,                    NULL}
+};
+
+static const luaL_Reg item_userdata_metalib[] = {
+    {"attributes",        item_attributes},
+    {"valueForAttribute", item_valueForAttribute},
+
+    {"__tostring",        item_userdata_tostring},
+    {"__eq",              item_userdata_eq},
+    {"__gc",              item_userdata_gc},
+    {NULL,                NULL}
 };
 
 static const luaL_Reg group_userdata_metalib[] = {
@@ -1102,8 +1088,9 @@ static const luaL_Reg group_userdata_metalib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new", spotlight_new},
-    {NULL,  NULL}
+    {"new",     spotlight_new},
+    {"newFrom", spotlight_searchWithin},
+    {NULL,      NULL}
 };
 
 // Metatable for module, if needed
@@ -1119,6 +1106,7 @@ int luaopen_hs__asm_spotlight_internal(lua_State* L) {
                                  metaFunctions:module_metaLib
                                objectFunctions:userdata_metaLib];
 
+    [skin registerObject:ITEM_UD_TAG  objectFunctions:item_userdata_metalib] ;
     [skin registerObject:GROUP_UD_TAG objectFunctions:group_userdata_metalib] ;
 
     push_searchScopes(L) ;        lua_setfield(L, -2, "searchScopes") ;
@@ -1128,11 +1116,13 @@ int luaopen_hs__asm_spotlight_internal(lua_State* L) {
     [skin registerLuaObjectHelper:toASMMetadataQueryFromLua           forClass:"ASMMetadataQuery"
                                                            withUserdataMapping:USERDATA_TAG];
 
-    [skin registerPushNSHelper:pushNSMetadataQueryResultGroup         forClass:"NSMetadataQueryResultGroup"];
-    [skin registerLuaObjectHelper:toNSMetadataQueryResultGroup        forClass:"NSMetadataQueryResultGroup"
-                                                           withUserdataMapping:GROUP_UD_TAG];
-
     [skin registerPushNSHelper:pushNSMetadataItem                     forClass:"NSMetadataItem"] ;
+    [skin registerLuaObjectHelper:toNSMetadataItemFromLua             forClass:"NSMetadataItem"
+                                                           withUserdataMapping:ITEM_UD_TAG];
+
+    [skin registerPushNSHelper:pushNSMetadataQueryResultGroup         forClass:"NSMetadataQueryResultGroup"];
+    [skin registerLuaObjectHelper:toNSMetadataQueryResultGroupFromLua forClass:"NSMetadataQueryResultGroup"
+                                                           withUserdataMapping:GROUP_UD_TAG];
 
     [skin registerPushNSHelper:pushNSMetadataQueryAttributeValueTuple forClass:"NSMetadataQueryAttributeValueTuple"] ;
 
