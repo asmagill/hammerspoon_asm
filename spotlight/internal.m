@@ -878,35 +878,6 @@ static id toNSSortDescriptorFromLua(lua_State *L, int idx) {
     return value ;
 }
 
-static int pushNSURL(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    NSURL *url = obj ;
-    lua_newtable(L) ;
-    [skin pushNSObject:[url absoluteString]] ;
-    lua_setfield(L, -2, "url") ;
-    lua_pushstring(L, "NSURL") ; lua_setfield(L, -2, "__luaSkinType") ;
-    return 1 ;
-}
-
-static id toNSURLFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    NSURL   *url ;
-    idx = lua_absindex(L, idx) ;
-    if (lua_type(L, idx) == LUA_TSTRING) {
-        url = [NSURL URLWithString:[skin toNSObjectAtIndex:idx]] ;
-    } else if (lua_type(L, idx) == LUA_TTABLE) {
-        if (lua_getfield(L, idx, "url") == LUA_TSTRING) {
-            url = [NSURL URLWithString:[skin toNSObjectAtIndex:-1]] ;
-        }
-        lua_pop(L, 1) ;
-    }
-    if (!url) {
-        [skin logError:[NSString stringWithFormat:@"expected string or table describing an NSURL, found %s",
-                                                   lua_typename(L, lua_type(L, idx))]] ;
-    }
-    return url ;
-}
-
 static int pushNSMetadataQueryAttributeValueTuple(lua_State *L, id obj) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSMetadataQueryAttributeValueTuple *tuple = obj ;
@@ -1129,11 +1100,6 @@ int luaopen_hs__asm_spotlight_internal(lua_State* L) {
     [skin registerPushNSHelper:pushNSSortDescriptor                   forClass:"NSSortDescriptor"] ;
     [skin registerLuaObjectHelper:toNSSortDescriptorFromLua           forClass:"NSSortDescriptor"
                                                               withTableMapping:"NSSortDescriptor"] ;
-
-    // should probably move at some point, unless this module ends up in core
-    [skin registerPushNSHelper:pushNSURL                              forClass:"NSURL"] ;
-    [skin registerLuaObjectHelper:toNSURLFromLua                      forClass:"NSURL"
-                                                              withTableMapping:"NSURL"] ;
 
     return 1;
 }
