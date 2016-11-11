@@ -158,7 +158,7 @@ windowMT.collectionBehavior = function(self, ...)          -- add nice wrapper v
             theBehavior = 0
             for i,v in ipairs(arg[1]) do
                 if module.behaviors[v] then
-                    theBehavior = theBehavior | module.behaviors[v]
+                    theBehavior = theBehavior | ((type(v) == "string") and module.behaviors[v] or v)
                 else
                     return error("unrecognized behavior specified: "..v)
                 end
