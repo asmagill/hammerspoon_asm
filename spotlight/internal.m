@@ -364,7 +364,12 @@ static int spotlight_start(lua_State *L) {
     } else {
         if (query.metadataSearch.predicate) {
             [query.metadataSearch.operationQueue addOperationWithBlock:^{
-                [query.metadataSearch startQuery];
+                @try {
+                    [query.metadataSearch startQuery];
+                } @catch(NSException *exception) {
+                    [LuaSkin logError:[NSString stringWithFormat:@"%s:start error:%@", USERDATA_TAG, exception.reason]] ;
+                    [query.metadataSearch stopQuery] ;
+                }
             }];
         } else {
             return luaL_error(L, "no query defined") ;

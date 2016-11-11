@@ -16,10 +16,7 @@ local objectMT     = hs.getObjectMetatable(USERDATA_TAG)
 local itemObjMT    = hs.getObjectMetatable(USERDATA_TAG .. ".item")
 local groupObjMT   = hs.getObjectMetatable(USERDATA_TAG .. ".group")
 
-local status, result = pcall(require, "hs._asm.sharing") -- get NSURL helper
-if not status then
-    print("~~ automatic NSURL conversion not supported; install hs._asm.sharing if this support is needed")
-end
+require("hs.sharing") -- get NSURL helper
 
 -- private variables and methods -----------------------------------------
 
