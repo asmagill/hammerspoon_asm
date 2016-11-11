@@ -547,7 +547,11 @@ static int pushEKEvent(lua_State *L, id obj) {
     lua_pushboolean(L, event.allDay) ; lua_setfield(L, -2, "allDay") ;
     lua_pushboolean(L, event.isDetached) ; lua_setfield(L, -2, "isDetached") ;
     [skin pushNSObject:event.occurrenceDate] ; lua_setfield(L, -2, "occurrenceDate") ;
-    [skin pushNSObject:event.birthdayContactIdentifier] ; lua_setfield(L, -2, "birthdayContactIdentifier") ;
+    // birthdayContactIdentifier doesn't exist in 10.10
+    if ([event respondsToSelector:@selector(birthdayContactIdentifier)]) {
+        [skin pushNSObject:[event performSelector:@selector(birthdayContactIdentifier)]] ;
+        lua_setfield(L, -2, "birthdayContactIdentifier") ;
+    }
     [skin pushNSObject:event.eventIdentifier] ; lua_setfield(L, -2, "identifier") ;
     switch(event.status) {
         case EKEventStatusNone:      lua_pushstring(L, "none") ; break ;
@@ -665,20 +669,22 @@ static int pushEKStructuredLocation(lua_State *L, id obj) {
     return 1 ;
 }
 
-static int pushCLLocation(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    CLLocation *location = obj ;
-    lua_newtable(L) ;
-    lua_pushnumber(L, location.coordinate.latitude) ; lua_setfield(L, -2, "latitude") ;
-    lua_pushnumber(L, location.coordinate.longitude) ; lua_setfield(L, -2, "longitude") ;
-    lua_pushnumber(L, location.altitude) ; lua_setfield(L, -2, "altitude") ;
-    lua_pushnumber(L, location.horizontalAccuracy) ; lua_setfield(L, -2, "horizontalAccuracy") ;
-    lua_pushnumber(L, location.verticalAccuracy) ; lua_setfield(L, -2, "verticalAccuracy") ;
-    lua_pushnumber(L, location.course) ; lua_setfield(L, -2, "course") ;
-    lua_pushnumber(L, location.speed) ; lua_setfield(L, -2, "speed") ;
-    [skin pushNSObject:location.description] ; lua_setfield(L, -2, "description") ;
-    return 1 ;
-}
+// static int pushCLLocation(lua_State *L, id obj) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     CLLocation *location = obj ;
+//     lua_newtable(L) ;
+//     lua_pushnumber(L, location.coordinate.latitude) ;               lua_setfield(L, -2, "latitude") ;
+//     lua_pushnumber(L, location.coordinate.longitude) ;              lua_setfield(L, -2, "longitude") ;
+//     lua_pushnumber(L, location.altitude) ;                          lua_setfield(L, -2, "altitude") ;
+//     lua_pushnumber(L, location.horizontalAccuracy) ;                lua_setfield(L, -2, "horizontalAccuracy") ;
+//     lua_pushnumber(L, location.verticalAccuracy) ;                  lua_setfield(L, -2, "verticalAccuracy") ;
+//     lua_pushnumber(L, location.course) ;                            lua_setfield(L, -2, "course") ;
+//     lua_pushnumber(L, location.speed) ;                             lua_setfield(L, -2, "speed") ;
+// //     [skin pushNSObject:location.description] ;         lua_setfield(L, -2, "description") ;
+//     lua_pushnumber(L, [location.timestamp timeIntervalSince1970]) ; lua_setfield(L, -2, "timestamp") ;
+//     lua_pushstring(L, "CLLocation") ;                          lua_setfield(L, -2, "__luaSkinType") ;
+//     return 1 ;
+// }
 
 static int pushEKRecurrenceEnd(lua_State *L, id obj) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -915,9 +921,9 @@ int luaopen_hs__asm_calendar_internal(lua_State* __unused L) {
     [skin registerPushNSHelper:pushEKParticipant         forClass:"EKParticipant"] ;
     [skin registerPushNSHelper:pushEKAlarm               forClass:"EKAlarm"] ;
 
-// really belongs in hs.location if hs._asm.geocoder gets added, and I'm thinking more and
-// more that it should...
-    [skin registerPushNSHelper:pushCLLocation            forClass:"CLLocation"] ;
+// // really belongs in hs.location if hs._asm.geocoder gets added, and I'm thinking more and
+// // more that it should...
+//     [skin registerPushNSHelper:pushCLLocation            forClass:"CLLocation"] ;
 
     [skin registerPushNSHelper:pushNSDateComponents      forClass:"NSDateComponents"] ;
 //     [skin registerPushNSHelper:pushNSCalendar            forClass:"NSCalendar"] ;

@@ -12,6 +12,7 @@
 
 local USERDATA_TAG = "hs._asm.calendar"
 local module       = require(USERDATA_TAG..".internal")
+require("hs.location") -- import CLLocation conversions
 
 -- private variables and methods -----------------------------------------
 

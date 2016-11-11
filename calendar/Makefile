@@ -28,7 +28,7 @@ WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atom
 EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
-LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
+LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS) -mmacosx-version-min=10.10
 
 all: verify $(SOFILE)
 
