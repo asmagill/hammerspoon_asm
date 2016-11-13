@@ -1,14 +1,17 @@
+
+/// === hs.network.ping.echoRequest ===
+///
+/// Provides lower-level access to the ICMP Echo Request infrastructure used by the hs.network.ping module. In general, you should not need to use this module directly unless you have specific requirements not met by the hs.network.ping module.
+///
+/// This module is based heavily on Apple's SimplePing sample project which can be found at https://developer.apple.com/library/content/samplecode/SimplePing/Introduction/Intro.html.
 @import Cocoa ;
 @import LuaSkin ;
 
 @import Darwin.POSIX.netdb ;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wauto-import"
 #include "SimplePing.h"
-#pragma clang diagnostic pop
 
-#define USERDATA_TAG "hs.network.ping"
+#define USERDATA_TAG "hs.network.ping.echoRequest"
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
@@ -112,7 +115,7 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 - (void)simplePing:(SimplePing *)pinger didFailWithError:(NSError *)error {
     LuaSkin *skin = [LuaSkin shared] ;
     NSString *errorReason = [error localizedDescription] ;
-    [skin logWarn:[NSString stringWithFormat:@"%s:didFailWithError pinger stopped, %@.", USERDATA_TAG, errorReason]] ;
+    [skin logDebug:[NSString stringWithFormat:@"%s:didFailWithError:%@ - ping stopped.", USERDATA_TAG, errorReason]] ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef] ;
         [skin pushNSObject:pinger] ;
@@ -184,30 +187,32 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 }
 
 - (void)simplePing:(SimplePing *)pinger didReceiveUnexpectedPacket:(NSData *)packet {
-    BOOL notifyCallback = YES ;
-
-    size_t packetLength = [packet length] ;
-    size_t headerSize   = sizeof(ICMPHeader) ;
-    if (packetLength >= headerSize) {
-        ICMPHeader payloadHeader ;
-        [packet getBytes:&payloadHeader length:headerSize] ;
-        if (OSSwapHostToBigInt16(payloadHeader.identifier) != self.identifier) notifyCallback = NO ;
-      /*
-
-        Until we want to try parsing and understanding ICMPv6 neighbor solicitation and advertising
-        protocols, let's just ignore any packet that doesn't have our identifier... because if it
-        does and we still got here, then either the network is in need of diagnostics due to data
-        corruption, or someone is trying to do something funny on the network... or we just got
-        unlucky and our identifier got reused on the same network -- there are only 65536
-        possibilities after all...
-
-        Note that we're also invoking the callback when the header is so mangled we can't get an
-        identifier... that also suggests data corruption or malfeasance afoot.
-
-    */
-    }
-
-    if (notifyCallback && _callbackRef != LUA_NOREF) {
+// Since we're making this a lower-level module, I'm thinking about passing this through but putting
+// notes in docs...
+//     BOOL notifyCallback = YES ;
+//     size_t packetLength = [packet length] ;
+//     size_t headerSize   = sizeof(ICMPHeader) ;
+//     if (packetLength >= headerSize) {
+//         ICMPHeader payloadHeader ;
+//         [packet getBytes:&payloadHeader length:headerSize] ;
+//         if (OSSwapHostToBigInt16(payloadHeader.identifier) != self.identifier) notifyCallback = NO ;
+//       /*
+//
+//         Until we want to try parsing and understanding ICMPv6 neighbor solicitation and advertising
+//         protocols, let's just ignore any packet that doesn't have our identifier... because if it
+//         does and we still got here, then either the network is in need of diagnostics due to data
+//         corruption, or someone is trying to do something funny on the network... or we just got
+//         unlucky and our identifier got reused on the same network -- there are only 65536
+//         possibilities after all...
+//
+//         Note that we're also invoking the callback when the header is so mangled we can't get an
+//         identifier... that also suggests data corruption or malfeasance afoot.
+//
+//     */
+//     }
+//
+//     if (notifyCallback && _callbackRef != LUA_NOREF) {
+    if (_callbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared] ;
         [skin pushLuaRef:refTable ref:_callbackRef] ;
         [skin pushNSObject:pinger] ;
@@ -225,7 +230,7 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 
 #pragma mark - Module Functions
 
-static int ping_new(__unused lua_State *L) {
+static int echoRequest_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     PingableObject *pinger = [[PingableObject alloc] initWithHostName:[skin toNSObjectAtIndex:1]] ;
@@ -235,7 +240,7 @@ static int ping_new(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
-static int ping_setCallback(lua_State *L) {
+static int echoRequest_setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -250,7 +255,7 @@ static int ping_setCallback(lua_State *L) {
     return 1;
 }
 
-static int ping_hostName(__unused lua_State *L) {
+static int echoRequest_hostName(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -258,7 +263,7 @@ static int ping_hostName(__unused lua_State *L) {
     return 1 ;
 }
 
-static int ping_identifier(lua_State *L) {
+static int echoRequest_identifier(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -266,7 +271,7 @@ static int ping_identifier(lua_State *L) {
     return 1 ;
 }
 
-static int ping_nextSequenceNumber(lua_State *L) {
+static int echoRequest_nextSequenceNumber(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -274,7 +279,7 @@ static int ping_nextSequenceNumber(lua_State *L) {
     return 1 ;
 }
 
-static int ping_addressStyle(lua_State *L) {
+static int echoRequest_addressStyle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -302,14 +307,12 @@ static int ping_addressStyle(lua_State *L) {
     return 1 ;
 }
 
-static int ping_start(lua_State *L) {
+static int echoRequest_start(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
 
-    if (pinger.selfRef != LUA_NOREF) {
-        [skin logDebug:[NSString stringWithFormat:@"%s:start - pinger already started, ignoring.", USERDATA_TAG]] ;
-    } else {
+    if (pinger.selfRef == LUA_NOREF) {
         [pinger start] ;
 
         // assign a self ref to keep __gc from stopping us inadvertantly
@@ -320,7 +323,7 @@ static int ping_start(lua_State *L) {
     return 1 ;
 }
 
-static int ping_stop(lua_State *L) {
+static int echoRequest_stop(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -330,14 +333,12 @@ static int ping_stop(lua_State *L) {
 
         // we no longer need a self ref to keep __gc from stopping us inadvertantly
         pinger.selfRef = [skin luaUnref:refTable ref:pinger.selfRef] ;
-    } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:stop - pinger has not been started, ignoring.", USERDATA_TAG]] ;
     }
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
-static int ping_isRunning(lua_State *L) {
+static int echoRequest_isRunning(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -347,22 +348,22 @@ static int ping_isRunning(lua_State *L) {
     return 1 ;
 }
 
-static int ping_hostAddress(lua_State *L) {
+static int echoRequest_hostAddress(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
     if (pinger.hostAddress) {
         pushParsedAddress(pinger.hostAddress) ;
     } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:hostAddress - %@", USERDATA_TAG,
-            ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
-                                           : @"pinger is not running")]] ;
+//         [skin logDebug:[NSString stringWithFormat:@"%s:hostAddress - %@", USERDATA_TAG,
+//             ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
+//                                            : @"ping is not running")]] ;
         lua_pushboolean(L, (pinger.selfRef != LUA_NOREF)) ;
     }
     return 1 ;
 }
 
-static int ping_sendPayload(lua_State *L) {
+static int echoRequest_sendPayload(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -370,22 +371,22 @@ static int ping_sendPayload(lua_State *L) {
         [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] : nil ;
 
     if (!payload) {
-        payload = [[NSString stringWithFormat:@"Hammerspoon %s payload.%*s0x%04x 0x%04x", USERDATA_TAG, (int)(56 - 34 - strlen(USERDATA_TAG)), " ", pinger.identifier, pinger.nextSequenceNumber] dataUsingEncoding:NSASCIIStringEncoding] ;
+        payload = [[NSString stringWithFormat:@"Hammerspoon %s %*s0x%04x:%04x", USERDATA_TAG, (int)(56 - 24 - strlen(USERDATA_TAG)), " ", pinger.identifier, pinger.nextSequenceNumber] dataUsingEncoding:NSASCIIStringEncoding] ;
     }
 
     if (pinger.hostAddress) {
         [pinger sendPingWithData:payload] ;
         lua_pushvalue(L, 1) ;
     } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:sendPayload - %@", USERDATA_TAG,
-            ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
-                                           : @"pinger is not running")]] ;
+//         [skin logDebug:[NSString stringWithFormat:@"%s:sendPayload - %@", USERDATA_TAG,
+//             ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
+//                                            : @"ping is not running")]] ;
         lua_pushboolean(L, (pinger.selfRef != LUA_NOREF)) ;
     }
     return 1 ;
 }
 
-static int ping_addressFamily(lua_State *L) {
+static int echoRequest_addressFamily(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
@@ -395,7 +396,7 @@ static int ping_addressFamily(lua_State *L) {
             [skin pushNSObject:@"IPv4"] ;
             break ;
         case AF_INET6:
-            [skin pushNSObject:@"IPv4"] ;
+            [skin pushNSObject:@"IPv6"] ;
             break ;
         case AF_UNSPEC:
             [skin pushNSObject:@"unresolved"] ;
@@ -497,17 +498,17 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"hostName",            ping_hostName},
-    {"identifier",          ping_identifier},
-    {"nextSequenceNumber",  ping_nextSequenceNumber},
-    {"setCallback",         ping_setCallback},
-    {"acceptAddressFamily", ping_addressStyle},
-    {"start",               ping_start},
-    {"stop",                ping_stop},
-    {"isRunning",           ping_isRunning},
-    {"hostAddress",         ping_hostAddress},
-    {"hostAddressFamily",   ping_addressFamily},
-    {"sendPayload",         ping_sendPayload},
+    {"hostName",            echoRequest_hostName},
+    {"identifier",          echoRequest_identifier},
+    {"nextSequenceNumber",  echoRequest_nextSequenceNumber},
+    {"setCallback",         echoRequest_setCallback},
+    {"acceptAddressFamily", echoRequest_addressStyle},
+    {"start",               echoRequest_start},
+    {"stop",                echoRequest_stop},
+    {"isRunning",           echoRequest_isRunning},
+    {"hostAddress",         echoRequest_hostAddress},
+    {"hostAddressFamily",   echoRequest_addressFamily},
+    {"sendPayload",         echoRequest_sendPayload},
 
     {"__tostring",          userdata_tostring},
     {"__eq",                userdata_eq},
@@ -517,7 +518,7 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new", ping_new},
+    {"echoRequest", echoRequest_new},
     {NULL,  NULL}
 };
 
