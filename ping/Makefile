@@ -3,6 +3,7 @@ current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 MODULE := $(current_dir)
 PREFIX ?= ~/.hammerspoon
+VERSION ?= 0.x
 HS_APPLICATION ?= /Applications
 
 OBJCFILE = ${wildcard *.m}
@@ -28,9 +29,12 @@ WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atom
 EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
 
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
-LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
+LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS) -mmacosx-version-min=10.10
 
 all: verify $(SOFILE)
+
+release: clean all
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs/network/$(MODULE) ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
 
 # .m.so: $(HEADERS) $(OBJCFILE)
 # 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
@@ -60,7 +64,7 @@ markdownWithTOC:
 	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]], true)" > README.tmp.md
 
 clean:
-	rm -rf $(SOFILE) *.dSYM
+	rm -rf $(SOFILE) *.dSYM tmp
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/network/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}

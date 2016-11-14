@@ -22,7 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
--- SimplePing.h and SimplePing.m are Licensed by Apple Inc. as follows:
+-- SimplePing.h and SimplePing.m are part of Apple's Sample Project SimplePing which can be found at https://developer.apple.com/library/content/samplecode/SimplePing/Introduction/Intro.html.  It is licensed by Apple Inc. as follows:
 
 Sample code project: SimplePing
 Version: 5.0

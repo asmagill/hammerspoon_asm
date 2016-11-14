@@ -1,9 +1,21 @@
 
 /// === hs.network.ping.echoRequest ===
 ///
-/// Provides lower-level access to the ICMP Echo Request infrastructure used by the hs.network.ping module. In general, you should not need to use this module directly unless you have specific requirements not met by the hs.network.ping module.
+/// Provides lower-level access to the ICMP Echo Request infrastructure used by the hs.network.ping module. In general, you should not need to use this module directly unless you have specific requirements not met by the hs.network.ping module and the `hs.network.ping` object methods.
 ///
 /// This module is based heavily on Apple's SimplePing sample project which can be found at https://developer.apple.com/library/content/samplecode/SimplePing/Introduction/Intro.html.
+///
+/// When a callback function argument is specified as an ICMP table, the Lua table returned will contain the following key-value pairs:
+///  * `checksum`       - The ICMP packet checksum used to ensure data integrity.
+///  * `code`           - ICMP Control Message Code. This should always be 0 unless the callback has received a "receivedUnexpectedPacket" message.
+///  * `identifier`     - The ICMP packet identifier.  This should match the results of [hs.network.ping.echoRequest:identifier](#identifier) unless the callback has received a "receivedUnexpectedPacket" message.
+///  * `payload`        - A string containing the ICMP payload for this packet. The default payload has been constructed to cause the ICMP packet to be exactly 64 bytes to match the convention for ICMP Echo Requests.
+///  * `sequenceNumber` - The ICMP Sequence Number for this packet.
+///  * `type`           - ICMP Control Message Type. Unless the callback has received a "receivedUnexpectedPacket" message, this will be 0 (ICMPv4) or 129 (ICMPv6) for packets we receive and 8 (ICMPv4) or 128 (ICMPv6) for packets we send.
+///      * `_raw`           - A string containing the ICMP packet as raw data.
+///
+/// In cases where the callback receives a "receivedUnexpectedPacket" message because the packet is corrupted or truncated, this table may only contain the `_raw` field.
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -187,31 +199,6 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 }
 
 - (void)simplePing:(SimplePing *)pinger didReceiveUnexpectedPacket:(NSData *)packet {
-// Since we're making this a lower-level module, I'm thinking about passing this through but putting
-// notes in docs...
-//     BOOL notifyCallback = YES ;
-//     size_t packetLength = [packet length] ;
-//     size_t headerSize   = sizeof(ICMPHeader) ;
-//     if (packetLength >= headerSize) {
-//         ICMPHeader payloadHeader ;
-//         [packet getBytes:&payloadHeader length:headerSize] ;
-//         if (OSSwapHostToBigInt16(payloadHeader.identifier) != self.identifier) notifyCallback = NO ;
-//       /*
-//
-//         Until we want to try parsing and understanding ICMPv6 neighbor solicitation and advertising
-//         protocols, let's just ignore any packet that doesn't have our identifier... because if it
-//         does and we still got here, then either the network is in need of diagnostics due to data
-//         corruption, or someone is trying to do something funny on the network... or we just got
-//         unlucky and our identifier got reused on the same network -- there are only 65536
-//         possibilities after all...
-//
-//         Note that we're also invoking the callback when the header is so mangled we can't get an
-//         identifier... that also suggests data corruption or malfeasance afoot.
-//
-//     */
-//     }
-//
-//     if (notifyCallback && _callbackRef != LUA_NOREF) {
     if (_callbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared] ;
         [skin pushLuaRef:refTable ref:_callbackRef] ;
@@ -230,6 +217,20 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 
 #pragma mark - Module Functions
 
+/// hs.network.ping.echoRequest(server) -> echoRequestObject
+/// Constructor
+/// Creates a new ICMP Echo Request object for the server specified.
+///
+/// Parameters:
+///  * `server` - a string containing the hostname or ip address of the server to communicate with. Both IPv4 and IPv6 style addresses are supported.
+///
+/// Returns:
+///  * an echoRequest object
+///
+/// Notes:
+///  * This constructor returns a lower-level object than the [hs.network.ping.ping](#ping) constructor and is more difficult to use. It is recommended that you use this constructor only if [hs.network.ping.ping](#ping) is not sufficient for your needs.
+///
+///  * Methods for objects returned by this constructor are described in the documentation for the `hs.network.ping.echoRequest` module.
 static int echoRequest_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -240,6 +241,63 @@ static int echoRequest_new(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.network.ping.echoRequest:setCallback(fn | nil) -> echoRequestObject
+/// Method
+/// Set or remove the object callback function
+///
+/// Parameters:
+///  * `fn` - a function to set as the callback function for this object, or nil if you wish to remove any existing callback function.
+///
+/// Returns:
+///  * the echoRequestObject
+///
+/// Notes:
+///  * The callback function should expect between 3 and 5 arguments and return none. The possible arguments which are sent will be one of the following:
+///
+///    * "didStart" - indicates that the object has resolved the address of the server and is ready to begin sending and receiving ICMP Echo packets.
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "didStart"
+///      * `address` - a string representation of the IPv4 or IPv6 address of the server specified to the constructor.
+///
+///    * "didFail" - indicates that the object has failed, either because the address could not be resolved or a network error has occurred.
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "didFail"
+///      * `error`   - a string describing the error that occurred.
+///    * Notes:
+///      * When this message is received, you do not need to call [hs.network.ping.echoRequest:stop](#stop) -- the object will already have been stopped.
+///
+///    * "sendPacket" - indicates that the object has sent an ICMP Echo Request packet.
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "sendPacket"
+///      * `icmp`    - an ICMP packet table representing the packet which has been sent as described in the header of this module's documentation.
+///      * `seq`     - the sequence number for this packet. Sequence numbers always start at 0 and increase by 1 every time the [hs.network.ping.echoRequest:sendPayload](#sendPayload) method is called.
+///
+///    * "sendPacketFailed" - indicates that the object failed to send the ICMP Echo Request packet.
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "sendPacketFailed"
+///      * `icmp`    - an ICMP packet table representing the packet which was to be sent.
+///      * `seq`     - the sequence number for this packet.
+///      * `error`   - a string describing the error that occurred.
+///    * Notes:
+///      * Unlike "didFail", the echoRequestObject is not stopped when this message occurs; you can try to send another payload if you wish without restarting the object first.
+///
+///    * "receivedPacket" - indicates that an expected ICMP Echo Reply packet has been received by the object.
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "receivedPacket"
+///      * `icmp`    - an ICMP packet table representing the packet received.
+///      * `seq`     - the sequence number for this packet.
+///
+///    * "receivedUnexpectedPacket" - indicates that an unexpected ICMP packet was received
+///      * `object`  - the echoRequestObject itself
+///      * `message` - the message to the callback, in this case "receivedUnexpectedPacket"
+///      * `icmp`    - an ICMP packet table representing the packet received.
+///    * Notes:
+///      * This message can occur for a variety of reasons, the most common being:
+///        * the ICMP packet is corrupt or truncated and cannot be parsed
+///        * the ICMP Identifier does not match ours and the sequence number is not one we have sent
+///        * the ICMP type does not match an ICMP Echo Reply
+///        * When using IPv6, this is especially common because IPv6 uses ICMP for network management functions like Router Advertisement and Neighbor Discovery.
+///      * In general, it is reasonably safe to ignore these messages, unless you are having problems receiving anything else, in which case it could indicate problems on your network that need addressing.
 static int echoRequest_setCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
@@ -255,6 +313,15 @@ static int echoRequest_setCallback(lua_State *L) {
     return 1;
 }
 
+/// hs.network.ping.echoRequest:hostName() -> string
+/// Method
+/// Returns the name of the target host as provided to the echoRequestObject's constructor
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string containing the hostname as specified when the object was created.
 static int echoRequest_hostName(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -263,6 +330,18 @@ static int echoRequest_hostName(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:identifier() -> integer
+/// Method
+/// Returns the identifier number for the echoRequestObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the identifier which is embedded in the ICMP packets this object sends.
+///
+/// Notes:
+///  * ICMP Echo Replies which include this identifier will generate a "receivedPacket" message to the object callback, while replies which include a different identifier will generate a "receivedUnexpectedPacket" message.
 static int echoRequest_identifier(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -271,6 +350,20 @@ static int echoRequest_identifier(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:nextSequenceNumber() -> integer
+/// Method
+/// The sequence number that will be used for the next ICMP packet sent by this object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the sequence number that will be embedded in the next ICMP message sent by this object when [hs.network.ping.echoRequest:sendPayload](#sendPayload) is invoked.
+///
+/// Notes:
+///  * ICMP Echo Replies which are expected by this object should always be less than this number, with the caveat that this number is a 16-bit integer which will wrap around to 0 after sending a packet with the sequence number 65535.
+///  * Because of this wrap around effect, this module will generate a "receivedPacket" message to the object callback whenever the received packet has a sequence number that is within the last 120 sequence numbers we've sent and a "receivedUnexpectedPacket" otherwise.
+///    * Per the comments in Apple's SimplePing.m file: Why 120?  Well, if we send one ping per second, 120 is 2 minutes, which is the standard "max time a packet can bounce around the Internet" value.
 static int echoRequest_nextSequenceNumber(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -279,6 +372,21 @@ static int echoRequest_nextSequenceNumber(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:acceptAddressFamily([family]) -> echoRequestObject | current value
+/// Method
+/// Get or set the address family the echoRequestObject should communicate with.
+///
+/// Parameters:
+///  * `family` - an optional string, default "any", which specifies the address family used by this object.  Valid values are "any", "IPv4", and "IPv6".
+///
+/// Returns:
+///  * if an argument is provided, returns the echoRequestObject, otherwise returns the current value.
+///
+/// Notes:
+///  * Setting this value to "IPv6" or "IPv4" will cause the echoRequestObject to attempt to resolve the server's name into an IPv6 address or an IPv4 address and communicate via ICMPv6 or ICMP(v4) when the [hs.network.ping.echoRequest:start](#start) method is invoked.  A callback with the message "didFail" will occur if the server could not be resolved to an address in the specified family.
+///  * If this value is set to "any", then the first address which is discovered for the server's name will determine whether ICMPv6 or ICMP(v4) is used, based upon the family of the address.
+///
+///  * Setting a value with this method will have no immediate effect on an echoRequestObject which has already been started with [hs.network.ping.echoRequest:start](#start). You must first stop and then restart the object for any change to have an effect.
 static int echoRequest_addressStyle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -307,6 +415,15 @@ static int echoRequest_addressStyle(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:start() -> echoRequestObject
+/// Method
+/// Start the echoRequestObject by resolving the server's address and start listening for ICMP Echo Reply packets.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the echoRequestObject
 static int echoRequest_start(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -323,6 +440,15 @@ static int echoRequest_start(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:stop() -> echoRequestObject
+/// Method
+/// Start listening for ICMP Echo Reply packets with this object.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the echoRequestObject
 static int echoRequest_stop(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -338,6 +464,15 @@ static int echoRequest_stop(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:isRunning() -> boolean
+/// Method
+/// Returns a boolean indicating whether or not this echoRequestObject is currently listening for ICMP Echo Replies.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * true if the object is currently listening for ICMP Echo Replies, or false if it is not.
 static int echoRequest_isRunning(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -348,6 +483,17 @@ static int echoRequest_isRunning(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:hostAddress() -> string | false | nil
+/// Method
+/// Returns a string representation for the server's IP address, or a boolean if address resolution has not completed yet.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * If the object has been started and address resolution has completed, then the string representation of the server's IP address is returned.
+///  * If the object has been started, but resolution is still pending, returns a boolean value of false.
+///  * If the object has not been started, returns nil.
 static int echoRequest_hostAddress(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -355,14 +501,29 @@ static int echoRequest_hostAddress(lua_State *L) {
     if (pinger.hostAddress) {
         pushParsedAddress(pinger.hostAddress) ;
     } else {
-//         [skin logDebug:[NSString stringWithFormat:@"%s:hostAddress - %@", USERDATA_TAG,
-//             ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
-//                                            : @"ping is not running")]] ;
-        lua_pushboolean(L, (pinger.selfRef != LUA_NOREF)) ;
+        if (pinger.selfRef != LUA_NOREF) {
+            lua_pushboolean(L, NO) ;
+        } else {
+            lua_pushnil(L) ;
+        }
     }
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:sentPayload([payload]) -> echoRequestObject | false | nil
+/// Method
+/// Sends a single ICMP Echo Request packet.
+///
+/// Parameters:
+///  * `payload` - an optional string containing the data to include in the ICMP Echo Request as the packet payload.
+///
+/// Returns:
+///  * If the object has been started and address resolution has completed, then the ICMP Echo Packet is sent and this method returns the echoRequestObject
+///  * If the object has been started, but resolution is still pending, the packet is not sent and this method returns a boolean value of false.
+///  * If the object has not been started, the packet is not sent and this method returns nil.
+///
+/// Notes:
+///  * By convention, unless you are trying to test for specific network fragmentation or congestion problems, ICMP Echo Requests are generally 64 bytes in length (this includes the 8 byte header, giving 56 bytes of payload data).  If you do not specify a payload, a default payload which will result in a packet size of 64 bytes is constructed.
 static int echoRequest_sendPayload(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -378,14 +539,27 @@ static int echoRequest_sendPayload(lua_State *L) {
         [pinger sendPingWithData:payload] ;
         lua_pushvalue(L, 1) ;
     } else {
-//         [skin logDebug:[NSString stringWithFormat:@"%s:sendPayload - %@", USERDATA_TAG,
-//             ((pinger.selfRef != LUA_NOREF) ? @"address resolution has not completed yet"
-//                                            : @"ping is not running")]] ;
-        lua_pushboolean(L, (pinger.selfRef != LUA_NOREF)) ;
+        if (pinger.selfRef != LUA_NOREF) {
+            lua_pushboolean(L, NO) ;
+        } else {
+            lua_pushnil(L) ;
+        }
     }
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:hostAddressFamily() -> string
+/// Method
+/// Returns the host address family currently in use by this echoRequestObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string indicating the IP address family currently used by this echoRequestObject.  It will be one of the following values:
+///    * "IPv4"       - indicates that ICMP(v4) packets are being sent and listened for.
+///    * "IPv6"       - indicates that ICMPv6 packets are being sent and listened for.
+///    * "unresolved" - indicates that the echoRequestObject has not been started or that address resolution is still in progress.
 static int echoRequest_addressFamily(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -408,10 +582,6 @@ static int echoRequest_addressFamily(lua_State *L) {
     }
     return 1 ;
 }
-
-// @property (nonatomic, assign, readonly) sa_family_t hostAddressFamily;
-
-#pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
