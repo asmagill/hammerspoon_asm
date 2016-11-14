@@ -34,7 +34,7 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 all: verify $(SOFILE)
 
 release: clean all
-	PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs/_asm/$(MODULE) ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs/_asm/$(MODULE) ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
 
 .m.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
