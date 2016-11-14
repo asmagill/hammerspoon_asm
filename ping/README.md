@@ -328,7 +328,7 @@ echoRequest = require("hs.network.ping.echoRequest")
 * <a href="#identifier">echoRequest:identifier() -> integer</a>
 * <a href="#isRunning">echoRequest:isRunning() -> boolean</a>
 * <a href="#nextSequenceNumber">echoRequest:nextSequenceNumber() -> integer</a>
-* <a href="#sentPayload">echoRequest:sentPayload([payload]) -> echoRequestObject | false | nil</a>
+* <a href="#sendPayload">echoRequest:sendPayload([payload]) -> echoRequestObject | false | nil</a>
 * <a href="#setCallback">echoRequest:setCallback(fn | nil) -> echoRequestObject</a>
 * <a href="#start">echoRequest:start() -> echoRequestObject</a>
 * <a href="#stop">echoRequest:stop() -> echoRequestObject</a>
@@ -473,9 +473,9 @@ Notes:
 
 - - -
 
-<a name="sentPayload"></a>
+<a name="sendPayload"></a>
 ~~~lua
-echoRequest:sentPayload([payload]) -> echoRequestObject | false | nil
+echoRequest:sendPayload([payload]) -> echoRequestObject | false | nil
 ~~~
 Sends a single ICMP Echo Request packet.
 

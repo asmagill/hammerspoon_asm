@@ -510,7 +510,7 @@ static int echoRequest_hostAddress(lua_State *L) {
     return 1 ;
 }
 
-/// hs.network.ping.echoRequest:sentPayload([payload]) -> echoRequestObject | false | nil
+/// hs.network.ping.echoRequest:sendPayload([payload]) -> echoRequestObject | false | nil
 /// Method
 /// Sends a single ICMP Echo Request packet.
 ///
