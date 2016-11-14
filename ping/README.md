@@ -34,7 +34,6 @@ ping = require("hs.network.ping")
 
 
 ##### Module Constructors
-* <a href="#echoRequest">ping.echoRequest(server) -> echoRequestObject</a>
 * <a href="#ping">ping.ping(server, [count], [interval], [timeout], [class], [fn]) -> pingObject</a>
 
 ##### Module Methods
@@ -54,25 +53,6 @@ ping = require("hs.network.ping")
 
 ### Module Constructors
 
-<a name="echoRequest"></a>
-~~~lua
-ping.echoRequest(server) -> echoRequestObject
-~~~
-Creates a new ICMP Echo Request object for the server specified.
-
-Parameters:
- * `server` - a string containing the hostname or ip address of the server to communicate with. Both IPv4 and IPv6 style addresses are supported.
-
-Returns:
- * an echoRequest object
-
-Notes:
- * This constructor returns a lower-level object than the [hs.network.ping.ping](#ping) constructor and is more difficult to use. It is recommended that you use this constructor only if [hs.network.ping.ping](#ping) is not sufficient for your needs.
-
- * Methods for objects returned by this constructor are described in the documentation for the `hs.network.ping.echoRequest` module.
-
-- - -
-
 <a name="ping"></a>
 ~~~lua
 ping.ping(server, [count], [interval], [timeout], [class], [fn]) -> pingObject
@@ -88,23 +68,42 @@ Parameters:
    * `any`  - uses the IP version which corresponds to the first address the `server` resolves to
    * `IPv4` - use IPv4; if `server` cannot resolve to an IPv4 address, or if IPv4 traffic is not supported on the network, the ping will fail with an error.
    * `IPv6` - use IPv6; if `server` cannot resolve to an IPv6 address, or if IPv6 traffic is not supported on the network, the ping will fail with an error.
- * `fn`       - the callback function which receives update messages for the ping process. The callback should expect 2 to 4 arguments as described here:
-   * `pingObject` - the ping object the callback is for
-   * `message`    - the callback message which will be one of the following:
-     * `didStart`         - address resolution has completed and the ping will begin sending ICMP Echo Requests. This message has no additional arguments.
-     * `didFail`          - the ping has failed, most likely due to a failure in address resolution or because the network connection has dropped. This message will be followed by a string containing an error message describing the reason for failure.
-     * `sendPacketFailed` - an ICMP Echo Request has failed for some reason. This message will be followed by 2 arguments, an integer specifying the sequence number of the request sent, and a string containing the error message.
-     * `receivedPacket`   - an ICMP Echo Request has received the expected ICMP Echo Reply. This message will be followed by an integer specifying the sequence number of the request.
-     * `didFinish`        - the ping has finished sending all ICMP Echo Requests. This message has no additional arguments.
+ * `fn`       - the callback function which receives update messages for the ping process. See the Notes for details regarding the callback function.
 
 Returns:
  * a pingObject
 
 Notes:
  * For convenience, you can call this constructor as `hs.network.ping(server, ...)`
+ * the full ping process will take at most `count` * `interval` + `timeout` seconds from `didStart` to `didFinish`.
 
  * the default callback function, if `fn` is not specified, prints the results of each echo reply as they are received to the Hammerspoon console and a summary once completed. The output should be familiar to anyone who has used `ping` from the command line.
- * the full ping process will take at most `count` * `interval` + `timeout` seconds from `didStart` to `didFinish`.
+
+ * If you provide your own callback function, it should expect between 2 and 4 arguments and return none. The possible arguments which are sent will be one of the following:
+
+   * "didStart" - indicates that address resolution has completed and the ping will begin sending ICMP Echo Requests.
+     * `object`  - the ping object the callback is for
+     * `message` - the message to the callback, in this case "didStart"
+
+   * "didFail" - indicates that the ping process has failed, most likely due to a failure in address resolution or because the network connection has dropped.
+     * `object`  - the ping object the callback is for
+     * `message` - the message to the callback, in this case "didFail"
+     * `error`   - a string containing the error message that has occurred
+
+   * "sendPacketFailed" - indicates that a specific ICMP Echo Request has failed for some reason.
+     * `object`         - the ping object the callback is for
+     * `message`        - the message to the callback, in this case "sendPacketFailed"
+     * `sequenceNumber` - the sequence number of the ICMP packet which has failed to send
+     * `error`          - a string containing the error message that has occurred
+
+   * "receivedPacket" - indicates that an ICMP Echo Request has received the expected ICMP Echo Reply
+     * `object`         - the ping object the callback is for
+     * `message`        - the message to the callback, in this case "receivedPacket"
+     * `sequenceNumber` - the sequence number of the ICMP packet received
+
+   * "didFinish" - indicates that the ping has finished sending all ICMP Echo Requests or has been cancelled
+     * `object`  - the ping object the callback is for
+     * `message` - the message to the callback, in this case "didFinish"
 
 ### Module Methods
 
@@ -318,6 +317,9 @@ echoRequest = require("hs.network.ping.echoRequest")
 ### Contents
 
 
+##### Module Constructors
+* <a href="#echoRequest">echoRequest.echoRequest(server) -> echoRequestObject</a>
+
 ##### Module Methods
 * <a href="#acceptAddressFamily">echoRequest:acceptAddressFamily([family]) -> echoRequestObject | current value</a>
 * <a href="#hostAddress">echoRequest:hostAddress() -> string | false | nil</a>
@@ -332,6 +334,25 @@ echoRequest = require("hs.network.ping.echoRequest")
 * <a href="#stop">echoRequest:stop() -> echoRequestObject</a>
 
 - - -
+
+### Module Constructors
+
+<a name="echoRequest"></a>
+~~~lua
+echoRequest.echoRequest(server) -> echoRequestObject
+~~~
+Creates a new ICMP Echo Request object for the server specified.
+
+Parameters:
+ * `server` - a string containing the hostname or ip address of the server to communicate with. Both IPv4 and IPv6 style addresses are supported.
+
+Returns:
+ * an echoRequest object
+
+Notes:
+ * This constructor returns a lower-level object than the `hs.network.ping.ping` constructor and is more difficult to use. It is recommended that you use this constructor only if `hs.network.ping.ping` is not sufficient for your needs.
+
+ * For convenience, you can call this constructor as `hs.network.ping.echoRequest(server)`
 
 ### Module Methods
 

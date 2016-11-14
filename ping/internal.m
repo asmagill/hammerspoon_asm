@@ -217,7 +217,7 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 
 #pragma mark - Module Functions
 
-/// hs.network.ping.echoRequest(server) -> echoRequestObject
+/// hs.network.ping.echoRequest.echoRequest(server) -> echoRequestObject
 /// Constructor
 /// Creates a new ICMP Echo Request object for the server specified.
 ///
@@ -228,9 +228,9 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 ///  * an echoRequest object
 ///
 /// Notes:
-///  * This constructor returns a lower-level object than the [hs.network.ping.ping](#ping) constructor and is more difficult to use. It is recommended that you use this constructor only if [hs.network.ping.ping](#ping) is not sufficient for your needs.
+///  * This constructor returns a lower-level object than the `hs.network.ping.ping` constructor and is more difficult to use. It is recommended that you use this constructor only if `hs.network.ping.ping` is not sufficient for your needs.
 ///
-///  * Methods for objects returned by this constructor are described in the documentation for the `hs.network.ping.echoRequest` module.
+///  * For convenience, you can call this constructor as `hs.network.ping.echoRequest(server)`
 static int echoRequest_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;

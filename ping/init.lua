@@ -4,7 +4,10 @@
 --- This module provides a basic ping function which can test host availability. Ping is a network diagnostic tool commonly found in most operating systems which can be used to test if a route to a specified host exists and if that host is responding to network traffic.
 
 local USERDATA_TAG = "hs.network.ping"
-local module       = require(USERDATA_TAG..".internal")
+local module       = {}
+module.echoRequest = setmetatable(require(USERDATA_TAG..".internal"), {
+    __call = function(self, ...) return self.echoRequest(...) end
+})
 
 local fnutils      = require("hs.fnutils")
 local timer        = require("hs.timer")
@@ -255,6 +258,8 @@ pingObjectMT = {
 ---  * the `didFinish` message will be sent to the callback function as its final message.
     cancel  = basicPingCompletionFunction,
 
+    __name = USERDATA_TAG,
+    __type = USERDATA_TAG,
     __index = function(self, key)
         return pingObjectMT[key] or nil
     end,
@@ -308,23 +313,42 @@ end
 ---    * `any`  - uses the IP version which corresponds to the first address the `server` resolves to
 ---    * `IPv4` - use IPv4; if `server` cannot resolve to an IPv4 address, or if IPv4 traffic is not supported on the network, the ping will fail with an error.
 ---    * `IPv6` - use IPv6; if `server` cannot resolve to an IPv6 address, or if IPv6 traffic is not supported on the network, the ping will fail with an error.
----  * `fn`       - the callback function which receives update messages for the ping process. The callback should expect 2 to 4 arguments as described here:
----    * `pingObject` - the ping object the callback is for
----    * `message`    - the callback message which will be one of the following:
----      * `didStart`         - address resolution has completed and the ping will begin sending ICMP Echo Requests. This message has no additional arguments.
----      * `didFail`          - the ping has failed, most likely due to a failure in address resolution or because the network connection has dropped. This message will be followed by a string containing an error message describing the reason for failure.
----      * `sendPacketFailed` - an ICMP Echo Request has failed for some reason. This message will be followed by 2 arguments, an integer specifying the sequence number of the request sent, and a string containing the error message.
----      * `receivedPacket`   - an ICMP Echo Request has received the expected ICMP Echo Reply. This message will be followed by an integer specifying the sequence number of the request.
----      * `didFinish`        - the ping has finished sending all ICMP Echo Requests. This message has no additional arguments.
+---  * `fn`       - the callback function which receives update messages for the ping process. See the Notes for details regarding the callback function.
 ---
 --- Returns:
 ---  * a pingObject
 ---
 --- Notes:
 ---  * For convenience, you can call this constructor as `hs.network.ping(server, ...)`
+---  * the full ping process will take at most `count` * `interval` + `timeout` seconds from `didStart` to `didFinish`.
 ---
 ---  * the default callback function, if `fn` is not specified, prints the results of each echo reply as they are received to the Hammerspoon console and a summary once completed. The output should be familiar to anyone who has used `ping` from the command line.
----  * the full ping process will take at most `count` * `interval` + `timeout` seconds from `didStart` to `didFinish`.
+---
+---  * If you provide your own callback function, it should expect between 2 and 4 arguments and return none. The possible arguments which are sent will be one of the following:
+---
+---    * "didStart" - indicates that address resolution has completed and the ping will begin sending ICMP Echo Requests.
+---      * `object`  - the ping object the callback is for
+---      * `message` - the message to the callback, in this case "didStart"
+---
+---    * "didFail" - indicates that the ping process has failed, most likely due to a failure in address resolution or because the network connection has dropped.
+---      * `object`  - the ping object the callback is for
+---      * `message` - the message to the callback, in this case "didFail"
+---      * `error`   - a string containing the error message that has occurred
+---
+---    * "sendPacketFailed" - indicates that a specific ICMP Echo Request has failed for some reason.
+---      * `object`         - the ping object the callback is for
+---      * `message`        - the message to the callback, in this case "sendPacketFailed"
+---      * `sequenceNumber` - the sequence number of the ICMP packet which has failed to send
+---      * `error`          - a string containing the error message that has occurred
+---
+---    * "receivedPacket" - indicates that an ICMP Echo Request has received the expected ICMP Echo Reply
+---      * `object`         - the ping object the callback is for
+---      * `message`        - the message to the callback, in this case "receivedPacket"
+---      * `sequenceNumber` - the sequence number of the ICMP packet received
+---
+---    * "didFinish" - indicates that the ping has finished sending all ICMP Echo Requests or has been cancelled
+---      * `object`  - the ping object the callback is for
+---      * `message` - the message to the callback, in this case "didFinish"
 module.ping = function(server, ...)
     assert(type(server) == "string", "server must be a string")
     local count, interval, timeout, class, fn = 5, 1, 2, "any", module._defaultCallback
@@ -450,6 +474,9 @@ module.ping = function(server, ...)
 end
 
 -- Return Module Object --------------------------------------------------
+
+-- assign to the registry in case we ever need to access the metatable from the C side
+debug.getregistry()[USERDATA_TAG] = pingObjectMT
 
 -- allows referring to the default callback as module._defaultCallback here and also supports
 -- overriding it  with a new one if we need to for debugging purposes since the lack of a
