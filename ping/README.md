@@ -47,6 +47,7 @@ ping = require("hs.network.ping")
 * <a href="#resume">ping:resume() -> pingObject | nil</a>
 * <a href="#sent">ping:sent() -> integer</a>
 * <a href="#server">ping:server() -> string</a>
+* <a href="#setCallback">ping:setCallback(fn | nil) -> pingObject</a>
 * <a href="#summary">ping:summary() -> string</a>
 
 - - -
@@ -265,6 +266,25 @@ Parameters:
 
 Returns:
  * A string matching the hostname or ip address given to the [hs.network.ping.ping](#ping) constructor for this object.
+
+- - -
+
+<a name="setCallback"></a>
+~~~lua
+ping:setCallback(fn | nil) -> pingObject
+~~~
+Set or remoce the callback function for the pingObject.
+
+Paramters:
+ * `fn` - the function to set as the callback, or nil if you wish use the default callback.
+
+Returns:
+ * the pingObject
+
+Notes:
+ * Because the ping process begins immediately upon creation with the [hs.network.ping.ping](#ping) constructor, it is preferable to assign the callback with the constructor itself.
+ * This method is provided as a means of changing the callback based on other events (a change in the current network or location, perhaps.)
+ * If you truly wish to create a pingObject with no callback, you will need to do something like `hs.network.ping.ping(...):setCallback(function() end)`.
 
 - - -
 
