@@ -8,8 +8,12 @@
 --- This module requires that you are running macOS 10.12.1 build 16B2657 or greater.  Most people who have received the 10.12.1 update have an earlier build, which you can check by selecting "About this Mac" from the Apple menu and then clicking the mouse pointer on the version number displayed in the dialog box.  If you require an update, you can find it at https://support.apple.com/kb/dl1897.
 
 local USERDATA_TAG = "hs._asm.touchbar"
-local module       = require(USERDATA_TAG..".internal")
-local objectMT     = hs.getObjectMetatable(USERDATA_TAG)
+local module       = require(USERDATA_TAG..".supported")
+if module.supported() then
+    for k, v in pairs(require(USERDATA_TAG..".internal")) do module[k] = v end
+end
+
+local objectMT     = hs.getObjectMetatable(USERDATA_TAG) or {}
 local mouse        = require("hs.mouse")
 local screen       = require("hs.screen")
 

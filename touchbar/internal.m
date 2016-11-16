@@ -8,8 +8,6 @@ static int        refTable      = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
-static BOOL is_supported() { return NSClassFromString(@"DFRElement") ? YES : NO ; }
-
 static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
     return NSMakeRect(theRect.origin.x,
                       [[NSScreen screens][0] frame].size.height - theRect.origin.y - theRect.size.height,
@@ -17,9 +15,9 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
                       theRect.size.height) ;
 }
 
-extern CGDisplayStreamRef SLSDFRDisplayStreamCreate(void *, dispatch_queue_t, CGDisplayStreamFrameAvailableHandler);
-extern BOOL DFRSetStatus(int);
-extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p);
+extern CGDisplayStreamRef (*SLSDFRDisplayStreamCreate)(void *, dispatch_queue_t, CGDisplayStreamFrameAvailableHandler);
+extern BOOL (*DFRSetStatus)(int);
+extern BOOL (*DFRFoundationPostEventWithMouseActivity)(NSEventType type, NSPoint p);
 
 @interface ASMTouchBarView : NSView
 @end
@@ -138,40 +136,6 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 
 #pragma mark - Module Functions
 
-/// hs._asm.touchbar.supported([showLink]) -> boolean
-/// Function
-/// Returns a boolean value indicathing whether or not the Apple Touch Bar is supported on this Macintosh.
-///
-/// Parameters:
-///  * `showLink` - a boolean, default false, specifying whether a dialog prompting the user to download the necessary update is presented if Apple Touch Bar support is not found in the current Operating System.
-///
-/// Returns:
-///  * true if Apple Touch Bar support is found in the current Operating System or false if it is not.
-///
-/// Notes:
-///  * the link in the prompt is https://support.apple.com/kb/dl1897
-static int touchbar_supported(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    BOOL showDialog = (lua_gettop(L) == 1) ? (BOOL)lua_toboolean(L, 1) : NO ;
-    lua_pushboolean(L, is_supported()) ;
-    if (!lua_toboolean(L, -1)) {
-        if (showDialog) {
-            NSAlert *alert = [[NSAlert alloc] init];
-            [alert setMessageText:@"Error: could not detect Touch Bar support"];
-            [alert setInformativeText:[NSString stringWithFormat:@"We need at least macOS 10.12.1 (Build 16B2657).\n\nYou have: %@.\n", [NSProcessInfo processInfo].operatingSystemVersionString]];
-            [alert addButtonWithTitle:@"Cancel"];
-            [alert addButtonWithTitle:@"Get macOS Update"];
-            NSModalResponse response = [alert runModal];
-            if(response == NSAlertSecondButtonReturn) {
-                NSURL *appleUpdateURL = [NSURL URLWithString:@"https://support.apple.com/kb/dl1897"] ;
-                [[NSWorkspace sharedWorkspace] openURL:appleUpdateURL];
-            }
-        }
-    }
-    return 1 ;
-}
-
 /// hs._asm.touchbar.new() -> touchbarObject | nil
 /// Function
 /// Creates a new touchbarObject representing a window which displays the Apple Touch Bar.
@@ -184,14 +148,10 @@ static int touchbar_supported(lua_State *L) {
 ///
 /// Notes:
 ///  * The most common reason a touchbarObject cannot be created is if your macOS version is not new enough. Type the following into your Hammerspoon console to check: `require("hs._asm.touchbar").supported(true)`.
-static int touchbar_new(lua_State *L) {
+static int touchbar_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
-    if (is_supported()) {
-        [skin pushNSObject:[ASMTouchBarWindow new]] ;
-    } else {
-        lua_pushnil(L) ;
-    }
+    [skin pushNSObject:[ASMTouchBarWindow new]] ;
     return 1 ;
 }
 
@@ -449,7 +409,6 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"supported", touchbar_supported},
     {"new",       touchbar_new},
 
     {NULL,        NULL}
