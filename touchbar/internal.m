@@ -77,6 +77,10 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
     [self commonMouseEvent:event];
 }
 
+- (void)stopStreaming {
+    if (_stream) CGDisplayStreamStop(_stream) ;
+}
+
 @end
 
 @interface NSWindow (Private)
@@ -378,8 +382,10 @@ static int userdata_eq(lua_State* L) {
 static int userdata_gc(lua_State* L) {
     ASMTouchBarWindow *obj = get_objectFromUserdata(__bridge_transfer ASMTouchBarWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
+        // not sure what else to do to cleanup... if I do [obj close] on the window, it crashes...
         obj.alphaValue = 0.0 ;
         [obj setIsVisible:NO] ;
+        [(ASMTouchBarView *)obj.contentView stopStreaming] ;
         obj = nil ;
     }
 
