@@ -15,9 +15,9 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
                       theRect.size.height) ;
 }
 
-extern CGDisplayStreamRef (*SLSDFRDisplayStreamCreate)(void *, dispatch_queue_t, CGDisplayStreamFrameAvailableHandler);
-extern BOOL (*DFRSetStatus)(int);
-extern BOOL (*DFRFoundationPostEventWithMouseActivity)(NSEventType type, NSPoint p);
+extern CGDisplayStreamRef SLSDFRDisplayStreamCreate(void *, dispatch_queue_t, CGDisplayStreamFrameAvailableHandler);
+extern BOOL DFRSetStatus(int);
+extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p);
 
 @interface ASMTouchBarView : NSView
 @end
