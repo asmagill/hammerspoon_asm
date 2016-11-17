@@ -348,6 +348,7 @@ echoRequest = require("hs.network.ping.echoRequest")
 * <a href="#identifier">echoRequest:identifier() -> integer</a>
 * <a href="#isRunning">echoRequest:isRunning() -> boolean</a>
 * <a href="#nextSequenceNumber">echoRequest:nextSequenceNumber() -> integer</a>
+* <a href="#seeAllUnexpectedPackets">echoRequest:seeAllUnexpectedPackets([state]) -> boolean | echoRequestObject</a>
 * <a href="#sendPayload">echoRequest:sendPayload([payload]) -> echoRequestObject | false | nil</a>
 * <a href="#setCallback">echoRequest:setCallback(fn | nil) -> echoRequestObject</a>
 * <a href="#start">echoRequest:start() -> echoRequestObject</a>
@@ -490,6 +491,26 @@ Notes:
  * ICMP Echo Replies which are expected by this object should always be less than this number, with the caveat that this number is a 16-bit integer which will wrap around to 0 after sending a packet with the sequence number 65535.
  * Because of this wrap around effect, this module will generate a "receivedPacket" message to the object callback whenever the received packet has a sequence number that is within the last 120 sequence numbers we've sent and a "receivedUnexpectedPacket" otherwise.
    * Per the comments in Apple's SimplePing.m file: Why 120?  Well, if we send one ping per second, 120 is 2 minutes, which is the standard "max time a packet can bounce around the Internet" value.
+
+- - -
+
+<a name="seeAllUnexpectedPackets"></a>
+~~~lua
+echoRequest:seeAllUnexpectedPackets([state]) -> boolean | echoRequestObject
+~~~
+Get or set whether or not the callback should receive all unexpected packets or only those which carry our identifier.
+
+Parameters:
+ * `state` - an optional boolean, default false, specifying whether or not all unexpected packets or only those which carry our identifier should generate a "receivedUnexpectedPacket" callback message.
+
+Returns:
+ * if an argument is provided, returns the echoRequestObject; otherwise returns the current value
+
+Notes:
+ * The nature of ICMP packet reception is such that all listeners receive all ICMP packets, even those which belong to another process or echoRequestObject.
+   * By default, a valid packet (i.e. with a valid checksum) which does not contain our identifier is ignored since it was not intended for our receiver.  Only corrupt or packets with our identifier but that were otherwise unexpected will generate a "receivedUnexpectedPacket" callback message.
+   * This method optionally allows the echoRequestObject to receive *all* incoming packets, even ones which are expected by another process or echoRequestObject.
+ * If you wish to examine ICMPv6 router advertisement and neighbor discovery packets, you should set this property to true. Note that this module does not provide the necessary tools to decode these packets at present, so you will have to decode them yourself if you wish to examine their contents.
 
 - - -
 

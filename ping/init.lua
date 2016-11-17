@@ -23,21 +23,23 @@ local validClasses = { "any", "IPv4", "IPv6" }
 local internals = setmetatable({}, { __mode = "k" })
 
 local basicPingCompletionFunction = function(self)
-    -- in case we got here through the cancel method, set this so isRunning works
+    -- in case we got here through the cancel method:
     internals[self].allSent = true
-    -- most likely this has already happened, unless called through cancel method
     if getmetatable(internals[self].pingTimer) then internals[self].pingTimer:stop() end
     internals[self].pingTimer = nil
-    internals[self].callback(self, "didFinish")
-    -- theoretically a packet could be received out of order, but since we're ending,
-    -- clear callback to make sure it can't be invoked again by something in the queue
-    internals[self].pingObject:setCallback(nil):stop()
-    internals[self].pingObject = nil
-    -- use pairs just in case we're missing a sequence number...
-    for k, v in pairs(internals[self].timeouts) do
-        if getmetatable(v) then v:stop() end
+
+    if getmetatable(internals[self].pingObject) then
+        internals[self].callback(self, "didFinish")
+        -- theoretically a packet could be received out of order, but since we're ending,
+        -- clear callback to make sure it can't be invoked again by something in the queue
+        internals[self].pingObject:setCallback(nil):stop()
+        internals[self].pingObject = nil
+        -- use pairs just in case we're missing a sequence number...
+        for k, v in pairs(internals[self].timeouts) do
+            if getmetatable(v) then v:stop() end
+        end
+        internals[self].timeouts = {}
     end
-    internals[self].timeouts = {}
 end
 
 local basicPingSummary = function(self)
@@ -488,8 +490,7 @@ module.ping = function(server, ...)
             if internals[self].allSent then basicPingCompletionFunction(self) end
         elseif msg == "receivedUnexpectedPacket" then
             local icmp = ...
-            -- log it, but the ping callback doesn't need to know about it
-            log.vf("unexpected packet when pinging %s:%s", obj:hostName(), (inspect(icmp):gsub("%s+", " ")))
+            log.df("unexpected packet when pinging %s:%s", obj:hostName(), (inspect(icmp):gsub("%s+", " ")))
         end
     end):start()
     internals[self].pingTimer  = timer.doEvery(interval, function()

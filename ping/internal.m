@@ -84,9 +84,14 @@ static int pushParsedICMPPayload(NSData *payloadData) {
     return 1 ;
 }
 
+@interface SimplePing ()
+@property (nonatomic, strong, readwrite, nullable) CFSocketRef socket __attribute__ ((NSObject));
+@end
+
 @interface PingableObject : SimplePing <SimplePingDelegate>
 @property int  callbackRef ;
 @property int  selfRef ;
+@property BOOL passAllUnexpected ;
 @end
 
 @implementation PingableObject
@@ -99,10 +104,10 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 
     self = [super initWithHostName:hostName] ;
     if (self) {
-        _callbackRef  = LUA_NOREF ;
-        _selfRef      = LUA_NOREF ;
-
-        self.delegate = self ;
+        _callbackRef       = LUA_NOREF ;
+        _selfRef           = LUA_NOREF ;
+        _passAllUnexpected = NO ;
+        self.delegate      = self ;
     }
     return self ;
 }
@@ -110,6 +115,13 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 #pragma mark * SimplePingDelegate Methods
 
 - (void)simplePing:(SimplePing *)pinger didStartWithAddress:(NSData *)address {
+
+    // Clear the close-on-invalidate flag... otherwise a future stop on the object would
+    // cause all ping objects to stop stop at the same time.
+    CFOptionFlags sockopt = CFSocketGetSocketFlags(self.socket);
+    sockopt &= ~kCFSocketCloseOnInvalidate;
+    CFSocketSetSocketFlags(self.socket, sockopt);
+
     if (_callbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared] ;
         [skin pushLuaRef:refTable ref:_callbackRef] ;
@@ -199,7 +211,17 @@ static int pushParsedICMPPayload(NSData *payloadData) {
 }
 
 - (void)simplePing:(SimplePing *)pinger didReceiveUnexpectedPacket:(NSData *)packet {
-    if (_callbackRef != LUA_NOREF) {
+    BOOL notifyCallback = YES ;
+    if (!_passAllUnexpected) {
+        size_t packetLength = [packet length] ;
+        size_t headerSize   = sizeof(ICMPHeader) ;
+        if (packetLength >= headerSize) {
+            ICMPHeader payloadHeader ;
+            [packet getBytes:&payloadHeader length:headerSize] ;
+            if (OSSwapHostToBigInt16(payloadHeader.identifier) != self.identifier) notifyCallback = NO ;
+        }
+    }
+    if (notifyCallback && _callbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared] ;
         [skin pushLuaRef:refTable ref:_callbackRef] ;
         [skin pushNSObject:pinger] ;
@@ -583,6 +605,35 @@ static int echoRequest_addressFamily(lua_State *L) {
     return 1 ;
 }
 
+/// hs.network.ping.echoRequest:seeAllUnexpectedPackets([state]) -> boolean | echoRequestObject
+/// Method
+/// Get or set whether or not the callback should receive all unexpected packets or only those which carry our identifier.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not all unexpected packets or only those which carry our identifier should generate a "receivedUnexpectedPacket" callback message.
+///
+/// Returns:
+///  * if an argument is provided, returns the echoRequestObject; otherwise returns the current value
+///
+/// Notes:
+///  * The nature of ICMP packet reception is such that all listeners receive all ICMP packets, even those which belong to another process or echoRequestObject.
+///    * By default, a valid packet (i.e. with a valid checksum) which does not contain our identifier is ignored since it was not intended for our receiver.  Only corrupt or packets with our identifier but that were otherwise unexpected will generate a "receivedUnexpectedPacket" callback message.
+///    * This method optionally allows the echoRequestObject to receive *all* incoming packets, even ones which are expected by another process or echoRequestObject.
+///  * If you wish to examine ICMPv6 router advertisement and neighbor discovery packets, you should set this property to true. Note that this module does not provide the necessary tools to decode these packets at present, so you will have to decode them yourself if you wish to examine their contents.
+static int echoRequest_seeAllUnexpectedPackets(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    PingableObject *pinger = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, pinger.passAllUnexpected) ;
+    } else {
+        pinger.passAllUnexpected = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -668,22 +719,23 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"hostName",            echoRequest_hostName},
-    {"identifier",          echoRequest_identifier},
-    {"nextSequenceNumber",  echoRequest_nextSequenceNumber},
-    {"setCallback",         echoRequest_setCallback},
-    {"acceptAddressFamily", echoRequest_addressStyle},
-    {"start",               echoRequest_start},
-    {"stop",                echoRequest_stop},
-    {"isRunning",           echoRequest_isRunning},
-    {"hostAddress",         echoRequest_hostAddress},
-    {"hostAddressFamily",   echoRequest_addressFamily},
-    {"sendPayload",         echoRequest_sendPayload},
+    {"hostName",                echoRequest_hostName},
+    {"identifier",              echoRequest_identifier},
+    {"nextSequenceNumber",      echoRequest_nextSequenceNumber},
+    {"setCallback",             echoRequest_setCallback},
+    {"acceptAddressFamily",     echoRequest_addressStyle},
+    {"start",                   echoRequest_start},
+    {"stop",                    echoRequest_stop},
+    {"isRunning",               echoRequest_isRunning},
+    {"hostAddress",             echoRequest_hostAddress},
+    {"hostAddressFamily",       echoRequest_addressFamily},
+    {"sendPayload",             echoRequest_sendPayload},
+    {"seeAllUnexpectedPackets", echoRequest_seeAllUnexpectedPackets},
 
-    {"__tostring",          userdata_tostring},
-    {"__eq",                userdata_eq},
-    {"__gc",                userdata_gc},
-    {NULL,                  NULL}
+    {"__tostring",              userdata_tostring},
+    {"__eq",                    userdata_eq},
+    {"__gc",                    userdata_gc},
+    {NULL,                      NULL}
 };
 
 // Functions for returned object when module loads
