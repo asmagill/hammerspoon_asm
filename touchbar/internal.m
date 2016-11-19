@@ -1,6 +1,9 @@
 @import Cocoa ;
 @import LuaSkin ;
 
+// An attempt at gathering info to learn more about what private framework this is using
+// #ifdef INCLUDE_DUMP_THREAD
+
 static const char *USERDATA_TAG = "hs._asm.touchbar" ;
 static int        refTable      = LUA_NOREF;
 
@@ -20,6 +23,9 @@ extern BOOL DFRSetStatus(int);
 extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p);
 
 @interface ASMTouchBarView : NSView
+#ifdef INCLUDE_DUMP_THREAD
+@property BOOL dumpThread ;
+#endif
 @end
 
 @implementation ASMTouchBarView {
@@ -41,6 +47,13 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
                                                                                __unused CGDisplayStreamUpdateRef updateRef) {
             if (status != kCGDisplayStreamFrameStatusFrameComplete) return;
             self->_displayView.layer.contents = (__bridge id)(frameSurface);
+#ifdef INCLUDE_DUMP_THREAD
+            // attempt to learn more about what private framework this is using
+            if (self->_dumpThread) {
+                [LuaSkin logDebug:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, [NSThread callStackSymbols]]] ;
+                self->_dumpThread = NO ;
+            }
+#endif
         });
 
         DFRSetStatus(2);
@@ -56,6 +69,10 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
                                                           userInfo:nil]] ;
 #pragma clang diagnostic pop
     }
+
+#ifdef INCLUDE_DUMP_THREAD
+        _dumpThread = NO ;
+#endif
 
     return self;
 }
@@ -79,6 +96,10 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 
 - (void)stopStreaming {
     if (_stream) CGDisplayStreamStop(_stream) ;
+}
+
+- (void)startStreaming {
+    if (_stream) CGDisplayStreamStart(_stream) ;
 }
 
 @end
@@ -182,6 +203,7 @@ static int touchbar_show(lua_State *L) {
     if (touchbar.visible == NO) {
         CGFloat initialAlpha = [touchbar.contentView hitTest:[NSEvent mouseLocation]] ? 1.0 : touchbar.inactiveAlpha ;
         touchbar.alphaValue = (duration > 0) ? 0.0 : initialAlpha ;
+        [(ASMTouchBarView *)touchbar.contentView startStreaming] ;
         [touchbar setIsVisible:YES] ;
         if (duration > 0.0) {
             [NSAnimationContext beginGrouping];
@@ -214,13 +236,15 @@ static int touchbar_hide(lua_State *L) {
     NSTimeInterval    duration  = (lua_gettop(L) == 2) ? lua_tonumber(L, 2) : 0.0 ;
 
     if (touchbar.visible == YES) {
+        [(ASMTouchBarView *)touchbar.contentView stopStreaming] ;
         if (duration > 0.0) {
             [NSAnimationContext runAnimationGroup:^(NSAnimationContext * _Nonnull context) {
                 context.duration = duration ;
                 [[touchbar animator] setAlphaValue:0.0] ;
             } completionHandler:^{
-                if(touchbar.alphaValue == 0.0)
+                if(touchbar.alphaValue == 0.0) {
                     [touchbar setIsVisible:NO] ;
+                }
             }];
         } else {
             touchbar.alphaValue = 0.0 ;
@@ -328,6 +352,22 @@ static int touchbar_inactiveAlpha(lua_State *L) {
     return 1 ;
 }
 
+#ifdef INCLUDE_DUMP_THREAD
+static int touchbar_dumpThread(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, ((ASMTouchBarView *)touchbar.contentView).dumpThread) ;
+    } else {
+        ((ASMTouchBarView *)touchbar.contentView).dumpThread = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+#endif
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -407,6 +447,9 @@ static const luaL_Reg userdata_metaLib[] = {
     {"getFrame",      touchbar_getFrame},
     {"inactiveAlpha", touchbar_inactiveAlpha},
     {"isVisible",     touchbar_isVisible},
+#ifdef INCLUDE_DUMP_THREAD
+    {"dumpThread",    touchbar_dumpThread},
+#endif
     {"__tostring",    userdata_tostring},
     {"__eq",          userdata_eq},
     {"__gc",          userdata_gc},
