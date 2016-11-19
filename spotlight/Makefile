@@ -34,7 +34,7 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 all: verify $(SOFILE)
 
 release: clean all
-	PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs/_asm/$(MODULE) ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs/$(MODULE) ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
 
 .m.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
@@ -48,14 +48,14 @@ verify: $(LUAFILE)
 	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
 
 install-objc: $(SOFILE)
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(SOFILE) $(PREFIX)/hs/_asm/$(MODULE)
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
-# 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/_asm/$(MODULE)
+	mkdir -p $(PREFIX)/hs/$(MODULE)
+	install -m 0644 $(SOFILE) $(PREFIX)/hs/$(MODULE)
+	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/hs/$(MODULE)
+# 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/hs/$(MODULE)
 
 install-lua: $(LUAFILE)
-	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
-	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
+	mkdir -p $(PREFIX)/hs/$(MODULE)
+	install -m 0644 $(LUAFILE) $(PREFIX)/hs/$(MODULE)
 
 markdown:
 	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
@@ -67,9 +67,9 @@ clean:
 	rm -rf $(SOFILE) *.dSYM tmp
 
 uninstall:
-	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
-# 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
-	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
+	rm -v -f $(PREFIX)/hs/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
+	(pushd $(PREFIX)/hs/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+# 	(pushd $(PREFIX)/hs/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
+	rmdir -p $(PREFIX)/hs/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify install install-objc install-lua

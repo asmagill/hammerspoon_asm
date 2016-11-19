@@ -1,9 +1,9 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-static const char       *USERDATA_TAG = "hs._asm.spotlight" ;
-static const char       *ITEM_UD_TAG  = "hs._asm.spotlight.item" ;
-static const char       *GROUP_UD_TAG = "hs._asm.spotlight.group" ;
+static const char       *USERDATA_TAG = "hs.spotlight" ;
+static const char       *ITEM_UD_TAG  = "hs.spotlight.item" ;
+static const char       *GROUP_UD_TAG = "hs.spotlight.group" ;
 
 static int              refTable = LUA_NOREF;
 static NSOperationQueue *moduleSearchQueue ;
@@ -14,7 +14,7 @@ static NSOperationQueue *moduleSearchQueue ;
 
 static id toNSSortDescriptorFromLua(lua_State *L, int idx) ;
 
-@interface ASMMetadataQuery : NSObject
+@interface HSMetadataQuery : NSObject
 @property NSMetadataQuery *metadataSearch ;
 @property int             callbackRef ;
 @property int             selfPushCount ;
@@ -24,7 +24,7 @@ static id toNSSortDescriptorFromLua(lua_State *L, int idx) ;
 @property BOOL            wantUpdate ;
 @end
 
-@implementation ASMMetadataQuery
+@implementation HSMetadataQuery
 
 - (instancetype)init {
     self = [super init] ;
@@ -93,19 +93,37 @@ static id toNSSortDescriptorFromLua(lua_State *L, int idx) ;
 
 #pragma mark - Module Functions
 
+/// hs.spotlight.new() -> spotlightObject
+/// Constructor
+/// Creates a new spotlightObject to use for Spotlight searches.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a new spotlightObject
 static int spotlight_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
-    [skin pushNSObject:[[ASMMetadataQuery alloc] init]] ;
+    [skin pushNSObject:[[HSMetadataQuery alloc] init]] ;
     return 1 ;
 }
 
+/// hs.spotlight.newWithin(spotlightObject) -> spotlightObject
+/// Constructor
+/// Creates a new spotlightObject that limits its searches to the current results of another spotlightObject.
+///
+/// Parameters:
+///  * `spotlightObject` - the object whose current results are to be used to limit the scope of the new Spotlight search.
+///
+/// Returns:
+///  * a new spotlightObject
 static int spotlight_searchWithin(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
-    ASMMetadataQuery *newQuery = [[ASMMetadataQuery alloc] init] ;
+    HSMetadataQuery *newQuery = [[HSMetadataQuery alloc] init] ;
     if (newQuery) {
         [query.metadataSearch disableUpdates] ;
         newQuery.metadataSearch.searchItems = query.metadataSearch.results ;
@@ -119,10 +137,11 @@ static int spotlight_searchWithin(__unused lua_State *L) {
 
 #pragma mark - Module Methods
 
+// wrapped in init.lua
 static int spotlight_searchScopes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:query.metadataSearch.searchScopes] ;
@@ -176,10 +195,45 @@ static int spotlight_searchScopes(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:setCallback(fn | nil) -> spotlightObject
+/// Method
+/// Set or remove the callback function for the Spotlight search object.
+///
+/// Parameters:
+///  * `fn` - the function to replace the current callback function.  If this argument is an explicit nil, removes the current callback function and does not replace it.  The function should expect 2 or 3 arguments and should return none.
+///
+/// Returns:
+///  * the spotlightObject
+///
+/// Notes:
+///  * Depending upon the messages set with the [hs.spotlight:callbackMessages](#callbackMessages) method, the following callbacks may occur:
+///
+///    * obj, "didStart" -- occurs when the initial gathering phase of a Spotlight search begins.
+///      * `obj`     - the spotlightObject performing the search
+///      * `message` - the message to the callback, in this case "didStart"
+///
+///    * obj, "inProgress", updateTable -- occurs during the initial gathering phase at intervals set by the [hs.spotlight:updateInterval](#updateInterval) method.
+///      * `obj`         - the spotlightObject performing the search
+///      * `message`     - the message to the callback, in this case "inProgress"
+///      * `updateTable` - a table containing one or more of the following keys:
+///        * `kMDQueryUpdateAddedItems`   - an array table of spotlightItem objects that have been added to the results
+///        * `kMDQueryUpdateChangedItems` - an array table of spotlightItem objects that have changed since they were first added to the results
+///        * `kMDQueryUpdateRemovedItems` - an array table of spotlightItem objects that have been removed since they were first added to the results
+///
+///    * obj, "didFinish" -- occurs when the initial gathering phase of a Spotlight search completes.
+///      * `obj`     - the spotlightObject performing the search
+///      * `message` - the message to the callback, in this case "didFinish"
+///
+///    * obj, "didUpdate", updateTable -- occurs after the initial gathering phase has completed. This indicates that a change has occurred after the initial query that affects the result set.
+///      * `obj`         - the spotlightObject performing the search
+///      * `message`     - the message to the callback, in this case "didUpdate"
+///      * `updateTable` - a table containing one or more of the keys described for the `updateTable` argument of the "inProgress" message.
+///
+///  * All of the results are always available through the [hs.spotlight:resultAtIndex](#resultAtIndex) method and metamethod shortcuts described in the `hs.spotlight` and `hs.spotlight.item` documentation headers; the results provided by the "didUpdate" and "inProgress" messages are just a convenience and can be used if you wish to parse partial results.
 static int spotlight_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     query.callbackRef = [skin luaUnref:refTable ref:query.callbackRef] ;
     if (lua_type(L, 2) == LUA_TFUNCTION) {
@@ -190,10 +244,11 @@ static int spotlight_callback(lua_State *L) {
     return 1 ;
 }
 
+// wrapped in init.lua
 static int spotlight_callbackMessages(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_newtable(L) ;
@@ -233,10 +288,19 @@ static int spotlight_callbackMessages(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:updateInterval([interval]) -> number | spotlightObject
+/// Method
+/// Get or set the time interval at which the spotlightObject will send "didUpdate" messages during the initial gathering phase.
+///
+/// Parameters:
+///  * `interval` - an optional number, default 1.0, specifying how often in seconds the "didUpdate" message should be generated during the initial gathering phase of a Spotlight query.
+///
+/// Returns:
+///  * if an argument is provided, returns the spotlightObject object; otherwise returns the current value.
 static int spotlight_updateInterval(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushnumber(L, query.metadataSearch.notificationBatchingInterval) ;
@@ -247,10 +311,11 @@ static int spotlight_updateInterval(lua_State *L) {
     return 1 ;
 }
 
+// wrapped in init.lua
 static int spotlight_sortDescriptors(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:query.metadataSearch.sortDescriptors] ;
@@ -265,7 +330,7 @@ static int spotlight_sortDescriptors(lua_State *L) {
                     if ([obj isKindOfClass:[NSSortDescriptor class]]) {
                         [newDescriptors addObject:obj] ;
                     } else {
-                        lua_rawgeti(L, 2, (lua_Integer)(idx + 1)) ;
+                        [skin pushNSObject:obj] ;
                         NSSortDescriptor *candidate = toNSSortDescriptorFromLua(L, -1) ;
                         if (candidate) {
                             [newDescriptors addObject:candidate] ;
@@ -292,10 +357,11 @@ static int spotlight_sortDescriptors(lua_State *L) {
     return 1 ;
 }
 
+// wrapped in init.lua
 static int spotlight_valueListAttributes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:query.metadataSearch.valueListAttributes] ;
@@ -323,10 +389,11 @@ static int spotlight_valueListAttributes(lua_State *L) {
     return 1 ;
 }
 
+// wrapped in init.lua
 static int spotlight_groupingAttributes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:query.metadataSearch.groupingAttributes] ;
@@ -354,10 +421,22 @@ static int spotlight_groupingAttributes(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:start() -> spotlightObject
+/// Method
+/// Begin the gathering phase of a Spotlight query.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the spotlightObject
+///
+/// Notes:
+///  * If the query string set with [hs.spotlight:queryString](#queryString) is invalid, an error message will be logged to the Hammerspoon console and the query will not start.  You can test to see if the query is actually running with the [hs.spotlight:isRunning](#isRunning) method.
 static int spotlight_start(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (query.metadataSearch.started && !query.metadataSearch.stopped) {
         [skin logInfo:@"query already started"] ;
@@ -379,10 +458,22 @@ static int spotlight_start(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:stop() -> spotlightObject
+/// Method
+/// Stop the Spotlight query.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the spotlightObject
+///
+/// Notes:
+///  * This method will prevent further gathering of items either during the initial gathering phase or from updates which may occur after the gathering phase; however it will not discard the results already discovered.
 static int spotlight_stop(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (query.metadataSearch.started && !query.metadataSearch.stopped) {
         [query.metadataSearch stopQuery] ;
@@ -393,28 +484,79 @@ static int spotlight_stop(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:isRunning() -> boolean
+/// Method
+/// Returns a boolean specifying if the query is active or inactive.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean value of true if the query is active or false if it is inactive.
+///
+/// Notes:
+///  * An active query may be gathering query results (in the initial gathering phase) or listening for changes which should cause a "didUpdate" message (after the initial gathering phase). To determine which state the query may be in, use the [hs.spotlight:isGathering](#isGathering) method.
 static int spotlight_isRunning(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     lua_pushboolean(L, query.metadataSearch.started && !query.metadataSearch.stopped) ;
     return 1 ;
 }
 
+/// hs.spotlight:isGathering() -> boolean
+/// Method
+/// Returns a boolean specifying whether or not the query is in the active gathering phase.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean value of true if the query is in the active gathering phase or false if it is not.
+///
+/// Notes:
+///  * An inactive query will also return false for this method since an inactive query is neither gathering nor waiting for updates.  To determine if a query is active or inactive, use the [hs.spotlight:isRunning](#isRunning) method.
 static int spotlight_isGathering(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     lua_pushboolean(L, query.metadataSearch.gathering) ;
     return 1 ;
 }
 
+/// hs.spotlight:queryString(query) -> spotlightObject
+/// Method
+/// Specify the query string for the spotlightObject
+///
+/// Parameters:
+///  * a string containing the query for the spotlightObject
+///
+/// Returns:
+///  * the spotlightObject
+///
+/// Notes:
+///  * Setting this property while a query is running stops the query and discards the current results. The receiver immediately starts a new query.
+///
+///  * The query string syntax is not simple enough to fully describe here.  It is a subset of the syntax supported by the Objective-C NSPredicate class.  Some references for this syntax can be found at:
+///    * https://developer.apple.com/library/content/documentation/Carbon/Conceptual/SpotlightQuery/Concepts/QueryFormat.html
+///    * https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/Predicates/Articles/pSyntax.html
+///
+///  * If the query string does not conform to an NSPredicate query string, this method will return an error.  If the query string does conform to an NSPredicate query string, this method will accept the query string, but if it does not conform to the Metadata query format, which is a subset of the NSPredicate query format, the error will be generated when you attempt to start the query with [hs.spotlight:start](#start). At present, starting a query is the only way to fully guarantee that a query is in a valid format.
+///
+///  * Some of the query strings which have been used during the testing of this module are as follows (note that [[ ]] is a Lua string specifier that allows for double quotes in the content of the string):
+///    * [[ kMDItemContentType == "com.apple.application-bundle" ]]
+///    * [[ kMDItemFSName like "*Explore*" ]]
+///    * [[ kMDItemFSName like "AppleScript Editor.app" or kMDItemAlternateNames like "AppleScript Editor"]]
+///
+///  * Not all attributes appear to be usable in a query; see `hs.spotlight.item:attributes` for a possible explanation.
+///
+///  * As a convenience, the __call metamethod has been setup for spotlightObject so that you can use `spotlightObject("query")` as a shortcut for `spotlightObject:queryString("query"):start`.  Because this shortcut includes an explicit start, this should be appended after you have set the callback function if you require a callback (e.g. `spotlightObject:setCallback(fn)("query")`).
 static int spotlight_predicate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL |LS_TOPTIONAL, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:[query.metadataSearch.predicate predicateFormat]] ;
@@ -436,19 +578,46 @@ static int spotlight_predicate(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:count() -> integer
+/// Method
+/// Returns the number of results for the spotlightObject's query
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * if the query has collected results, returns the number of results that match the query; if the query has not been started, this value will be 0.
+///
+/// Notes:
+///  * Just because the result of this method is 0 does not mean that the query has not been started; the query itself may not match any entries in the Spotlight database.
+///  * A query which ran in the past but has been subsequently stopped will retain its queries unless the parameters have been changed.  The result of this method will indicate the number of results still attached to the query, even if it has been previously stopped.
+///
+///  * For convenience, metamethods have been added to the spotlightObject which allow you to use `#spotlightObject` as a shortcut for `spotlightObject:count()`.
 static int spotlight_resultCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     lua_pushinteger(L, (lua_Integer)query.metadataSearch.resultCount) ;
     return 1 ;
 }
 
+/// hs.spotlight:resultAtIndex(index) -> spotlightItemObject
+/// Method
+/// Returns the spotlightItemObject at the specified index of the spotlightObject
+///
+/// Parameters:
+///  * `index` - an integer specifying the index of the result to return.
+///
+/// Returns:
+///  * the spotlightItemObject at the specified index or an error if the index is out of bounds.
+///
+/// Notes:
+///  * For convenience, metamethods have been added to the spotlightObject which allow you to use `spotlightObject[index]` as a shortcut for `spotlightObject:resultAtIndex(index)`.
 static int spotlight_resultAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER| LS_TINTEGER, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     lua_Integer index = lua_tointeger(L, 2) ;
     NSUInteger  count = query.metadataSearch.resultCount ;
@@ -467,19 +636,46 @@ static int spotlight_resultAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight:valueLists() -> table
+/// Method
+/// Returns the value list summaries for the Spotlight query
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array table of the value list summaries for the Spotlight query as specified by the [hs.spotlight:valueListAttributes](#valueListAttributes) method.  Each member of the array will be a table with the following keys:
+///    * `attribute` - the attribute for the summary
+///    * `value`     - the value of the attribute for the summary
+///    * `count`     - the number of Spotlight items in the spotlightObject results for which this attribute has this value
+///
+/// Notes:
+///  * Value list summaries are a quick way to gather statistics about the number of results which match certain criteria - they do not allow you easy access to the matching members, just information about their numbers.
 static int spotlight_valueLists(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     [skin pushNSObject:query.metadataSearch.valueLists] ;
     return 1 ;
 }
 
+/// hs.spotlight:groupedResults() -> table
+/// Method
+/// Returns the grouped results for a Spotlight query.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array table containing the grouped results for the Spotlight query as specified by the [hs.spotlight:groupingAttributes](#groupingAttributes) method.  Each member of the array will be a spotlightGroupObject which is detailed in the `hs.spotlight.group` module documentation.
+///
+/// Notes:
+///  * The spotlightItemObjects available with the `hs.spotlight.group:resultAtIndex` method are the subset of the full results of the spotlightObject that match the attribute and value of the spotlightGroupObject.  The same item is available through the spotlightObject and the spotlightGroupObject, though likely at different indicies.
 static int spotlight_groupedResults(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
+    HSMetadataQuery *query = [skin toNSObjectAtIndex:1] ;
 
     [skin pushNSObject:query.metadataSearch.groupedResults] ;
     return 1 ;
@@ -487,6 +683,15 @@ static int spotlight_groupedResults(__unused lua_State *L) {
 
 #pragma mark - Module Group Methods
 
+/// hs.spotlight.group:attribute() -> string
+/// Method
+/// Returns the name of the attribute the spotlightGroupObject results are grouped by.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the attribute name as a string
 static int group_attribute(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, GROUP_UD_TAG, LS_TBREAK] ;
@@ -496,6 +701,15 @@ static int group_attribute(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.group:value() -> value
+/// Method
+/// Returns the value for the attribute the spotlightGroupObject results are grouped by.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the attribute value as an appropriate data type
 static int group_value(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, GROUP_UD_TAG, LS_TBREAK] ;
@@ -505,6 +719,18 @@ static int group_value(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.group:count() -> integer
+/// Method
+/// Returns the number of query results contained in the spotlightGroupObject.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the number of results that match the attribute and value represented by this spotlightGroup object.
+///
+/// Notes:
+///  * For convenience, metamethods have been added to the spotlightGroupObject which allow you to use `#spotlightGroupObject` as a shortcut for `spotlightGroupObject:count()`.
 static int group_resultCount(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, GROUP_UD_TAG, LS_TBREAK] ;
@@ -514,6 +740,18 @@ static int group_resultCount(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.group:resultAtIndex(index) -> spotlightItemObject
+/// Method
+/// Returns the spotlightItemObject at the specified index of the spotlightGroupObject
+///
+/// Parameters:
+///  * `index` - an integer specifying the index of the result to return.
+///
+/// Returns:
+///  * the spotlightItemObject at the specified index or an error if the index is out of bounds.
+///
+/// Notes:
+///  * For convenience, metamethods have been added to the spotlightGroupObject which allow you to use `spotlightGroupObject[index]` as a shortcut for `spotlightGroupObject:resultAtIndex(index)`.
 static int group_resultAtIndex(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, GROUP_UD_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -533,6 +771,18 @@ static int group_resultAtIndex(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.group:subgroups() -> table
+/// Method
+/// Returns the subgroups of the spotlightGroupObject
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array table containing the subgroups of the spotlightGroupObject or nil if no subgroups exist
+///
+/// Notes:
+///  * Subgroups are created when you supply more than one grouping attribute to `hs.spotlight:groupingAttributes`.
 static int group_subgroups(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, GROUP_UD_TAG, LS_TBREAK] ;
@@ -544,6 +794,19 @@ static int group_subgroups(__unused lua_State *L) {
 
 #pragma mark - Module Item Methods
 
+/// hs.spotlight.item:attributes() -> table
+/// Method
+/// Returns a list of attributes associated with the spotlightItemObject
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an array table containing a list of attributes associated with the result item.
+///
+/// Notes:
+///  * This list of attributes is usually not a complete list of the attributes available for a given spotlightItemObject. Many of the known attribute names are included in the `hs.spotlight.commonAttributeKeys` constant array, but even this is not an exhaustive list -- an application may create and assign any key it wishes to an entity for inclusion in the Spotlight metadata database.
+///  * It is believed that only those keys which are explicitly set when an item is added to the Spotlight database are included in the array returned by this method. Any attribute which is calculated or restricted in a sandboxed application appears to require an explicit request. This is, however, conjecture, and when in doubt you should explicitly check for the attributes you require with [hs.spotlight.item:valueForAttribute](#valueForAttribute) and not rely solely on the results from [hs.spotlight.item:attributes](#attributes).
 static int item_attributes(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ITEM_UD_TAG, LS_TBREAK] ;
@@ -553,6 +816,20 @@ static int item_attributes(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.item:valueForAttribute(attribute) -> value
+/// Method
+/// Returns the value for the specified attribute of the spotlightItemObject
+///
+/// Parameters:
+///  * `attribute` - a string specifying the attribute to get the value of for the spotlightItemObject
+///
+/// Returns:
+///  * the attribute value as an appropriate data type or nil if the attribute does not exist or contains no value
+///
+/// Notes:
+///  * See [hs.spotlight.item:attributes](#attributes) for information about possible attribute names.
+///
+///  * For convenience, metamethods have been added to the spotlightItemObject which allow you to use `spotlightItemObject.attribute` as a shortcut for `spotlightItemObject:valueForAttribute(attribute)`.
 static int item_valueForAttribute(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, ITEM_UD_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -565,6 +842,22 @@ static int item_valueForAttribute(__unused lua_State *L) {
 
 #pragma mark - Module Constants
 
+/// hs.spotlight.definedSearchScopes[]
+/// Constant
+/// A table of key-value pairs describing predefined search scopes for Spotlight queries
+///
+/// The keys for this table are as follows:
+///  * `iCloudData`              - Search all files not in the Documents directories of the app’s iCloud container directories.
+///  * `iCloudDocuments`         - Search all files in the Documents directories of the app’s iCloud container directories.
+///  * `iCloudExternalDocuments` - Search for documents outside the app’s container.
+///  * `indexedLocalComputer`    - Search all indexed local mounted volumes including the current user’s home directory (even if the home directory is remote).
+///  * `indexedNetwork`          - Search all indexed user-mounted remote volumes.
+///  * `localComputer`           - Search all local mounted volumes, including the user home directory. The user’s home directory is searched even if it is a remote volume.
+///  * `network`                 - Search all user-mounted remote volumes.
+///  * `userHome`                - Search the user’s home directory.
+///
+/// Notes:
+///  * It is uncertain at this time if the `iCloud*` search scopes are actually useful within Hammerspoon as Hammerspoon is not a sandboxed application that uses the iCloud API fo document storage. Further information on your experiences with these scopes, if you use them, is welcome in the Hammerspoon Google Group or at the Hammerspoon Github web site.
 static int push_searchScopes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -579,6 +872,14 @@ static int push_searchScopes(lua_State *L) {
     return 1 ;
 }
 
+/// hs.spotlight.commonAttributeKeys[]
+/// Constant
+/// A list of defined attribute keys as discovered in the macOS 10.12 SDK framework headers.
+///
+/// This table contains a list of attribute strings that may be available for spotlightSearch result items.  This list is by no means complete, and not every result will contain all or even most of these keys.
+///
+/// Notes:
+///  * This list was generated by searching the Framework header files for string constants which matched one of the following regular expressions: "kMDItem.+", "NSMetadataItem.+", and "NSMetadataUbiquitousItem.+"
 static int push_commonAttributeKeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -783,21 +1084,21 @@ static int push_commonAttributeKeys(lua_State *L) {
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
 
-static int pushASMMetadataQuery(lua_State *L, id obj) {
-    ASMMetadataQuery *value = obj;
+static int pushHSMetadataQuery(lua_State *L, id obj) {
+    HSMetadataQuery *value = obj;
     value.selfPushCount++ ;
-    void** valuePtr = lua_newuserdata(L, sizeof(ASMMetadataQuery *));
+    void** valuePtr = lua_newuserdata(L, sizeof(HSMetadataQuery *));
     *valuePtr = (__bridge_retained void *)value;
     luaL_getmetatable(L, USERDATA_TAG);
     lua_setmetatable(L, -2);
     return 1;
 }
 
-static id toASMMetadataQueryFromLua(lua_State *L, int idx) {
+static id toHSMetadataQueryFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMMetadataQuery *value ;
+    HSMetadataQuery *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
-        value = get_objectFromUserdata(__bridge ASMMetadataQuery, L, idx, USERDATA_TAG) ;
+        value = get_objectFromUserdata(__bridge HSMetadataQuery, L, idx, USERDATA_TAG) ;
     } else {
         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
                                                    lua_typename(L, lua_type(L, idx))]] ;
@@ -897,7 +1198,7 @@ static int pushNSMetadataQueryAttributeValueTuple(lua_State *L, id obj) {
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMMetadataQuery *obj = [skin luaObjectAtIndex:1 toClass:"ASMMetadataQuery"] ;
+    HSMetadataQuery *obj = [skin luaObjectAtIndex:1 toClass:"HSMetadataQuery"] ;
     NSString *title = obj.metadataSearch.predicate.predicateFormat ;
     if (!title) title = @"<undefined>" ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
@@ -909,8 +1210,8 @@ static int userdata_eq(lua_State* L) {
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
         LuaSkin *skin = [LuaSkin shared] ;
-        ASMMetadataQuery *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMMetadataQuery"] ;
-        ASMMetadataQuery *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMMetadataQuery"] ;
+        HSMetadataQuery *obj1 = [skin luaObjectAtIndex:1 toClass:"HSMetadataQuery"] ;
+        HSMetadataQuery *obj2 = [skin luaObjectAtIndex:2 toClass:"HSMetadataQuery"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
@@ -919,7 +1220,7 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
-    ASMMetadataQuery *obj = get_objectFromUserdata(__bridge_transfer ASMMetadataQuery, L, 1, USERDATA_TAG) ;
+    HSMetadataQuery *obj = get_objectFromUserdata(__bridge_transfer HSMetadataQuery, L, 1, USERDATA_TAG) ;
     if (obj) {
         obj.selfPushCount-- ;
         if (obj.selfPushCount == 0) {
@@ -1017,7 +1318,7 @@ static int meta_gc(lua_State* __unused L) {
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
     {"searchScopes",          spotlight_searchScopes},
-    {"callback",              spotlight_callback},
+    {"setCallback",           spotlight_callback},
     {"callbackMessages",      spotlight_callbackMessages},
     {"updateInterval",        spotlight_updateInterval},
     {"sortDescriptors",       spotlight_sortDescriptors},
@@ -1028,7 +1329,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"isRunning",             spotlight_isRunning},
     {"isGathering",           spotlight_isGathering},
     {"queryString",           spotlight_predicate},
-    {"resultCount",           spotlight_resultCount},
+    {"count",                 spotlight_resultCount},
     {"resultAtIndex",         spotlight_resultAtIndex},
     {"valueLists",            spotlight_valueLists},
     {"groupedResults",        spotlight_groupedResults},
@@ -1052,7 +1353,7 @@ static const luaL_Reg item_userdata_metalib[] = {
 static const luaL_Reg group_userdata_metalib[] = {
     {"attribute",     group_attribute},
     {"value",         group_value},
-    {"resultCount",   group_resultCount},
+    {"count",         group_resultCount},
     {"resultAtIndex", group_resultAtIndex},
     {"subgroups",     group_subgroups},
 
@@ -1064,9 +1365,9 @@ static const luaL_Reg group_userdata_metalib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new",     spotlight_new},
-    {"newFrom", spotlight_searchWithin},
-    {NULL,      NULL}
+    {"new",       spotlight_new},
+    {"newWithin", spotlight_searchWithin},
+    {NULL,        NULL}
 };
 
 // Metatable for module, if needed
@@ -1075,7 +1376,7 @@ static const luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 };
 
-int luaopen_hs__asm_spotlight_internal(lua_State* L) {
+int luaopen_hs_spotlight_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -1085,12 +1386,12 @@ int luaopen_hs__asm_spotlight_internal(lua_State* L) {
     [skin registerObject:ITEM_UD_TAG  objectFunctions:item_userdata_metalib] ;
     [skin registerObject:GROUP_UD_TAG objectFunctions:group_userdata_metalib] ;
 
-    push_searchScopes(L) ;        lua_setfield(L, -2, "searchScopes") ;
+    push_searchScopes(L) ;        lua_setfield(L, -2, "definedSearchScopes") ;
     push_commonAttributeKeys(L) ; lua_setfield(L, -2, "commonAttributeKeys") ;
 
-    [skin registerPushNSHelper:pushASMMetadataQuery                   forClass:"ASMMetadataQuery"];
-    [skin registerLuaObjectHelper:toASMMetadataQueryFromLua           forClass:"ASMMetadataQuery"
-                                                           withUserdataMapping:USERDATA_TAG];
+    [skin registerPushNSHelper:pushHSMetadataQuery                   forClass:"HSMetadataQuery"];
+    [skin registerLuaObjectHelper:toHSMetadataQueryFromLua           forClass:"HSMetadataQuery"
+                                                          withUserdataMapping:USERDATA_TAG];
 
     [skin registerPushNSHelper:pushNSMetadataItem                     forClass:"NSMetadataItem"] ;
     [skin registerLuaObjectHelper:toNSMetadataItemFromLua             forClass:"NSMetadataItem"
