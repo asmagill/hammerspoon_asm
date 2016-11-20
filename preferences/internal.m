@@ -48,7 +48,7 @@ static void doPreferencesCallback(__unused SCPreferencesRef prefs, SCPreferences
 static int newPreferencesObject(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    NSString *prefName = (lua_gettop(L) == 0) ? nil : [skin toNSObjectAtIndex:1] ;
+    NSString *prefName = (lua_gettop(L) == 0) ? nil : [[skin toNSObjectAtIndex:1] stringByExpandingTildeInPath];
     NSString *theName = [[NSUUID UUID] UUIDString] ;
     SCPreferencesRef thePrefs = SCPreferencesCreate(kCFAllocatorDefault, (__bridge CFStringRef)theName, (__bridge CFStringRef)prefName);
     preferences_t *thePtr = lua_newuserdata(L, sizeof(preferences_t)) ;
