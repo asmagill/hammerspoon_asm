@@ -19,11 +19,36 @@
 --
 
 local module   = {}
+
+-- set the amount of time the right opt has to be down with no other interrupting events
+module.rightOptPressTime = 2
+
+-- set the "normal" border
+module.normalBorderColor = { white = 0 }
+
+-- set the "movable" border
+module.movableBorderColor = { red = 1 }
+
+-- set the default inactiveAlpha
+module.inactiveAlpha = .4
+
 local touchbar = require("hs._asm.touchbar")
 local eventtap = require("hs.eventtap")
 local timer    = require("hs.timer")
 
 local events   = eventtap.event.types
+
+local showMovableState = function()
+    module.touchbar:backgroundColor(module.movableBorderColor)
+                   :movable(true)
+                   :acceptsMouseEvents(false)
+end
+
+local showNormalState = function()
+    module.touchbar:backgroundColor(module.normalBorderColor)
+                   :movable(false)
+                   :acceptsMouseEvents(true)
+end
 
 local mouseInside = false
 local touchbarWatcher = function(obj, message)
@@ -32,15 +57,15 @@ local touchbarWatcher = function(obj, message)
     elseif message == "didExit" then
         mouseInside = false
     -- just in case we got here before the eventtap returned the touch bar to normal
-        module.touchbar:backgroundColor{ white = 0 }
-                       :movable(false)
-                       :acceptsMouseEvents(true)
+        showNormalState()
     end
 end
 
 local createTouchbarIfNeeded = function()
     if not module.touchbar then
-        module.touchbar = touchbar.new():inactiveAlpha(.4):setCallback(touchbarWatcher)
+        module.touchbar = touchbar.new():inactiveAlpha(module.inactiveAlpha)
+                                        :setCallback(touchbarWatcher)
+        showNormalState()
     end
 end
 
@@ -49,20 +74,22 @@ end
 -- You can check for others with this in the console:
 --  a = hs.eventtap.new({12}, function(e) print(hs.inspect(e:getFlags()), hs.inspect(e:getRawEventData())) ; return false end):start()
 
-module.rightOptPressed   = false
-module.rightOptPressTime = 2
+local rightOptPressed = false
+
+-- might want to call this from the "outside" of our normal watcher
+module.toggle = function()
+    createTouchbarIfNeeded()
+    module.touchbar:toggle()
+    if module.touchbar:isVisible() then module.touchbar:centered() end
+end
 
 -- we only care about events other than flagsChanged that should *stop* a current count down
 module.eventwatcher = eventtap.new({events.flagsChanged, events.keyDown, events.leftMouseDown}, function(ev)
-    module.rightOptPressed = false
+    rightOptPressed = false
     if ev:getType() == events.flagsChanged and ev:getRawEventData().CGEventData.flags == 524608 then
-        module.rightOptPressed = true
+        rightOptPressed = true
         module.countDown = timer.doAfter(module.rightOptPressTime, function()
-            if module.rightOptPressed then
-                createTouchbarIfNeeded()
-                module.touchbar:toggle()
-                if module.touchbar:isVisible() then module.touchbar:centered() end
-            end
+            if rightOptPressed then module.toggle() end
         end)
     else
         if module.countDown then
@@ -71,23 +98,13 @@ module.eventwatcher = eventtap.new({events.flagsChanged, events.keyDown, events.
         end
         if mouseInside then
             if ev:getType() == events.flagsChanged and ev:getRawEventData().CGEventData.flags == 524576 then
-                module.touchbar:backgroundColor{ red = 1 }
-                               :movable(true)
-                               :acceptsMouseEvents(false)
+                showMovableState()
             elseif ev:getType() ~= events.leftMouseDown then
-                module.touchbar:backgroundColor{ white = 0 }
-                               :movable(false)
-                               :acceptsMouseEvents(true)
+                showNormalState()
             end
         end
     end
     return false
 end):start()
-
-module.toggle = function()
-    createTouchbarIfNeeded()
-    module.touchbar:toggle()
-    if module.touchbar:isVisible() then module.touchbar:centered() end
-end
 
 return module
