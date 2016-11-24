@@ -15,7 +15,7 @@
 --
 -- While the touch bar is visible, if you move your mouse pointer within the bounds of the visible
 -- touch bar window and then press and hold the left Option key, you can then click and drag the
--- touch bar to another location on the screen.  Release the touch bar to start using it again.
+-- touch bar to another location on the screen.  Release the option key to start using it again.
 --
 
 local module   = {}
