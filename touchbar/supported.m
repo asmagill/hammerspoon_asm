@@ -2,7 +2,9 @@
 @import LuaSkin ;
 
 // minimal module to allow loading this module on an unsupported machine to get at the
-// "hs._asm.touchbar.supported" function.
+// "hs._asm.touchbar.supported" function.  If we don't do it this way, loading
+// "hs._asm.touchbar.internal" causes an unresolved symbol error and fails to load... this
+// seems "nicer" in that it can still pop up a warning dialog if the user chooses.
 
 static BOOL is_supported() { return NSClassFromString(@"DFRElement") ? YES : NO ; }
 
