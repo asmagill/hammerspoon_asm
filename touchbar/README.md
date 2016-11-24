@@ -18,7 +18,7 @@ $ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
 $ tar -xzf ~/Downloads/touchbar-v0.x.tar.gz # or wherever your downloads are located
 ~~~
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything) is to download `init.lua`, `internal.m`, and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything) is to download `init.lua`, `internal.m`, `supported.m` and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
 
 ~~~sh
 $ cd wherever-you-downloaded-the-files
