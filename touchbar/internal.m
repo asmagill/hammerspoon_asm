@@ -2,7 +2,7 @@
 @import LuaSkin ;
 
 // An attempt at gathering info to learn more about what private framework this is using
-// #ifdef INCLUDE_DUMP_THREAD
+// #define INCLUDE_DUMP_THREAD
 
 static const char *USERDATA_TAG = "hs._asm.touchbar" ;
 static int        refTable      = LUA_NOREF;
@@ -23,19 +23,24 @@ extern BOOL DFRSetStatus(int);
 extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p);
 
 @interface ASMTouchBarView : NSView
+@property CGDisplayStreamRef stream ;
+@property NSView             *displayView ;
+@property BOOL               passMouseEvents ;
+
 #ifdef INCLUDE_DUMP_THREAD
-@property BOOL dumpThread ;
+@property BOOL               dumpThread ;
 #endif
 @end
 
 @implementation ASMTouchBarView {
-    CGDisplayStreamRef _stream;
-    NSView *_displayView;
+//     CGDisplayStreamRef _stream;
+//     NSView *_displayView;
 }
 
 - (instancetype) init {
     self = [super init];
     if(self != nil) {
+        _passMouseEvents = YES ;
         _displayView = [NSView new];
         _displayView.frame = NSMakeRect(5, 5, 1085, 30);
         _displayView.wantsLayer = YES;
@@ -78,8 +83,10 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 }
 
 - (void)commonMouseEvent:(NSEvent *)event {
-    NSPoint location = [_displayView convertPoint:[event locationInWindow] fromView:nil];
-    DFRFoundationPostEventWithMouseActivity(event.type, location);
+    if (_passMouseEvents) {
+        NSPoint location = [_displayView convertPoint:[event locationInWindow] fromView:nil];
+        DFRFoundationPostEventWithMouseActivity(event.type, location);
+    }
 }
 
 - (void)mouseDown:(NSEvent *)event {
@@ -110,6 +117,8 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 
 @interface ASMTouchBarWindow : NSWindow
 @property CGFloat inactiveAlpha ;
+@property int     callbackRef ;
+@property int     selfRefCount ;
 @end
 
 @implementation ASMTouchBarWindow
@@ -117,25 +126,31 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 - (instancetype)init {
     self = [super init];
     if(self != nil) {
-        self.styleMask = NSTitledWindowMask | NSFullSizeContentViewWindowMask;
-        self.titlebarAppearsTransparent = YES;
-        self.titleVisibility = NSWindowTitleHidden;
-        [self standardWindowButton:NSWindowCloseButton].hidden = YES;
-        [self standardWindowButton:NSWindowFullScreenButton].hidden = YES;
-        [self standardWindowButton:NSWindowZoomButton].hidden = YES;
-        [self standardWindowButton:NSWindowMiniaturizeButton].hidden = YES;
-
-        self.movable = NO;
-        self.acceptsMouseMovedEvents = YES;
-        self.movableByWindowBackground = NO;
-        self.level = CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey);
-        self.collectionBehavior = (NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary | NSWindowCollectionBehaviorIgnoresCycle | NSWindowCollectionBehaviorFullScreenDisallowsTiling);
-        self.backgroundColor = [NSColor blackColor];
-        [self _setPreventsActivation:YES];
-        [self setFrame:NSMakeRect(0, 0, 1085 + 10, 30 + 10) display:YES];
-
-        self.contentView = [ASMTouchBarView new];
         _inactiveAlpha = .5 ;
+        _callbackRef   = LUA_NOREF ;
+        _selfRefCount  = 0 ;
+
+        self.styleMask                  = NSTitledWindowMask | NSFullSizeContentViewWindowMask ;
+        self.titlebarAppearsTransparent = YES ;
+        self.titleVisibility            = NSWindowTitleHidden ;
+        self.movable                    = NO ;
+        self.acceptsMouseMovedEvents    = YES ;
+        self.movableByWindowBackground  = YES ;
+        self.level                      = CGWindowLevelForKey(kCGAssistiveTechHighWindowLevelKey) ;
+        self.collectionBehavior         = (NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                           NSWindowCollectionBehaviorStationary |
+                                           NSWindowCollectionBehaviorIgnoresCycle |
+                                           NSWindowCollectionBehaviorFullScreenDisallowsTiling) ;
+        self.backgroundColor            = [NSColor blackColor] ;
+
+        [self standardWindowButton:NSWindowCloseButton].hidden       = YES ;
+        [self standardWindowButton:NSWindowFullScreenButton].hidden  = YES ;
+        [self standardWindowButton:NSWindowZoomButton].hidden        = YES ;
+        [self standardWindowButton:NSWindowMiniaturizeButton].hidden = YES ;
+        [self _setPreventsActivation:YES];
+        [self setFrame:NSMakeRect(0, 0, 1085 + 10, 30 + 10) display:YES] ;
+
+        self.contentView                = [ASMTouchBarView new];
     }
 
     return self;
@@ -149,12 +164,27 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
     return NO;
 }
 
+- (void)callbackWith:(NSString *)message {
+    if (_callbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        [skin pushLuaRef:refTable ref:_callbackRef] ;
+        [skin pushNSObject:self] ;
+        [skin pushNSObject:message] ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            [skin logError:[NSString stringWithFormat:@"%s:callback error:%@", USERDATA_TAG, [skin toNSObjectAtIndex:-1]]] ;
+            lua_pop([skin L], 1) ;
+        }
+    }
+}
+
 - (void)mouseExited:(__unused NSEvent *)theEvent {
     self.alphaValue = _inactiveAlpha ;
+    [self callbackWith:@"didExit"] ;
 }
 
 - (void)mouseEntered:(__unused NSEvent *)theEvent {
     self.alphaValue = 1.0 ;
+    [self callbackWith:@"didEnter"] ;
 }
 
 @end
@@ -318,7 +348,7 @@ static int touchbar_getFrame(lua_State *L) {
 ///  * None
 ///
 /// Returns:
-///  * a boolean specifying whether the window is visible (true) or not (false).
+///  * a boolean specifying whether the touch bar window is visible (true) or not (false).
 static int touchbar_isVisible(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -352,6 +382,136 @@ static int touchbar_inactiveAlpha(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.touchbar:movable([state]) -> boolean | touchbarObject
+/// Method
+/// Get or set whether or not the touch bar window is movable by clicking on it and holding down the mouse button while moving the mouse.
+///
+/// Parameters:
+///  * `state` - an optional boolean which specifies whether the touch bar window is movable (true) or not (false).  Default false.
+///
+/// Returns:
+///  * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+///
+/// Notes:
+///  * While the touch bar is movable, actions which require moving the mouse while clicking on the touch bar are not accessible.
+///  * See also [hs._asm.touchbar:acceptsMouseEvents](#acceptsMouseEvents).
+static int touchbar_movable(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, touchbar.movable) ;
+    } else {
+        touchbar.movable = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+/// hs._asm.touchbar:acceptsMouseEvents([state]) -> boolean | touchbarObject
+/// Method
+/// Get or set whether or not the touch bar accepts mouse events.
+///
+/// Parameters:
+///  * `state` - an optional boolean which specifies whether the touch bar accepts mouse events (true) or not (false).  Default true.
+///
+/// Returns:
+///  * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+///
+/// Notes:
+///  * This method can be used to prevent mouse clicks in the touch bar from triggering the touch bar buttons.
+///  * This can be useful when [hs._asm.touchbar:movable](#movable) is set to true to prevent accidentally triggering an action.
+static int touchbar_acceptsMouseEvents(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, ((ASMTouchBarView *)touchbar.contentView).passMouseEvents) ;
+    } else {
+        ((ASMTouchBarView *)touchbar.contentView).passMouseEvents = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+/// hs._asm.touchbar:backgroundColor([color]) -> color | touchbarObject
+/// Method
+/// Get or set the background color for the touch bar window.
+///
+/// Parameters:
+///  * `color` - an optional color table as defined in `hs.drawing.color` specifying the background color for the touch bar window.  Defaults to black, i.e. `{ white = 0.0, alpha = 1.0 }`.
+///
+/// Returns:
+///  * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+///
+/// Notes:
+///  * The visual effect of this method is to change the border color around the touch bar -- the touch bar itself remains the color as defined by the application which is providing the current touch bar items for display.
+static int touchbar_backgroundColor(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:touchbar.backgroundColor] ;
+    } else {
+        NSColor *newColor = [skin luaObjectAtIndex:2 toClass:"NSColor"] ;
+        if (newColor) {
+            touchbar.backgroundColor = newColor ;
+        } else {
+            touchbar.backgroundColor = [NSColor blackColor] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+/// hs._asm.touchbar:setCallback(fn | nil) -> touchbarObject
+/// Method
+/// Sets the callback function for the touch bar window.
+///
+/// Parameters:
+///  * `fn` - a function to set as the callback for the touch bar window, or nil to remove the existing callback function.
+///
+/// Returns:
+///  * the touchbarObject
+///
+/// Notes:
+///  * The function should expect 2 arguments and return none.  The arguments will be one of the following:
+///
+///    * obj, "didEnter" - indicates that the mouse pointer has entered the window containing the touch bar
+///      * `obj`     - the touchbarObject the callback is for
+///      * `message` - the message to the callback, in this case "didEnter"
+///
+///    * obj, "didExit" - indicates that the mouse pointer has exited the window containing the touch bar
+///      * `obj`     - the touchbarObject the callback is for
+///      * `message` - the message to the callback, in this case "didEnter"
+static int touchbar_setCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TTABLE | LS_TNIL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_type(L, 2) == LUA_TTABLE) {
+        if (luaL_getmetafield(L, 2, "__call") != LUA_TNIL) {
+            lua_pop(L, 1) ;
+            touchbar.callbackRef = [skin luaUnref:refTable ref:touchbar.callbackRef] ;
+            lua_pushvalue(L, 2) ;
+            touchbar.callbackRef = [skin luaRef:refTable] ;
+        } else {
+            return luaL_argerror(L, 2, "a table must have a __call metamethod to be a callback function") ;
+        }
+    } else {
+        touchbar.callbackRef = [skin luaUnref:refTable ref:touchbar.callbackRef] ;
+        if (lua_type(L, 2) == LUA_TFUNCTION) {
+            lua_pushvalue(L, 2) ;
+            touchbar.callbackRef = [skin luaRef:refTable] ;
+        }
+    }
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
 #ifdef INCLUDE_DUMP_THREAD
 static int touchbar_dumpThread(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
@@ -376,6 +536,7 @@ static int touchbar_dumpThread(lua_State *L) {
 
 static int pushASMTouchBarWindow(lua_State *L, id obj) {
     ASMTouchBarWindow *value = obj;
+    value.selfRefCount++ ;
     void** valuePtr = lua_newuserdata(L, sizeof(ASMTouchBarWindow *));
     *valuePtr = (__bridge_retained void *)value;
     luaL_getmetatable(L, USERDATA_TAG);
@@ -422,11 +583,14 @@ static int userdata_eq(lua_State* L) {
 static int userdata_gc(lua_State* L) {
     ASMTouchBarWindow *obj = get_objectFromUserdata(__bridge_transfer ASMTouchBarWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
-        // not sure what else to do to cleanup... if I do [obj close] on the window, it crashes...
-        obj.alphaValue = 0.0 ;
-        [obj setIsVisible:NO] ;
-        [(ASMTouchBarView *)obj.contentView stopStreaming] ;
-        obj = nil ;
+        obj.selfRefCount-- ;
+        if (obj.selfRefCount == 0) {
+            // not sure what else to do to cleanup... if I do [obj close] on the window, it crashes...
+            obj.alphaValue = 0.0 ;
+            [obj setIsVisible:NO] ;
+            [(ASMTouchBarView *)obj.contentView stopStreaming] ;
+            obj = nil ;
+        }
     }
 
     // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -441,19 +605,24 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"show",          touchbar_show},
-    {"hide",          touchbar_hide},
-    {"topLeft",       touchbar_topLeft},
-    {"getFrame",      touchbar_getFrame},
-    {"inactiveAlpha", touchbar_inactiveAlpha},
-    {"isVisible",     touchbar_isVisible},
+    {"show",               touchbar_show},
+    {"hide",               touchbar_hide},
+    {"topLeft",            touchbar_topLeft},
+    {"getFrame",           touchbar_getFrame},
+    {"inactiveAlpha",      touchbar_inactiveAlpha},
+    {"isVisible",          touchbar_isVisible},
+    {"movable",            touchbar_movable},
+    {"backgroundColor",    touchbar_backgroundColor},
+    {"setCallback",        touchbar_setCallback},
+    {"acceptsMouseEvents", touchbar_acceptsMouseEvents},
+
 #ifdef INCLUDE_DUMP_THREAD
-    {"dumpThread",    touchbar_dumpThread},
+    {"dumpThread",         touchbar_dumpThread},
 #endif
-    {"__tostring",    userdata_tostring},
-    {"__eq",          userdata_eq},
-    {"__gc",          userdata_gc},
-    {NULL,            NULL}
+    {"__tostring",         userdata_tostring},
+    {"__eq",               userdata_eq},
+    {"__gc",               userdata_gc},
+    {NULL,                 NULL}
 };
 
 // Functions for returned object when module loads

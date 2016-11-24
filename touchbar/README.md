@@ -7,6 +7,8 @@ This code is based heavily on code found at https://github.com/bikkelbroeders/To
 
 This module requires that you are running macOS 10.12.1 build 16B2657 or greater.  Most people who have received the 10.12.1 update have an earlier build, which you can check by selecting "About this Mac" from the Apple menu and then clicking the mouse pointer on the version number displayed in the dialog box.  If you require an update, you can find it at https://support.apple.com/kb/dl1897.
 
+Check out [Examples/touchbar.lua](Examples/touchbar.lua) for an example of how you might use this module.
+
 ### Installation
 
 A precompiled version of this module can be found in this directory with a name along the lines of `touchbar-v0.x.tar.gz`. This can be installed by downloading the file and then expanding it as follows:
@@ -40,12 +42,16 @@ touchbar = require("hs._asm.touchbar")
 * <a href="#supported">touchbar.supported([showLink]) -> boolean</a>
 
 ##### Module Methods
+* <a href="#acceptsMouseEvents">touchbar:acceptsMouseEvents([state]) -> boolean | touchbarObject</a>
 * <a href="#atMousePosition">touchbar:atMousePosition() -> touchbarObject</a>
+* <a href="#backgroundColor">touchbar:backgroundColor([color]) -> color | touchbarObject</a>
 * <a href="#centered">touchbar:centered([top]) -> touchbarObject</a>
 * <a href="#getFrame">touchbar:getFrame() -> table</a>
 * <a href="#hide">touchbar:hide([duration]) -> touchbarObject</a>
 * <a href="#inactiveAlpha">touchbar:inactiveAlpha([alpha]) -> number | touchbarObject</a>
 * <a href="#isVisible">touchbar:isVisible() -> boolean</a>
+* <a href="#movable">touchbar:movable([state]) -> boolean | touchbarObject</a>
+* <a href="#setCallback">touchbar:setCallback(fn | nil) -> touchbarObject</a>
 * <a href="#show">touchbar:show([duration]) -> touchbarObject</a>
 * <a href="#toggle">touchbar:toggle([duration]) -> touchbarObject</a>
 * <a href="#topLeft">touchbar:topLeft([point]) -> table | touchbarObject</a>
@@ -88,6 +94,24 @@ Notes:
 
 ### Module Methods
 
+<a name="acceptsMouseEvents"></a>
+~~~lua
+touchbar:acceptsMouseEvents([state]) -> boolean | touchbarObject
+~~~
+Get or set whether or not the touch bar accepts mouse events.
+
+Parameters:
+ * `state` - an optional boolean which specifies whether the touch bar accepts mouse events (true) or not (false).  Default true.
+
+Returns:
+ * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+
+Notes:
+ * This method can be used to prevent mouse clicks in the touch bar from triggering the touch bar buttons.
+ * This can be useful when [hs._asm.touchbar:movable](#movable) is set to true to prevent accidentally triggering an action.
+
+- - -
+
 <a name="atMousePosition"></a>
 ~~~lua
 touchbar:atMousePosition() -> touchbarObject
@@ -103,6 +127,23 @@ Returns:
 Notes:
  * This method mimics the display location as set by the sample code this module is based on.  See https://github.com/bikkelbroeders/TouchBarDemoApp for more information.
  * The touch bar position will be adjusted so that it is fully visible on the screen even if this moves it left or right from the mouse's current position.
+
+- - -
+
+<a name="backgroundColor"></a>
+~~~lua
+touchbar:backgroundColor([color]) -> color | touchbarObject
+~~~
+Get or set the background color for the touch bar window.
+
+Parameters:
+ * `color` - an optional color table as defined in `hs.drawing.color` specifying the background color for the touch bar window.  Defaults to black, i.e. `{ white = 0.0, alpha = 1.0 }`.
+
+Returns:
+ * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+
+Notes:
+ * The visual effect of this method is to change the border color around the touch bar -- the touch bar itself remains the color as defined by the application which is providing the current touch bar items for display.
 
 - - -
 
@@ -180,7 +221,50 @@ Parameters:
  * None
 
 Returns:
- * a boolean specifying whether the window is visible (true) or not (false).
+ * a boolean specifying whether the touch bar window is visible (true) or not (false).
+
+- - -
+
+<a name="movable"></a>
+~~~lua
+touchbar:movable([state]) -> boolean | touchbarObject
+~~~
+Get or set whether or not the touch bar window is movable by clicking on it and holding down the mouse button while moving the mouse.
+
+Parameters:
+ * `state` - an optional boolean which specifies whether the touch bar window is movable (true) or not (false).  Default false.
+
+Returns:
+ * if an argument is provided, returns the touchbarObject; otherwise returns the current value.
+
+Notes:
+ * While the touch bar is movable, actions which require moving the mouse while clicking on the touch bar are not accessible.
+ * See also [hs._asm.touchbar:acceptsMouseEvents](#acceptsMouseEvents).
+
+- - -
+
+<a name="setCallback"></a>
+~~~lua
+touchbar:setCallback(fn | nil) -> touchbarObject
+~~~
+Sets the callback function for the touch bar window.
+
+Parameters:
+ * `fn` - a function to set as the callback for the touch bar window, or nil to remove the existing callback function.
+
+Returns:
+ * the touchbarObject
+
+Notes:
+ * The function should expect 2 arguments and return none.  The arguments will be one of the following:
+
+   * obj, "didEnter" - indicates that the mouse pointer has entered the window containing the touch bar
+     * `obj`     - the touchbarObject the callback is for
+     * `message` - the message to the callback, in this case "didEnter"
+
+   * obj, "didExit" - indicates that the mouse pointer has exited the window containing the touch bar
+     * `obj`     - the touchbarObject the callback is for
+     * `message` - the message to the callback, in this case "didEnter"
 
 - - -
 
