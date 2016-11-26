@@ -2,9 +2,14 @@
 @import LuaSkin ;
 
 // minimal module to allow loading this module on an unsupported machine to get at the
-// "hs._asm.touchbar.supported" function.  If we don't do it this way, loading
-// "hs._asm.touchbar.internal" causes an unresolved symbol error and fails to load... this
-// seems "nicer" in that it can still pop up a warning dialog if the user chooses.
+// "hs._asm.touchbar.supported" function.
+//
+// If we don't do it this way, loading "hs._asm.touchbar.internal" causes an unresolved
+// symbol error and fails to load... this seems "nicer" in that it can still pop up a
+// warning dialog if the user chooses.
+//
+// If they blindly attempt the new function anyways, this *will* pop up the dialog... if
+// they want an alternative fallback, they should have checked with supported first.
 
 static BOOL is_supported() { return NSClassFromString(@"DFRElement") ? YES : NO ; }
 
@@ -52,10 +57,17 @@ static int touchbar_new(lua_State *L) {
     return 1 ;
 }
 
+// placeholder
+static int touchbar_enabled(lua_State *L) {
+    lua_pushboolean(L, NO) ;
+    return 1 ;
+}
+
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"supported", touchbar_supported},
     {"new",       touchbar_new},
+    {"enabled",   touchbar_enabled},
 
     {NULL,        NULL}
 };

@@ -7,6 +7,9 @@ This code is based heavily on code found at https://github.com/bikkelbroeders/To
 
 This module requires that you are running macOS 10.12.1 build 16B2657 or greater.  Most people who have received the 10.12.1 update have an earlier build, which you can check by selecting "About this Mac" from the Apple menu and then clicking the mouse pointer on the version number displayed in the dialog box.  If you require an update, you can find it at https://support.apple.com/kb/dl1897.
 
+If you wish to use this module in an environment where the end-user's machine may not have the correct macOS release version, you should always check the value of `hs._asm.touchbar.supported` before trying to create the Touch Bar and provide your own fallback or message.  Failure to do so will cause your code to break to the Hammerspoon Console when you attempt to create and use the Touch Bar.
+
+Because this module is only supported on machines running a specific build of macOS 10.12.1 or later, you should always co
 Check out [Examples/touchbar.lua](Examples/touchbar.lua) for an example of how you might use this module.
 
 ### Installation
@@ -64,10 +67,10 @@ touchbar = require("hs._asm.touchbar")
 ~~~lua
 touchbar.enabled([state]) -> boolean
 ~~~
-Get or set whether or not Touch Bar can be used by applications.
+Get or set whether or not the Touch Bar can be used by applications.
 
 Parameters:
- * `state` - an optional boolean specifying whether applications can out items into the touch bar (true) or if this is limited only to the system items (false).
+ * `state` - an optional boolean specifying whether applications can put items into the touch bar (true) or if this is limited only to the system items (false).
 
 Returns:
  * if an argument is provided, returns a boolean indicating whether or not the change was successful; otherwise returns the current value

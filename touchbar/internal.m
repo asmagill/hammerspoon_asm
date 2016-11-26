@@ -216,10 +216,10 @@ static int touchbar_new(__unused lua_State *L) {
 
 /// hs._asm.touchbar.enabled([state]) -> boolean
 /// Function
-/// Get or set whether or not Touch Bar can be used by applications.
+/// Get or set whether or not the Touch Bar can be used by applications.
 ///
 /// Parameters:
-///  * `state` - an optional boolean specifying whether applications can out items into the touch bar (true) or if this is limited only to the system items (false).
+///  * `state` - an optional boolean specifying whether applications can put items into the touch bar (true) or if this is limited only to the system items (false).
 ///
 /// Returns:
 ///  * if an argument is provided, returns a boolean indicating whether or not the change was successful; otherwise returns the current value
