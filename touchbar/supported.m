@@ -44,6 +44,10 @@ static int touchbar_supported(lua_State *L) {
 
 // placeholder
 static int touchbar_new(lua_State *L) {
+    lua_pushcfunction(L, touchbar_supported) ;
+    lua_pushboolean(L, YES) ;
+    lua_pcall(L, 1, 1, 0) ;
+    lua_pop(L, 1) ; // pedantic, but let's clean up after ourselves since we're ignoring this.
     lua_pushnil(L) ;
     return 1 ;
 }

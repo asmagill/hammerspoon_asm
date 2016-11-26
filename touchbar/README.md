@@ -38,6 +38,7 @@ touchbar = require("hs._asm.touchbar")
 
 
 ##### Module Functions
+* <a href="#enabled">touchbar.enabled([state]) -> boolean</a>
 * <a href="#new">touchbar.new() -> touchbarObject | nil</a>
 * <a href="#supported">touchbar.supported([showLink]) -> boolean</a>
 
@@ -59,6 +60,25 @@ touchbar = require("hs._asm.touchbar")
 - - -
 
 ### Module Functions
+
+~~~lua
+touchbar.enabled([state]) -> boolean
+~~~
+Get or set whether or not Touch Bar can be used by applications.
+
+Parameters:
+ * `state` - an optional boolean specifying whether applications can out items into the touch bar (true) or if this is limited only to the system items (false).
+
+Returns:
+ * if an argument is provided, returns a boolean indicating whether or not the change was successful; otherwise returns the current value
+
+Notes:
+ * Setting this to false will remove all application items from the Touch Bar.
+
+ * On a machine that does not have a physical Touch Bar, this will default to false until the first touch bar is created, after which it will default to true.
+ * This function has not been tested on a MacBook Pro with an *actual* Touch Bar, so it is a guess that this will always default to true on such a machine.
+
+- - -
 
 <a name="new"></a>
 ~~~lua

@@ -6,6 +6,7 @@
 
 static const char *USERDATA_TAG = "hs._asm.touchbar" ;
 static int        refTable      = LUA_NOREF;
+static int        initialDFRStatus ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
@@ -18,8 +19,11 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
                       theRect.size.height) ;
 }
 
+// Part of SkyLight private Framework
 extern CGDisplayStreamRef SLSDFRDisplayStreamCreate(void *, dispatch_queue_t, CGDisplayStreamFrameAvailableHandler);
+// part of DFRFoundation private framework
 extern BOOL DFRSetStatus(int);
+extern int  DFRGetStatus();
 extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p);
 
 @interface ASMTouchBarView : NSView
@@ -32,10 +36,7 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 #endif
 @end
 
-@implementation ASMTouchBarView {
-//     CGDisplayStreamRef _stream;
-//     NSView *_displayView;
-}
+@implementation ASMTouchBarView {}
 
 - (instancetype) init {
     self = [super init];
@@ -52,8 +53,8 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
                                                                                __unused CGDisplayStreamUpdateRef updateRef) {
             if (status != kCGDisplayStreamFrameStatusFrameComplete) return;
             self->_displayView.layer.contents = (__bridge id)(frameSurface);
+            // thread dump shows that we're invoked from within the SkyLight private framework
 #ifdef INCLUDE_DUMP_THREAD
-            // attempt to learn more about what private framework this is using
             if (self->_dumpThread) {
                 [LuaSkin logDebug:[NSString stringWithFormat:@"%s:%@", USERDATA_TAG, [NSThread callStackSymbols]]] ;
                 self->_dumpThread = NO ;
@@ -61,7 +62,10 @@ extern BOOL DFRFoundationPostEventWithMouseActivity(NSEventType type, NSPoint p)
 #endif
         });
 
+        // Enables applications to put things into the touch bar
         DFRSetStatus(2);
+
+        // Likewise, CGDisplayStreamStop will pause updates
         CGDisplayStreamStart(_stream);
 
 #pragma clang diagnostic push
@@ -207,6 +211,39 @@ static int touchbar_new(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
     [skin pushNSObject:[ASMTouchBarWindow new]] ;
+    return 1 ;
+}
+
+/// hs._asm.touchbar.enabled([state]) -> boolean
+/// Function
+/// Get or set whether or not Touch Bar can be used by applications.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether applications can out items into the touch bar (true) or if this is limited only to the system items (false).
+///
+/// Returns:
+///  * if an argument is provided, returns a boolean indicating whether or not the change was successful; otherwise returns the current value
+///
+/// Notes:
+///  * Setting this to false will remove all application items from the Touch Bar.
+///
+///  * On a machine that does not have a physical Touch Bar, this will default to false until the first touch bar is created, after which it will default to true.
+///  * This function has not been tested on a MacBook Pro with an *actual* Touch Bar, so it is a guess that this will always default to true on such a machine.
+static int touchbar_enabled(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+
+    // 2 allows apps to put things into the touchbar, 0 disables this.
+    // System icons are still present, though.
+    // other numbers seem to have no effect -- bit 1 seems to be the toggle.
+    // check with DFRGetStatus() always seems to return 0 or 2, but we'll treat
+    // as bitfield just in case I'm wrong...
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, DFRSetStatus(lua_toboolean(L, 1) ? (DFRGetStatus() | 2) : (DFRGetStatus() & ~2))) ;
+    } else {
+        lua_pushboolean(L, ((DFRGetStatus() & 2) == 2) ? YES : NO) ;
+    }
     return 1 ;
 }
 
@@ -599,9 +636,12 @@ static int userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-// static int meta_gc(lua_State* __unused L) {
-//     return 0 ;
-// }
+static int meta_gc(lua_State* __unused L) {
+    // Under the assumption that this will already be 2 when the module loads on a machine with an
+    // actual Touch Bar, we reset it to whatever it was when this module was first loaded.
+    DFRSetStatus(initialDFRStatus) ;
+    return 0 ;
+}
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
@@ -627,24 +667,29 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new",       touchbar_new},
+    {"new",     touchbar_new},
+    {"enabled", touchbar_enabled},
 
     {NULL,        NULL}
 };
 
-// // Metatable for module, if needed
-// static const luaL_Reg module_metaLib[] = {
-//     {"__gc", meta_gc},
-//     {NULL,   NULL}
-// };
+// Metatable for module, if needed
+static const luaL_Reg module_metaLib[] = {
+    {"__gc", meta_gc},
+    {NULL,   NULL}
+};
 
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_touchbar_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
-                                 metaFunctions:nil    // or module_metaLib
+                                 metaFunctions:module_metaLib
                                objectFunctions:userdata_metaLib];
+
+// On the assumption that when this module first loads, this will be 0 on machines without
+// a touch bar and 2 on machines with a touch bar, save what it actually is for the meta_gc
+    initialDFRStatus = DFRGetStatus() ;
 
     [skin registerPushNSHelper:pushASMTouchBarWindow         forClass:"ASMTouchBarWindow"];
     [skin registerLuaObjectHelper:toASMTouchBarWindowFromLua forClass:"ASMTouchBarWindow"
