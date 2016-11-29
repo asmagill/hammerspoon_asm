@@ -1,3 +1,7 @@
+
+
+// NOTE: should probably rework documentation to refer to it as a Virtual Touch Bar.
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -225,6 +229,8 @@ static int touchbar_new(__unused lua_State *L) {
 ///  * if an argument is provided, returns a boolean indicating whether or not the change was successful; otherwise returns the current value
 ///
 /// Notes:
+///  * Checking the value of this function does not indicate whether or not the machine *can* support the Touch Bar but rather if it *is* supporting the Touch Bar; Use [hs._asm.touchbar.supported](#supported) to check whether or not the machine *can* support the Touch Bar.
+///
 ///  * Setting this to false will remove all application items from the Touch Bar.
 ///
 ///  * On a machine that does not have a physical Touch Bar, this will default to false until the first touch bar is created, after which it will default to true.

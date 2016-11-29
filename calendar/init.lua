@@ -16,10 +16,13 @@ require("hs.location") -- import CLLocation conversions
 
 -- private variables and methods -----------------------------------------
 
+local newCal = module._new
+module._new = nil
+
 -- Public interface ------------------------------------------------------
 
-module.events    = function(...) return module._new("events", ...) end
-module.reminders = function(...) return module._new("reminders", ...) end
+module.events    = function(...) return newCal("events", ...) end
+module.reminders = function(...) return newCal("reminders", ...) end
 
 module.startOfDay = function(date)
     local t = os.date("*t", date or os.time())
