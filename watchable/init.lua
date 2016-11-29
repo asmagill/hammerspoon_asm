@@ -23,6 +23,7 @@ mt_object = {
     __watchers = {},
     __objects = setmetatable({}, {__mode = "kv"}),
     __values = setmetatable({}, {__mode = "k"}),
+    __canChange = setmetatable({}, {__mode = "k"}),
     __name = USERDATA_TAG,
     __type = USERDATA_TAG,
     __index = function(self, index)
@@ -100,6 +101,29 @@ mt_watcher = {
             local object = mt_object.__objects[self._objPath]
             return object and object[lookupKey]
         end,
+        change = function(self, ...)
+            local args = table.pack(...)
+            local key, value
+            if args.n == 1 then
+                key, value = nil, args[1]
+            elseif args.n == 2 then
+                key, value = args[1], args[2]
+            else
+                error("value or key, value arguments expected", 2)
+            end
+            local lookupKey = self._objKey
+            if lookupKey == "*" and key == nil then
+                error("key required for path with wildcard key", 2)
+            elseif lookupKey == "*" then
+                lookupKey = key
+            end
+            local object = mt_object.__objects[self._objPath]
+            if object and mt_object.__canChange[object] then
+                object[lookupKey] = value
+            else
+                error("external changes disallowed for " .. self._objPath, 2)
+            end
+        end,
     },
     __gc = function(self) self.release(self) end,
     __tostring = function(self) return USERDATA_TAG .. ".watcher for path " .. self._path end,
@@ -113,11 +137,13 @@ module.mt_watcher = mt_watcher
 
 -- Public interface ------------------------------------------------------
 
-module.new = function(path)
+module.new = function(path, allowChange)
+    allowChange = allowChange or false
     if type(path) ~= "string" then error ("path must be a string", 2) end
     local self = setmetatable({}, mt_object)
     mt_object.__objects[path] = self
     mt_object.__objects[self] = path
+    mt_object.__canChange[self] = allowChange
     mt_object.__values[self] = {}
     return self
 end
