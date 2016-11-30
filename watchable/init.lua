@@ -1,6 +1,6 @@
 --- === hs._asm.watchable ===
 ---
---- Creates a watchable table object.  Setting a key-value pair within the returned table will trigger callbacks automatically to other modules which have registered as watchers.
+--- A minimalistic Key-Value-Observer framework for Lua.
 ---
 --- This module allows you to generate a table with a defined label or path that can be used to share data with other modules or code.  Other modules can register as watchers to a specific key-value pair within the watchable object table and will be automatically notified when the key-value pair changes.
 ---
@@ -11,12 +11,6 @@ local USERDATA_TAG = "hs._asm.watchable"
 local module = {}
 
 -- private variables and methods -----------------------------------------
-
-local validTypes = {
-    change = true,
-    create = true,
-    delete = true,
-}
 
 local mt_object, mt_watcher
 mt_object = {
@@ -37,14 +31,14 @@ mt_object = {
             if mt_object.__watchers[objectPath] then
                 if mt_object.__watchers[objectPath][index] then
                     for k, v in pairs(mt_object.__watchers[objectPath][index]) do
-                        if v._active then
+                        if v._active and v._callback then
                             v._callback(v, objectPath, index, oldValue, value)
                         end
                     end
                 end
                 if mt_object.__watchers[objectPath]["*"] then
                     for k, v in pairs(mt_object.__watchers[objectPath]["*"]) do
-                        if v._active then
+                        if v._active and v._callback then
                             v._callback(v, objectPath, index, oldValue, value)
                         end
                     end
@@ -71,8 +65,35 @@ mt_watcher = {
     __name = USERDATA_TAG .. ".watcher",
     __type = USERDATA_TAG .. ".watcher",
     __index = {
-        pause = function(self) self._active = false end,
-        resume = function(self) self._active = true end,
+--- hs._asm.watchable:pause() -> watchableObject
+--- Method
+--- Temporarily stop notifications about the key-value pair(s) watched by this watchableObject.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * the watchableObject
+        pause = function(self) self._active = false ; return self end,
+--- hs._asm.watchable:resume() -> watchableObject
+--- Method
+--- Resume notifications about the key-value pair(s) watched by this watchableObject which were previously paused.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * the watchableObject
+        resume = function(self) self._active = true ; return self end,
+--- hs._asm.watchable:release() -> nil
+--- Method
+--- Removes the watchableObject so that key-value pairs watched by this object no longer generate notifications.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * nil
         release = function(self)
             self._active = false
             for k,v in pairs(mt_object.__watchers[self._objPath][self._objKey]) do
@@ -81,9 +102,24 @@ mt_watcher = {
             setmetatable(self, nil)
             return nil
         end,
-        callback = function(self, callback)
-            if not callback then
-                return self._callback
+--- hs._asm.watchable:callback(fn | nil) -> watchableObject
+--- Method
+--- Change or remove the callback function for the watchableObject.
+---
+--- Parameters:
+---  * `fn` - a function, or an explicit nil to remove, specifying the new callback function to receive notifications for this watchableObject
+---
+--- Returns:
+---  * the watchableObject
+---
+--- Notes:
+---  * see [hs._asm.watchable.watch](#watch) for a description of the arguments the callback function should expect.
+        callback = function(self, ...)
+            local args = table.pack(...)
+            local callback = args[1]
+            if not callback and args.n == 0 then
+                self._callback = nil
+                return self
             elseif type(callback) == "function" then
                 self._callback = callback
                 return self
@@ -91,16 +127,38 @@ mt_watcher = {
                 error("callback must be a function", 2)
             end
         end,
+--- hs._asm.watchable:value([key]) -> currentValue
+--- Method
+--- Get the current value for the key-value pair being watched by the watchableObject
+---
+--- Parameters:
+---  * `key` - if the watchableObject was defined with a key of "*", this argument is required and specifies the specific key of the watched table to retrieve the value for.  If a specific key was specified when the watchableObject was defined, this argument is ignored.
+---
+--- Returns:
+---  * The current value for the key-value pair being watched by the watchableObject. May be nil.
         value = function(self, key)
             local lookupKey = self._objKey
             if lookupKey == "*" and key == nil then
-                error("key required for path with wildcard key", 2)
+                error("key required for watched path with wildcard key", 2)
             elseif lookupKey == "*" then
                 lookupKey = key
             end
             local object = mt_object.__objects[self._objPath]
             return object and object[lookupKey]
         end,
+--- hs._asm.watchable:change([key], value) -> watchableObject
+--- Method
+--- Externally change the value of the key-value pair being watched by the watchableObject
+---
+--- Parameters:
+---  * `key`   - if the watchableObject was defined with a key of "*", this argument is required and specifies the specific key of the watched table to retrieve the value for.  If a specific key was specified when the watchableObject was defined, this argument must not be provided.
+---  * `value` - the new value for the key.
+---
+--- Returns:
+---  * the watchableObject
+---
+--- Notes:
+---  * if external changes are not allowed for the specified path, this method generates an error
         change = function(self, ...)
             local args = table.pack(...)
             local key, value
@@ -113,7 +171,7 @@ mt_watcher = {
             end
             local lookupKey = self._objKey
             if lookupKey == "*" and key == nil then
-                error("key required for path with wildcard key", 2)
+                error("key required for watched path with wildcard key", 2)
             elseif lookupKey == "*" then
                 lookupKey = key
             end
@@ -121,7 +179,7 @@ mt_watcher = {
             if object and mt_object.__canChange[object] then
                 object[lookupKey] = value
             else
-                error("external changes disallowed for " .. self._objPath, 2)
+                error("external changes disallowed for watched path " .. self._objPath, 2)
             end
         end,
     },
@@ -130,16 +188,32 @@ mt_watcher = {
 }
 -- mt_watcher.__metatable = mt_watcher.__index
 
-
--- for testing; will remove in the future:
-module.mt_object = mt_object
-module.mt_watcher = mt_watcher
-
 -- Public interface ------------------------------------------------------
 
+--- hs._asm.watchable.new(path, [externalChanges]) -> table
+--- Constructor
+--- Creates a table that can be watched by other modules for key changes
+---
+--- Parameters:
+---  * `path`            - the global name for this internal table that external code can refer to the table as.
+---  * `externalChanges` - an optional boolean, default false, specifying whether external code can make changes to keys within this table (bi-directional communication).
+---
+--- Returns:
+---  * a table with metamethods which will notify external code which is registered to watch this table for key-value changes.
+---
+--- Notes:
+---  * This constructor is used by code which wishes to share state information which other code may register to watch.
+---
+---  * You may specify any string name as a path, but it must be unique -- an error will occur if the path name has already been registered.
+---  * All key-value pairs stored within this table are potentially watchable by external code -- if you wish to keep some data private, do not store it in this table.
+---  * `externalChanges` will apply to *all* keys within this table -- if you wish to only allow some keys to be externally modifiable, you will need to register separate paths.
+---  * If external changes are enabled, you will need to register your own watcher with [hs._asm.watchable.watch](#watch) if action is required when external changes occur.
 module.new = function(path, allowChange)
     allowChange = allowChange or false
     if type(path) ~= "string" then error ("path must be a string", 2) end
+    if mt_object.__objects[path] then
+        error(path .. " already registered", 2)
+    end
     local self = setmetatable({}, mt_object)
     mt_object.__objects[path] = self
     mt_object.__objects[self] = path
@@ -148,6 +222,30 @@ module.new = function(path, allowChange)
     return self
 end
 
+--- hs._asm.watchable.watch(path, [key], callback) -> watchableObject
+--- Constructor
+--- Creates a watcher that will be invoked when the specified key in the specified path is modified.
+---
+--- Parameters:
+---  * `path`     - a string specifying the path to watch.  If `key` is not provided, then this should be a string of the form "path.key" where the key will be identified as the string after the last "."
+---  * `key`      - if provided, a string specifying the specific key within the path to watch.
+---  * `callback` - a function which will be invoked when changes occur to the key specified within the path.  The function should expect the following arguments:
+---    * `watcher` - the watcher object itself
+---    * `path`    - the path being watched
+---    * `key`     - the specific key within the path which invoked this callback
+---    * `old`     - the old value for this key, may be nil
+---    * `new`     - the new value for this key, may be nil
+---
+--- Returns:
+---  * a watchableObject
+---
+--- Notes:
+---  * This constructor is used by code which wishes to watch state information which is being shared by other code.
+---
+---  * The callback function is invoked after the new value has already been set -- the callback is a "didChange" notification, not a "willChange" notification.
+---
+---  * If the key (specified as a separate argument or as the final component of path) is "*", then *all* key-value pair changes that occur for the table specified by the path will invoke a callback.  This is a shortcut for watching an entire table, rather than just a specific key-value pair of the table.
+---  * It is possible to register a watcher for a path that has not been registered with [hs._asm.watchable.new](#new) yet. Retrieving the current value with [hs._asm.watchable:value](#value) in such a case will return nil.
 module.watch = function(path, key, callback)
     if type(path) ~= "string" then error ("path must be a string", 2) end
     if type(key) == "function" then
@@ -158,7 +256,6 @@ module.watch = function(path, key, callback)
         key = objKey
     end
     if type(callback) ~= "function" then error ("callback must be a function", 2) end
-    initial = initial or false
 
     local objPath, objKey = path, key
 
@@ -167,7 +264,6 @@ module.watch = function(path, key, callback)
         _objKey = objKey,
         _objPath = objPath,
         _active = true,
-        _types = { "create", "change", "delete" },
         _callback = callback,
     }, mt_watcher)
 
@@ -179,5 +275,15 @@ module.watch = function(path, key, callback)
 end
 
 -- Return Module Object --------------------------------------------------
+
+-- for debugging, may remove in the future
+setmetatable(module, {
+    __index = function(self, key)
+        return ({
+            mt_object  = mt_object,
+            mt_watcher = mt_watcher,
+        })[key] or nil -- the "or nil" isn't necessary but it makes our purpose clearer
+    end,
+})
 
 return module

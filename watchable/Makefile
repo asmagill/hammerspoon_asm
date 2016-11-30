@@ -3,6 +3,7 @@ current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 MODULE := $(current_dir)
 PREFIX ?= ~/.hammerspoon
+VERSION ?= 0.x
 HS_APPLICATION ?= /Applications
 
 OBJCFILE = ${wildcard *.m}
@@ -24,11 +25,16 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=@clang
-EXTRA_CFLAGS ?= -Wconversion -Wdeprecated -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
-CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE -Wall -Wextra $(EXTRA_CFLAGS)
+WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration
+EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -mmacosx-version-min=10.10
+
+CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(SOFILE)
+
+release: clean all
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
 
 .m.so: $(HEADERS) $(OBJCFILE)
 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
@@ -53,10 +59,13 @@ install-lua: $(LUAFILE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
 
 markdown:
-	hs -c "_xtras.docmaker.genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
+	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
+
+markdownWithTOC:
+	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]], true)" > README.tmp.md
 
 clean:
-	rm -rf $(SOFILE) *.dSYM
+	rm -rf $(SOFILE) *.dSYM tmp
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
