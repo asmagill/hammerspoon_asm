@@ -5,7 +5,7 @@
 @import LuaSkin ;
 #pragma clang diagnostic pop
 
-#define USERDATA_TAG "hs._asm.canvas.matrix"
+static const char *USERDATA_TAG = "hs._asm.canvas.matrix" ;
 static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
@@ -100,6 +100,7 @@ static int matrix_append(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * Mathematically this method multiples the new matrix by the original one and returns the result of the multiplication.
+///  * You can use this method to apply a transformation *before* the currently applied transformations, without having to know what the existing transformations in effect for the canvas element are.
 static int matrix_prepend(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE,

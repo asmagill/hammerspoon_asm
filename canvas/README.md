@@ -1,14 +1,7 @@
 hs._asm.canvas
 ==============
 
-### *Update September 16, 2016*
-This module as a stand alone module is no longer being developed.  It has been moved into a submodule of `hs._asm.enclosure` which aims to provide a merging and expansion of `hs.webview`, `hs.drawing`, `hs._asm.canvas`, and other NSView based submodules under a single umbrella to allow more flexibility in combining a wide variety of visual elements into a Hammerspoon controlable whole.
-
-The documentation listed here remains valid -- a wrapper for `hs._asm.canvas` is included in the `hs._asm.enclosure` hierarchy which allows use of "canvas" as described in here with minimal to no changes in your code (no promises that things might not change as I continue with the expansion, but for right now, the sample code provided here, including the `hs.drawing` wrapper, does work with no change from what is documented here.)
-
-<hr>
-
-### Original documentation
+*Novemeber 30, 2016: Their have been some minor syntax changes and simplifications made to this module; updated documentation will follow.*
 
 A different approach to drawing in Hammerspoon
 
@@ -38,7 +31,7 @@ $ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
 $ tar -xzf ~/Downloads/canvas-v0.x.tar.gz # or wherever your downloads are located
 ~~~
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `internal.m`, `matrix.lua`, `matrix_internal.m`, `ASMCanvas.h`, `imageAdditions.m` and `Makefile` (nothing else is required, though if you wish to try out the `hs.drawing` wrapper, include `drawing.lua` as well) into a directory of your choice and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `internal.m`, `drawing.lua`, `matrix.lua`, `matrix_internal.m`, `ASMCanvas.h`, `imageAdditions.m` and `Makefile` (nothing else is required) into a directory of your choice and then do the following:
 
 ~~~sh
 $ cd wherever-you-downloaded-the-files

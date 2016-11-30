@@ -1,16 +1,14 @@
 #import "ASMCanvas.h"
 
-// #define VIEW_DEBUG
+#define VIEW_DEBUG
 
-#define USERDATA_TAG "hs._asm.canvas"
+static const char *USERDATA_TAG = "hs._asm.canvas" ;
 static int refTable = LUA_NOREF;
 
 // Can't have "static" or "constant" dynamic NSObjects like NSArray, so define in lua_open
 static NSDictionary *languageDictionary ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 typedef NS_ENUM(NSInteger, attributeValidity) {
     attributeValid,
@@ -28,11 +26,6 @@ static BOOL parentIsWindow(NSView *theView) {
     if (owningWindow && [owningWindow.contentView isEqualTo:theView]) isWindow = YES ;
 //     [LuaSkin logWarn:(isWindow ? @"parent is a window" : @"parent is a view")] ;
     return isWindow ;
-}
-
-static void removeViewFromSuperview(NSView *theView) {
-    [theView removeFromSuperview] ;
-    if ([theView respondsToSelector:@selector(didRemoveFromCanvas)]) [theView performSelector:@selector(didRemoveFromCanvas)] ;
 }
 
 static NSDictionary *defineLanguageDictionary() {
@@ -847,10 +840,19 @@ static int userdata_gc(lua_State* L) ;
 
 #pragma mark -
 @implementation ASMCanvasWindow
+// Apple's stupid API change gave this an enum name (finally) in 10.12, but clang complains about using the underlying
+// type directly, which we have to do to maintain Xcode 7 compilability, so to keep Xcode 8 quite... this:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverriding-method-mismatch"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmismatched-parameter-types"
 - (instancetype)initWithContentRect:(NSRect)contentRect
                           styleMask:(NSUInteger)windowStyle
                             backing:(NSBackingStoreType)bufferingType
-                              defer:(BOOL)deferCreation {
+                              defer:(BOOL)deferCreation
+#pragma clang diagnostic pop
+#pragma clang diagnostic pop
+{
 
     LuaSkin *skin = [LuaSkin shared];
 
@@ -878,8 +880,21 @@ static int userdata_gc(lua_State* L) ;
         self.hidesOnDeactivate  = NO;
         self.animationBehavior  = NSWindowAnimationBehaviorNone;
         self.level              = NSScreenSaverWindowLevel;
+        _subroleOverride        = nil ;
     }
     return self;
+}
+
+- (NSString *)accessibilitySubrole {
+    if (_subroleOverride) {
+        if ([_subroleOverride isEqualToString:@""]) {
+            return [super accessibilitySubrole] ;
+        } else {
+            return _subroleOverride ;
+        }
+    } else {
+        return [[super accessibilitySubrole] stringByAppendingString:@".Hammerspoon"] ;
+    }
 }
 
 - (BOOL)canBecomeKeyWindow {
@@ -909,20 +924,7 @@ static int userdata_gc(lua_State* L) ;
     [self setAlphaValue:0.0];
     [self makeKeyAndOrderFront:nil];
     [NSAnimationContext beginGrouping];
-      __weak ASMCanvasWindow *bself = self; // in ARC, __block would increase retain count
       [[NSAnimationContext currentContext] setDuration:fadeTime];
-      [[NSAnimationContext currentContext] setCompletionHandler:^{
-          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-          ASMCanvasWindow *mySelf = bself ;
-          if (mySelf) {
-              [((ASMCanvasView *)mySelf.contentView).elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-                  NSView *theView = element[@"view"] ;
-                  if (theView) {
-                      if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
-                  }
-              }] ;
-          }
-      }];
       [[self animator] setAlphaValue:alphaSetting];
     [NSAnimationContext endGrouping];
 }
@@ -947,12 +949,6 @@ static int userdata_gc(lua_State* L) ;
                       [mySelf close] ;  // the least we can do is close the canvas if an error occurs with __gc
                   }
               } else {
-                  [((ASMCanvasView *)mySelf.contentView).elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-                      NSView *theView = element[@"view"] ;
-                      if (theView) {
-                          if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
-                      }
-                  }] ;
                   [mySelf orderOut:nil];
                   [mySelf setAlphaValue:alphaSetting];
               }
@@ -1147,6 +1143,7 @@ static int userdata_gc(lua_State* L) ;
     }
 }
 
+// NOTE: Do we need/want this?
 - (void)subviewCallback:(id)sender {
     if (_mouseCallbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared];
@@ -1230,18 +1227,24 @@ static int userdata_gc(lua_State* L) ;
 - (void)rightMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 - (void)otherMouseUp:(NSEvent *)theEvent   { [self mouseDown:theEvent] ; }
 
-- (void)didAddSubview:(NSView *)subview {
 #ifdef VIEW_DEBUG
+- (void)didAddSubview:(NSView *)subview {
     [LuaSkin logInfo:[NSString stringWithFormat:@"%s - didAddSubview for %@", USERDATA_TAG, subview]] ;
+}
 #endif
-    if ([subview respondsToSelector:@selector(didAddToCanvas)]) [subview performSelector:@selector(didAddToCanvas)] ;
+
+- (void)viewDidMoveToSuperview {
+    if (!self.superview && self.wrapperWindow) {
+    // stick us back into our wrapper window if we've been released from another canvas
+        self.frame = self.wrapperWindow.contentView.bounds ;
+        self.wrapperWindow.contentView = self ;
+    }
 }
 
 - (void)willRemoveSubview:(NSView *)subview {
 #ifdef VIEW_DEBUG
     [LuaSkin logInfo:[NSString stringWithFormat:@"%s - willRemoveSubview for %@", USERDATA_TAG, subview]] ;
 #endif
-    if ([subview respondsToSelector:@selector(willRemoveFromCanvas)]) [subview performSelector:@selector(willRemoveFromCanvas)] ;
 
     __block BOOL viewFound = NO ;
     [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, BOOL *stop){
@@ -1988,10 +1991,8 @@ static int userdata_gc(lua_State* L) ;
                 if (![newView isEqualTo:oldView]) {
                     if (![newView isDescendantOf:self] && ((!newView.window) || (newView.window && ![newView.window isVisible]))) {
                         if (oldView) {
-                            removeViewFromSuperview(oldView) ;
+                            [oldView removeFromSuperview] ;
                         }
-
-                        if ([newView respondsToSelector:@selector(willAddToCanvas)]) [newView performSelector:@selector(willAddToCanvas)] ;
                         [self addSubview:newView] ;
                     } else {
                         [LuaSkin logWarn:[NSString stringWithFormat:@"%s:view for element %lu is already in use", USERDATA_TAG, index + 1]] ;
@@ -2071,7 +2072,7 @@ static int userdata_gc(lua_State* L) ;
         case attributeNulling:
             if ([keyName isEqualToString:@"view"]) {
                 NSView *oldView = (NSView *)_elementList[index][keyName] ;
-                removeViewFromSuperview(oldView) ;
+                [oldView removeFromSuperview] ;
             } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
                 if ([[self getElementValueFor:@"imageAnimates" atIndex:index] boolValue]) {
                     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:%@ cannot be changed when element %lu is animating", USERDATA_TAG, keyName, index + 1]] ;
@@ -2149,20 +2150,7 @@ static int userdata_gc(lua_State* L) ;
     [self setAlphaValue:0.0];
     [self setHidden:NO];
     [NSAnimationContext beginGrouping];
-      __weak ASMCanvasView *bself = self; // in ARC, __block would increase retain count
       [[NSAnimationContext currentContext] setDuration:fadeTime];
-      [[NSAnimationContext currentContext] setCompletionHandler:^{
-          // unlikely that bself will go to nil after this starts, but this keeps the warnings down from [-Warc-repeated-use-of-weak]
-          ASMCanvasView *mySelf = bself ;
-          if (mySelf) {
-              [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-                  NSView *theView = element[@"view"] ;
-                  if (theView) {
-                      if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
-                  }
-              }] ;
-          }
-      }];
       [[self animator] setAlphaValue:alphaSetting];
     [NSAnimationContext endGrouping];
 }
@@ -2177,14 +2165,8 @@ static int userdata_gc(lua_State* L) ;
           ASMCanvasView *mySelf = bself ;
           if (mySelf) {
               if (deleteView) {
-                  removeViewFromSuperview(mySelf) ;
+                  [mySelf removeFromSuperview] ;
               } else {
-                  [mySelf.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-                      NSView *theView = element[@"view"] ;
-                      if (theView) {
-                          if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
-                      }
-                  }] ;
                   [mySelf setHidden:YES];
                   [mySelf setAlphaValue:alphaSetting];
               }
@@ -2192,68 +2174,6 @@ static int userdata_gc(lua_State* L) ;
       }];
       [[self animator] setAlphaValue:0.0];
     [NSAnimationContext endGrouping];
-}
-
-#pragma mark - Optional Notifications for Third-Party subvies
-
-// This also removes compiler warnings about unknown selectors
-- (void)willRemoveFromCanvas {
-#ifdef VIEW_DEBUG
-    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in willRemoveFromCanvas", USERDATA_TAG]] ;
-#endif
-}
-- (void)didRemoveFromCanvas {
-#ifdef VIEW_DEBUG
-    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in didRemoveFromCanvas", USERDATA_TAG]] ;
-#endif
-    _wrapperWindow.contentView = self ;
-}
-- (void)willAddToCanvas      {
-#ifdef VIEW_DEBUG
-    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in willAddToCanvas", USERDATA_TAG]] ;
-#endif
-    _wrapperWindow.contentView = nil ;
-}
-- (void)didAddToCanvas       {
-#ifdef VIEW_DEBUG
-    [LuaSkin logWarn:[NSString stringWithFormat:@"%s - in didAddToCanvas", USERDATA_TAG]] ;
-#endif
-}
-
-- (void)canvasWillHide {
-    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasWillHide)]) [theView performSelector:@selector(canvasWillHide)] ;
-        }
-    }] ;
-}
-
-- (void)canvasDidHide {
-    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
-        }
-    }] ;
-}
-
-- (void)canvasWillShow {
-    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasWillShow)]) [theView performSelector:@selector(canvasWillShow)] ;
-        }
-    }] ;
-}
-
-- (void)canvasDidShow {
-    [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
-        }
-    }] ;
 }
 
 @end
@@ -2387,56 +2307,17 @@ static int default_textAttributes(lua_State *L) {
 
 #pragma mark - Module Methods
 
-/// hs._asm.canvas:windowTitle([title]) -> canvasObject
-/// Method
-/// Sets the title for the canvas window.
-///
-/// Parameters:
-///  * `title` - if specified and not nil, the title to set for the webview window.
-///
-/// Returns:
-///  * The canvas Object
-///
-/// Notes:
-///  * The title will be hidden unless the window style includes the "titled" style (see [hs._asm.canvas:windowStyle](#windowStyle) and `hs.webview.windowMasks`)
-static int canvas_windowTitle(lua_State *L) {
+static int canvas_accessibilitySubrole(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
     if (lua_gettop(L) == 1) {
-      [skin pushNSObject:canvasWindow.title] ;
+      [skin pushNSObject:canvasWindow.subroleOverride] ;
     } else {
-        canvasWindow.title = [skin toNSObjectAtIndex:2] ;
-    }
-
-    lua_settop(L, 1) ;
-    return 1 ;
-}
-
-static int canvas_windowStyle(lua_State *L) {
-// NOTE:  This method is wrapped in init.lua
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
-    ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
-
-    if (lua_type(L, 2) == LUA_TNONE) {
-        lua_pushinteger(L, (lua_Integer)canvasWindow.styleMask) ;
-    } else {
-            @try {
-            // Because we're using NSPanel, the title is reset when the style is changed
-                NSString *theTitle = canvasWindow.title ;
-            // Also, some styles don't get properly set unless we start from a clean slate
-                [canvasWindow setStyleMask:0] ;
-                [canvasWindow setStyleMask:(NSUInteger)luaL_checkinteger(L, 2)] ;
-                if (theTitle) canvasWindow.title = theTitle ;
-            }
-            @catch ( NSException *theException ) {
-                return luaL_error(L, "Invalid style mask: %s, %s", [[theException name] UTF8String], [[theException reason] UTF8String]) ;
-            }
-        lua_settop(L, 1) ;
+        canvasWindow.subroleOverride = lua_isstring(L, 2) ? [skin toNSObjectAtIndex:2] : nil ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -2569,25 +2450,12 @@ static int canvas_show(lua_State *L) {
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasWillShow)]) [theView performSelector:@selector(canvasWillShow)] ;
-        }
-    }] ;
-
     if (lua_gettop(L) == 1) {
         if (parentIsWindow(canvasView)) {
             [canvasWindow makeKeyAndOrderFront:nil];
         } else {
             canvasView.hidden = NO ;
         }
-        [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-            NSView *theView = element[@"view"] ;
-            if (theView) {
-                if ([theView respondsToSelector:@selector(canvasDidShow)]) [theView performSelector:@selector(canvasDidShow)] ;
-            }
-        }] ;
     } else {
         if (parentIsWindow(canvasView)) {
             [canvasWindow fadeIn:lua_tonumber(L, 2)];
@@ -2617,25 +2485,12 @@ static int canvas_hide(lua_State *L) {
     ASMCanvasView   *canvasView   = [skin luaObjectAtIndex:1 toClass:"ASMCanvasView"] ;
     ASMCanvasWindow *canvasWindow = (ASMCanvasWindow *)canvasView.window ;
 
-    [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-        NSView *theView = element[@"view"] ;
-        if (theView) {
-            if ([theView respondsToSelector:@selector(canvasWillHide)]) [theView performSelector:@selector(canvasWillHide)] ;
-        }
-    }] ;
-
     if (lua_gettop(L) == 1) {
         if (parentIsWindow(canvasView)) {
             [canvasWindow orderOut:nil];
         } else {
             canvasView.hidden = YES ;
         }
-        [canvasView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-            NSView *theView = element[@"view"] ;
-            if (theView) {
-                if ([theView respondsToSelector:@selector(canvasDidHide)]) [theView performSelector:@selector(canvasDidHide)] ;
-            }
-        }] ;
     } else {
         if (parentIsWindow(canvasView)) {
             [canvasWindow fadeOut:lua_tonumber(L, 2) andDelete:NO];
@@ -3093,18 +2948,6 @@ static int canvas_wantsLayer(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.canvas:behavior([behavior]) -> canvasObject | currentValue
-/// Method
-/// Get or set the window behavior settings for the canvas object.
-///
-/// Parameters:
-///  * `behavior` - an optional number representing the desired window behaviors for the canvas object.
-///
-/// Returns:
-///  * If an argument is provided, the canvas object; otherwise the current value.
-///
-/// Notes:
-///  * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See [hs._asm.canvas.windowBehaviors](#windowBehaviors) for more information.
 static int canvas_behavior(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
@@ -3363,7 +3206,7 @@ static int canvas_removeElementAtIndex(lua_State *L) {
 
     NSUInteger realIndex = (NSUInteger)tablePosition ;
     if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-        removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]);
+        [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
     }
     [canvasView.elementList removeObjectAtIndex:realIndex] ;
 
@@ -3666,7 +3509,7 @@ static int canvas_assignElementAtIndex(lua_State *L) {
             if (elementType && [ALL_TYPES containsObject:elementType]) {
                 NSUInteger realIndex = (NSUInteger)tablePosition ;
                 if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-                    removeViewFromSuperview(canvasView.elementList[realIndex][@"view"]) ;
+                    [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
                 }
                 canvasView.elementList[realIndex] = [[NSMutableDictionary alloc] init] ;
                 [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {
@@ -3720,7 +3563,7 @@ static int pushCompositeTypes(__unused lua_State *L) {
 
 /// hs._asm.canvas.windowBehaviors[]
 /// Constant
-/// Array of window behavior labels for determining how a canvas, drawing, or webview object is handled in Spaces and Exposé
+/// Array of window behavior labels for determining how a canvas or drawing object is handled in Spaces and Exposé
 ///
 /// * `default`                   - The window can be associated to one space at a time.
 /// * `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.
@@ -3732,7 +3575,7 @@ static int pushCompositeTypes(__unused lua_State *L) {
 /// * `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.
 /// * `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.
 ///
-/// The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but can be used with windows created by other modules (as of this writing, `hs.webview` and the Hammerspoon console itself)
+/// The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but are included for completness and are expected to be used by future additions.
 ///
 /// Only one of these may be active at a time:
 ///
@@ -3833,49 +3676,6 @@ static int cg_windowLevels(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.canvas.windowMasks[]
-/// Constant
-/// A table containing valid masks for the webview window.
-///
-/// Table Keys:
-///  * `borderless`           - The window has no border decorations (default)
-///  * `titled`               - The window title bar is displayed
-///  * `closable`             - The window has a close button
-///  * `miniaturizable`       - The window has a minimize button
-///  * `resizable`            - The window is resizable
-///  * `texturedBackground`   - The window has a texturized background
-///  * `fullSizeContentView`  - If titled, the titlebar is within the frame size specified at creation, not above it.  Shrinks actual content area by the size of the titlebar, if present.
-///  * `utility`              - If titled, the window shows a utility panel titlebar (thinner than normal)
-///  * `nonactivating`        - If the window is activated, it won't bring other Hammerspoon windows forward as well
-///  * `HUD`                  - Requires utility; the window titlebar is shown dark and can only show the close button and title (if they are set)
-///
-/// Need to test and document better
-///  * unifiedTitleAndToolbar - The window's title bar and toolbar have a unified look—that is, a continuous background. A horizontal separator line appears under the title bar and toolbar .
-///  * fullScreen             - The window can appear full screen. A fullscreen window does not draw its title bar, and may have special handling for its toolbar. This mask is automatically toggled when toggleFullScreen: is called.
-///  * docModal               - The panel is created as a modal sheet.
-///
-/// Notes:
-///  * The Maximize button in the window title is enabled when Resizable is set.
-///  * The Close, Minimize, and Maximize buttons are only visible when the Window is also Titled.
-static int canvas_windowMasksTable(lua_State *L) {
-    lua_newtable(L) ;
-      lua_pushinteger(L, NSBorderlessWindowMask) ;             lua_setfield(L, -2, "borderless") ;
-      lua_pushinteger(L, NSTitledWindowMask) ;                 lua_setfield(L, -2, "titled") ;
-      lua_pushinteger(L, NSClosableWindowMask) ;               lua_setfield(L, -2, "closable") ;
-      lua_pushinteger(L, NSMiniaturizableWindowMask) ;         lua_setfield(L, -2, "miniaturizable") ;
-      lua_pushinteger(L, NSResizableWindowMask) ;              lua_setfield(L, -2, "resizable") ;
-      lua_pushinteger(L, NSTexturedBackgroundWindowMask) ;     lua_setfield(L, -2, "texturedBackground") ;
-      lua_pushinteger(L, NSUnifiedTitleAndToolbarWindowMask) ; lua_setfield(L, -2, "unifiedTitleAndToolbar") ;
-      lua_pushinteger(L, NSFullScreenWindowMask) ;             lua_setfield(L, -2, "fullScreen") ;
-      lua_pushinteger(L, NSFullSizeContentViewWindowMask) ;    lua_setfield(L, -2, "fullSizeContentView") ;
-      lua_pushinteger(L, NSUtilityWindowMask) ;                lua_setfield(L, -2, "utility") ;
-      lua_pushinteger(L, NSDocModalWindowMask) ;               lua_setfield(L, -2, "docModal") ;
-      lua_pushinteger(L, NSNonactivatingPanelMask) ;           lua_setfield(L, -2, "nonactivating") ;
-      lua_pushinteger(L, NSHUDWindowMask) ;                    lua_setfield(L, -2, "HUD") ;
-    return 1 ;
-}
-
-
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -3939,29 +3739,13 @@ static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     ASMCanvasView *theView = get_objectFromUserdata(__bridge_transfer ASMCanvasView, L, 1, USERDATA_TAG) ;
     if (theView) {
-        if (!parentIsWindow(theView)) removeViewFromSuperview(theView) ;
-
-        // ensure that our subviews get the appropriate notifications
-        [theView.elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, __unused BOOL *stop) {
-            NSView *subview = element[@"view"] ;
-            if (subview) {
-#ifdef VIEW_DEBUG
-                [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc removing view with frame %@ at index %lu", USERDATA_TAG, NSStringFromRect(subview.frame), idx]] ;
-#endif
-                removeViewFromSuperview(subview) ;
-            }
-        }] ;
-#ifdef VIEW_DEBUG
-        for (NSView *subview in [theView subviews]) {
-            [LuaSkin logWarn:[NSString stringWithFormat:@"%s.__gc orphan subview with frame %@ found after element subview purge", USERDATA_TAG, NSStringFromRect(subview.frame)]] ;
-        }
-#endif
+        if (!parentIsWindow(theView)) [theView removeFromSuperview] ;
         theView.mouseCallbackRef = [skin luaUnref:refTable ref:theView.mouseCallbackRef] ;
         theView.selfRef          = [skin luaUnref:refTable ref:theView.selfRef] ;
-        theView.wrapperWindow    = nil ;
 
         ASMCanvasWindow *theWindow = theView.wrapperWindow ;
         if (theWindow) [theWindow close];
+        theView.wrapperWindow    = nil ;
     }
 
     // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -3977,47 +3761,43 @@ static int userdata_gc(lua_State* L) {
 // // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
 // affects drawing elements
-    {"assignElement",       canvas_assignElementAtIndex},
-    {"canvasElements",      canvas_canvasElements},
-    {"canvasDefaults",      canvas_canvasDefaults},
-    {"canvasMouseEvents",   canvas_canvasMouseEvents},
-    {"canvasDefaultKeys",   canvas_canvasDefaultKeys},
-    {"canvasDefaultFor",    canvas_canvasDefaultFor},
-    {"elementAttribute",    canvas_elementAttributeAtIndex},
-    {"elementBounds",       canvas_elementBoundsAtIndex},
-    {"elementCount",        canvas_elementCount},
-    {"elementKeys",         canvas_elementKeysAtIndex},
-    {"imageFromCanvas",     canvas_canvasAsImage},
-    {"insertElement",       canvas_insertElementAtIndex},
-    {"minimumTextSize",     canvas_getTextElementSize},
-    {"removeElement",       canvas_removeElementAtIndex},
+    {"assignElement",         canvas_assignElementAtIndex},
+    {"canvasElements",        canvas_canvasElements},
+    {"canvasDefaults",        canvas_canvasDefaults},
+    {"canvasMouseEvents",     canvas_canvasMouseEvents},
+    {"canvasDefaultKeys",     canvas_canvasDefaultKeys},
+    {"canvasDefaultFor",      canvas_canvasDefaultFor},
+    {"elementAttribute",      canvas_elementAttributeAtIndex},
+    {"elementBounds",         canvas_elementBoundsAtIndex},
+    {"elementCount",          canvas_elementCount},
+    {"elementKeys",           canvas_elementKeysAtIndex},
+    {"imageFromCanvas",       canvas_canvasAsImage},
+    {"insertElement",         canvas_insertElementAtIndex},
+    {"minimumTextSize",       canvas_getTextElementSize},
+    {"removeElement",         canvas_removeElementAtIndex},
 // affects whole canvas
-    {"alpha",               canvas_alpha},
-    {"behavior",            canvas_behavior},
-    {"clickActivating",     canvas_clickActivating},
-    {"delete",              canvas_delete},
-    {"hide",                canvas_hide},
-    {"isOccluded",          canvas_isOccluded},
-    {"isShowing",           canvas_isShowing},
-    {"level",               canvas_level},
-    {"mouseCallback",       canvas_mouseCallback},
-    {"orderAbove",          canvas_orderAbove},
-    {"orderBelow",          canvas_orderBelow},
-    {"show",                canvas_show},
-    {"size",                canvas_size},
-    {"topLeft",             canvas_topLeft},
-    {"transformation",      canvas_canvasTransformation},
-    {"wantsLayer",          canvas_wantsLayer},
+    {"alpha",                 canvas_alpha},
+    {"behavior",              canvas_behavior},
+    {"clickActivating",       canvas_clickActivating},
+    {"delete",                canvas_delete},
+    {"hide",                  canvas_hide},
+    {"isOccluded",            canvas_isOccluded},
+    {"isShowing",             canvas_isShowing},
+    {"level",                 canvas_level},
+    {"mouseCallback",         canvas_mouseCallback},
+    {"orderAbove",            canvas_orderAbove},
+    {"orderBelow",            canvas_orderBelow},
+    {"show",                  canvas_show},
+    {"size",                  canvas_size},
+    {"topLeft",               canvas_topLeft},
+    {"transformation",        canvas_canvasTransformation},
+    {"wantsLayer",            canvas_wantsLayer},
+    {"_accessibilitySubrole", canvas_accessibilitySubrole},
 
-//     {"closeOnEscape",              webview_closeOnEscape},
-//     {"deleteOnClose",              webview_deleteOnClose},
-    {"windowTitle",         canvas_windowTitle},
-    {"_windowStyle",        canvas_windowStyle},
-
-    {"__tostring",          userdata_tostring},
-    {"__eq",                userdata_eq},
-    {"__gc",                userdata_gc},
-    {NULL,                  NULL}
+    {"__tostring",            userdata_tostring},
+    {"__eq",                  userdata_eq},
+    {"__gc",                  userdata_gc},
+    {NULL,                    NULL}
 };
 
 // Functions for returned object when module loads
@@ -4047,7 +3827,6 @@ int luaopen_hs__asm_canvas_internal(lua_State* L) {
     pushCompositeTypes(L) ;      lua_setfield(L, -2, "compositeTypes") ;
     pushCollectionTypeTable(L) ; lua_setfield(L, -2, "windowBehaviors") ;
     cg_windowLevels(L) ;         lua_setfield(L, -2, "windowLevels") ;
-    canvas_windowMasksTable(L) ; lua_setfield(L, -2, "windowMasks") ;
 
     return 1;
 }

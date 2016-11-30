@@ -2,6 +2,7 @@
 @import LuaSkin ;
 
 @interface ASMCanvasWindow : NSPanel <NSWindowDelegate>
+@property NSString            *subroleOverride ;
 @end
 
 @interface ASMCanvasView : NSView
