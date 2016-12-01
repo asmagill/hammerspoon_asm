@@ -113,6 +113,7 @@ Returns:
 
 Notes:
  * Mathematically this method multiples the new matrix by the original one and returns the result of the multiplication.
+ * You can use this method to apply a transformation *before* the currently applied transformations, without having to know what the existing transformations in effect for the canvas element are.
 
 - - -
 

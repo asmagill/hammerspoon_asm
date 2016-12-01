@@ -9,14 +9,15 @@
 --- ### Known issues/differences between this module and `hs.drawing`:
 ---
 ---  * images which are "template images" (i.e. some of the images with names in `hs.image.systemImageNames` and any image retrieved from an `hs.menubar` object) are displayed with an implicit `imageAlpha` of 0.5.  This closely mimics the NSImageView behavior observed with `hs.drawing`, but since Apple has not provided full details on how a template image is rendered when it is *not* used as a template, this is just a guess.
-
+---
 ---  * image frames from `hs.drawing` are approximated with additional canvas elements inserted into the canvas... the frames always looked semi-ugly to me, and since this module now allows you to create as complex a frame as you like... consider these as "examples", and poor ones at that.  Plus I'm not sure anyone used them anyways -- at the time I only really wanted rotation, the others (frame, alignment, and scaling) were just tacked on because they were available.
 ---
 --- ### Usage
 ---
---- This submodule is not loaded as part of the `hs._asm.canvas` module and has to be explicitly enabled.  To enable this wrapper, type the following into your Hammerspoon Console: `hs.settings.set("useCanvasWrappedDrawing", true)`.
+--- This submodule is not loaded as part of the `hs._asm.canvas` module and has to be explicitly enabled.  To enable this wrapper, type the following into your Hammerspoon Console: `hs.settings.set("useCanvasWrappedDrawing", true)` and reload or restart Hammerspoon.
 ---
---- To return to using the officially included version of `hs.drawing`, type the following into your Hammerspoon Console: `hs.settings.delete("useCanvasWrappedDrawing")`.
+--- To return to using the officially included version of `hs.drawing`, type the following into your Hammerspoon Console: `hs.settings.clear("useCanvasWrappedDrawing")` and reload or restart Hammerspoon.
+
 local USERDATA_TAG = "hs.drawing"
 
 if not require"hs.settings".get("useCanvasWrappedDrawing") then

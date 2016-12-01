@@ -290,7 +290,7 @@ static NSDictionary *defineLanguageDictionary() {
                                    @"w" : @"100%",
                                },
             @"nullable"      : @(NO),
-            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image", @"view" ],
+            @"requiredFor"   : @[ @"rectangle", @"oval", @"ellipticalArc", @"text", @"image", @"canvas" ],
         },
         @"id" : @{
             @"class"       : @[ [NSString class], [NSNumber class] ],
@@ -553,21 +553,21 @@ static NSDictionary *defineLanguageDictionary() {
             @"nullable"    : @(NO),
             @"requiredFor" : ALL_TYPES,
         },
-        @"view" : @{
+        @"canvas" : @{
             @"class"       : @[ [NSView class] ],
             @"luaClass"    : @"userdata object subclassing NSView",
             @"nullable"    : @(YES),
             @"default"     : [NSNull null],
-            @"requiredFor" : @[ @"view" ],
+            @"requiredFor" : @[ @"canvas" ],
         },
-        @"viewAlpha" : @{
+        @"canvasAlpha" : @{
             @"class"       : @[ [NSNumber class] ],
             @"luaClass"    : @"number",
             @"nullable"    : @(YES),
             @"default"     : @(1.0),
             @"minNumber"   : @(0.0),
             @"maxNumber"   : @(1.0),
-            @"optionalFor" : @[ @"view" ],
+            @"optionalFor" : @[ @"canvas" ],
         },
         @"windingRule" : @{
             @"class"       : @[ [NSString class] ],
@@ -902,8 +902,8 @@ static int userdata_gc(lua_State* L) ;
     if (self.contentView && [self.contentView isKindOfClass:[ASMCanvasView class]]) {
         NSArray *elementList = ((ASMCanvasView *)self.contentView).elementList ;
         [elementList enumerateObjectsUsingBlock:^(NSDictionary *element, __unused NSUInteger idx, BOOL *stop) {
-            if (element[@"view"] && [element[@"view"] respondsToSelector:@selector(canBecomeKeyView)]) {
-                allowKey = [element[@"view"] canBecomeKeyView] ;
+            if (element[@"canvas"] && [element[@"canvas"] respondsToSelector:@selector(canBecomeKeyView)]) {
+                allowKey = [element[@"canvas"] canBecomeKeyView] ;
                 *stop = YES ;
             }
         }] ;
@@ -1005,8 +1005,8 @@ static int userdata_gc(lua_State* L) ;
 - (BOOL)canBecomeKeyView {
     __block BOOL allowKey = NO ;
     [_elementList enumerateObjectsUsingBlock:^(NSDictionary *element, __unused NSUInteger idx, BOOL *stop) {
-        if (element[@"view"] && [element[@"view"] respondsToSelector:@selector(canBecomeKeyView)]) {
-            allowKey = [element[@"view"] canBecomeKeyView] ;
+        if (element[@"canvas"] && [element[@"canvas"] respondsToSelector:@selector(canBecomeKeyView)]) {
+            allowKey = [element[@"canvas"] canBecomeKeyView] ;
             *stop = YES ;
         }
     }] ;
@@ -1029,7 +1029,7 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"view"] ;
+                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"canvas"] ;
                 actualPoint = isView ? local_point : [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
                     NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
@@ -1179,7 +1179,7 @@ static int userdata_gc(lua_State* L) ;
                 NSAffineTransform *pointTransform = [self->_canvasTransform copy] ;
                 [pointTransform appendTransform:[self getElementValueFor:@"transformation" atIndex:elementIdx]] ;
                 [pointTransform invert] ;
-                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"view"] ;
+                BOOL isView = [[self getElementValueFor:@"type" atIndex:elementIdx] isEqualToString:@"canvas"] ;
                 actualPoint = isView ? local_point : [pointTransform transformPoint:local_point] ;                actualPoint = [pointTransform transformPoint:local_point] ;
                 if (box[@"imageByBounds"] && ![box[@"imageByBounds"] boolValue]) {
                     NSImage *theImage = self->_elementList[elementIdx][@"image"] ;
@@ -1248,8 +1248,8 @@ static int userdata_gc(lua_State* L) ;
 
     __block BOOL viewFound = NO ;
     [_elementList enumerateObjectsUsingBlock:^(NSMutableDictionary *element, __unused NSUInteger idx, BOOL *stop){
-        if ([element[@"view"] isEqualTo:subview]) {
-            [element removeObjectForKey:@"view"] ;
+        if ([element[@"canvas"] isEqualTo:subview]) {
+            [element removeObjectForKey:@"canvas"] ;
             viewFound = YES ;
             *stop = YES ;
         }
@@ -1516,11 +1516,11 @@ static int userdata_gc(lua_State* L) ;
                     elementPath = nil ; // shouldn't be necessary, but lets be explicit
                 } else
     #pragma mark - VIEW
-                if ([elementType isEqualToString:@"view"]) {
-                    NSView *externalView = [self getElementValueFor:@"view" atIndex:idx onlyIfSet:NO] ;
+                if ([elementType isEqualToString:@"canvas"]) {
+                    NSView *externalView = [self getElementValueFor:@"canvas" atIndex:idx onlyIfSet:NO] ;
                     if ([externalView isKindOfClass:[NSView class]]) {
                         externalView.needsDisplay = YES ;
-                        NSNumber *alpha = [self getElementValueFor:@"viewAlpha" atIndex:idx onlyIfSet:YES] ;
+                        NSNumber *alpha = [self getElementValueFor:@"canvasAlpha" atIndex:idx onlyIfSet:YES] ;
                         if (alpha) externalView.alphaValue = [alpha doubleValue] ;
                         [externalView setFrame:frameRect] ;
                         [self->_elementBounds addObject:@{
@@ -1985,7 +1985,7 @@ static int userdata_gc(lua_State* L) ;
                     }
                 }] ;
                 if (validityStatus == attributeInvalid) break ;
-            } else if ([keyName isEqualToString:@"view"]) {
+            } else if ([keyName isEqualToString:@"canvas"]) {
                 NSView *newView = (NSView *)keyValue ;
                 NSView *oldView = (NSView *)_elementList[index][keyName] ;
                 if (![newView isEqualTo:oldView]) {
@@ -2070,7 +2070,7 @@ static int userdata_gc(lua_State* L) ;
             }
         }   break ;
         case attributeNulling:
-            if ([keyName isEqualToString:@"view"]) {
+            if ([keyName isEqualToString:@"canvas"]) {
                 NSView *oldView = (NSView *)_elementList[index][keyName] ;
                 [oldView removeFromSuperview] ;
             } else if ([keyName isEqualToString:@"imageAnimationFrame"]) {
@@ -3205,8 +3205,8 @@ static int canvas_removeElementAtIndex(lua_State *L) {
     }
 
     NSUInteger realIndex = (NSUInteger)tablePosition ;
-    if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-        [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
+    if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"canvas"]) {
+        [canvasView.elementList[realIndex][@"canvas"] removeFromSuperview] ;
     }
     [canvasView.elementList removeObjectAtIndex:realIndex] ;
 
@@ -3453,7 +3453,7 @@ static int canvas_elementBoundsAtIndex(lua_State *L) {
         }
     } else {
         NSString *itemType = canvasView.elementList[idx][@"type"] ;
-        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"view"]) {
+        if ([itemType isEqualToString:@"image"] || [itemType isEqualToString:@"text"] || [itemType isEqualToString:@"canvas"]) {
             NSDictionary *frame = [canvasView getElementValueFor:@"frame"
                                                          atIndex:idx
                                               resolvePercentages:YES] ;
@@ -3508,8 +3508,8 @@ static int canvas_assignElementAtIndex(lua_State *L) {
             NSString *elementType = element[@"type"] ;
             if (elementType && [ALL_TYPES containsObject:elementType]) {
                 NSUInteger realIndex = (NSUInteger)tablePosition ;
-                if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"view"]) {
-                    [canvasView.elementList[realIndex][@"view"] removeFromSuperview] ;
+                if (realIndex < elementCount && canvasView.elementList[realIndex] && canvasView.elementList[realIndex][@"canvas"]) {
+                    [canvasView.elementList[realIndex][@"canvas"] removeFromSuperview] ;
                 }
                 canvasView.elementList[realIndex] = [[NSMutableDictionary alloc] init] ;
                 [element enumerateKeysAndObjectsUsingBlock:^(NSString *keyName, id keyValue, __unused BOOL *stop) {

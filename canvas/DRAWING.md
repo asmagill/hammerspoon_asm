@@ -15,28 +15,9 @@ The intention is for this wrapper to provide all of the same functionality that 
 
 ### Usage
 
-This submodule is not loaded as part of the `hs._asm.canvas` module and has to be loaded explicitly. You can test the use of this wrapper with your Hammerspoon configuration by adding the following to the ***top*** of `~/.hammerspoon/init.lua` -- this needs to be executed before any other code has a chance to load `hs.drawing` first.
+This submodule is not loaded as part of the `hs._asm.canvas` module and has to be explicitly enabled.  To enable this wrapper, type the following into your Hammerspoon Console: `hs.settings.set("useCanvasWrappedDrawing", true)` and reload or restart Hammerspoon.
 
-~~~lua
-local R, M = pcall(require,"hs._asm.canvas.drawing")
-if R then
-   print()
-   print("**** Replacing internal hs.drawing with experimental wrapper.")
-   print()
-   hs.drawing = M
-   package.loaded["hs.drawing"] = M   -- make sure require("hs.drawing") returns us
-   package.loaded["hs/drawing"] = M   -- make sure require("hs/drawing") returns us
-   debug.getregistry()["hs.drawing"] = hs.getObjectMetatable("hs._asm.canvas.drawing")
-else
-   print()
-   print("**** Error with experimental hs.drawing wrapper: "..tostring(M))
-   print()
-end
-~~~
-
-If you wish to load both for side-by-side comparisons, you can access the built in drawing module temporarily with: `drawing = dofile(hs.processInfo.resourcePath .. "/extensions/hs/drawing/init.lua")`
-
-To return to using the officially included version of `hs.drawing`, remove or comment out the code that was added to your `init.lua` file.
+To return to using the officially included version of `hs.drawing`, type the following into your Hammerspoon Console: `hs.settings.clear("useCanvasWrappedDrawing")` and reload or restart Hammerspoon.
 
 - - -
 

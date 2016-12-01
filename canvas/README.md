@@ -1,6 +1,8 @@
 hs._asm.canvas
 ==============
 
+*December 1, 2016: Documentation updated to reflect current syntax and migration to core should begin shortly after a few more tests.*
+
 *Novemeber 30, 2016: Their have been some minor syntax changes and simplifications made to this module; updated documentation will follow.*
 
 A different approach to drawing in Hammerspoon
@@ -111,7 +113,6 @@ canvas = require("hs._asm.canvas")
 * <a href="#attributes">canvas.attributes</a>
 * <a href="#object">canvas.object[index]</a>
 * <a href="#percentages">canvas.percentages</a>
-* <a href="#views">canvas.views</a>
 
 - - -
 
@@ -279,13 +280,13 @@ canvas:behavior([behavior]) -> canvasObject | currentValue
 Get or set the window behavior settings for the canvas object.
 
 Parameters:
- * `behavior` - an optional number representing the desired window behaviors for the canvas object.
+ * `behavior` - if present, the behavior should be a combination of values found in [hs._asm.canvas.windowBehaviors](#windowBehaviors) describing the window behavior.  The behavior should be specified as one of the following:
+   * integer - a number representing the behavior which can be created by combining values found in [hs._asm.canvas.windowBehaviors](#windowBehaviors) with the logical or operator.
+   * string  - a single key from [hs._asm.canvas.windowBehaviors](#windowBehaviors) which will be toggled in the current window behavior.
+   * table   - a list of keys from [hs._asm.canvas.windowBehaviors](#windowBehaviors) which will be combined to make the final behavior by combining their values with the logical or operator.
 
 Returns:
- * If an argument is provided, the canvas object; otherwise the current value.
-
-Notes:
- * Window behaviors determine how the canvas object is handled by Spaces and Exposé. See [hs._asm.canvas.windowBehaviors](#windowBehaviors) for more information.
+ * if an argument is provided, then the canvasObject is returned; otherwise the current behavior value is returned.
 
 - - -
 
@@ -296,10 +297,10 @@ canvas:behaviorAsLabels(behaviorTable) -> canvasObject | currentValue
 Get or set the window behavior settings for the canvas object using labels defined in [hs._asm.canvas.windowBehaviors](#windowBehaviors).
 
 Parameters:
- * behaviorTable - an optional table of strings and/or numbers specifying the desired window behavior for the canvas object.
+ * behaviorTable - an optional table of strings and/or integers specifying the desired window behavior for the canvas object.
 
 Returns:
- * If an argument is provided, the canvas object; otherwise the current value.
+ * If an argument is provided, the canvas object; otherwise the current value as a table of strings.
 
 - - -
 
@@ -940,7 +941,7 @@ The `source` object is the individual element as it is rendered in order within 
 ~~~lua
 canvas.windowBehaviors[]
 ~~~
-Array of window behavior labels for determining how a canvas, drawing, or webview object is handled in Spaces and Exposé
+Array of window behavior labels for determining how a canvas or drawing object is handled in Spaces and Exposé
 
 * `default`                   - The window can be associated to one space at a time.
 * `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.
@@ -952,7 +953,7 @@ Only one of these may be active at a time:
 * `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.
 * `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.
 
-The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but can be used with windows created by other modules (as of this writing, `hs.webview` and the Hammerspoon console itself)
+The following have no effect on `hs._asm.canvas` or `hs.drawing` objects, but are included for completness and are expected to be used by future additions.
 
 Only one of these may be active at a time:
 
@@ -1013,6 +1014,7 @@ Canvas Element Attributes
 
 * `type` - specifies the type of canvas element the table represents. This attribute has no default and must be specified for each element in the canvas array. Valid type strings are:
   * `arc`           - an arc inscribed on a circle, defined by `radius`, `center`, `startAngle`, and `endAngle`.
+  * `canvas`        - an independent canvas object, displayed as an element within the specified frame. Defined by `canvas` and `frame`.
   * `circle`        - a circle, defined by `radius` and `center`.
   * `ellipticalArc` - an arc inscribed on an oval, defined by `frame`, `startAngle`, and `endAngle`.
   * `image`         - an image as defined by one of the `hs.image` constructors.
@@ -1022,7 +1024,6 @@ Canvas Element Attributes
   * `resetClip`     - a special type -- indicates that the current clipping shape should be reset to the canvas default (the full canvas area).  See `Clipping Example`.  All other attributes, except `action` are ignored.
   * `segments`      - a list of line segments or bezier curves with control points, defined in `coordinates`.
   * `text`          - a string or `hs.styledtext` object, defined by `text` and `frame`.
-  * `view`          - an independent userdata object, possibly defined by another module, which can be displayed as an element within the specified frame. Defined by `view` and `frame`. See [hs._asm.canvas.views](#views) for more information.
 
 * The following is a list of all valid attributes.  Not all attributes apply to every type, but you can set them for any type.
   * `action`              - Default `strokeAndFill`. A string specifying the action to take for the element in the array.  The following actions are recognized:
@@ -1037,6 +1038,8 @@ Canvas Element Attributes
   * `antialias`           - Default `true`.  Indicates whether or not antialiasing should be enabled for the element.
   * `arcRadii`            - Default `true`. Used by the `arc` and `ellipticalArc` types to specify whether or not line segments from the element's center to the start and end angles should be included in the element's visible portion.  This affects whether the object's stroke is a pie-shape or an arc with a chord from the start angle to the end angle.
   * `arcClockwise`        - Default `true`.  Used by the `arc` and `ellipticalArc` types to specify whether the arc should be drawn from the start angle to the end angle in a clockwise (true) direction or in a counter-clockwise (false) direction.
+  * `canvas`                - Defaults to nil. A separate canvas object which is to be displayed as an element in this canvas.  The object must not currently belong to a visible window.  Assign nil to this property to release a previously assigned object for use elsewhere as an element or on its own.
+  * `canvasAlpha`           - Default `1.0`.  Specifies the alpha value to apply to the independant canvas element.
   * `compositeRule`       - A string, default "sourceOver", specifying how this element should be combined with earlier elements of the canvas.  See [hs._asm.canvas.compositeTypes](#compositeTypes) for a list of valid strings and their descriptions.
   * `center`              - Default `{ x = "50%", y = "50%" }`.  Used by the `circle` and `arc` types to specify the center of the canvas element.  The `x` and `y` fields can be specified as numbers or as a string. When specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
   * `clipToPath`          - Default `false`.   Specifies whether the clipping regions should be temporarily limited to the element's shape while rendering this element or not.  This can be used to produce crisper edges, as seen with `hs.drawing` but reduces stroke width granularity for widths less than 1.0 and causes occasional "missing" lines with the `segments` element type. Ignored for the `canvas`, `image`, `point`, and `text` types.
@@ -1056,7 +1059,7 @@ Canvas Element Attributes
   * `fillGradientColors`  - Default `{ { white = 0.0 }, { white = 1.0 } }`.  Specifies the colors to use for the gradient when `fillGradient` is not `none`.  You must specify at least two colors, each of which must be convertible into the RGB color space (i.e. they cannot be an image being used as a color pattern).  The gradient will blend from the first to the next, and so on until the last color.  If more than two colors are specified, the "color stops" will be placed at evenly spaced intervals within the element.
   * `flatness`            - Default `0.6`.  A number which specifies the accuracy (or smoothness) with which curves are rendered. It is also the maximum error tolerance (measured in pixels) for rendering curves, where smaller numbers give smoother curves at the expense of more computation.
   * `flattenPath`         - Default `false`. Specifies whether curved line segments should be converted into straight line approximations. The granularity of the approximations is controlled by the path's current flatness value.
-  * `frame`               - Default `{ x = "0%", y = "0%", h = "100%", w = "100%" }`.  Used by the `rectangle`, `oval`, `ellipticalArc`, `text`, and `image` types to specify the element's position and size.  When the key value for `x`, `y`, `h`, or `w` are specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
+  * `frame`               - Default `{ x = "0%", y = "0%", h = "100%", w = "100%" }`.  Used by the `rectangle`, `oval`, `ellipticalArc`, `text`, `canvas` and `image` types to specify the element's position and size.  When the key value for `x`, `y`, `h`, or `w` are specified as a string, the value is treated as a percentage of the canvas size.  See the section on [percentages](#percentages) for more information.
   * `id`                  - An optional string or number which is included in mouse callbacks to identify the element which was the target of the mouse event.  If this is not specified for an element, it's index position is used instead.
   * `image`               - Defaults to a blank image.  Used by the `image` type to specify an `hs.image` object to display as an image.
   * `imageAlpha`          - Defaults to `1.0`.  A number between 0.0 and 1.0 specifying the alpha value to be applied to the image specified by `image`.  Note that if an image is a template image, then this attribute will internally default to `0.5` unless explicitly set for the element.
@@ -1104,8 +1107,6 @@ Canvas Element Attributes
   * `trackMouseUp`        - Default `false`.  Generates a callback when mouse button is released while the cursor is within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
   * `trackMouseMove`      - Default `false`.  Generates a callback when the mouse cursor moves within the canvas element.  For `canvas` and `text` types, the `frame` of the element defines the boundaries of the tracking area.
   * `transformation`      - Default `{ m11 = 1.0, m12 = 0.0, m21 = 0.0, m22 = 1.0, tX = 0.0, tY = 0.0 }`. Specifies a matrix transformation to apply to the element before displaying it.  Transformations may include rotation, translation, scaling, skewing, etc.
-  * `view`                - Defaults to nil. The userdata object which is to be displayed for an element of type `view`.  The object must not currently belong to a visible window.  Assign nil to this property to release a previously assigned object for use elsewhere as an element or on its own (if supported).  See [hs._asm.canvas.views](#views) for more information.
-  * `viewAlpha`           - Default `1.0`.  Specifies the alpha value to apply to the view in a canvas element of the `view` type.
   * `windingRule`         - Default "nonZero".  A string specifying the winding rule in effect for the canvas element. May be "nonZero" or "evenOdd".  The winding rule determines which portions of an element to fill. This setting will only have a visible effect on compound elements (built with the `build` action) or elements of type `segments` when the object is made from lines which cross.
   * `withShadow`          - Default `false`. Specifies whether a shadow effect should be applied to the canvas element.  Ignored for the `text` type.
 
@@ -1133,7 +1134,7 @@ a[1] = { type = "rectangle", fillColor = { blue = 1 } }
 a[2] = { type = "circle", fillColor = { green = 1 } }
 ~~~
 
-In addition, you can change a canvas's element using this same style: `a[2].fillColor.alpha = .5` will adjust the alpha value for element 2 of the canvas without adjusting any of the other color fields.  To replace the color entirely, assign it like this: `a[2].fillColor = { white = .5, alpha = .25 }`
+In addition, you can change a canvas element's attributes using this same style: `a[2].fillColor.alpha = .5` will adjust the alpha value for element 2 of the canvas without adjusting any of the other color fields.  To replace the color entirely, assign it like this: `a[2].fillColor = { white = .5, alpha = .25 }`
 
 The canvas defaults can also be accessed with the `_default` field like this: `a._default.strokeWidth = 5`.
 
@@ -1162,28 +1163,6 @@ Percentages may be assigned to the following attributes:
 Percentages are assigned to these fields as a string.  If the number in the string ends with a percent sign (%), then the percentage is the whole number which precedes the percent sign.  If no percent sign is present, the percentage is expected in decimal format (e.g. "1.0" is the same as "100%").
 
 Because a shadow applied to a canvas element is not considered as part of the element's bounds, you can also set the `padding` attribute to a positive number of points to inset the calculated values by from each edge of the canvas's frame so that the shadow will be fully visible within the canvas, even when an element is set to a width and height of "100%".
-
-- - -
-
-<a name="views"></a>
-~~~lua
-canvas.views
-~~~
-A userdata object, potentially from another module, which can be displayed as an element within a Canvas.
-
-The canvas element of type `view` is special in that it provides a placeholder for an appropriately generated view to be displayed as part of the canvas. This feature allows embedding the content of other modules within a canvas -- the canvas acts as its window.  The userdata object must conform to the following to be a valid candidate for this element type:
- * it must be a subclass of the Objective-C class `NSView`.
- * it must not be currently assigned to a visible (showing) window.
-
-Notes:
- * Views can only be covered by other views - they exist above the other non-view canvas elements in the owning canvas. If you need to "draw" on top of a `view` element, you will need to add a new canvas as an additional `view` element to the parent canvas.
- * A view with it's own controls can only receive mouse events if the canvas can.  This requires that the canvas has a callback function defined, even though mouse events affecting the view are not handled by the canvas callback function. `canvasObject:mouseCallback(function() end)` is sufficient for this purpose if no other canvas element requires the callback function.
-
-Candidate `view` objects:
- * A canvas object, which is not currently being shown, conforms to these requirements, so it is possible to use this element type to embed a canvas within another canvas.
- * `hs.webview` objects currently do not meet these requirements, but the necessary changes are currently under consideration.
- * `hs.drawing` objects do not meet these requirements, but as this module is under consideration as a replacement for `hs.drawing`, this will likely not change.  See `hs._asm.canvas.drawing` for the status of a wrapper for replacing the `hs.drawing` module.
- * An example of a "separate" module which can act as a valid object for this element type is located in the [avplayer](avplayer) directory of this repository.  More targeted HOWTO documentation is also being considered.
 
 - - -
 
