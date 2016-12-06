@@ -22,8 +22,6 @@ Examples of this module in use can found in the [EXAMPLES.md](EXAMPLES.md) file.
 
 Documentation for a wrapper to replace the built-in `hs.drawing` with this module can be found in the [DRAWING.md](DRAWING.md) file, and the wrapper itself, if you wish to use it, can be found at [hs._asm.canvas.drawing](drawing.lua).  It is also included in the precompiled binary for this module.
 
-An example of a module which provides a view compatibile with the [views](#views) element type can be found in the [avplayer](avplayer) directory of this module.  This example submodule adds support for playing audiovisual media within a canvas.
-
 ### Installation
 
 A precompiled version of this module may be found in this directory with the name `canvas-v0.x.tar.gz`. This can be installed by downloading the file and then expanding it as follows:
