@@ -3,10 +3,11 @@
 @import LuaSkin ;
 @import AVFoundation;
 #include <mach/mach.h>
+@import OSAKit ;
 
 // @import AddressBook ;
 @import SystemConfiguration ;
-#import "LuaSkinThread.h"
+
 // @import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
 // @import SceneKit;   // for NSValue conversion of SCNVector3, SCNVector4, SCNMatrix4
 // @import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
@@ -19,7 +20,7 @@
 /// Function
 /// Send a representation of the lua value passed in to the Console application via NSLog.
 static int extras_nslog(__unused lua_State* L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     id val = [skin toNSObjectAtIndex:1] ;
     NSLog(@"%@", val);
     return 0;
@@ -40,7 +41,7 @@ static int extras_nslog(__unused lua_State* L) {
 ///  * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just "this space" or "not this space") there is at present no way to positively distinguish "real" windows from "virtual" windows used for internal application purposes.
 ///  * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.
 static int listWindows(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
 //     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) ;
 
     CFArrayRef windowInfosRef = CGWindowListCopyWindowInfo(kCGWindowListOptionAll | (lua_toboolean(L,1) ? 0 : kCGWindowListExcludeDesktopElements), kCGNullWindowID) ;
@@ -51,7 +52,7 @@ static int listWindows(lua_State *L) {
 }
 
 static int extras_defaults(__unused lua_State* L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName: [[NSBundle mainBundle] bundleIdentifier]] ;
     [skin pushNSObject:defaults] ;
     return 1;
@@ -75,7 +76,7 @@ static int ud_tostring (lua_State *L) {
 }
 
 static int threadInfo(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     lua_newtable(L) ;
       lua_pushboolean(L, [NSThread isMainThread]) ; lua_setfield(L, -2, "isMainThread") ;
       lua_pushboolean(L, [NSThread isMultiThreaded]) ; lua_setfield(L, -2, "isMultiThreaded") ;
@@ -89,13 +90,13 @@ static int threadInfo(lua_State *L) {
 }
 
 // static int addressbookGroups(__unused lua_State *L) {
-//     LuaSkin *skin = LST_getLuaSkin();
+//     LuaSkin *skin = [LuaSkin threaded];
 //     [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
 //     return 1 ;
 // }
 
 static int addressParserTesting(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *input = [skin toNSObjectAtIndex:1] ;
 //     struct addrinfo {
@@ -159,7 +160,7 @@ static int addressParserTesting(lua_State *L) {
 }
 
 static int getSCPreferencesKeys(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *prefName = (lua_gettop(L) == 0) ? nil : [skin toNSObjectAtIndex:1] ;
     NSString *theName = [[NSUUID UUID] UUIDString] ;
@@ -172,7 +173,7 @@ static int getSCPreferencesKeys(lua_State *L) {
 }
 
 static int getSCPreferencesValueForKey(__unused lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *keyName = [skin toNSObjectAtIndex:1] ;
     NSString *theName = [[NSUUID UUID] UUIDString] ;
@@ -194,7 +195,7 @@ static int getSCPreferencesValueForKey(__unused lua_State *L) {
 }
 
 static int networkUserPreferences(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TBREAK] ;
 
     CFStringRef     serviceID ;
@@ -234,7 +235,7 @@ static int lockscreen(__unused lua_State* L) {
 }
 
 static int nsvalueTest2(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
     id obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
@@ -247,7 +248,7 @@ static int nsvalueTest2(lua_State *L) {
 }
 
 static int sizeAndAlignment(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 
     const char *objCType = lua_tostring(L, 1) ;
@@ -279,7 +280,7 @@ static int sizeAndAlignment(lua_State *L) {
 }
 
 static int lookup(__unused lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *word = [skin toNSObjectAtIndex:1] ;
     CFRange  range = CFRangeMake(0, (CFIndex)[word length]) ;
@@ -291,21 +292,21 @@ static int lookup(__unused lua_State *L) {
 }
 
 static int testLabeledTable1(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TTYPEDTABLE, "NSRect", LS_TBREAK] ;
     lua_pushboolean(L, YES) ;
     return 1;
 }
 
 static int testLabeledTable2(lua_State *L) {
-    LuaSkin *skin = LST_getLuaSkin();
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TTYPEDTABLE, LS_TBREAK] ;
     lua_pushboolean(L, YES) ;
     return 1;
 }
 
 static int hs_volumeInformation(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin threaded];
     [skin checkArgs:LS_TBOOLEAN|LS_TOPTIONAL, LS_TBREAK];
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -368,7 +369,7 @@ static int hs_volumeInformation(lua_State* L) {
 }
 
 static int boolTest(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin threaded];
 
     lua_pushboolean(L, YES) ;
     NSObject *yesObject = [skin toNSObjectAtIndex:-1] ;
@@ -393,7 +394,7 @@ static int boolTest(lua_State *L) {
 }
 
 static int avcapturedevices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin threaded] ;
     [skin checkArgs:LS_TBREAK] ;
     lua_newtable(L) ;
     for (AVCaptureDevice *dev in [AVCaptureDevice devices]) {
@@ -409,7 +410,7 @@ static int absoluteTime(lua_State *L) {
 }
 
 static int hotkeys(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin threaded] ;
     CFArrayRef hotkeys = NULL ;
     OSStatus status = CopySymbolicHotKeys(&hotkeys) ;
     if (status != noErr) {
