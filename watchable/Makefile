@@ -19,7 +19,7 @@ space :=
 space +=
 comma := ,
 ALLFILES := $(LUAFILE)
-ALLFILES += $(SOFILE)
+# ALLFILES += $(SOFILE)
 
 .SUFFIXES: .m .so
 
@@ -69,7 +69,7 @@ clean:
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+# 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
 # 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
