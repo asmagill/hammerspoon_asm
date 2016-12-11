@@ -86,10 +86,10 @@ objectMT.centered = function(self, top)
     local origin    = {}
     local tbFrame   = self:getFrame()
     local scFrame   = screen.mainScreen():fullFrame()
-    local scRight   = scFrame.x + scFrame.w
+--     local scRight   = scFrame.x + scFrame.w
     local scBottom  = scFrame.y + scFrame.h
 
-    origin.x = (scRight - tbFrame.w) / 2
+    origin.x = scFrame.x + (scFrame.w - tbFrame.w) / 2
     origin.y = top and scFrame.y or (scBottom - tbFrame.h)
     return self:topLeft(origin)
 end
