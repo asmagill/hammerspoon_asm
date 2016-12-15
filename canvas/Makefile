@@ -81,6 +81,7 @@ uninstall:
 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
 # 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
+	rm -v -f $(PREFIX)/hs/drawing/init.lua
 	rmdir -p $(PREFIX)/hs/drawing ; exit 0
 
 .PHONY: all clean uninstall verify install install-objc install-lua
