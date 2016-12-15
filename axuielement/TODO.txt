@@ -1,8 +1,0 @@
-TODO: Notifications/Observers?
-      test setAttributeValue more thoroughly
-      test getParameterizedAttributeValue more thoroughly
-      write corresponding setParameterizedAttributeValue
-
-      revisit hs.uielement merger
-
-      retest examples given
