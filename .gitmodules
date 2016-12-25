@@ -16,3 +16,6 @@
 [submodule "luathread"]
 	path = luathread
 	url = https://github.com/asmagill/hs._asm.luathread.git
+[submodule "axuielement"]
+	path = axuielement
+	url = ../hs._asm.axuielement
