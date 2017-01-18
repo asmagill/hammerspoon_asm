@@ -289,6 +289,25 @@ static int touchbar_show(lua_State *L) {
     return 1 ;
 }
 
+static int touchbar_rotate(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    ASMTouchBarWindow *touchbar = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushnumber(L, ((ASMTouchBarView *)touchbar.contentView).frameCenterRotation) ;
+    } else {
+        ((ASMTouchBarView *)touchbar.contentView).frameCenterRotation = lua_tonumber(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+// TODO: add - (void)scaleUnitSquareToSize:(NSSize)newUnitSize
+//       figure out how to calculate window size for both this and above
+//       can we figure out size from stream?
+//       during __gc do we need to remove callback from dispatch queue?
+
 /// hs._asm.touchbar:hide([duration]) -> touchbarObject
 /// Method
 /// Display the touch bar window with an optional fade-out delay.
@@ -661,6 +680,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"backgroundColor",    touchbar_backgroundColor},
     {"setCallback",        touchbar_setCallback},
     {"acceptsMouseEvents", touchbar_acceptsMouseEvents},
+    {"rotation",           touchbar_rotate},
 
 #ifdef INCLUDE_DUMP_THREAD
     {"dumpThread",         touchbar_dumpThread},
