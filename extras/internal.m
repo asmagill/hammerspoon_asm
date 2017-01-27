@@ -423,6 +423,11 @@ static int hotkeys(lua_State *L) {
     return 1 ;
 }
 
+static int keybdType(lua_State *L) {
+    lua_pushinteger(L, LMGetKbdType()) ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -452,6 +457,7 @@ static const luaL_Reg extrasLib[] = {
     {"sizeAndAlignment",     sizeAndAlignment},
 
     {"absoluteTime",         absoluteTime},
+    {"keybdType",            keybdType},
 
     {NULL,                   NULL}
 };
