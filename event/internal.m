@@ -5,7 +5,7 @@
 static int refTable = LUA_NOREF;
 static CGEventSourceRef eventSource;
 
-static int pushCGEventRef(lua_State* L, CGEventRef event) ;
+static int pushCGEventRef(lua_State *L, CGEventRef event) ;
 
 // #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
@@ -39,7 +39,7 @@ static int event_createMouseEvent(lua_State *L) {
         case kCGEventLeftMouseUp:
         case kCGEventRightMouseDown:
         case kCGEventRightMouseUp:
-        case kCGEventMouseMoved:          // TODO: Test if this one allowed here or not... docs unclear
+        case kCGEventMouseMoved:          // FIXME: Test if this one allowed here or not... docs unclear
         case kCGEventLeftMouseDragged:
         case kCGEventRightMouseDragged:
         case kCGEventOtherMouseDown:
@@ -49,6 +49,7 @@ static int event_createMouseEvent(lua_State *L) {
         default:
             return luaL_argerror(L, 1, "must specify a mouse event type") ;
     }
+    // FIXME: Test if Coordinate flip required
     CGPoint cursorPosition = NSPointToCGPoint([skin tableToPointAtIndex:2]) ;
     lua_Integer mouseButton = (lua_gettop(L) == 3) ? lua_tointeger(L, 3) : kCGMouseButtonLeft ;
     if (mouseButton < 0 || mouseButton > 31) {
@@ -111,6 +112,98 @@ static int event_createScrollWheelEvent(lua_State *L) {
     return 1 ;
 }
 
+static int event_modifierFlags(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushinteger(L, [NSEvent modifierFlags]) ;
+    return 1 ;
+}
+
+static int event_keyRepeatDelay(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushnumber(L, [NSEvent keyRepeatDelay]) ;
+    return 1 ;
+}
+
+static int event_keyRepeatInterval(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushnumber(L, [NSEvent keyRepeatInterval]) ;
+    return 1 ;
+}
+
+static int event_pressedMouseButtons(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushinteger(L, (lua_Integer)[NSEvent pressedMouseButtons]) ;
+    return 1 ;
+}
+
+static int event_doubleClickInterval(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushnumber(L, [NSEvent doubleClickInterval]) ;
+    return 1 ;
+}
+
+static int event_mouseLocation(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    NSPoint cursorPoint = [NSEvent mouseLocation] ;
+    cursorPoint.y = [[NSScreen screens][0] frame].size.height - cursorPoint.y ;
+    [skin pushNSPoint:cursorPoint] ;
+    return 1 ;
+}
+
+static int event_mouseCoallescing(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+
+    if (lua_gettop(L) == 1) {
+        [NSEvent setMouseCoalescingEnabled:(BOOL)lua_toboolean(L, 1)] ;
+    }
+    lua_pushboolean(L, [NSEvent isMouseCoalescingEnabled]) ;
+    return 1 ;
+}
+
+static int event_startPeriodicEvents(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TOPTIONAL, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
+    NSTimeInterval delay  = 0.0 ;
+    NSTimeInterval period = 1.0 ;
+    if (lua_gettop(L) == 1) {
+        period = lua_tonumber(L, 1) ;
+    } else if (lua_gettop(L) == 2) {
+        delay  = lua_tonumber(L, 1) ;
+        period = lua_tonumber(L, 2) ;
+    }
+    @try {
+        [NSEvent startPeriodicEventsAfterDelay:delay withPeriod:period] ;
+        lua_pushboolean(L, YES) ;
+    } @catch (NSException *exception) {
+        if (exception.name != NSInternalInconsistencyException) {
+            [skin logError:[NSString stringWithFormat:@"%s:startPeriodicEvents - unrecognized exception:%@", USERDATA_TAG, exception.reason]] ;
+        }
+        lua_pushboolean(L, NO) ;
+    }
+    return 1 ;
+}
+
+static int event_stopPeriodicEvents(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    [NSEvent stopPeriodicEvents] ;
+    return 0 ;
+}
+
+static int event_absoluteTime(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushinteger(L, (lua_Integer)mach_absolute_time()) ;
+    return 1 ;
+}
+
 #pragma mark - Module Methods
 
 static int event_type(lua_State *L) {
@@ -128,12 +221,18 @@ static int event_type(lua_State *L) {
 
 static int event_timestamp(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TNUMBER | LS_TINTEGER | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBREAK] ;
     CGEventRef event = get_cfobjectFromUserdata(CGEventRef, L, 1, USERDATA_TAG) ;
     if (lua_gettop(L) == 1) {
         lua_pushinteger(L, (lua_Integer)CGEventGetTimestamp(event)) ;
     } else {
-        CGEventSetTimestamp(event, (CGEventTimestamp)(lua_tointeger(L, 2))) ;
+        if (lua_type(L, 2) == LUA_TNIL) {
+            CGEventSetTimestamp(event, mach_absolute_time()) ;
+        } else {
+            CGEventSetTimestamp(event, (CGEventTimestamp)(lua_tointeger(L, 2))) ;
+        }
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -165,7 +264,7 @@ static int event_flags(lua_State *L) {
     return 1 ;
 }
 
-static int event_copy(lua_State* L) {
+static int event_copy(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     CGEventRef event = get_cfobjectFromUserdata(CGEventRef, L, 1, USERDATA_TAG) ;
@@ -233,6 +332,7 @@ static int event_post(lua_State *L) {
 #pragma clang diagnostic pop
         CGEventPostToPSN(&psn, event);
     }
+    // TODO: I don't like hardcoded delays... how much does this really help?  Should it be an argument?
     usleep(1000) ;
     lua_pushvalue(L, 1) ;
     return 1 ;
@@ -242,7 +342,7 @@ static int event_getCharacters(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     CGEventRef event = get_cfobjectFromUserdata(CGEventRef, L, 1, USERDATA_TAG) ;
-    BOOL clean = (lua_gettop(L) == 2) ? lua_toboolean(L, 2) : NO ;
+    BOOL clean = (lua_gettop(L) == 2) ? (BOOL)lua_toboolean(L, 2) : NO ;
     CGEventType cgType = CGEventGetType(event) ;
 
     if ((cgType == kCGEventKeyDown) || (cgType == kCGEventKeyUp)) {
@@ -362,7 +462,7 @@ static int push_eventProperties(lua_State *L) {
 
 #pragma mark - Lua<->CFObject Conversion Functions
 
-static int pushCGEventRef(lua_State* L, CGEventRef event) {
+static int pushCGEventRef(lua_State *L, CGEventRef event) {
     CFRetain(event) ;
     *(CGEventRef*)lua_newuserdata(L, sizeof(CGEventRef*)) = event ;
     luaL_getmetatable(L, USERDATA_TAG) ;
@@ -372,7 +472,7 @@ static int pushCGEventRef(lua_State* L, CGEventRef event) {
 
 #pragma mark - Hammerspoon/Lua Infrastructure
 
-static int userdata_tostring(lua_State* L) {
+static int userdata_tostring(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CGEventRef event = get_cfobjectFromUserdata(CGEventRef, L, 1, USERDATA_TAG) ;
     CGEventType eventType = CGEventGetType(event) ;
@@ -380,7 +480,7 @@ static int userdata_tostring(lua_State* L) {
     return 1 ;
 }
 
-static int userdata_eq(lua_State* L) {
+static int userdata_eq(lua_State *L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
@@ -393,7 +493,7 @@ static int userdata_eq(lua_State* L) {
     return 1 ;
 }
 
-static int userdata_gc(lua_State* L) {
+static int userdata_gc(lua_State *L) {
     CGEventRef event = get_cfobjectFromUserdata(CGEventRef, L, 1, USERDATA_TAG) ;
     if (event) {
         CFRelease(event) ;
@@ -405,7 +505,7 @@ static int userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-static int meta_gc(lua_State* __unused L) {
+static int meta_gc(__unused lua_State *L) {
     if (eventSource) {
         CFRelease(eventSource) ;
         eventSource = NULL ;
@@ -436,6 +536,19 @@ static luaL_Reg moduleLib[] = {
     {"createMouseEvent",       event_createMouseEvent},
     {"createKeyEvent",         event_createKeyEvent},
     {"createScrollWheelEvent", event_createScrollWheelEvent},
+
+    {"modifierFlags",          event_modifierFlags},
+    {"keyRepeatDelay",         event_keyRepeatDelay},
+    {"keyRepeatInterval",      event_keyRepeatInterval},
+    {"pressedMouseButtons",    event_pressedMouseButtons},
+    {"doubleClickInterval",    event_doubleClickInterval},
+    {"mouseLocation",          event_mouseLocation},
+
+    {"absoluteTime",           event_absoluteTime},
+    {"mouseCoallescing",       event_mouseCoallescing},
+    {"startPeriodicEvents",    event_startPeriodicEvents},
+    {"stopPeriodicEvents",     event_stopPeriodicEvents},
+
     {NULL, NULL}
 };
 
@@ -446,7 +559,7 @@ static const luaL_Reg module_metaLib[] = {
 };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs_event_internal(lua_State* L) {
+int luaopen_hs_event_internal(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
