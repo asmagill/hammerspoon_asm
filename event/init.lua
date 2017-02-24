@@ -84,8 +84,10 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.types      = _makeConstantsTable(module.types)
-module.properties = _makeConstantsTable(module.properties)
+module.types               = _makeConstantsTable(module.types)
+module.properties          = _makeConstantsTable(module.properties)
+module.flagMasks           = _makeConstantsTable(module.flagMasks)
+module.unicodeFunctionKeys = _makeConstantsTable(module.unicodeFunctionKeys)
 
 local originalMouseEvent = module.createMouseEvent
 module.createMouseEvent = function(kind, ...)

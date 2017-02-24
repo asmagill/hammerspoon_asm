@@ -147,6 +147,14 @@ static int event_doubleClickInterval(lua_State *L) {
     return 1 ;
 }
 
+static int event_swipeTracking(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushboolean(L, [NSEvent isSwipeTrackingFromScrollEventsEnabled]) ;
+    return 1 ;
+}
+
+
 static int event_mouseLocation(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -460,6 +468,107 @@ static int push_eventProperties(lua_State *L) {
     return 1 ;
 }
 
+static int push_flagMasks(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, NX_ALPHASHIFTMASK) ;                   lua_setfield(L, -2, "alphaShift") ;
+    lua_pushinteger(L, NX_SHIFTMASK) ;                        lua_setfield(L, -2, "shift") ;
+    lua_pushinteger(L, NX_CONTROLMASK) ;                      lua_setfield(L, -2, "control") ;
+    lua_pushinteger(L, NX_ALTERNATEMASK) ;                    lua_setfield(L, -2, "alternate") ;
+    lua_pushinteger(L, NX_COMMANDMASK) ;                      lua_setfield(L, -2, "command") ;
+    lua_pushinteger(L, NX_NUMERICPADMASK) ;                   lua_setfield(L, -2, "numericPad") ;
+    lua_pushinteger(L, NX_HELPMASK) ;                         lua_setfield(L, -2, "help") ;
+    lua_pushinteger(L, NX_SECONDARYFNMASK) ;                  lua_setfield(L, -2, "secondaryFn") ;
+    lua_pushinteger(L, NX_DEVICELCTLKEYMASK) ;                lua_setfield(L, -2, "deviceLeftControl") ;
+    lua_pushinteger(L, NX_DEVICERCTLKEYMASK) ;                lua_setfield(L, -2, "deviceRightControl") ;
+    lua_pushinteger(L, NX_DEVICELSHIFTKEYMASK) ;              lua_setfield(L, -2, "deviceLeftShift") ;
+    lua_pushinteger(L, NX_DEVICERSHIFTKEYMASK) ;              lua_setfield(L, -2, "deviceRightShift") ;
+    lua_pushinteger(L, NX_DEVICELCMDKEYMASK) ;                lua_setfield(L, -2, "deviceLeftCommand") ;
+    lua_pushinteger(L, NX_DEVICERCMDKEYMASK) ;                lua_setfield(L, -2, "deviceRightCommand") ;
+    lua_pushinteger(L, NX_DEVICELALTKEYMASK) ;                lua_setfield(L, -2, "deviceLeftAlternate") ;
+    lua_pushinteger(L, NX_DEVICERALTKEYMASK) ;                lua_setfield(L, -2, "deviceRightAlternate") ;
+    lua_pushinteger(L, NX_ALPHASHIFT_STATELESS_MASK) ;        lua_setfield(L, -2, "alphaShiftStateless") ;
+    lua_pushinteger(L, NX_DEVICE_ALPHASHIFT_STATELESS_MASK) ; lua_setfield(L, -2, "deviceAlphaShiftStateless") ;
+    lua_pushinteger(L, NX_NONCOALSESCEDMASK) ;                lua_setfield(L, -2, "nonCoalesced") ;
+    return 1 ;
+}
+
+static int push_unicodeFunctionKeys(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, NSUpArrowFunctionKey) ;      lua_setfield(L, -2, "UpArrow") ;
+    lua_pushinteger(L, NSDownArrowFunctionKey) ;    lua_setfield(L, -2, "DownArrow") ;
+    lua_pushinteger(L, NSLeftArrowFunctionKey) ;    lua_setfield(L, -2, "LeftArrow") ;
+    lua_pushinteger(L, NSRightArrowFunctionKey) ;   lua_setfield(L, -2, "RightArrow") ;
+    lua_pushinteger(L, NSF1FunctionKey) ;           lua_setfield(L, -2, "F1") ;
+    lua_pushinteger(L, NSF2FunctionKey) ;           lua_setfield(L, -2, "F2") ;
+    lua_pushinteger(L, NSF3FunctionKey) ;           lua_setfield(L, -2, "F3") ;
+    lua_pushinteger(L, NSF4FunctionKey) ;           lua_setfield(L, -2, "F4") ;
+    lua_pushinteger(L, NSF5FunctionKey) ;           lua_setfield(L, -2, "F5") ;
+    lua_pushinteger(L, NSF6FunctionKey) ;           lua_setfield(L, -2, "F6") ;
+    lua_pushinteger(L, NSF7FunctionKey) ;           lua_setfield(L, -2, "F7") ;
+    lua_pushinteger(L, NSF8FunctionKey) ;           lua_setfield(L, -2, "F8") ;
+    lua_pushinteger(L, NSF9FunctionKey) ;           lua_setfield(L, -2, "F9") ;
+    lua_pushinteger(L, NSF10FunctionKey) ;          lua_setfield(L, -2, "F10") ;
+    lua_pushinteger(L, NSF11FunctionKey) ;          lua_setfield(L, -2, "F11") ;
+    lua_pushinteger(L, NSF12FunctionKey) ;          lua_setfield(L, -2, "F12") ;
+    lua_pushinteger(L, NSF13FunctionKey) ;          lua_setfield(L, -2, "F13") ;
+    lua_pushinteger(L, NSF14FunctionKey) ;          lua_setfield(L, -2, "F14") ;
+    lua_pushinteger(L, NSF15FunctionKey) ;          lua_setfield(L, -2, "F15") ;
+    lua_pushinteger(L, NSF16FunctionKey) ;          lua_setfield(L, -2, "F16") ;
+    lua_pushinteger(L, NSF17FunctionKey) ;          lua_setfield(L, -2, "F17") ;
+    lua_pushinteger(L, NSF18FunctionKey) ;          lua_setfield(L, -2, "F18") ;
+    lua_pushinteger(L, NSF19FunctionKey) ;          lua_setfield(L, -2, "F19") ;
+    lua_pushinteger(L, NSF20FunctionKey) ;          lua_setfield(L, -2, "F20") ;
+    lua_pushinteger(L, NSF21FunctionKey) ;          lua_setfield(L, -2, "F21") ;
+    lua_pushinteger(L, NSF22FunctionKey) ;          lua_setfield(L, -2, "F22") ;
+    lua_pushinteger(L, NSF23FunctionKey) ;          lua_setfield(L, -2, "F23") ;
+    lua_pushinteger(L, NSF24FunctionKey) ;          lua_setfield(L, -2, "F24") ;
+    lua_pushinteger(L, NSF25FunctionKey) ;          lua_setfield(L, -2, "F25") ;
+    lua_pushinteger(L, NSF26FunctionKey) ;          lua_setfield(L, -2, "F26") ;
+    lua_pushinteger(L, NSF27FunctionKey) ;          lua_setfield(L, -2, "F27") ;
+    lua_pushinteger(L, NSF28FunctionKey) ;          lua_setfield(L, -2, "F28") ;
+    lua_pushinteger(L, NSF29FunctionKey) ;          lua_setfield(L, -2, "F29") ;
+    lua_pushinteger(L, NSF30FunctionKey) ;          lua_setfield(L, -2, "F30") ;
+    lua_pushinteger(L, NSF31FunctionKey) ;          lua_setfield(L, -2, "F31") ;
+    lua_pushinteger(L, NSF32FunctionKey) ;          lua_setfield(L, -2, "F32") ;
+    lua_pushinteger(L, NSF33FunctionKey) ;          lua_setfield(L, -2, "F33") ;
+    lua_pushinteger(L, NSF34FunctionKey) ;          lua_setfield(L, -2, "F34") ;
+    lua_pushinteger(L, NSF35FunctionKey) ;          lua_setfield(L, -2, "F35") ;
+    lua_pushinteger(L, NSInsertFunctionKey) ;       lua_setfield(L, -2, "Insert") ;
+    lua_pushinteger(L, NSDeleteFunctionKey) ;       lua_setfield(L, -2, "Delete") ;
+    lua_pushinteger(L, NSHomeFunctionKey) ;         lua_setfield(L, -2, "Home") ;
+    lua_pushinteger(L, NSBeginFunctionKey) ;        lua_setfield(L, -2, "Begin") ;
+    lua_pushinteger(L, NSEndFunctionKey) ;          lua_setfield(L, -2, "End") ;
+    lua_pushinteger(L, NSPageUpFunctionKey) ;       lua_setfield(L, -2, "PageUp") ;
+    lua_pushinteger(L, NSPageDownFunctionKey) ;     lua_setfield(L, -2, "PageDown") ;
+    lua_pushinteger(L, NSPrintScreenFunctionKey) ;  lua_setfield(L, -2, "PrintScreen") ;
+    lua_pushinteger(L, NSScrollLockFunctionKey) ;   lua_setfield(L, -2, "ScrollLock") ;
+    lua_pushinteger(L, NSPauseFunctionKey) ;        lua_setfield(L, -2, "Pause") ;
+    lua_pushinteger(L, NSSysReqFunctionKey) ;       lua_setfield(L, -2, "SysReq") ;
+    lua_pushinteger(L, NSBreakFunctionKey) ;        lua_setfield(L, -2, "Break") ;
+    lua_pushinteger(L, NSResetFunctionKey) ;        lua_setfield(L, -2, "Reset") ;
+    lua_pushinteger(L, NSStopFunctionKey) ;         lua_setfield(L, -2, "Stop") ;
+    lua_pushinteger(L, NSMenuFunctionKey) ;         lua_setfield(L, -2, "Menu") ;
+    lua_pushinteger(L, NSUserFunctionKey) ;         lua_setfield(L, -2, "User") ;
+    lua_pushinteger(L, NSSystemFunctionKey) ;       lua_setfield(L, -2, "System") ;
+    lua_pushinteger(L, NSPrintFunctionKey) ;        lua_setfield(L, -2, "Print") ;
+    lua_pushinteger(L, NSClearLineFunctionKey) ;    lua_setfield(L, -2, "ClearLine") ;
+    lua_pushinteger(L, NSClearDisplayFunctionKey) ; lua_setfield(L, -2, "ClearDisplay") ;
+    lua_pushinteger(L, NSInsertLineFunctionKey) ;   lua_setfield(L, -2, "InsertLine") ;
+    lua_pushinteger(L, NSDeleteLineFunctionKey) ;   lua_setfield(L, -2, "DeleteLine") ;
+    lua_pushinteger(L, NSInsertCharFunctionKey) ;   lua_setfield(L, -2, "InsertChar") ;
+    lua_pushinteger(L, NSDeleteCharFunctionKey) ;   lua_setfield(L, -2, "DeleteChar") ;
+    lua_pushinteger(L, NSPrevFunctionKey) ;         lua_setfield(L, -2, "Prev") ;
+    lua_pushinteger(L, NSNextFunctionKey) ;         lua_setfield(L, -2, "Next") ;
+    lua_pushinteger(L, NSSelectFunctionKey) ;       lua_setfield(L, -2, "Select") ;
+    lua_pushinteger(L, NSExecuteFunctionKey) ;      lua_setfield(L, -2, "Execute") ;
+    lua_pushinteger(L, NSUndoFunctionKey) ;         lua_setfield(L, -2, "Undo") ;
+    lua_pushinteger(L, NSRedoFunctionKey) ;         lua_setfield(L, -2, "Redo") ;
+    lua_pushinteger(L, NSFindFunctionKey) ;         lua_setfield(L, -2, "Find") ;
+    lua_pushinteger(L, NSHelpFunctionKey) ;         lua_setfield(L, -2, "Help") ;
+    lua_pushinteger(L, NSModeSwitchFunctionKey) ;   lua_setfield(L, -2, "ModeSwitch") ;
+    return 1 ;
+}
+
 #pragma mark - Lua<->CFObject Conversion Functions
 
 static int pushCGEventRef(lua_State *L, CGEventRef event) {
@@ -543,6 +652,7 @@ static luaL_Reg moduleLib[] = {
     {"pressedMouseButtons",    event_pressedMouseButtons},
     {"doubleClickInterval",    event_doubleClickInterval},
     {"mouseLocation",          event_mouseLocation},
+    {"swipeTracking",          event_swipeTracking},
 
     {"absoluteTime",           event_absoluteTime},
     {"mouseCoallescing",       event_mouseCoallescing},
@@ -575,8 +685,10 @@ int luaopen_hs_event_internal(lua_State *L) {
 //                                              withUserdataMapping:USERDATA_TAG];
 //     [skin registerLuaObjectHelper:to<moduleType>FromLua forClass:"<moduleType>"];
 
-    push_eventTypes(L) ;      lua_setfield(L, -2, "types") ;
-    push_eventProperties(L) ; lua_setfield(L, -2, "properties") ;
+    push_eventTypes(L) ;          lua_setfield(L, -2, "types") ;
+    push_eventProperties(L) ;     lua_setfield(L, -2, "properties") ;
+    push_flagMasks(L) ;           lua_setfield(L, -2, "flagMasks") ;
+    push_unicodeFunctionKeys(L) ; lua_setfield(L, -2, "unicodeFunctionKeys") ;
 
     return 1;
 }
