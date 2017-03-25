@@ -3,7 +3,7 @@
 
 @class HSEventThreadManager ;
 
-#define USERDATA_TAG "hs.events.watcher"
+static const char * const USERDATA_TAG = "hs.events.watcher" ;
 static int refTable = LUA_NOREF;
 static HSEventThreadManager *threadManager ;
 
@@ -12,6 +12,48 @@ static HSEventThreadManager *threadManager ;
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
+
+static NSString *CGErrorToString(CGError error) {
+    NSString *message ;
+    switch(error) {
+        case kCGErrorSuccess:
+            message = @"The requested operation was completed successfully." ;
+            break ;
+        case kCGErrorFailure:
+            message = @"A general failure occurred." ;
+            break ;
+        case kCGErrorIllegalArgument:
+            message = @"One or more of the parameters passed to a function are invalid. Check for NULL pointers." ;
+            break ;
+        case kCGErrorInvalidConnection:
+            message = @"The parameter representing a connection to the window server is invalid." ;
+            break ;
+        case kCGErrorInvalidContext:
+            message = @"The CPSProcessSerNum or context identifier parameter is not valid." ;
+            break ;
+        case kCGErrorCannotComplete:
+            message = @"The requested operation is inappropriate for the parameters passed in, or the current system state." ;
+            break ;
+        case kCGErrorNotImplemented:
+            message = @"Return value from obsolete function stubs present for binary compatibility, but not normally called." ;
+            break ;
+        case kCGErrorRangeCheck:
+            message = @"A parameter passed in has a value that is inappropriate, or which does not map to a useful operation or value." ;
+            break ;
+        case kCGErrorTypeCheck:
+            message = @"A data type or token was encountered that did not match the expected type or token." ;
+            break ;
+        case kCGErrorInvalidOperation:
+            message = @"The requested operation is not valid for the parameters passed in, or the current system state." ;
+            break ;
+        case kCGErrorNoneAvailable:
+            message = @"The requested operation could not be completed as the indicated resources were not found." ;
+            break ;
+        default:
+            message = [NSString stringWithFormat:@"Unrecognized CoreGraphics error:%d", error] ;
+    }
+    return message ;
+}
 
 @interface HSEventThreadManager : NSObject
 @property NSMutableDictionary *eventWatchers ;
@@ -86,9 +128,84 @@ static HSEventThreadManager *threadManager ;
 
 #pragma mark - Module Functions
 
-static int watcher_new(lua_State *L) {
+// static int watcher_new(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared] ;
+//     [skin checkArgs:LS_TTABLE, LS_TFUNCTION, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+// }
+
+static int watcher_watchers(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TTABLE, LS_TFUNCTION, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    uint32_t count ;
+// Resets latency counters reducing the usefulness of this function, so we'll pick an arbitrary max since
+// we don't need the array for long.
+//     CGError status = CGGetEventTapList(0, NULL, &count) ;
+    CGError status = kCGErrorSuccess ;
+    count = 128 ; // honestly, if you have this many, you're doing *way* more than I want to deal with right now
+
+//     if (status == kCGErrorSuccess) {
+        CGEventTapInformation *tapList = malloc(sizeof(CGEventTapInformation) * count) ;
+        uint32_t newCount ;
+        status = CGGetEventTapList(count, tapList, &newCount) ;
+        if (status == kCGErrorSuccess) {
+//             if (count != newCount) {
+//                 [skin logWarn:[NSString stringWithFormat:@"%s:watchers - count changed between calls to CGEventTapList: was %d, now %d", USERDATA_TAG, count, newCount]] ;
+//             }
+            if (count == newCount) {
+// FIXME: make this adjustable with maxTaps function if we end up leaving this in
+                CGGetEventTapList(0, NULL, &count) ;
+                [skin logWarn:[NSString stringWithFormat:@"%s:watchers - CGEventTapList : only returning %d of %d eventtaps.  Adjust source and recompile if this needs to be adjusted.", USERDATA_TAG, newCount, count]] ;
+            }
+            lua_newtable(L) ;
+            for(uint32_t i = 0 ; i < newCount ; i++) {
+                lua_newtable(L) ;
+                lua_pushinteger(L, tapList[i].eventTapID) ; lua_setfield(L, -2, "eventTapID") ;
+                switch(tapList[i].tapPoint) {
+                    case kCGHIDEventTap:
+                        lua_pushstring(L, "HID") ;
+                        break ;
+                    case kCGSessionEventTap:
+                        lua_pushstring(L, "session") ;
+                        break ;
+                    case kCGAnnotatedSessionEventTap:
+                        lua_pushstring(L, "annotatedSession") ;
+                        break ;
+                    default:
+                        lua_pushfstring(L, "unknown CGEventTapLocation: %d", tapList[i].tapPoint) ;
+                }
+                lua_setfield(L, -2, "tapPoint") ;
+                switch(tapList[i].options) {
+                    case kCGEventTapOptionDefault:
+                        lua_pushstring(L, "active") ;
+                        break ;
+                    case kCGEventTapOptionListenOnly:
+                        lua_pushstring(L, "passive") ;
+                        break ;
+                    default:
+                        lua_pushfstring(L, "unknown CGEventTapOptions: %d", tapList[i].options) ;
+                }
+                lua_setfield(L, -2, "options") ;
+
+                lua_pushinteger(L, (lua_Integer)tapList[i].eventsOfInterest) ;  lua_setfield(L, -2, "eventsOfInterest") ;
+                lua_pushinteger(L, tapList[i].tappingProcess) ; lua_setfield(L, -2, "tappingProcess") ;
+                lua_pushinteger(L, tapList[i].processBeingTapped) ; lua_setfield(L, -2, "processBeingTapped") ;
+                lua_pushboolean(L, tapList[i].enabled) ; lua_setfield(L, -2, "enabled") ;
+                lua_pushnumber(L, (lua_Number)tapList[i].minUsecLatency) ; lua_setfield(L, -2, "minUsecLatency") ;
+                lua_pushnumber(L, (lua_Number)tapList[i].avgUsecLatency) ; lua_setfield(L, -2, "avgUsecLatency") ;
+                lua_pushnumber(L, (lua_Number)tapList[i].maxUsecLatency) ; lua_setfield(L, -2, "maxUsecLatency") ;
+
+                lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            }
+        }
+        if (tapList) free(tapList) ;
+//     }
+
+    if (status != kCGErrorSuccess) {
+        return luaL_error(L, [CGErrorToString(status) UTF8String]) ;
+    }
+
+    return 1 ;
 }
 
 #pragma mark - Module Methods
@@ -169,7 +286,8 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {NULL, NULL}
+    {"watchers", watcher_watchers},
+    {NULL,       NULL}
 };
 
 // Metatable for module, if needed
@@ -179,7 +297,7 @@ static const luaL_Reg module_metaLib[] = {
 };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs_events_internal(lua_State* __unused L) {
+int luaopen_hs_event_watcher(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

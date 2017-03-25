@@ -1,7 +1,7 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-#define USERDATA_TAG "hs.event"
+static const char * const USERDATA_TAG = "hs.event" ;
 static int refTable = LUA_NOREF;
 static CGEventSourceRef eventSource;
 

@@ -6,6 +6,10 @@ local USERDATA_TAG = "hs.event"
 local module       = require(USERDATA_TAG..".internal")
 local objectMT     = hs.getObjectMetatable(USERDATA_TAG)
 
+module.watcher     = require(USERDATA_TAG..".watcher")
+
+local application  = require "hs.application"
+
 -- private variables and methods -----------------------------------------
 
 local _kMetaTable = {}
@@ -122,6 +126,27 @@ objectMT.__newindex = function(self, key, value)
     if module.properties[key] then
         self:property(key, value)
     end
+end
+
+local originalWatchers = module.watcher.watchers
+module.watcher.watchers = function(...)
+    local holder = originalWatchers(...)
+    for i, v in ipairs(holder) do
+        local eoi, expandedEOI = v.eventsOfInterest, {}
+        expandedEOI._raw = eoi
+        for name, value in pairs(module.types) do
+            local flag = 1 << value
+            if (eoi & flag) > 0 then
+                eoi = eoi - flag
+                table.insert(expandedEOI, name)
+            end
+        end
+        if eoi > 0 then expandedEOI._unknown = eoi end
+        v.eventsOfInterest = expandedEOI
+        v.tappingProcess = application.applicationForPID(v.tappingProcess) or v.tappingProcess
+        v.processBeingTapped = application.applicationForPID(v.processBeingTapped) or v.processBeingTapped
+    end
+    return holder
 end
 
 -- Return Module Object --------------------------------------------------
