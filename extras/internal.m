@@ -428,6 +428,33 @@ static int keybdType(lua_State *L) {
     return 1 ;
 }
 
+static int uptime(lua_State *L) {
+    lua_pushnumber(L, [[NSProcessInfo processInfo] systemUptime]) ;
+    return 1;
+}
+
+static int thermalState(lua_State *L) {
+    NSProcessInfoThermalState state = [[NSProcessInfo processInfo] thermalState] ;
+    switch(state) {
+        case NSProcessInfoThermalStateNominal:
+            lua_pushstring(L, "nominal") ;
+            break ;
+        case NSProcessInfoThermalStateFair:
+            lua_pushstring(L, "fair") ;
+            break ;
+        case NSProcessInfoThermalStateSerious:
+            lua_pushstring(L, "serious") ;
+            break ;
+        case NSProcessInfoThermalStateCritical:
+            lua_pushstring(L, "critical") ;
+            break ;
+        default:
+            lua_pushfstring(L, "** unrecognized thermal state: %d **", state) ;
+            break ;
+    }
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -458,6 +485,9 @@ static const luaL_Reg extrasLib[] = {
 
     {"absoluteTime",         absoluteTime},
     {"keybdType",            keybdType},
+
+    {"uptime",               uptime},
+    {"thermalState",         thermalState},
 
     {NULL,                   NULL}
 };
