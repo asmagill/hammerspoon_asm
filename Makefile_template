@@ -43,6 +43,7 @@ release: clean all
 # 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
+	test -f docs.json && install -m 0644 docs.json $(PREFIX)/hs/_asm/$(MODULE) || echo "No docs.json file to install"
 
 verify: $(LUAFILE)
 	@if $$(hash lua-5.3 >& /dev/null); then (luac-5.3 -p $(LUAFILE) && echo "Lua Compile Verification Passed"); else echo "Skipping Lua Compile Verification"; fi
@@ -57,6 +58,9 @@ install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/hs/_asm/$(MODULE)
 
+docs:
+	hs -c "require(\"hs.doc\").builder.genJSON(\"$(dir $(mkfile_path))\")" > docs.json
+
 markdown:
 	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
@@ -64,12 +68,13 @@ markdownWithTOC:
 	hs -c "dofile(\"utils/docmaker.lua\").genMarkdown([[$(dir $(mkfile_path))]], true)" > README.tmp.md
 
 clean:
-	rm -rf $(SOFILE) *.dSYM tmp
+	rm -rf $(SOFILE) *.dSYM tmp docs.json
 
 uninstall:
 	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
 # 	(pushd $(PREFIX)/hs/_asm/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
+	rm -v -f $(PREFIX)/hs/_asm/$(MODULE)/docs.json
 	rmdir -p $(PREFIX)/hs/_asm/$(MODULE) ; exit 0
 
 .PHONY: all clean uninstall verify install install-objc install-lua
