@@ -34,6 +34,14 @@
 local USERDATA_TAG = "hs._asm.objc"
 local module       = require(USERDATA_TAG..".internal")
 
+local basePath = package.searchpath(USERDATA_TAG, package.path)
+if basePath then
+    basePath = basePath:match("^(.+)/init.lua$")
+    if require"hs.fs".attributes(basePath .. "/docs.json") then
+        require"hs.doc".registerJSONFile(basePath .. "/docs.json")
+    end
+end
+
 -- private variables and methods -----------------------------------------
 
 local classMT         = hs.getObjectMetatable(USERDATA_TAG..".class")

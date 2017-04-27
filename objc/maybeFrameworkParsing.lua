@@ -1,11 +1,12 @@
---- === hs._asm.bridging ===
----
---- Playing with a simplistic lua-objc bridge.
----
---- Very experimental.  Don't use or trust.  Probably forget you ever saw this.
----
---- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
-
+--
+----- === hs._asm.bridging ===
+-----
+----- Playing with a simplistic lua-objc bridge.
+-----
+----- Very experimental.  Don't use or trust.  Probably forget you ever saw this.
+-----
+----- In fact, burn any computer it has come in contact with.  When (not if) you crash Hammerspoon, it's on your own head.
+--
 local defaultPaths = "/System/Library/Frameworks;/Library/Frameworks"
 
 local module  = require("hs._asm.bridging.internal")
