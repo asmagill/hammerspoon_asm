@@ -319,7 +319,7 @@ module.bundleIDForApp = function(app)
 end
 
 --- hs._asm.extras.caseInsensitivePattern(string) -> pattern
---- Functions
+--- Function
 --- Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.
 ---
 --- Parameters:
@@ -399,7 +399,7 @@ module.isinf = function(x) return x == math.huge end
 ---  * Lua represents NaN internally and displays "nan" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.
 module.isnan = function(x) return x ~= x end
 
---- hs._asm.extrasn.colorsFor(listName) -> none
+--- hs._asm.extras.colorsFor(listName) -> none
 --- Function
 --- Prints the colors contained within the specified hs.drawing.color list name.
 ---
@@ -416,7 +416,7 @@ module.colorsFor = function(name)
     require"hs.console".printStyledtext(a)
 end
 
---- hs._asm.extrasn.colorDump() -> none
+--- hs._asm.extras.colorDump() -> none
 --- Function
 --- Prints all of the colors defined in hs.drawing.color's lists.
 ---

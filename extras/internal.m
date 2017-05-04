@@ -2,7 +2,6 @@
 @import Carbon ;
 @import LuaSkin ;
 @import AVFoundation;
-#include <mach/mach.h>
 @import OSAKit ;
 
 // @import AddressBook ;
@@ -13,7 +12,8 @@
 // @import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
 // @import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
 
-#import <netdb.h>
+@import Darwin.POSIX.netdb ;
+@import Darwin.Mach ;
 
 
 /// hs._asm.extras.NSLog(luavalue)
@@ -51,10 +51,15 @@ static int listWindows(lua_State *L) {
     return 1 ;
 }
 
-static int extras_defaults(__unused lua_State* L) {
+static int extras_defaults(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared];
-    NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName: [[NSBundle mainBundle] bundleIdentifier]] ;
-    [skin pushNSObject:defaults] ;
+    NSString *newBundle = [[NSBundle mainBundle] bundleIdentifier] ;
+    if (newBundle) {
+        NSDictionary *defaults = [[NSUserDefaults standardUserDefaults] persistentDomainForName:newBundle] ;
+        [skin pushNSObject:defaults] ;
+    } else {
+        lua_pushnil(L) ;
+    }
     return 1;
 }
 
@@ -230,7 +235,11 @@ static int lockscreen(__unused lua_State* L) {
     NSBundle *bundle = [NSBundle bundleWithPath:@"/Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain.menu"];
     Class principalClass = [bundle principalClass];
     id instance = [[principalClass alloc] init];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundeclared-selector"
     [instance performSelector:@selector(_lockScreenMenuHit:) withObject:nil];
+#pragma clang diagnostic pop
+
     return 0;
 }
 
@@ -349,17 +358,18 @@ static int hs_volumeInformation(lua_State* L) {
     NSVolumeEnumerationOptions options = NSVolumeEnumerationSkipHiddenVolumes;
 
     if (lua_type(L, 1) == LUA_TBOOLEAN && lua_toboolean(L, 1)) {
-        options = 0;
+        options = (NSVolumeEnumerationOptions)0;
     }
 
     NSArray *URLs = [fileManager mountedVolumeURLsIncludingResourceValuesForKeys:urlResourceKeys options:options];
 
     for (NSURL *url in URLs) {
         id result = [url resourceValuesForKeys:urlResourceKeys error:nil] ;
-        if ([url path]) {
-                if (result) [volumeInfo setObject:result forKey:[url path]];
-                if ([url resourceValuesForKeys:urlResourceKeys error:nil])
-                        [volumeInfo setObject:[url resourceValuesForKeys:urlResourceKeys error:nil] forKey:[url path]];
+        NSString *path = [url path] ;
+        if (path) {
+            if (result) [volumeInfo setObject:result forKey:path];
+            NSDictionary *dict = [url resourceValuesForKeys:urlResourceKeys error:nil] ;
+            if (dict) [volumeInfo setObject:dict forKey:path];
         }
     }
 
@@ -409,6 +419,33 @@ static int absoluteTime(lua_State *L) {
     return 1 ;
 }
 
+static int mach_stuff(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, (lua_Integer)mach_absolute_time()) ;
+    lua_setfield(L, -2, "absolute") ;
+    lua_pushinteger(L, (lua_Integer)mach_approximate_time()) ;
+    lua_setfield(L, -2, "approximate") ;
+    mach_timebase_info_data_t holding ;
+    mach_timebase_info(&holding) ;
+    lua_pushinteger(L, (lua_Integer)holding.numer) ;
+    lua_setfield(L, -2, "numerator") ;
+    lua_pushinteger(L, (lua_Integer)holding.denom) ;
+    lua_setfield(L, -2, "denominator") ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+    if (&mach_continuous_time != NULL) {
+        lua_pushinteger(L, (lua_Integer)mach_continuous_time()) ;
+        lua_setfield(L, -2, "continuous") ;
+    }
+    if (&mach_continuous_approximate_time != NULL) {
+        lua_pushinteger(L, (lua_Integer)mach_continuous_approximate_time()) ;
+        lua_setfield(L, -2, "continuousApproximate") ;
+    }
+#pragma clang diagnostic pop
+
+    return 1 ;
+}
+
 static int hotkeys(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CFArrayRef hotkeys = NULL ;
@@ -434,23 +471,30 @@ static int uptime(lua_State *L) {
 }
 
 static int thermalState(lua_State *L) {
-    NSProcessInfoThermalState state = [[NSProcessInfo processInfo] thermalState] ;
-    switch(state) {
-        case NSProcessInfoThermalStateNominal:
-            lua_pushstring(L, "nominal") ;
-            break ;
-        case NSProcessInfoThermalStateFair:
-            lua_pushstring(L, "fair") ;
-            break ;
-        case NSProcessInfoThermalStateSerious:
-            lua_pushstring(L, "serious") ;
-            break ;
-        case NSProcessInfoThermalStateCritical:
-            lua_pushstring(L, "critical") ;
-            break ;
-        default:
-            lua_pushfstring(L, "** unrecognized thermal state: %d **", state) ;
-            break ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+    if ([[NSProcessInfo processInfo] respondsToSelector:@selector(thermalState)]) {
+        NSProcessInfoThermalState state = [[NSProcessInfo processInfo] thermalState] ;
+#pragma clang diagnostic pop
+        switch(state) {
+            case NSProcessInfoThermalStateNominal:
+                lua_pushstring(L, "nominal") ;
+                break ;
+            case NSProcessInfoThermalStateFair:
+                lua_pushstring(L, "fair") ;
+                break ;
+            case NSProcessInfoThermalStateSerious:
+                lua_pushstring(L, "serious") ;
+                break ;
+            case NSProcessInfoThermalStateCritical:
+                lua_pushstring(L, "critical") ;
+                break ;
+            default:
+                lua_pushfstring(L, "** unrecognized thermal state: %d **", state) ;
+                break ;
+        }
+    } else {
+        lua_pushnil(L) ;
     }
     return 1 ;
 }
@@ -488,6 +532,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"uptime",               uptime},
     {"thermalState",         thermalState},
+
+    {"mach",                 mach_stuff},
 
     {NULL,                   NULL}
 };
