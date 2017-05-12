@@ -12,6 +12,8 @@
 // @import AVFoundation.AVTime;      // for NSValue conversion of CMTime, CMTimeRange, CMTimeMapping
 // @import MapKit.MKGeometry;        // for NSValue conversion of CLLocationCoordinate2D, MKCoordinateSpan
 
+@import IOKit.pwr_mgt ;
+
 @import Darwin.POSIX.netdb ;
 @import Darwin.Mach ;
 
@@ -499,6 +501,20 @@ static int thermalState(lua_State *L) {
     return 1 ;
 }
 
+static int assertions(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+    CFDictionaryRef assertions = NULL ;
+    IOPMCopyAssertionsByProcess(&assertions) ;
+    if (assertions) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -534,7 +550,7 @@ static const luaL_Reg extrasLib[] = {
     {"thermalState",         thermalState},
 
     {"mach",                 mach_stuff},
-
+    {"assertions",           assertions},
     {NULL,                   NULL}
 };
 
