@@ -1259,11 +1259,11 @@ static int avplayer_pause(lua_State *L) {
 ///  * A value of 1.0 is equivalent to [hs._asm.avplayer:play](#play).
 ///
 ///  * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:
-///    * Rates between 0.0 and 1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlaySlowForward` field
-///    * Rates greater than 1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayFastForward` field
-///    * The item can be played in reverse (a rate of -1.0) if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayReverse` field
-///    * Rates between 0.0 and -1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlaySlowReverse` field
-///    * Rates less than -1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayFastReverse` field
+///    * Rates between 0.0 and 1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field
+///    * Rates greater than 1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field
+///    * The item can be played in reverse (a rate of -1.0) if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field
+///    * Rates between 0.0 and -1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field
+///    * Rates less than -1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field
 static int avplayer_rate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1462,7 +1462,7 @@ static int avplayer_trackRate(lua_State *L) {
 
 #pragma mark - Module Methods - AVPlayerItem methods
 
-/// hs._asm.avplayer:playerInformation() -> table | nil
+/// hs._asm.avplayer:playbackInformation() -> table | nil
 /// Method
 /// Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.
 ///

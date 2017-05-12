@@ -61,7 +61,7 @@ avplayer = require("hs._asm.avplayer")
 * <a href="#pause">avplayer:pause() -> avplayerObject</a>
 * <a href="#pauseWhenHidden">avplayer:pauseWhenHidden([state]) -> avplayerObject | current value</a>
 * <a href="#play">avplayer:play([fromBeginning]) -> avplayerObject</a>
-* <a href="#playerInformation">avplayer:playerInformation() -> table | nil</a>
+* <a href="#playbackInformation">avplayer:playbackInformation() -> table | nil</a>
 * <a href="#rate">avplayer:rate([rate]) -> avplayerObject | current value</a>
 * <a href="#seek">avplayer:seek(time, [callback]) -> avplayerObject | nil</a>
 * <a href="#sendToBack">avplayer:sendToBack() -> avplayerObject</a>
@@ -519,9 +519,9 @@ Notes:
 
 - - -
 
-<a name="playerInformation"></a>
+<a name="playbackInformation"></a>
 ~~~lua
-avplayer:playerInformation() -> table | nil
+avplayer:playbackInformation() -> table | nil
 ~~~
 Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.
 
@@ -559,11 +559,11 @@ Notes:
  * A value of 1.0 is equivalent to [hs._asm.avplayer:play](#play).
 
  * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:
-   * Rates between 0.0 and 1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlaySlowForward` field
-   * Rates greater than 1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayFastForward` field
-   * The item can be played in reverse (a rate of -1.0) if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayReverse` field
-   * Rates between 0.0 and -1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlaySlowReverse` field
-   * Rates less than -1.0 are allowed if [hs._asm.avplayer:playerInformation](#playerInformation) returns true for the `canPlayFastReverse` field
+   * Rates between 0.0 and 1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field
+   * Rates greater than 1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field
+   * The item can be played in reverse (a rate of -1.0) if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field
+   * Rates between 0.0 and -1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field
+   * Rates less than -1.0 are allowed if [hs._asm.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field
 
 - - -
 
