@@ -74,13 +74,13 @@ install-lua: $(LUAFILE)
 	install -m 0644 $(LUAFILE) $(PREFIX)/$(MODPATH)/$(MODULE)
 
 docs:
-	/opt/amagill/src/hammerspoon/_asm/core/ipc2/cli/hs -c "require(\"hs.doc\").builder.genJSON(\"$(dir $(mkfile_path))\")" > docs.json
+	hs -c "require(\"hs.doc\").builder.genJSON(\"$(dir $(mkfile_path))\")" > docs.json
 
 markdown:
-	/opt/amagill/src/hammerspoon/_asm/core/ipc2/cli/hs -c "dofile(\"$(MARKDOWNMAKER)\").genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
+	hs -c "dofile(\"$(MARKDOWNMAKER)\").genMarkdown([[$(dir $(mkfile_path))]])" > README.tmp.md
 
 markdownWithTOC:
-	/opt/amagill/src/hammerspoon/_asm/core/ipc2/cli/hs -c "dofile(\"$(MARKDOWNMAKER)\").genMarkdown([[$(dir $(mkfile_path))]], true)" > README.tmp.md
+	hs -c "dofile(\"$(MARKDOWNMAKER)\").genMarkdown([[$(dir $(mkfile_path))]], true)" > README.tmp.md
 
 clean:
 	rm -rf $(SOFILE) *.dSYM tmp docs.json
