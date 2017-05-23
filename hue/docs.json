@@ -2,11 +2,8 @@
   {
     "Constant" : [
       {
-        "doc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.\n\nThis table is initially empty until [hs._asm.hue.beginDiscovery](#beginDiscovery) has been executed.  If you have a default defined with [hs._asm.hue.setDefault](#setDefault), then this process will occur automatically when the module is loaded.\n\nThe keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable.",
-        "parameters" : [
-
-        ],
-        "name" : "discovered",
+        "desc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.",
+        "def" : "hs._asm.hue.discovered",
         "stripped_doc" : [
           "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.",
           "",
@@ -14,6 +11,7 @@
           "",
           "The keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable."
         ],
+        "doc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.\n\nThis table is initially empty until [hs._asm.hue.beginDiscovery](#beginDiscovery) has been executed.  If you have a default defined with [hs._asm.hue.setDefault](#setDefault), then this process will occur automatically when the module is loaded.\n\nThe keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable.",
         "notes" : [
 
         ],
@@ -22,8 +20,10 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.discovered",
-        "desc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module."
+        "name" : "discovered",
+        "parameters" : [
+
+        ]
       }
     ],
     "submodules" : [
@@ -31,17 +31,13 @@
     ],
     "Function" : [
       {
-        "doc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.\n\nParameters:\n * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.\n * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.\n\nReturns:\n * None\n\nNotes:\n * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks.",
-        "parameters" : [
-          " * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.",
-          " * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.",
-          ""
-        ],
-        "name" : "beginDiscovery",
+        "desc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.",
+        "def" : "hs._asm.hue.beginDiscovery([queryTime], [callback]) -> none",
         "stripped_doc" : [
           "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.",
           ""
         ],
+        "doc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.\n\nParameters:\n * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.\n * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.\n\nReturns:\n * None\n\nNotes:\n * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks.",
         "notes" : [
           " * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks."
         ],
@@ -51,22 +47,21 @@
           " * None",
           ""
         ],
-        "def" : "hs._asm.hue.beginDiscovery([queryTime], [callback]) -> none",
-        "desc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network."
+        "name" : "beginDiscovery",
+        "parameters" : [
+          " * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.",
+          " * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.",
+          ""
+        ]
       },
       {
-        "doc" : "Set or clear the default bridge and user used for automatic connection when this module loads.\n\nParameters:\n * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.\n\nReturns:\n * true if the new settings have been saved or false if they were not.\n\nNotes:\n * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).\n * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.\n\n * See also [hs._asm.hue:makeDefault](#makeDefault).",
-        "parameters" : [
-          " * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
-          " * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.",
-          ""
-        ],
-        "name" : "setDefault",
+        "desc" : "Set or clear the default bridge and user used for automatic connection when this module loads.",
+        "def" : "hs._asm.hue.setDefault(bridgeID, userID, [force]) -> boolean",
         "stripped_doc" : [
           "Set or clear the default bridge and user used for automatic connection when this module loads.",
           ""
         ],
+        "doc" : "Set or clear the default bridge and user used for automatic connection when this module loads.\n\nParameters:\n * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.\n\nReturns:\n * true if the new settings have been saved or false if they were not.\n\nNotes:\n * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).\n * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.\n\n * See also [hs._asm.hue:makeDefault](#makeDefault).",
         "notes" : [
           " * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).",
           " * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.",
@@ -79,21 +74,22 @@
           " * true if the new settings have been saved or false if they were not.",
           ""
         ],
-        "def" : "hs._asm.hue.setDefault(bridgeID, userID, [force]) -> boolean",
-        "desc" : "Set or clear the default bridge and user used for automatic connection when this module loads."
+        "name" : "setDefault",
+        "parameters" : [
+          " * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
+          " * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.",
+          ""
+        ]
       },
       {
-        "doc" : "Attempts to create a new user ID on the specified Philips Hue bridge\n\nParameters:\n * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying a human readable name for the new user identification string\n\nReturns:\n * a table containing the results of the request.\n   * If the link button on your Philips Hue bridge has not been pressed, the table will contain the following:\n ~~~\n{ {\n    error = {\n      address = \"\/\",\n      description = \"link button not pressed\",\n      type = 101\n    }\n  } }\n~~~\n   * If you have pressed the link button and issue this function within 30 seconds, the table will contain the following:\n ~~~\n{ {\n    success = {\n      username = \"string-contaning-letters-and-numbers\"\n    }\n  } }\n~~~\n   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)\n\nNotes:\n * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.\n\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
-        "parameters" : [
-          " * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string specifying a human readable name for the new user identification string",
-          ""
-        ],
-        "name" : "createUser",
+        "desc" : "Attempts to create a new user ID on the specified Philips Hue bridge",
+        "def" : "hs._asm.hue.createUser(bridgeID, userName) -> results",
         "stripped_doc" : [
           "Attempts to create a new user ID on the specified Philips Hue bridge",
           ""
         ],
+        "doc" : "Attempts to create a new user ID on the specified Philips Hue bridge\n\nParameters:\n * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying a human readable name for the new user identification string\n\nReturns:\n * a table containing the results of the request.\n   * If the link button on your Philips Hue bridge has not been pressed, the table will contain the following:\n ~~~\n{ {\n    error = {\n      address = \"\/\",\n      description = \"link button not pressed\",\n      type = 101\n    }\n  } }\n~~~\n   * If you have pressed the link button and issue this function within 30 seconds, the table will contain the following:\n ~~~\n{ {\n    success = {\n      username = \"string-contaning-letters-and-numbers\"\n    }\n  } }\n~~~\n   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)\n\nNotes:\n * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.\n\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.",
           "",
@@ -124,20 +120,21 @@
           "   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)",
           ""
         ],
-        "def" : "hs._asm.hue.createUser(bridgeID, userName) -> results",
-        "desc" : "Attempts to create a new user ID on the specified Philips Hue bridge"
+        "name" : "createUser",
+        "parameters" : [
+          " * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string specifying a human readable name for the new user identification string",
+          ""
+        ]
       },
       {
-        "doc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.\n\nParameters:\n * color - a table specifying a color as defined by the `hs.drawing.color` module\n\nReturns:\n * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change.",
-        "parameters" : [
-          " * color - a table specifying a color as defined by the `hs.drawing.color` module",
-          ""
-        ],
-        "name" : "hueColor",
+        "desc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.",
+        "def" : "hs._asm.hue.hueColor(color) -> table",
         "stripped_doc" : [
           "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.",
           ""
         ],
+        "doc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.\n\nParameters:\n * color - a table specifying a color as defined by the `hs.drawing.color` module\n\nReturns:\n * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change.",
         "notes" : [
 
         ],
@@ -146,22 +143,23 @@
         "returns" : [
           " * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change."
         ],
-        "def" : "hs._asm.hue.hueColor(color) -> table",
-        "desc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified."
+        "name" : "hueColor",
+        "parameters" : [
+          " * color - a table specifying a color as defined by the `hs.drawing.color` module",
+          ""
+        ]
       }
     ],
     "Variable" : [
       {
-        "doc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).\n\nIf you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection.",
-        "parameters" : [
-
-        ],
-        "name" : "default",
+        "desc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).",
+        "def" : "hs._asm.hue.default",
         "stripped_doc" : [
           "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).",
           "",
           "If you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection."
         ],
+        "doc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).\n\nIf you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection.",
         "notes" : [
 
         ],
@@ -170,18 +168,18 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.default",
-        "desc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault)."
-      },
-      {
-        "doc" : "hs.logger object used within this module.",
+        "name" : "default",
         "parameters" : [
 
-        ],
-        "name" : "log",
+        ]
+      },
+      {
+        "desc" : "hs.logger object used within this module.",
+        "def" : "hs._asm.hue.log",
         "stripped_doc" : [
           "hs.logger object used within this module."
         ],
+        "doc" : "hs.logger object used within this module.",
         "notes" : [
 
         ],
@@ -190,20 +188,20 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.log",
-        "desc" : "hs.logger object used within this module."
-      },
-      {
-        "doc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.\n\nTo effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`.",
+        "name" : "log",
         "parameters" : [
 
-        ],
-        "name" : "defaultRetryTime",
+        ]
+      },
+      {
+        "desc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.",
+        "def" : "hs._asm.hue.defaultRetryTime",
         "stripped_doc" : [
           "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.",
           "",
           "To effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`."
         ],
+        "doc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.\n\nTo effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`.",
         "notes" : [
 
         ],
@@ -212,31 +210,29 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.defaultRetryTime",
-        "desc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds."
+        "name" : "defaultRetryTime",
+        "parameters" : [
+
+        ]
       }
     ],
     "stripped_doc" : [
 
     ],
-    "desc" : "Manage Philips Hue Hubs on your local network.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Manage Philips Hue Hubs on your local network.",
     "Constructor" : [
       {
-        "doc" : "Connect to the specified Hue bridge with the specified user hash.\n\nParameters:\n * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n\nReturns:\n * the hueObject if the bridge is available or nil if it is not\n\nNotes:\n * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default).",
-        "parameters" : [
-          " * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
-          ""
-        ],
-        "name" : "connect",
+        "desc" : "Connect to the specified Hue bridge with the specified user hash.",
+        "def" : "hs._asm.hue.connect(bridgeID, userID) -> hueObject",
         "stripped_doc" : [
           "Connect to the specified Hue bridge with the specified user hash.",
           ""
         ],
+        "doc" : "Connect to the specified Hue bridge with the specified user hash.\n\nParameters:\n * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n\nReturns:\n * the hueObject if the bridge is available or nil if it is not\n\nNotes:\n * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default).",
         "notes" : [
           " * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default)."
         ],
@@ -246,23 +242,24 @@
           " * the hueObject if the bridge is available or nil if it is not",
           ""
         ],
-        "def" : "hs._asm.hue.connect(bridgeID, userID) -> hueObject",
-        "desc" : "Connect to the specified Hue bridge with the specified user hash."
+        "name" : "connect",
+        "parameters" : [
+          " * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
+          ""
+        ]
       }
     ],
     "doc" : "Manage Philips Hue Hubs on your local network.",
     "Method" : [
       {
-        "doc" : "Sends a GET query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
-        "parameters" : [
-          " * queryString - a string specifying the query for the Hue bridge.",
-          ""
-        ],
-        "name" : "get",
+        "desc" : "Sends a GET query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:get(queryString) -> table",
         "stripped_doc" : [
           "Sends a GET query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a GET query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -272,20 +269,20 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:get(queryString) -> table",
-        "desc" : "Sends a GET query to the Hue bridge using its REST API."
-      },
-      {
-        "doc" : "Sends a DELETE query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
+        "name" : "get",
         "parameters" : [
           " * queryString - a string specifying the query for the Hue bridge.",
           ""
-        ],
-        "name" : "delete",
+        ]
+      },
+      {
+        "desc" : "Sends a DELETE query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:delete(queryString) -> table",
         "stripped_doc" : [
           "Sends a DELETE query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a DELETE query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -295,21 +292,20 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:delete(queryString) -> table",
-        "desc" : "Sends a DELETE query to the Hue bridge using its REST API."
-      },
-      {
-        "doc" : "Sends a PUT query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
+        "name" : "delete",
         "parameters" : [
           " * queryString - a string specifying the query for the Hue bridge.",
-          " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
           ""
-        ],
-        "name" : "put",
+        ]
+      },
+      {
+        "desc" : "Sends a PUT query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:put(queryString, body) -> table",
         "stripped_doc" : [
           "Sends a PUT query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a PUT query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -319,21 +315,21 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:put(queryString, body) -> table",
-        "desc" : "Sends a PUT query to the Hue bridge using its REST API."
-      },
-      {
-        "doc" : "Sends a POST query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
+        "name" : "put",
         "parameters" : [
           " * queryString - a string specifying the query for the Hue bridge.",
           " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
           ""
-        ],
-        "name" : "post",
+        ]
+      },
+      {
+        "desc" : "Sends a POST query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:post(queryString, body) -> table",
         "stripped_doc" : [
           "Sends a POST query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a POST query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -343,20 +339,21 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:post(queryString, body) -> table",
-        "desc" : "Sends a POST query to the Hue bridge using its REST API."
+        "name" : "post",
+        "parameters" : [
+          " * queryString - a string specifying the query for the Hue bridge.",
+          " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
+          ""
+        ]
       },
       {
-        "doc" : "Set this current connection as the module's default connection to be attempted on module load.\n\nParameters:\n * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.\n\nReturns:\n * true if the change was successful or false if it was not\n\nNotes:\n * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`.",
-        "parameters" : [
-          " * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.",
-          ""
-        ],
-        "name" : "makeDefault",
+        "desc" : "Set this current connection as the module's default connection to be attempted on module load.",
+        "def" : "hs._asm.hue:makeDefault([force]) -> boolean",
         "stripped_doc" : [
           "Set this current connection as the module's default connection to be attempted on module load.",
           ""
         ],
+        "doc" : "Set this current connection as the module's default connection to be attempted on module load.\n\nParameters:\n * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.\n\nReturns:\n * true if the change was successful or false if it was not\n\nNotes:\n * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`.",
         "notes" : [
           " * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`."
         ],
@@ -366,8 +363,11 @@
           " * true if the change was successful or false if it was not",
           ""
         ],
-        "def" : "hs._asm.hue:makeDefault([force]) -> boolean",
-        "desc" : "Set this current connection as the module's default connection to be attempted on module load."
+        "name" : "makeDefault",
+        "parameters" : [
+          " * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.",
+          ""
+        ]
       }
     ],
     "Command" : [
@@ -378,11 +378,8 @@
     ],
     "items" : [
       {
-        "doc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.\n\nThis table is initially empty until [hs._asm.hue.beginDiscovery](#beginDiscovery) has been executed.  If you have a default defined with [hs._asm.hue.setDefault](#setDefault), then this process will occur automatically when the module is loaded.\n\nThe keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable.",
-        "parameters" : [
-
-        ],
-        "name" : "discovered",
+        "desc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.",
+        "def" : "hs._asm.hue.discovered",
         "stripped_doc" : [
           "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.",
           "",
@@ -390,6 +387,7 @@
           "",
           "The keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable."
         ],
+        "doc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module.\n\nThis table is initially empty until [hs._asm.hue.beginDiscovery](#beginDiscovery) has been executed.  If you have a default defined with [hs._asm.hue.setDefault](#setDefault), then this process will occur automatically when the module is loaded.\n\nThe keys represent the bridge ID's of Hue bridges discovered and the value will be a table containing the name of the bridge, the time it last responded to a discovery query, and the root URL to use for queries.  A __tostring metatable method has been added so you can view the table in the console by just referencing this variable.",
         "notes" : [
 
         ],
@@ -398,20 +396,20 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.discovered",
-        "desc" : "A table containing key-value pairs for the Philips Hue bridges discovered on the current network by this module."
-      },
-      {
-        "doc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).\n\nIf you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection.",
+        "name" : "discovered",
         "parameters" : [
 
-        ],
-        "name" : "default",
+        ]
+      },
+      {
+        "desc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).",
+        "def" : "hs._asm.hue.default",
         "stripped_doc" : [
           "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).",
           "",
           "If you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection."
         ],
+        "doc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault).\n\nIf you have not set a default, or if the default is not available when this module is first loaded, this value will be nil. If you change the default with [hs._asm.hue.setDefault](#setDefault) then this value will be set to nil and a connection attempt to the new bridge will be attempted.  On success, this variable will then contain the hueObject for the new connection.",
         "notes" : [
 
         ],
@@ -420,20 +418,20 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.default",
-        "desc" : "The hueObject representing the default bridge connection set by [hs._asm.hue.setDefault](#setDefault)."
-      },
-      {
-        "doc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.\n\nTo effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`.",
+        "name" : "default",
         "parameters" : [
 
-        ],
-        "name" : "defaultRetryTime",
+        ]
+      },
+      {
+        "desc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.",
+        "def" : "hs._asm.hue.defaultRetryTime",
         "stripped_doc" : [
           "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.",
           "",
           "To effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`."
         ],
+        "doc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds.\n\nTo effect a persistent change to this value, set your desired timeout with `hs.settings.set(\"hs._asm.hue.defaultRetryTime\", value)`.",
         "notes" : [
 
         ],
@@ -442,18 +440,18 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.defaultRetryTime",
-        "desc" : "The retry interval when a default is set with [hs._asm.hue.setDefault](#setDefault) but the specified bridge was not discovered.  Defaults to 60 seconds."
-      },
-      {
-        "doc" : "hs.logger object used within this module.",
+        "name" : "defaultRetryTime",
         "parameters" : [
 
-        ],
-        "name" : "log",
+        ]
+      },
+      {
+        "desc" : "hs.logger object used within this module.",
+        "def" : "hs._asm.hue.log",
         "stripped_doc" : [
           "hs.logger object used within this module."
         ],
+        "doc" : "hs.logger object used within this module.",
         "notes" : [
 
         ],
@@ -462,21 +460,19 @@
         "returns" : [
 
         ],
-        "def" : "hs._asm.hue.log",
-        "desc" : "hs.logger object used within this module."
+        "name" : "log",
+        "parameters" : [
+
+        ]
       },
       {
-        "doc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.\n\nParameters:\n * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.\n * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.\n\nReturns:\n * None\n\nNotes:\n * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks.",
-        "parameters" : [
-          " * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.",
-          " * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.",
-          ""
-        ],
-        "name" : "beginDiscovery",
+        "desc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.",
+        "def" : "hs._asm.hue.beginDiscovery([queryTime], [callback]) -> none",
         "stripped_doc" : [
           "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.",
           ""
         ],
+        "doc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network.\n\nParameters:\n * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.\n * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.\n\nReturns:\n * None\n\nNotes:\n * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks.",
         "notes" : [
           " * This function will clear current entries in [hs._asm.hue.discovered](#discovered) before performing the query and then populate it with bridges discovered on the current local networks."
         ],
@@ -486,21 +482,21 @@
           " * None",
           ""
         ],
-        "def" : "hs._asm.hue.beginDiscovery([queryTime], [callback]) -> none",
-        "desc" : "Perform an SSDP M-SEARCH query to discover Philips Hue bridges on the current network."
+        "name" : "beginDiscovery",
+        "parameters" : [
+          " * queryTime - the number of seconds, default 3.0, to query for bridges on the local network.",
+          " * callback   - an optional function to execute after the query has completed.  Defaults to an empty function.",
+          ""
+        ]
       },
       {
-        "doc" : "Attempts to create a new user ID on the specified Philips Hue bridge\n\nParameters:\n * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying a human readable name for the new user identification string\n\nReturns:\n * a table containing the results of the request.\n   * If the link button on your Philips Hue bridge has not been pressed, the table will contain the following:\n ~~~\n{ {\n    error = {\n      address = \"\/\",\n      description = \"link button not pressed\",\n      type = 101\n    }\n  } }\n~~~\n   * If you have pressed the link button and issue this function within 30 seconds, the table will contain the following:\n ~~~\n{ {\n    success = {\n      username = \"string-contaning-letters-and-numbers\"\n    }\n  } }\n~~~\n   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)\n\nNotes:\n * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.\n\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
-        "parameters" : [
-          " * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string specifying a human readable name for the new user identification string",
-          ""
-        ],
-        "name" : "createUser",
+        "desc" : "Attempts to create a new user ID on the specified Philips Hue bridge",
+        "def" : "hs._asm.hue.createUser(bridgeID, userName) -> results",
         "stripped_doc" : [
           "Attempts to create a new user ID on the specified Philips Hue bridge",
           ""
         ],
+        "doc" : "Attempts to create a new user ID on the specified Philips Hue bridge\n\nParameters:\n * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying a human readable name for the new user identification string\n\nReturns:\n * a table containing the results of the request.\n   * If the link button on your Philips Hue bridge has not been pressed, the table will contain the following:\n ~~~\n{ {\n    error = {\n      address = \"\/\",\n      description = \"link button not pressed\",\n      type = 101\n    }\n  } }\n~~~\n   * If you have pressed the link button and issue this function within 30 seconds, the table will contain the following:\n ~~~\n{ {\n    success = {\n      username = \"string-contaning-letters-and-numbers\"\n    }\n  } }\n~~~\n   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)\n\nNotes:\n * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.\n\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The Philips Hue bridge does not support usernames directly; instead, you must specify an application name and a device or user for that application which are used to construct a unique hashed value in your bridge which is added to its whitelist. Internally this function prepends \"hammerspoon\" as the application name, so you only provide the user portion. The returned hash is how you authenticate yourself for future communication with the bridge.",
           "",
@@ -531,20 +527,21 @@
           "   * Note the value of `username` as you will need it for [hs._asm.hue.connect](#connect)",
           ""
         ],
-        "def" : "hs._asm.hue.createUser(bridgeID, userName) -> results",
-        "desc" : "Attempts to create a new user ID on the specified Philips Hue bridge"
+        "name" : "createUser",
+        "parameters" : [
+          " * bridgeID - a string specifying the id of the discovered bridge on which you wish to create a new user. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string specifying a human readable name for the new user identification string",
+          ""
+        ]
       },
       {
-        "doc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.\n\nParameters:\n * color - a table specifying a color as defined by the `hs.drawing.color` module\n\nReturns:\n * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change.",
-        "parameters" : [
-          " * color - a table specifying a color as defined by the `hs.drawing.color` module",
-          ""
-        ],
-        "name" : "hueColor",
+        "desc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.",
+        "def" : "hs._asm.hue.hueColor(color) -> table",
         "stripped_doc" : [
           "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.",
           ""
         ],
+        "doc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified.\n\nParameters:\n * color - a table specifying a color as defined by the `hs.drawing.color` module\n\nReturns:\n * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change.",
         "notes" : [
 
         ],
@@ -553,22 +550,20 @@
         "returns" : [
           " * a table containing the `hue`, `sat`, and `bri` key-value pairs recognizable by the Philips Hue bridge representing the color specified. If no conversion is possible, returns an empty table, which if provided to the bridge, will result in no change."
         ],
-        "def" : "hs._asm.hue.hueColor(color) -> table",
-        "desc" : "Returns a table containing the hue, sat, and bri properties recognizable by the Philips Hue bridge representing the color specified."
+        "name" : "hueColor",
+        "parameters" : [
+          " * color - a table specifying a color as defined by the `hs.drawing.color` module",
+          ""
+        ]
       },
       {
-        "doc" : "Set or clear the default bridge and user used for automatic connection when this module loads.\n\nParameters:\n * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.\n\nReturns:\n * true if the new settings have been saved or false if they were not.\n\nNotes:\n * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).\n * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.\n\n * See also [hs._asm.hue:makeDefault](#makeDefault).",
-        "parameters" : [
-          " * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
-          " * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.",
-          ""
-        ],
-        "name" : "setDefault",
+        "desc" : "Set or clear the default bridge and user used for automatic connection when this module loads.",
+        "def" : "hs._asm.hue.setDefault(bridgeID, userID, [force]) -> boolean",
         "stripped_doc" : [
           "Set or clear the default bridge and user used for automatic connection when this module loads.",
           ""
         ],
+        "doc" : "Set or clear the default bridge and user used for automatic connection when this module loads.\n\nParameters:\n * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.\n\nReturns:\n * true if the new settings have been saved or false if they were not.\n\nNotes:\n * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).\n * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.\n\n * See also [hs._asm.hue:makeDefault](#makeDefault).",
         "notes" : [
           " * If a default is set then this module will automatically discover available bridges when loaded and connect to the specified bridge if it is available. See [hs._asm.hue.default](#default).",
           " * On a successful change, [hs._asm.hue.default](#default) will be reset to reflect the new defaults.",
@@ -581,21 +576,22 @@
           " * true if the new settings have been saved or false if they were not.",
           ""
         ],
-        "def" : "hs._asm.hue.setDefault(bridgeID, userID, [force]) -> boolean",
-        "desc" : "Set or clear the default bridge and user used for automatic connection when this module loads."
+        "name" : "setDefault",
+        "parameters" : [
+          " * bridgeID - a string (or explicit nil if you wish to remove the current default) specifying the bridge id of the bridge to connect to by default. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string (or explicit nil if you wish to remove the current default) specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
+          " * force    - an optional boolean, default false, specifying if an existing default should be replaced by the new values.",
+          ""
+        ]
       },
       {
-        "doc" : "Connect to the specified Hue bridge with the specified user hash.\n\nParameters:\n * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n\nReturns:\n * the hueObject if the bridge is available or nil if it is not\n\nNotes:\n * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default).",
-        "parameters" : [
-          " * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).",
-          " * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
-          ""
-        ],
-        "name" : "connect",
+        "desc" : "Connect to the specified Hue bridge with the specified user hash.",
+        "def" : "hs._asm.hue.connect(bridgeID, userID) -> hueObject",
         "stripped_doc" : [
           "Connect to the specified Hue bridge with the specified user hash.",
           ""
         ],
+        "doc" : "Connect to the specified Hue bridge with the specified user hash.\n\nParameters:\n * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).\n * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).\n\nReturns:\n * the hueObject if the bridge is available or nil if it is not\n\nNotes:\n * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default).",
         "notes" : [
           " * if you have set a default with [hs._asm.hue.setDefault](#setDefault) then a connection will be attempted automatically when this module is loaded. See [hs._asm.hue.default](#default)."
         ],
@@ -605,20 +601,21 @@
           " * the hueObject if the bridge is available or nil if it is not",
           ""
         ],
-        "def" : "hs._asm.hue.connect(bridgeID, userID) -> hueObject",
-        "desc" : "Connect to the specified Hue bridge with the specified user hash."
+        "name" : "connect",
+        "parameters" : [
+          " * bridgeID - a string specifying the bridge id of the bridge to connect to. See [hs._asm.hue.discovered](#discovered).",
+          " * userID   - a string specifying the user hash as provided by [hs._asm.hue.createUser](#createUser).",
+          ""
+        ]
       },
       {
-        "doc" : "Sends a DELETE query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
-        "parameters" : [
-          " * queryString - a string specifying the query for the Hue bridge.",
-          ""
-        ],
-        "name" : "delete",
+        "desc" : "Sends a DELETE query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:delete(queryString) -> table",
         "stripped_doc" : [
           "Sends a DELETE query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a DELETE query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -628,20 +625,20 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:delete(queryString) -> table",
-        "desc" : "Sends a DELETE query to the Hue bridge using its REST API."
-      },
-      {
-        "doc" : "Sends a GET query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
+        "name" : "delete",
         "parameters" : [
           " * queryString - a string specifying the query for the Hue bridge.",
           ""
-        ],
-        "name" : "get",
+        ]
+      },
+      {
+        "desc" : "Sends a GET query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:get(queryString) -> table",
         "stripped_doc" : [
           "Sends a GET query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a GET query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -651,20 +648,20 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:get(queryString) -> table",
-        "desc" : "Sends a GET query to the Hue bridge using its REST API."
+        "name" : "get",
+        "parameters" : [
+          " * queryString - a string specifying the query for the Hue bridge.",
+          ""
+        ]
       },
       {
-        "doc" : "Set this current connection as the module's default connection to be attempted on module load.\n\nParameters:\n * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.\n\nReturns:\n * true if the change was successful or false if it was not\n\nNotes:\n * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`.",
-        "parameters" : [
-          " * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.",
-          ""
-        ],
-        "name" : "makeDefault",
+        "desc" : "Set this current connection as the module's default connection to be attempted on module load.",
+        "def" : "hs._asm.hue:makeDefault([force]) -> boolean",
         "stripped_doc" : [
           "Set this current connection as the module's default connection to be attempted on module load.",
           ""
         ],
+        "doc" : "Set this current connection as the module's default connection to be attempted on module load.\n\nParameters:\n * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.\n\nReturns:\n * true if the change was successful or false if it was not\n\nNotes:\n * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`.",
         "notes" : [
           " * This is a wrapper for [hs._asm.hue.setDefault](#setDefault) providing the bridgeID and userID from this connection.  It's return value and behavior are described in the documentation for `setDefault`."
         ],
@@ -674,21 +671,20 @@
           " * true if the change was successful or false if it was not",
           ""
         ],
-        "def" : "hs._asm.hue:makeDefault([force]) -> boolean",
-        "desc" : "Set this current connection as the module's default connection to be attempted on module load."
+        "name" : "makeDefault",
+        "parameters" : [
+          " * force - an optional boolean, default false, specifying whether or not this connection should overwrite any existing default connection.",
+          ""
+        ]
       },
       {
-        "doc" : "Sends a POST query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
-        "parameters" : [
-          " * queryString - a string specifying the query for the Hue bridge.",
-          " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
-          ""
-        ],
-        "name" : "post",
+        "desc" : "Sends a POST query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:post(queryString, body) -> table",
         "stripped_doc" : [
           "Sends a POST query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a POST query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -698,21 +694,21 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:post(queryString, body) -> table",
-        "desc" : "Sends a POST query to the Hue bridge using its REST API."
-      },
-      {
-        "doc" : "Sends a PUT query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
+        "name" : "post",
         "parameters" : [
           " * queryString - a string specifying the query for the Hue bridge.",
           " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
           ""
-        ],
-        "name" : "put",
+        ]
+      },
+      {
+        "desc" : "Sends a PUT query to the Hue bridge using its REST API.",
+        "def" : "hs._asm.hue:put(queryString, body) -> table",
         "stripped_doc" : [
           "Sends a PUT query to the Hue bridge using its REST API.",
           ""
         ],
+        "doc" : "Sends a PUT query to the Hue bridge using its REST API.\n\nParameters:\n * queryString - a string specifying the query for the Hue bridge.\n * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil\n\nReturns:\n * a table of the decoded json data returned by the Hue bridge in response to this query\n\nNotes:\n * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself.",
         "notes" : [
           " * The table returned uses `hs.inspect` as it's __tostring metamethod; this means that you can issue the command in the Hammerspoon console and see the results without having to capture the return value and viewing it with `hs.inspect` yourself."
         ],
@@ -722,8 +718,12 @@
           " * a table of the decoded json data returned by the Hue bridge in response to this query",
           ""
         ],
-        "def" : "hs._asm.hue:put(queryString, body) -> table",
-        "desc" : "Sends a PUT query to the Hue bridge using its REST API."
+        "name" : "put",
+        "parameters" : [
+          " * queryString - a string specifying the query for the Hue bridge.",
+          " * body        - the data for the query.  This should be a string specifying json encoded data, a table which will be converted to json encoded data, or nil",
+          ""
+        ]
       }
     ],
     "name" : "hs._asm.hue"
