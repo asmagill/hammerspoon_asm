@@ -120,6 +120,44 @@ local objectMT = {}
 objectMT.__index    = objectMT
 objectMT.__tostring = function(_) return USERDATA_TAG .. ": " .. internals[_].bridge end
 
+objectMT.paths = function(_, section, criteria, pattern)
+    local self = internals[_]
+    local result = _:get(section)
+    if #result > 0 and result[1].error then return nil end
+    local answers = {}
+
+    local kvInItem
+    kvInItem = function(target, key, value, pattern)
+        local check = target[key]
+        if type(value) == "table" then
+            for k, v in ipairs(value) do
+                if tostring(check):match((pattern and "" or "^") .. tostring(v) .. (pattern and "" or "$")) then return true end
+            end
+        else
+            if tostring(check):match((pattern and "" or "^") .. tostring(value) .. (pattern and "" or "$")) then return true end
+        end
+        if target[key] == value then return true end
+        for k, v in pairs(target) do
+            if type(v) == "table" then
+                if kvInItem(v, key, value, pattern) then return true end
+            end
+        end
+        return false
+    end
+
+    for k,v in pairs(result) do
+        local foundOne = true
+        for k2, v2 in pairs(criteria) do
+            if not kvInItem(v, k2, v2, pattern) then
+                foundOne = false
+                break
+            end
+        end
+        if foundOne then table.insert(answers, section .. "/" .. k) end
+    end
+    return setmetatable(answers, { __tostring = inspect })
+end
+
 --- hs._asm.hue:get(queryString) -> table
 --- Method
 --- Sends a GET query to the Hue bridge using its REST API.
