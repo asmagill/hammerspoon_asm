@@ -1,27 +1,25 @@
-#include "btle.h"
+@import Cocoa;
+@import LuaSkin;
+@import CoreBluetooth;
 
-static int refTable   = LUA_NOREF;
+/// === hs._asm.btle.characteristic ===
+///
+/// Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.
+///
+/// A characteristic contains a single value and any number of descriptors describing that value. The properties of a characteristic determine how the value of the characteristic can be used and how the descriptors can be accessed.
+
+static const char * const UD_CHARACTERISTIC_TAG = "hs._asm.btle.characteristic" ;
+static int refTable = LUA_NOREF;
+
+#define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
 #pragma mark - Characteristic Methods
 
-static int characteristicUUID(lua_State *L) {
+static int characteristicUUID(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
     CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    BOOL raw = (lua_gettop(L) == 2) ? (BOOL)lua_toboolean(L, 2) : NO ;
     NSString *answer = [theCharacteristic.UUID UUIDString] ;
-    if (!raw) {
-        if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-            [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-            if (lua_getfield(L, -1, [answer UTF8String]) == LUA_TTABLE) {
-                if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                    answer = [skin toNSObjectAtIndex:-1] ;
-                }
-                lua_pop(L, 1); // name field
-            }
-            lua_pop(L, 2); // UUID lookup and gattLookup Table
-        }
-    }
     [skin pushNSObject:answer] ;
     return 1 ;
 }
@@ -76,7 +74,7 @@ static int characteristicProperties(lua_State *L) {
         lua_pushboolean(L, YES) ; lua_setfield(L, -2, "indicate") ;
     }
     if (properties & CBCharacteristicPropertyAuthenticatedSignedWrites) {
-        lua_pushboolean(L, YES) ; lua_setfield(L, -2, "authenticateSignedWrites") ;
+        lua_pushboolean(L, YES) ; lua_setfield(L, -2, "authenticatedSignedWrites") ;
     }
     if (properties & CBCharacteristicPropertyExtendedProperties) {
         lua_pushboolean(L, YES) ; lua_setfield(L, -2, "extendedProperties") ;
@@ -126,12 +124,21 @@ static int peripheralReadValueForCharacteristic(lua_State *L) {
     return 1 ;
 }
 
-// TODO: - (void)writeValue:(NSData *)data forCharacteristic:(CBCharacteristic *)characteristic type:(CBCharacteristicWriteType)type
+static int peripheralWriteValueForCharacteristic(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TSTRING, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
+    CBPeripheral     *thePeripheral     = [[theCharacteristic service] peripheral] ;
+    NSData           *theData           = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
+    CBCharacteristicWriteType writeType = (lua_gettop(L) == 3 && lua_toboolean(L, 3)) ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse ;
+    [thePeripheral writeValue:theData forCharacteristic:theCharacteristic type:writeType] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
 
 static int peripheralSetNotifyForCharacteristic(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBOOLEAN, LS_TBREAK] ;
-    [skin checkArgs:LS_TUSERDATA, UD_CHARACTERISTIC_TAG, LS_TBREAK] ;
     CBCharacteristic *theCharacteristic = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
     CBPeripheral     *thePeripheral     = [[theCharacteristic service] peripheral] ;
     [thePeripheral setNotifyValue:(BOOL)lua_toboolean(L, 2) forCharacteristic:theCharacteristic] ;
@@ -170,17 +177,7 @@ static id toCBCharacteristicFromLuaUD(lua_State *L, int idx) {
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CBCharacteristic *obj = [skin luaObjectAtIndex:1 toClass:"CBCharacteristic"] ;
-    NSString *label = [[obj UUID] UUIDString] ; // default to the UUID itself
-    if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-        [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-        if (lua_getfield(L, -1, [label UTF8String]) == LUA_TTABLE) {
-            if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                label = [skin toNSObjectAtIndex:-1] ;
-            }
-            lua_pop(L, 1); // name field
-        }
-        lua_pop(L, 2); // UUID lookup and gattLookup Table
-    }
+    NSString *label = [[obj UUID] UUIDString] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_CHARACTERISTIC_TAG,
                                                                   label,
                                                                   lua_topointer(L, 1)]] ;
@@ -232,6 +229,7 @@ static const luaL_Reg characteristic_metaLib[] = {
 
     {"discoverDescriptors", peripheralDiscoverDescriptorsForCharacteristic},
     {"readValue",           peripheralReadValueForCharacteristic},
+    {"writeValue",          peripheralWriteValueForCharacteristic},
     {"watch",               peripheralSetNotifyForCharacteristic},
 
     {"__tostring",          userdata_tostring},

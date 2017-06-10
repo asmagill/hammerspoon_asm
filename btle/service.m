@@ -1,27 +1,25 @@
-#include "btle.h"
+@import Cocoa;
+@import LuaSkin;
+@import CoreBluetooth;
 
-static int refTable   = LUA_NOREF;
+/// === hs._asm.btle.service ===
+///
+/// Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).
+///
+/// Services are either primary or secondary and may contain a number of characteristics or included services (references to other services).
+
+static const char * const UD_SERVICE_TAG = "hs._asm.btle.service" ;
+static int refTable = LUA_NOREF;
+
+#define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
 #pragma mark - Service Methods
 
-static int serviceUUID(lua_State *L) {
+static int serviceUUID(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    BOOL raw = (lua_gettop(L) == 2) ? (BOOL)lua_toboolean(L, 2) : NO ;
     NSString *answer = [theService.UUID UUIDString] ;
-    if (!raw) {
-        if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-            [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-            if (lua_getfield(L, -1, [answer UTF8String]) == LUA_TTABLE) {
-                if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                    answer = [skin toNSObjectAtIndex:-1] ;
-                }
-                lua_pop(L, 1); // name field
-            }
-            lua_pop(L, 2); // UUID lookup and gattLookup Table
-        }
-    }
     [skin pushNSObject:answer] ;
     return 1 ;
 }
@@ -111,17 +109,7 @@ static id toCBServiceFromLuaUD(lua_State *L, int idx) {
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CBService *obj = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
-    NSString *label = [[obj UUID] UUIDString] ; // default to the UUID itself
-    if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-        [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-        if (lua_getfield(L, -1, [label UTF8String]) == LUA_TTABLE) {
-            if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                label = [skin toNSObjectAtIndex:-1] ;
-            }
-            lua_pop(L, 1); // name field
-        }
-        lua_pop(L, 2); // UUID lookup and gattLookup Table
-    }
+    NSString *label = [[obj UUID] UUIDString] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_SERVICE_TAG,
                                                                   label,
                                                                   lua_topointer(L, 1)]] ;

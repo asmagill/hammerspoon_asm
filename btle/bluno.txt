@@ -1,0 +1,213 @@
+
+
+> inspect(b.discovered)
+{ {
+    RSSI = -58,
+    advertisement = {
+      kCBAdvDataIsConnectable = 1,
+      kCBAdvDataLocalName = "Bluno",
+      kCBAdvDataServiceUUIDs = { "DFB0", "1812" },
+      kCBAdvDataTxPowerLevel = 0
+    },
+    identifier = "98BF507D-A5CE-4FAB-A776-68CD2F238BCD",
+    lastSeen = 1496643573,
+    name = "Bluno",
+    peripheral = <userdata 1> -- hs._asm.btle.peripheral: Bluno (0x608000c5b9e8),
+    services = {
+      ["180A"] = {
+        characteristics = {
+          ["2A23"] = {
+            characteristic = <userdata 2> -- hs._asm.btle.characteristic: 2A23 (0x608000a56ee8),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A23",
+            value = "YN�∅∅9� ",
+            valueUpdated = 1496643583
+          },
+          ["2A24"] = {
+            characteristic = <userdata 3> -- hs._asm.btle.characteristic: 2A24 (0x608000a56e88),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A24",
+            value = "DF Bluno",
+            valueUpdated = 1496643584
+          },
+          ["2A25"] = {
+            characteristic = <userdata 4> -- hs._asm.btle.characteristic: 2A25 (0x608000e52bf8),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A25",
+            value = "0123456789",
+            valueUpdated = 1496643584
+          },
+          ["2A26"] = {
+            characteristic = <userdata 5> -- hs._asm.btle.characteristic: 2A26 (0x6080010507f8),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A26",
+            value = "FW V1.97",
+            valueUpdated = 1496643584
+          },
+          ["2A27"] = {
+            characteristic = <userdata 6> -- hs._asm.btle.characteristic: 2A27 (0x608001054f68),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A27",
+            value = "HW V1.7",
+            valueUpdated = 1496643585
+          },
+          ["2A28"] = {
+            characteristic = <userdata 7> -- hs._asm.btle.characteristic: 2A28 (0x608000a57e48),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A28",
+            value = "SW V1.97",
+            valueUpdated = 1496643585
+          },
+          ["2A29"] = {
+            characteristic = <userdata 8> -- hs._asm.btle.characteristic: 2A29 (0x608000a56e58),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A29",
+            value = "DFRobot",
+            valueUpdated = 1496643586
+          },
+          ["2A2A"] = {
+            characteristic = <userdata 9> -- hs._asm.btle.characteristic: 2A2A (0x608000a55f88),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A2A",
+            value = "�∅experimental",
+            valueUpdated = 1496643586
+          },
+          ["2A50"] = {
+            characteristic = <userdata 10> -- hs._asm.btle.characteristic: 2A50 (0x6080010526b8),
+            descriptors = {},
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 2,
+              read = true
+            },
+            updated = 1496643583,
+            uuid = "2A50",
+            value = "\r∅∅∅",
+            valueUpdated = 1496643586
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 11> -- hs._asm.btle.service: 180A (0x608000c518d8),
+        updated = 1496643583,
+        uuid = "180A"
+      },
+      DFB0 = {
+        characteristics = {
+          DFB1 = {
+            characteristic = <userdata 12> -- hs._asm.btle.characteristic: DFB1 (0x608000a403b8),
+            descriptors = {
+              ["2901"] = {
+                descriptor = <userdata 13> -- hs._asm.btle.descriptor: 2901 (0x600000447ac8),
+                updated = 1496643587,
+                uuid = "2901",
+                value = "Serial",
+                valueUpdated = 1496643589
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 30,
+              notify = true,
+              read = true,
+              write = true,
+              writeWithoutResponse = true
+            },
+            updated = 1496643583,
+            uuid = "DFB1",
+            value = "",
+            valueUpdated = 1496643587
+          },
+          DFB2 = {
+            characteristic = <userdata 14> -- hs._asm.btle.characteristic: DFB2 (0x608001043898),
+            descriptors = {
+              ["2901"] = {
+                descriptor = <userdata 15> -- hs._asm.btle.descriptor: 2901 (0x60800104e8a8),
+                updated = 1496643588,
+                uuid = "2901",
+                value = "AT Ctrl",
+                valueUpdated = 1496643590
+              }
+            },
+            isBroadcasted = false,
+            isNotifying = false,
+            properties = {
+              _raw = 30,
+              notify = true,
+              read = true,
+              write = true,
+              writeWithoutResponse = true
+            },
+            updated = 1496643583,
+            uuid = "DFB2",
+            value = "",
+            valueUpdated = 1496643588
+          }
+        },
+        includedServices = {},
+        primary = false,
+        service = <userdata 16> -- hs._asm.btle.service: DFB0 (0x608000a56c48),
+        updated = 1496643583,
+        uuid = "DFB0"
+      }
+    },
+    state = "connected"
+  } }

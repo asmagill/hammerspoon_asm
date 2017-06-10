@@ -1,6 +1,17 @@
-#include "btle.h"
+@import Cocoa;
+@import LuaSkin;
+@import CoreBluetooth;
 
-static int refTable   = LUA_NOREF;
+static const char * const UD_PERIPHERAL_TAG = "hs._asm.btle.peripheral" ;
+static int refTable = LUA_NOREF;
+
+/// === hs._asm.btle.peripheral ===
+///
+/// Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.
+///
+///  Peripherals are identified by universally unique identifiers (UUIDs) and may contain one or more services or provide useful information about their connected signal strength.
+
+#define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
 #pragma mark - Peripheral Methods
 
@@ -71,6 +82,35 @@ static int peripheralReadRSSI(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.btle.peripheral:maximumWriteSize([withResponse]) -> integer
+/// Method
+/// Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)
+///
+/// Parameters:
+///  * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).
+///
+/// Returns:
+///  * an integer specifying the maximum byte size for the data to be written.
+///
+/// Notes:
+///  * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.
+static int peripheralMaximumWriteValueLength(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
+    CBCharacteristicWriteType writeType = (lua_gettop(L) == 2 && lua_toboolean(L, 2)) ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+    if ([thePeripheral respondsToSelector:@selector(maximumWriteValueLengthForType:)]) {
+        lua_pushinteger(L, (lua_Integer)[thePeripheral maximumWriteValueLengthForType:writeType]) ;
+    } else {
+        lua_pushinteger(L, -1) ;
+    }
+#pragma clang diagnostic pop
+
+    return 1 ;
+}
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -124,10 +164,8 @@ static int userdata_eq(lua_State* L) {
 
 static int userdata_gc(lua_State* L) {
     CBPeripheral *obj = get_objectFromUserdata(__bridge_transfer CBPeripheral, L, 1, UD_PERIPHERAL_TAG) ;
-    if (obj) {
-        obj.delegate = nil ;
-        obj          = nil ;
-    }
+    if (obj) obj = nil ; // delegate is weak, so we don't run into the problem of a userdata needing to clear it
+                         // while another userdata for the same object might still be hangning around somewhere.
 
     // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -146,20 +184,20 @@ static luaL_Reg moduleLib[] = {
 
 // // Metatable for userdata objects
 static const luaL_Reg peripheral_metaLib[] = {
-    {"identifier",                        peripheralIdentifier},
-    {"name",                              peripheralName},
-    {"state",                             peripheralState},
+    {"identifier",       peripheralIdentifier},
+    {"name",             peripheralName},
+    {"state",            peripheralState},
+    {"maximumWriteSize", peripheralMaximumWriteValueLength},
+    {"discoverServices", peripheralDiscoverServices},
+    {"services",         peripheralServices},
 
-    {"discoverServices",                  peripheralDiscoverServices},
-    {"services",                          peripheralServices},
+    {"RSSI",             peripheralRSSI},
+    {"readRSSI",         peripheralReadRSSI},
 
-    {"RSSI",                              peripheralRSSI},
-    {"readRSSI",                          peripheralReadRSSI},
-
-    {"__tostring",                        userdata_tostring},
-    {"__eq",                              userdata_eq},
-    {"__gc",                              userdata_gc},
-    {NULL,                                NULL}
+    {"__tostring",       userdata_tostring},
+    {"__eq",             userdata_eq},
+    {"__gc",             userdata_gc},
+    {NULL,               NULL}
 };
 
 int luaopen_hs__asm_btle_peripheral(__unused lua_State* L) {

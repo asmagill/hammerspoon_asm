@@ -1,27 +1,25 @@
-#include "btle.h"
+@import Cocoa;
+@import LuaSkin;
+@import CoreBluetooth;
 
-static int refTable   = LUA_NOREF;
+/// === hs._asm.btle.descriptor ===
+///
+/// Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.
+///
+///  Descriptors provide further information about a characteristic’s value. For example, they may describe the value in human-readable form and describe how the value should be formatted for presentation purposes. Characteristic descriptors also indicate whether a characteristic’s value is configured on a server (a peripheral) to indicate or notify a client (a central) when the value of the characteristic changes.
+
+static const char * const UD_DESCRIPTOR_TAG = "hs._asm.btle.descriptor" ;
+static int refTable = LUA_NOREF;
+
+#define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
 #pragma mark - Descriptor Methods
 
-static int descriptorUUID(lua_State *L) {
+static int descriptorUUID(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-    BOOL raw = (lua_gettop(L) == 2) ? (BOOL)lua_toboolean(L, 2) : NO ;
     NSString *answer = [theDescriptor.UUID UUIDString] ;
-    if (!raw) {
-        if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-            [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-            if (lua_getfield(L, -1, [answer UTF8String]) == LUA_TTABLE) {
-                if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                    answer = [skin toNSObjectAtIndex:-1] ;
-                }
-                lua_pop(L, 1); // name field
-            }
-            lua_pop(L, 2); // UUID lookup and gattLookup Table
-        }
-    }
     [skin pushNSObject:answer] ;
     return 1 ;
 }
@@ -52,7 +50,16 @@ static int peripheralReadValueForDescriptor(lua_State *L) {
     return 1 ;
 }
 
-// TODO: - (void)writeValue:(NSData *)data forDescriptor:(CBDescriptor *)descriptor
+static int peripheralWriteValueForDescriptor(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TSTRING, LS_TBREAK] ;
+    CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
+    CBPeripheral *thePeripheral = [[[theDescriptor characteristic] service] peripheral] ;
+    NSData       *theData       = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
+    [thePeripheral writeValue:theData forDescriptor:theDescriptor] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
 
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
@@ -85,17 +92,7 @@ static id toCBDescriptorFromLuaUD(lua_State *L, int idx) {
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     CBDescriptor *obj = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
-    NSString *label = [[obj UUID] UUIDString] ; // default to the UUID itself
-    if (btleGattLookupTable != LUA_NOREF && btleRefTable != LUA_NOREF) {
-        [skin pushLuaRef:btleRefTable ref:btleGattLookupTable] ;
-        if (lua_getfield(L, -1, [label UTF8String]) == LUA_TTABLE) {
-            if (lua_getfield(L, -1, "name") == LUA_TSTRING) {
-                label = [skin toNSObjectAtIndex:-1] ;
-            }
-            lua_pop(L, 1); // name field
-        }
-        lua_pop(L, 2); // UUID lookup and gattLookup Table
-    }
+    NSString *label = [[obj UUID] UUIDString] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_DESCRIPTOR_TAG,
                                                                   label,
                                                                   lua_topointer(L, 1)]] ;
@@ -142,6 +139,7 @@ static const luaL_Reg descriptor_metaLib[] = {
     {"characteristic", descriptorCharacteristic},
 
     {"readValue",      peripheralReadValueForDescriptor},
+    {"writeValue",     peripheralWriteValueForDescriptor},
 
     {"__tostring",     userdata_tostring},
     {"__eq",           userdata_eq},

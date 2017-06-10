@@ -28,6 +28,7 @@ Cycling Power	org.bluetooth.service.cycling_power	0x1818
 Cycling Speed and Cadence	org.bluetooth.service.cycling_speed_and_cadence	0x1816
 Device Information	org.bluetooth.service.device_information	0x180A
 Environmental Sensing	org.bluetooth.service.environmental_sensing	0x181A
+Fitness Machine	org.bluetooth.service.fitness_machine	0x1826
 Generic Access	org.bluetooth.service.generic_access	0x1800
 Generic Attribute	org.bluetooth.service.generic_attribute	0x1801
 Glucose	org.bluetooth.service.glucose	0x1808
@@ -68,7 +69,7 @@ Anaerobic Heart Rate Lower Limit	org.bluetooth.characteristic.anaerobic_heart_ra
 Anaerobic Heart Rate Upper Limit	org.bluetooth.characteristic.anaerobic_heart_rate_upper_limit	0x2A82
 Anaerobic Threshold	org.bluetooth.characteristic.anaerobic_threshold	0x2A83
 Analog	org.bluetooth.characteristic.analog	0x2A58
-Apparent Wind Direction 	org.bluetooth.characteristic.apparent_wind_direction	0x2A73
+Apparent Wind Direction	org.bluetooth.characteristic.apparent_wind_direction	0x2A73
 Apparent Wind Speed	org.bluetooth.characteristic.apparent_wind_speed	0x2A72
 Appearance	org.bluetooth.characteristic.gap.appearance	0x2A01
 Barometric Pressure Trend	org.bluetooth.characteristic.barometric_pressure_trend	0x2AA3
@@ -90,6 +91,7 @@ CGM Session Run Time	org.bluetooth.characteristic.cgm_session_run_time	0x2AAB
 CGM Session Start Time	org.bluetooth.characteristic.cgm_session_start_time	0x2AAA
 CGM Specific Ops Control Point	org.bluetooth.characteristic.cgm_specific_ops_control_point	0x2AAC
 CGM Status	org.bluetooth.characteristic.cgm_status	0x2AA9
+Cross Trainer Data	org.bluetooth.characteristic.cross_trainer_data	0x2ACE
 CSC Feature	org.bluetooth.characteristic.csc_feature	0x2A5C
 CSC Measurement	org.bluetooth.characteristic.csc_measurement	0x2A5B
 Current Time	org.bluetooth.characteristic.current_time	0x2A2B
@@ -115,6 +117,9 @@ Fat Burn Heart Rate Lower Limit	org.bluetooth.characteristic.fat_burn_heart_rate
 Fat Burn Heart Rate Upper Limit	org.bluetooth.characteristic.fat_burn_heart_rate_upper_limit	0x2A89
 Firmware Revision String	org.bluetooth.characteristic.firmware_revision_string	0x2A26
 First Name	org.bluetooth.characteristic.first_name	0x2A8A
+Fitness Machine Control Point	org.bluetooth.characteristic.fitness_machine_control_point	0x2AD9
+Fitness Machine Feature	org.bluetooth.characteristic.fitness_machine_feature	0x2ACC
+Fitness Machine Status	org.bluetooth.characteristic.fitness_machine_status	0x2ADA
 Five Zone Heart Rate Limits	org.bluetooth.characteristic.five_zone_heart_rate_limits	0x2A8B
 Floor Number	org.bluetooth.characteristic.floor_number	0x2AB2
 Gender	org.bluetooth.characteristic.gender	0x2A8C
@@ -138,6 +143,7 @@ HTTP Status Code	org.bluetooth.characteristic.http_status_code	0x2AB8
 HTTPS Security	org.bluetooth.characteristic.https_security	0x2ABB
 Humidity	org.bluetooth.characteristic.humidity	0x2A6F
 IEEE 11073-20601 Regulatory Certification Data List	org.bluetooth.characteristic.ieee_11073-20601_regulatory_certification_data_list	0x2A2A
+Indoor Bike Data	org.bluetooth.characteristic.indoor_bike_data	0x2AD2
 Indoor Positioning Configuration	org.bluetooth.characteristic.indoor_positioning_configuration	0x2AAD
 Intermediate Cuff Pressure	org.bluetooth.characteristic.intermediate_cuff_pressure	0x2A36
 Intermediate Temperature	org.bluetooth.characteristic.intermediate_temperature	0x2A1E
@@ -190,9 +196,11 @@ Record Access Control Point	org.bluetooth.characteristic.record_access_control_p
 Reference Time Information	org.bluetooth.characteristic.reference_time_information	0x2A14
 Report	org.bluetooth.characteristic.report	0x2A4D
 Report Map	org.bluetooth.characteristic.report_map	0x2A4B
+Resolvable Private Address Only	org.bluetooth.characteristic.resolvable_private_address_only	0x2AC9
 Resting Heart Rate	org.bluetooth.characteristic.resting_heart_rate	0x2A92
 Ringer Control Point	org.bluetooth.characteristic.ringer_control_point	0x2A40
 Ringer Setting	org.bluetooth.characteristic.ringer_setting	0x2A41
+Rower Data	org.bluetooth.characteristic.rower_data	0x2AD1
 RSC Feature	org.bluetooth.characteristic.rsc_feature	0x2A54
 RSC Measurement	org.bluetooth.characteristic.rsc_measurement	0x2A53
 SC Control Point	org.bluetooth.characteristic.sc_control_point	0x2A55
@@ -203,7 +211,14 @@ Serial Number String	org.bluetooth.characteristic.serial_number_string	0x2A25
 Service Changed	org.bluetooth.characteristic.gatt.service_changed	0x2A05
 Software Revision String	org.bluetooth.characteristic.software_revision_string	0x2A28
 Sport Type for Aerobic and Anaerobic Thresholds	org.bluetooth.characteristic.sport_type_for_aerobic_and_anaerobic_thresholds	0x2A93
+Stair Climber Data	org.bluetooth.characteristic.stair_climber_data	0x2AD0
+Step Climber Data	org.bluetooth.characteristic.step_climber_data	0x2ACF
+Supported Heart Rate Range	org.bluetooth.characteristic.supported_heart_rate_range	0x2AD7
+Supported Inclination Range	org.bluetooth.characteristic.supported_inclination_range	0x2AD5
 Supported New Alert Category	org.bluetooth.characteristic.supported_new_alert_category	0x2A47
+Supported Power Range	org.bluetooth.characteristic.supported_power_range	0x2AD8
+Supported Resistance Level Range	org.bluetooth.characteristic.supported_resistance_level_range	0x2AD6
+Supported Speed Range	org.bluetooth.characteristic.supported_speed_range	0x2AD4
 Supported Unread Alert Category	org.bluetooth.characteristic.supported_unread_alert_category	0x2A48
 System ID	org.bluetooth.characteristic.system_id	0x2A23
 TDS Control Point	org.bluetooth.characteristic.tds_control_point	0x2ABC
@@ -217,6 +232,8 @@ Time Update Control Point	org.bluetooth.characteristic.time_update_control_point
 Time Update State	org.bluetooth.characteristic.time_update_state	0x2A17
 Time with DST	org.bluetooth.characteristic.time_with_dst	0x2A11
 Time Zone	org.bluetooth.characteristic.time_zone	0x2A0E
+Training Status	org.bluetooth.characteristic.training_status	0x2AD3
+Treadmill Data	org.bluetooth.characteristic.treadmill_data	0x2ACD
 True Wind Direction	org.bluetooth.characteristic.true_wind_direction	0x2A71
 True Wind Speed	org.bluetooth.characteristic.true_wind_speed	0x2A70
 Two Zone Heart Rate Limit	org.bluetooth.characteristic.two_zone_heart_rate_limit	0x2A95
