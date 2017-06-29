@@ -19,24 +19,24 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Hammerspoon module for Core Bluetooth Objects.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Hammerspoon module for Core Bluetooth Objects.",
     "Constructor" : [
-
-    ],
-    "items" : [
 
     ],
     "Field" : [
 
     ],
+    "Method" : [
+
+    ],
     "Command" : [
 
     ],
-    "Method" : [
+    "items" : [
 
     ],
     "doc" : "Hammerspoon module for Core Bluetooth Objects.\n\nThis module provides an interface to the Core Bluetooth OS X Object classes for accessing BTLE devices.\n\nCurrently this module only supports Hammerspoon as a BTLE Manager, not as a BTLE Peripheral.\n\nThis code is still very experimental.",
@@ -58,24 +58,24 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.",
     "Constructor" : [
-
-    ],
-    "items" : [
 
     ],
     "Field" : [
 
     ],
+    "Method" : [
+
+    ],
     "Command" : [
 
     ],
-    "Method" : [
+    "items" : [
 
     ],
     "doc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.\n\nA characteristic contains a single value and any number of descriptors describing that value. The properties of a characteristic determine how the value of the characteristic can be used and how the descriptors can be accessed.",
@@ -97,24 +97,24 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.",
     "Constructor" : [
-
-    ],
-    "items" : [
 
     ],
     "Field" : [
 
     ],
+    "Method" : [
+
+    ],
     "Command" : [
 
     ],
-    "Method" : [
+    "items" : [
 
     ],
     "doc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.\n\n Descriptors provide further information about a characteristic’s value. For example, they may describe the value in human-readable form and describe how the value should be formatted for presentation purposes. Characteristic descriptors also indicate whether a characteristic’s value is configured on a server (a peripheral) to indicate or notify a client (a central) when the value of the characteristic changes.",
@@ -136,20 +136,20 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for managing the discovery of and connections to remote BTLE peripheral devices.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Provides support for managing the discovery of and connections to remote BTLE peripheral devices.",
     "Constructor" : [
       {
-        "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
+        "desc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
         "stripped_doc" : [
           "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
           ""
         ],
+        "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
         "def" : "hs._asm.btle.manager.create() -> btleObject",
-        "name" : "create",
         "notes" : [
 
         ],
@@ -158,60 +158,7 @@
         "returns" : [
           " * a new btleObject"
         ],
-        "desc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
-        "parameters" : [
-          " * None",
-          ""
-        ]
-      }
-    ],
-    "items" : [
-      {
-        "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
-        "stripped_doc" : [
-          "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
-          ""
-        ],
-        "def" : "hs._asm.btle.manager.create() -> btleObject",
         "name" : "create",
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.btle.manager.create() -> btleObject",
-        "type" : "Constructor",
-        "returns" : [
-          " * a new btleObject"
-        ],
-        "desc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
-        "parameters" : [
-          " * None",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
-        "stripped_doc" : [
-          "Returns a string indicating the current state of the BTLE manager object.",
-          ""
-        ],
-        "def" : "hs._asm.btle.manager:state() -> string",
-        "name" : "state",
-        "notes" : [
-          " * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message."
-        ],
-        "signature" : "hs._asm.btle.manager:state() -> string",
-        "type" : "Method",
-        "returns" : [
-          " * a string matching one of the following:",
-          "   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.",
-          "   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.",
-          "   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.",
-          "   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.",
-          "   * \"poweredOff\"   - Bluetooth is currently powered off.",
-          "   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.",
-          ""
-        ],
-        "desc" : "Returns a string indicating the current state of the BTLE manager object.",
         "parameters" : [
           " * None",
           ""
@@ -221,18 +168,15 @@
     "Field" : [
 
     ],
-    "Command" : [
-
-    ],
     "Method" : [
       {
-        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
+        "desc" : "Returns a string indicating the current state of the BTLE manager object.",
         "stripped_doc" : [
           "Returns a string indicating the current state of the BTLE manager object.",
           ""
         ],
+        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
         "def" : "hs._asm.btle.manager:state() -> string",
-        "name" : "state",
         "notes" : [
           " * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message."
         ],
@@ -248,7 +192,63 @@
           "   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.",
           ""
         ],
+        "name" : "state",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      }
+    ],
+    "Command" : [
+
+    ],
+    "items" : [
+      {
+        "desc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
+        "stripped_doc" : [
+          "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.",
+          ""
+        ],
+        "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
+        "def" : "hs._asm.btle.manager.create() -> btleObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.btle.manager.create() -> btleObject",
+        "type" : "Constructor",
+        "returns" : [
+          " * a new btleObject"
+        ],
+        "name" : "create",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
         "desc" : "Returns a string indicating the current state of the BTLE manager object.",
+        "stripped_doc" : [
+          "Returns a string indicating the current state of the BTLE manager object.",
+          ""
+        ],
+        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
+        "def" : "hs._asm.btle.manager:state() -> string",
+        "notes" : [
+          " * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message."
+        ],
+        "signature" : "hs._asm.btle.manager:state() -> string",
+        "type" : "Method",
+        "returns" : [
+          " * a string matching one of the following:",
+          "   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.",
+          "   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.",
+          "   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.",
+          "   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.",
+          "   * \"poweredOff\"   - Bluetooth is currently powered off.",
+          "   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.",
+          ""
+        ],
+        "name" : "state",
         "parameters" : [
           " * None",
           ""
@@ -274,23 +274,26 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.",
     "Constructor" : [
 
     ],
-    "items" : [
+    "Field" : [
+
+    ],
+    "Method" : [
       {
-        "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
+        "desc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
         "stripped_doc" : [
           "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
           ""
         ],
+        "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
         "def" : "hs._asm.btle.peripheral:maximumWriteSize([withResponse]) -> integer",
-        "name" : "maximumWriteSize",
         "notes" : [
           " * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1."
         ],
@@ -300,28 +303,25 @@
           " * an integer specifying the maximum byte size for the data to be written.",
           ""
         ],
-        "desc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
+        "name" : "maximumWriteSize",
         "parameters" : [
           " * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).",
           ""
         ]
       }
     ],
-    "Field" : [
-
-    ],
     "Command" : [
 
     ],
-    "Method" : [
+    "items" : [
       {
-        "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
+        "desc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
         "stripped_doc" : [
           "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
           ""
         ],
+        "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
         "def" : "hs._asm.btle.peripheral:maximumWriteSize([withResponse]) -> integer",
-        "name" : "maximumWriteSize",
         "notes" : [
           " * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1."
         ],
@@ -331,7 +331,7 @@
           " * an integer specifying the maximum byte size for the data to be written.",
           ""
         ],
-        "desc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)",
+        "name" : "maximumWriteSize",
         "parameters" : [
           " * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).",
           ""
@@ -357,24 +357,24 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).",
     "Deprecated" : [
 
     ],
     "type" : "Module",
+    "desc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).",
     "Constructor" : [
-
-    ],
-    "items" : [
 
     ],
     "Field" : [
 
     ],
+    "Method" : [
+
+    ],
     "Command" : [
 
     ],
-    "Method" : [
+    "items" : [
 
     ],
     "doc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).\n\nServices are either primary or secondary and may contain a number of characteristics or included services (references to other services).",

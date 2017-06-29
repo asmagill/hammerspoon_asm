@@ -233,10 +233,10 @@ module.create = function()
 
                 elseif message == "didDiscoverCharacteristicsForService" then
                     local service, errMsg = ...
+                    local serviceLabel = service:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel = service:UUID()
                         for i, characteristic in ipairs(service:characteristics()) do
                             local label = characteristic:UUID()
                             device.services[serviceLabel].characteristics[label] = {
@@ -253,15 +253,17 @@ module.create = function()
                             characteristic:discoverDescriptors()
                         end
                     end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
 
                 elseif message == "didDiscoverDescriptorsForCharacteristic" then
                     local characteristic, errMsg = ...
+                    local serviceLabel = characteristic:service():UUID()
+                    local charLabel    = characteristic:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local service = characteristic:service()
-                        local serviceLabel = service:UUID()
-                        local charLabel    = characteristic:UUID()
                         for i, descriptor in ipairs(characteristic:descriptors()) do
                             local label = descriptor:UUID()
                             device.services[serviceLabel].characteristics[charLabel].descriptors[label] = {
@@ -273,60 +275,102 @@ module.create = function()
                             }
                         end
                     end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
+                    end
 
                 elseif message == "didUpdateValueForCharacteristic" then
                     local characteristic, errMsg = ...
+                    local serviceLabel = characteristic:service():UUID()
+                    local charLabel    = characteristic:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel = characteristic:service():UUID()
-                        local charLabel    = characteristic:UUID()
                         device.services[serviceLabel].characteristics[charLabel].updated = os.time()
                         device.services[serviceLabel].characteristics[charLabel].value   = characteristic:value()
+                    end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
                     end
 
                 elseif message == "didUpdateValueForDescriptor" then
                     local descriptor, errMsg = ...
+                    local serviceLabel   = descriptor:characteristic():service():UUID()
+                    local charLabel      = descriptor:characteristic():UUID()
+                    local descLabel      = descriptor:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel   = descriptor:characteristic():service():UUID()
-                        local charLabel      = descriptor:characteristic():UUID()
-                        local descLabel      = descriptor:UUID()
                         device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].updated = os.time()
                         device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].value   = descriptor:value()
+                    end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].fn(peripheral, message, ...)
                     end
 
                 elseif message == "didWriteValueForCharacteristic" then
                     local characteristic, errMsg = ...
+                    local serviceLabel = characteristic:service():UUID()
+                    local charLabel    = characteristic:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel = characteristic:service():UUID()
-                        local charLabel    = characteristic:UUID()
                         device.services[serviceLabel].characteristics[charLabel].updated = os.time()
+                    end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
                     end
 
                 elseif message == "didWriteValueForDescriptor" then
                     local descriptor, errMsg = ...
+                    local serviceLabel   = descriptor:characteristic():service():UUID()
+                    local charLabel      = descriptor:characteristic():UUID()
+                    local descLabel      = descriptor:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel   = descriptor:characteristic():service():UUID()
-                        local charLabel      = descriptor:characteristic():UUID()
-                        local descLabel      = descriptor:UUID()
                         device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].updated = os.time()
+                    end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].descriptors[descLabel].fn(peripheral, message, ...)
                     end
 
                 elseif message == "didUpdateNotificationStateForCharacteristic" then
                     local characteristic, errMsg = ...
+                    local serviceLabel = characteristic:service():UUID()
+                    local charLabel    = characteristic:UUID()
                     if errMsg then
                         errorToLog = errMsg
                     else
-                        local serviceLabel = characteristic:service():UUID()
-                        local charLabel    = characteristic:UUID()
                         device.services[serviceLabel].characteristics[charLabel].isNotifying = characteristic:isNotifying()
                         device.services[serviceLabel].characteristics[charLabel].updated     = os.time()
+                    end
+                    if device.services[serviceLabel].fn then
+                        device.services[serviceLabel].fn(peripheral, message, ...)
+                    end
+                    if device.services[serviceLabel].characteristics[charLabel].fn then
+                        device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
                     end
 
                 elseif message == "peripheralDidUpdateRSSI" then
@@ -353,7 +397,7 @@ module.create = function()
                 end
 
 --  FIXME: Gotta think about how I want to handle user callbacks...
---                 if device.fn then device.fn(peripheral, message, ...) end
+                if device.fn then device.fn(peripheral, message, ...) end
 
             end
         end)
