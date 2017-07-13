@@ -514,6 +514,23 @@ static int assertions(lua_State *L) {
     return 1 ;
 }
 
+static int CmathNumbers(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushnumber(L, M_E) ; lua_setfield(L, -2, "M_E") ;
+    lua_pushnumber(L, M_LOG2E) ; lua_setfield(L, -2, "M_LOG2E") ;
+    lua_pushnumber(L, M_LOG10E) ; lua_setfield(L, -2, "M_LOG10E") ;
+    lua_pushnumber(L, M_LN2) ; lua_setfield(L, -2, "M_LN2") ;
+    lua_pushnumber(L, M_LN10) ; lua_setfield(L, -2, "M_LN10") ;
+    lua_pushnumber(L, M_PI) ; lua_setfield(L, -2, "M_PI") ;
+    lua_pushnumber(L, M_PI_2) ; lua_setfield(L, -2, "M_PI_2") ;
+    lua_pushnumber(L, M_PI_4) ; lua_setfield(L, -2, "M_PI_4") ;
+    lua_pushnumber(L, M_1_PI) ; lua_setfield(L, -2, "M_1_PI") ;
+    lua_pushnumber(L, M_2_PI) ; lua_setfield(L, -2, "M_2_PI") ;
+    lua_pushnumber(L, M_2_SQRTPI) ; lua_setfield(L, -2, "M_2_SQRTPI") ;
+    lua_pushnumber(L, M_SQRT2) ; lua_setfield(L, -2, "M_SQRT2") ;
+    lua_pushnumber(L, M_SQRT1_2) ; lua_setfield(L, -2, "M_SQRT1_2") ;
+    return 1 ;
+}
 
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
@@ -551,6 +568,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"mach",                 mach_stuff},
     {"assertions",           assertions},
+
+    {"mathNumbers",          CmathNumbers},
     {NULL,                   NULL}
 };
 
