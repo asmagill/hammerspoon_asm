@@ -532,6 +532,27 @@ static int CmathNumbers(lua_State *L) {
     return 1 ;
 }
 
+// https://stackoverflow.com/questions/5868567/unique-identifier-of-a-mac
+// Note a refurbished/repaired mac may not have a serial number
+static int macSerialNumber(lua_State __unused *L) {
+    io_service_t    platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice")) ;
+    CFStringRef serialNumberAsCFString = NULL;
+
+    if (platformExpert) {
+        serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, CFSTR(kIOPlatformSerialNumberKey), kCFAllocatorDefault, 0) ;
+        IOObjectRelease(platformExpert);
+    }
+
+    NSString *serialNumberAsNSString = @"<undefined>" ;
+    if (serialNumberAsCFString) {
+        serialNumberAsNSString = [NSString stringWithString:(__bridge NSString *)serialNumberAsCFString] ;
+        CFRelease(serialNumberAsCFString) ;
+    }
+    [[LuaSkin shared] pushNSObject:serialNumberAsNSString] ;
+
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -570,6 +591,8 @@ static const luaL_Reg extrasLib[] = {
     {"assertions",           assertions},
 
     {"mathNumbers",          CmathNumbers},
+    {"serialNumber",         macSerialNumber},
+
     {NULL,                   NULL}
 };
 
