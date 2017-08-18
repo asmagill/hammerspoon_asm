@@ -1,4 +1,26 @@
+// NSAppearanceCustomization
+//     @property(strong) NSAppearance *appearance;
+
+
 // NSWindow Methods
+//     + defaultDepthLimit
+//     + (NSArray<NSNumber *> *)windowNumbersWithOptions:(NSWindowNumberListOptions)options;
+//     + (NSRect)contentRectForFrameRect:(NSRect)fRect styleMask:(NSWindowStyleMask)style;
+//     + (NSRect)frameRectForContentRect:(NSRect)cRect styleMask:(NSWindowStyleMask)style;
+//     + (CGFloat)minFrameWidthWithTitle:(NSString *)title styleMask:(NSWindowStyleMask)style;
+//     + (NSButton *)standardWindowButton:(NSWindowButton)b forStyleMask:(NSWindowStyleMask)styleMask;
+//     + (NSInteger)windowNumberAtPoint:(NSPoint)point belowWindowWithWindowNumber:(NSInteger)windowNumber;
+//     + (NSWindowDepth)defaultDepthLimit;
+//     + (void)removeFrameUsingName:(NSString *)name;
+//     + (instancetype)windowWithContentViewController:(NSViewController *)contentViewController;
+//     - (IBAction)mergeAllWindows:(id)sender;
+//     - (IBAction)moveTabToNewWindow:(id)sender;
+//     - (IBAction)selectNextTab:(id)sender;
+//     - (IBAction)selectPreviousTab:(id)sender;
+//     - (IBAction)toggleTabBar:(id)sender;
+
+//     - (void)addTabbedWindow:(NSWindow *)window ordered:(NSWindowOrderingMode)ordered;
+
 // -   - (BOOL)autorecalculatesContentBorderThicknessForEdge:(NSRectEdge)edge
 //     - (BOOL)makeFirstResponder:(NSResponder *)responder
 //     - (BOOL)setFrameUsingName:(NSString *)frameName
@@ -133,6 +155,13 @@
 //     @property(getter=isAutodisplay) BOOL autodisplay
 //     @property NSBackingStoreType backingType
 //     @property NSWindowBackingLocation preferredBackingLocation
+
+//     @property NSWindowTabbingMode tabbingMode;
+//     @property(class, readonly) NSWindowUserTabbingPreference userTabbingPreference;
+//     @property(class) BOOL allowsAutomaticWindowTabbing;
+//     @property(copy) NSString *tabbingIdentifier;
+//     @property(readonly, copy) NSArray<NSWindow *> *tabbedWindows;
+//     @property(readonly) NSUserInterfaceLayoutDirection windowTitlebarLayoutDirection;
 
 //     @property(retain) NSButtonCell *defaultButtonCell
 

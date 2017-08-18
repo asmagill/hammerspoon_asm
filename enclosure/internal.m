@@ -1,32 +1,33 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-#if __clang_major__ < 8
-#import "xcode7.h"
-#endif
-
-static const char *USERDATA_TAG  = "hs._asm.enclosure" ;
-static int refTable = LUA_NOREF;
-
-// non-constant (or simple) NSObject's cannot be defined outside of a context; values set in init function
-static NSArray *validNotifications ;
+static const char * const USERDATA_TAG = "hs._asm.enclosure" ;
+static int refTable    = LUA_NOREF ;
+static int logTableRef = LUA_NOREF ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
+// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
+// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
+
+static NSArray *enclosureNotifications ;
 
 typedef enum {
-  No = 0,
-  Yes,
-  Undefined
-} triStateBOOL;
+  TSB_No = 0,
+  TSB_Yes,
+  TSB_Undefined
+} TriStateBool ;
 
 #pragma mark - Support Functions and Classes
 
-@interface ASMWindow : NSPanel <NSWindowDelegate>
+static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) ;
+static int userdata_gc(lua_State* L) ;
+
+@interface HSASMEnclosure : NSPanel <NSWindowDelegate>
 @property int          selfRef ;
 @property int          notificationCallback ;
 @property NSMutableSet *notifyFor ;
-@property triStateBOOL specifiedKeyWindowState ;
-@property triStateBOOL specifiedMainWindowState ;
+@property TriStateBool specifiedKeyWindowState ;
+@property TriStateBool specifiedMainWindowState ;
 @property BOOL         honorPerformClose ;
 @property BOOL         closeOnEscape ;
 @property BOOL         assignedHSView ;
@@ -34,35 +35,8 @@ typedef enum {
 @property NSNumber     *animationTime ;
 @end
 
-static int userdata_gc(lua_State* L) ;
+@implementation HSASMEnclosure
 
-static int enclosure_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
-    ASMWindow *theWindow = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
-    NSInteger relativeTo = 0 ;
-
-    if (lua_gettop(L) > 1) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-        ASMWindow *otherWindow = [skin luaObjectAtIndex:2 toClass:"ASMWindow"] ;
-        if (otherWindow) relativeTo = [otherWindow windowNumber] ;
-    }
-    if (theWindow) [theWindow orderWindow:mode relativeTo:relativeTo] ;
-    return 1 ;
-}
-
-static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
-    return NSMakeRect(theRect.origin.x,
-                      [[NSScreen screens][0] frame].size.height - theRect.origin.y - theRect.size.height,
-                      theRect.size.width,
-                      theRect.size.height) ;
-}
-
-#pragma mark -
-
-@implementation ASMWindow
-
-// the SDK for 10.12 changes this, so this shuts up the compiler while we maintain 10.11 compilability
 - (instancetype)initWithContentRect:(NSRect)contentRect
                           styleMask:(NSWindowStyleMask)windowStyle
                             backing:(NSBackingStoreType)bufferingType
@@ -90,8 +64,8 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         _selfRef                  = LUA_NOREF ;
         _notificationCallback     = LUA_NOREF ;
         _notifyFor                = [[NSMutableSet alloc] init] ;
-        _specifiedKeyWindowState  = Undefined ;
-        _specifiedMainWindowState = Undefined ;
+        _specifiedKeyWindowState  = TSB_Undefined ;
+        _specifiedMainWindowState = TSB_Undefined ;
         _honorPerformClose        = YES ;
         _closeOnEscape            = NO ;
         _assignedHSView           = NO ;
@@ -109,7 +83,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 
 - (BOOL)canBecomeKeyWindow {
     // if we've defined a state for the window as a whole, honor it
-    if (_specifiedKeyWindowState != Undefined) return (BOOL)_specifiedKeyWindowState ;
+    if (_specifiedKeyWindowState != TSB_Undefined) return (BOOL)_specifiedKeyWindowState ;
 
     // otherwise, test contentView and subviews and return when we find the first YES
     __block BOOL allowKey = NO ;
@@ -141,7 +115,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 
 - (BOOL)canBecomeMainWindow {
      // if we've defined a state for the window as a whole, honor it
-    if (_specifiedMainWindowState != Undefined) return (BOOL)_specifiedMainWindowState ;
+    if (_specifiedMainWindowState != TSB_Undefined) return (BOOL)_specifiedMainWindowState ;
 
     // else attempt to mimic the NSWindow defaults of YES when has title bar or is resizable
     if ((NSWindowStyleMaskResizable | NSWindowStyleMaskTitled) & self.styleMask) {
@@ -318,6 +292,30 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 
 @end
 
+#pragma mark -
+
+static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
+    return NSMakeRect(theRect.origin.x,
+                      [[NSScreen screens][0] frame].size.height - theRect.origin.y - theRect.size.height,
+                      theRect.size.width,
+                      theRect.size.height) ;
+}
+
+static int enclosure_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    HSASMEnclosure *theEnclosure = [skin toNSObjectAtIndex:1] ;
+    NSInteger relativeTo = 0 ;
+
+    if (lua_gettop(L) > 1) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+        HSASMEnclosure *otherEnclosure = [skin toNSObjectAtIndex:2] ;
+        if (otherEnclosure) relativeTo = [otherEnclosure windowNumber] ;
+    }
+    if (theEnclosure) [theEnclosure orderWindow:mode relativeTo:relativeTo] ;
+    return 1 ;
+}
+
 #pragma mark - Module Functions
 
 static int window_new(lua_State *L) {
@@ -327,10 +325,10 @@ static int window_new(lua_State *L) {
     NSUInteger windowStyle = (lua_gettop(L) == 2) ? (NSUInteger)lua_tointeger(L, 2)
                                                   : NSWindowStyleMaskBorderless ;
 
-    ASMWindow *window = [[ASMWindow alloc] initWithContentRect:[skin tableToRectAtIndex:1]
-                                                     styleMask:windowStyle
-                                                       backing:NSBackingStoreBuffered
-                                                         defer:YES] ;
+    HSASMEnclosure *window = [[HSASMEnclosure alloc] initWithContentRect:[skin tableToRectAtIndex:1]
+                                                               styleMask:windowStyle
+                                                                 backing:NSBackingStoreBuffered
+                                                                   defer:YES] ;
     if (window) {
         [skin pushNSObject:window] ;
     } else {
@@ -356,7 +354,7 @@ static int enableUpdates(__unused lua_State *L) {
 static int enclosure_notificationCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     // either way, lets release any function which may already be stored in the registry
     window.notificationCallback = [skin luaUnref:refTable ref:window.notificationCallback] ;
@@ -368,10 +366,10 @@ static int enclosure_notificationCallback(lua_State *L) {
     return 1 ;
 }
 
-static int enlosure_notificationWatchFor(lua_State *L) {
+static int enclosure_notificationWatchFor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:window.notifyFor] ;
@@ -398,8 +396,8 @@ static int enlosure_notificationWatchFor(lua_State *L) {
         }
         BOOL willAdd = (lua_gettop(L) == 2) ? YES : (BOOL)lua_toboolean(L, 3) ;
         for (NSString *item in watchingFor) {
-            if (![validNotifications containsObject:item]) {
-                return luaL_argerror(L, 2, [[NSString stringWithFormat:@"must be one or more of the following:%@", [validNotifications componentsJoinedByString:@", "]] UTF8String]) ;
+            if (![enclosureNotifications containsObject:item]) {
+                return luaL_argerror(L, 2, [[NSString stringWithFormat:@"must be one or more of the following:%@", [enclosureNotifications componentsJoinedByString:@", "]] UTF8String]) ;
             }
         }
         for (NSString *item in watchingFor) {
@@ -417,7 +415,7 @@ static int enlosure_notificationWatchFor(lua_State *L) {
 static int enclosure_contentView(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         if (window.assignedHSView) {
@@ -448,10 +446,10 @@ static int enclosure_contentView(lua_State *L) {
     return 1 ;
 }
 
-static int enclosue_contentViewBounds(__unused lua_State *L) {
+static int enclosure_contentViewBounds(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSRect boundsRect = NSZeroRect ;
     if (window.contentView) { // should never be nil, but just in case, we don't want to crash
         boundsRect = window.contentView.bounds ;
@@ -463,7 +461,7 @@ static int enclosue_contentViewBounds(__unused lua_State *L) {
 static int enclosure_honorPerformClose(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.honorPerformClose) ;
@@ -477,7 +475,7 @@ static int enclosure_honorPerformClose(lua_State *L) {
 static int enclosure_closeOnEscape(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.closeOnEscape) ;
@@ -491,24 +489,24 @@ static int enclosure_closeOnEscape(lua_State *L) {
 static int enclosure_specifyCanBecomeKeyWindow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         switch(window.specifiedKeyWindowState) {
-            case No:
+            case TSB_No:
                 lua_pushboolean(L, NO) ; break ;
-            case Yes:
+            case TSB_Yes:
                 lua_pushboolean(L, YES) ; break ;
-            case Undefined:
+            case TSB_Undefined:
                 lua_pushnil(L) ; break ;
         }
     } else {
         if (lua_isnil(L, 2)) {
-            window.specifiedKeyWindowState = Undefined ;
+            window.specifiedKeyWindowState = TSB_Undefined ;
         } else if (lua_toboolean(L, 2)) {
-            window.specifiedKeyWindowState = Yes ;
+            window.specifiedKeyWindowState = TSB_Yes ;
         } else {
-            window.specifiedKeyWindowState = No ;
+            window.specifiedKeyWindowState = TSB_No ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -518,24 +516,24 @@ static int enclosure_specifyCanBecomeKeyWindow(lua_State *L) {
 static int enclosure_specifyCanBecomeMainWindow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         switch(window.specifiedMainWindowState) {
-            case No:
+            case TSB_No:
                 lua_pushboolean(L, NO) ; break ;
-            case Yes:
+            case TSB_Yes:
                 lua_pushboolean(L, YES) ; break ;
-            case Undefined:
+            case TSB_Undefined:
                 lua_pushnil(L) ; break ;
         }
     } else {
         if (lua_isnil(L, 2)) {
-            window.specifiedMainWindowState = Undefined ;
+            window.specifiedMainWindowState = TSB_Undefined ;
         } else if (lua_toboolean(L, 2)) {
-            window.specifiedMainWindowState = Yes ;
+            window.specifiedMainWindowState = TSB_Yes ;
         } else {
-            window.specifiedMainWindowState = No ;
+            window.specifiedMainWindowState = TSB_No ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -545,7 +543,7 @@ static int enclosure_specifyCanBecomeMainWindow(lua_State *L) {
 static int window_acceptsMouseMovedEvents(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.acceptsMouseMovedEvents) ;
@@ -559,7 +557,7 @@ static int window_acceptsMouseMovedEvents(lua_State *L) {
 static int window_allowsConcurrentViewDrawing(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.allowsConcurrentViewDrawing) ;
@@ -573,7 +571,7 @@ static int window_allowsConcurrentViewDrawing(lua_State *L) {
 static int window_allowsToolTipsWhenApplicationIsInactive(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.allowsToolTipsWhenApplicationIsInactive) ;
@@ -587,7 +585,7 @@ static int window_allowsToolTipsWhenApplicationIsInactive(lua_State *L) {
 static int window_canHide(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.canHide) ;
@@ -601,7 +599,7 @@ static int window_canHide(lua_State *L) {
 static int window_displaysWhenScreenProfileChanges(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.displaysWhenScreenProfileChanges) ;
@@ -615,7 +613,7 @@ static int window_displaysWhenScreenProfileChanges(lua_State *L) {
 static int window_hasShadow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.hasShadow) ;
@@ -629,7 +627,7 @@ static int window_hasShadow(lua_State *L) {
 static int window_hidesOnDeactivate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.hidesOnDeactivate) ;
@@ -643,7 +641,7 @@ static int window_hidesOnDeactivate(lua_State *L) {
 static int window_ignoresMouseEvents(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.ignoresMouseEvents) ;
@@ -657,7 +655,7 @@ static int window_ignoresMouseEvents(lua_State *L) {
 static int window_preservesContentDuringLiveResize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.preservesContentDuringLiveResize) ;
@@ -671,7 +669,7 @@ static int window_preservesContentDuringLiveResize(lua_State *L) {
 static int window_preventsApplicationTerminationWhenModal(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.preventsApplicationTerminationWhenModal) ;
@@ -682,40 +680,40 @@ static int window_preventsApplicationTerminationWhenModal(lua_State *L) {
     return 1 ;
 }
 
-// // Seems to no longer be supported -- does nothing and always returns false
-// static int window_showsResizeIndicator(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
-//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-//     ASMWindow *window = [skin toNSObjectAtIndex:1] ;
-//
-//     if (lua_gettop(L) == 1) {
-//         lua_pushboolean(L, window.showsResizeIndicator) ;
-//     } else {
-//         window.showsResizeIndicator = (BOOL)lua_toboolean(L, 2) ;
-//         lua_pushvalue(L, 1) ;
-//     }
-//     return 1 ;
-// }
+// Seems to no longer be supported -- does nothing and always returns false
+static int window_showsResizeIndicator(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
-// // Seems to no longer be supported -- does nothing and always returns false
-// static int window_showsToolbarButton(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
-//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-//     ASMWindow *window = [skin toNSObjectAtIndex:1] ;
-//
-//     if (lua_gettop(L) == 1) {
-//         lua_pushboolean(L, window.showsToolbarButton) ;
-//     } else {
-//         window.showsToolbarButton = (BOOL)lua_toboolean(L, 2) ;
-//         lua_pushvalue(L, 1) ;
-//     }
-//     return 1 ;
-// }
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, window.showsResizeIndicator) ;
+    } else {
+        window.showsResizeIndicator = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+// Seems to no longer be supported -- does nothing and always returns false
+static int window_showsToolbarButton(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, window.showsToolbarButton) ;
+    } else {
+        window.showsToolbarButton = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
 
 static int window_titlebarAppearsTransparent(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.titlebarAppearsTransparent) ;
@@ -726,10 +724,37 @@ static int window_titlebarAppearsTransparent(lua_State *L) {
     return 1 ;
 }
 
+static int appearanceCustomization_appearance(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:window.effectiveAppearance.name] ;
+    } else {
+        NSString     *type = [skin toNSObjectAtIndex:2] ;
+        NSAppearance *appearance ;
+        if ([type isEqualToString:@"aqua"]) {
+            appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua] ;
+        } else if ([type isEqualToString:@"light"]) {
+            appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantLight] ;
+        } else if ([type isEqualToString:@"dark"]) {
+            appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark] ;
+        }
+        if (appearance) {
+            window.appearance = appearance ;
+        } else {
+            return luaL_argerror(L, 2, "must be one of 'aqua', 'light', or 'dark'") ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int window_documentEdited(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.documentEdited) ;
@@ -743,7 +768,7 @@ static int window_documentEdited(lua_State *L) {
 static int window_excludedFromWindowsMenu(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.excludedFromWindowsMenu) ;
@@ -757,7 +782,7 @@ static int window_excludedFromWindowsMenu(lua_State *L) {
 static int window_movable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.movable) ;
@@ -771,7 +796,7 @@ static int window_movable(lua_State *L) {
 static int window_movableByWindowBackground(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.movableByWindowBackground) ;
@@ -785,7 +810,7 @@ static int window_movableByWindowBackground(lua_State *L) {
 static int window_opaque(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.opaque) ;
@@ -799,7 +824,7 @@ static int window_opaque(lua_State *L) {
 static int panel_becomesKeyOnlyIfNeeded(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.becomesKeyOnlyIfNeeded) ;
@@ -813,7 +838,7 @@ static int panel_becomesKeyOnlyIfNeeded(lua_State *L) {
 static int panel_worksWhenModal(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.worksWhenModal) ;
@@ -827,7 +852,7 @@ static int panel_worksWhenModal(lua_State *L) {
 static int panel_floatingPanel(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, window.floatingPanel) ;
@@ -841,7 +866,7 @@ static int panel_floatingPanel(lua_State *L) {
 static int window_alphaValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushnumber(L, window.alphaValue) ;
@@ -857,7 +882,7 @@ static int window_level(lua_State *L) {
 // NOTE:  This method is wrapped in init.lua
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         lua_pushinteger(L, window.level) ;
@@ -872,7 +897,7 @@ static int window_level(lua_State *L) {
 static int window_backgroundColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:window.backgroundColor] ;
@@ -886,7 +911,7 @@ static int window_backgroundColor(lua_State *L) {
 static int window_animationBehavior(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSDictionary *mapping = @{
         @"default"        : @(NSWindowAnimationBehaviorDefault),
         @"none"           : @(NSWindowAnimationBehaviorNone),
@@ -916,10 +941,11 @@ static int window_animationBehavior(lua_State *L) {
     return 1 ;
 }
 
+// FIXME: need integer version; see defaultDepthLimit and functions in docs to decipher its meaning
 static int window_depthLimit(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSDictionary *mapping = @{
         @"default"   : @(0),
         @"24BitRGB"  : @(NSWindowDepthTwentyfourBitRGB),
@@ -951,7 +977,7 @@ static int window_depthLimit(lua_State *L) {
 static int window_sharingType(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSDictionary *mapping = @{
         @"none"      : @(NSWindowSharingNone),
         @"readOnly"  : @(NSWindowSharingReadOnly),
@@ -982,7 +1008,7 @@ static int window_sharingType(lua_State *L) {
 static int window_titleVisibility(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSDictionary *mapping = @{
         @"visible" : @(NSWindowTitleVisible),
         @"hidden"  : @(NSWindowTitleHidden),
@@ -1012,7 +1038,7 @@ static int window_titleVisibility(lua_State *L) {
 static int window_aspectRatio(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.aspectRatio] ;
@@ -1026,7 +1052,7 @@ static int window_aspectRatio(lua_State *L) {
 static int window_contentAspectRatio(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.contentAspectRatio] ;
@@ -1040,7 +1066,7 @@ static int window_contentAspectRatio(lua_State *L) {
 static int window_maxSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.maxSize] ;
@@ -1054,7 +1080,7 @@ static int window_maxSize(lua_State *L) {
 static int window_contentMaxSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.contentMaxSize] ;
@@ -1068,7 +1094,7 @@ static int window_contentMaxSize(lua_State *L) {
 static int window_minSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.minSize] ;
@@ -1082,7 +1108,7 @@ static int window_minSize(lua_State *L) {
 static int window_contentMinSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.contentMinSize] ;
@@ -1096,7 +1122,7 @@ static int window_contentMinSize(lua_State *L) {
 static int window_resizeIncrements(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.resizeIncrements] ;
@@ -1110,7 +1136,7 @@ static int window_resizeIncrements(lua_State *L) {
 static int window_contentResizeIncrements(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSSize:window.contentResizeIncrements] ;
@@ -1124,13 +1150,25 @@ static int window_contentResizeIncrements(lua_State *L) {
 static int window_maxFullScreenContentSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
-    if (lua_gettop(L) == 1) {
-        [skin pushNSSize:window.maxFullScreenContentSize] ;
+    int stackSize = lua_gettop(L) ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+    if ([window respondsToSelector:@selector(maxFullScreenContentSize)]) {
+        if (stackSize == 1) {
+            [skin pushNSSize:window.maxFullScreenContentSize] ;
+        } else {
+            window.maxFullScreenContentSize = [skin tableToSizeAtIndex:2] ;
+            lua_pushvalue(L, 1) ;
+        }
+#pragma clang diagnostic pop
     } else {
-        window.maxFullScreenContentSize = [skin tableToSizeAtIndex:2] ;
+        [skin logInfo:[NSString stringWithFormat:@"%s:maxFullScreenContentSize is not supported in 10.10; using %s:contentMaxSize instead", USERDATA_TAG, USERDATA_TAG]] ;
+        lua_pushcfunction(L, window_contentMaxSize) ;
         lua_pushvalue(L, 1) ;
+        if (stackSize == 2) lua_pushvalue(L, 2) ;
+        lua_call(L, stackSize, 1) ;
     }
     return 1 ;
 }
@@ -1138,13 +1176,25 @@ static int window_maxFullScreenContentSize(lua_State *L) {
 static int window_minFullScreenContentSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
-    if (lua_gettop(L) == 1) {
-        [skin pushNSSize:window.minFullScreenContentSize] ;
+    int stackSize = lua_gettop(L) ;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+    if ([window respondsToSelector:@selector(minFullScreenContentSize)]) {
+        if (stackSize == 1) {
+            [skin pushNSSize:window.minFullScreenContentSize] ;
+        } else {
+            window.minFullScreenContentSize = [skin tableToSizeAtIndex:2] ;
+            lua_pushvalue(L, 1) ;
+        }
+#pragma clang diagnostic pop
     } else {
-        window.minFullScreenContentSize = [skin tableToSizeAtIndex:2] ;
+        [skin logInfo:[NSString stringWithFormat:@"%s:minFullScreenContentSize is not supported in 10.10; using %s:contentMinSize instead", USERDATA_TAG, USERDATA_TAG]] ;
+        lua_pushcfunction(L, window_contentMinSize) ;
         lua_pushvalue(L, 1) ;
+        if (stackSize == 2) lua_pushvalue(L, 2) ;
+        lua_call(L, stackSize, 1) ;
     }
     return 1 ;
 }
@@ -1153,7 +1203,7 @@ static int window_styleMask(lua_State *L) {
 // NOTE:  This method is wrapped in init.lua
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSUInteger oldStyle = window.styleMask ;
 
     if (lua_type(L, 2) == LUA_TNONE) {
@@ -1180,7 +1230,7 @@ static int window_collectionBehavior(lua_State *L) {
 // NOTE:  This method is wrapped in init.lua
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSWindowCollectionBehavior oldBehavior = window.collectionBehavior ;
 
     if (lua_gettop(L) == 1) {
@@ -1201,7 +1251,7 @@ static int window_collectionBehavior(lua_State *L) {
 static int window_title(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:window.title] ;
@@ -1215,7 +1265,7 @@ static int window_title(lua_State *L) {
 static int window_miniwindowTitle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:window.miniwindowTitle] ;
@@ -1229,7 +1279,7 @@ static int window_miniwindowTitle(lua_State *L) {
 static int enclosure_accessibilitySubrole(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:window.subroleOverride] ;
@@ -1243,7 +1293,7 @@ static int enclosure_accessibilitySubrole(lua_State *L) {
 static int enclosure_animationDuration(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:window.animationTime] ;
@@ -1261,7 +1311,7 @@ static int enclosure_animationDuration(lua_State *L) {
 static int window_representedFilename(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:window.representedFilename] ;
@@ -1275,7 +1325,7 @@ static int window_representedFilename(lua_State *L) {
 static int window_representedURL(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:[window.representedURL absoluteString]] ;
@@ -1298,7 +1348,7 @@ static int window_representedURL(lua_State *L) {
 static int window_miniwindowImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
       [skin pushNSObject:window.miniwindowImage] ;
@@ -1314,11 +1364,11 @@ static int window_miniwindowImage(lua_State *L) {
     return 1 ;
 }
 
-// // I would like to be able to support this someday, but not right now...
+// // TODO: I would like to be able to support this someday, but not right now...
 // static int window_restorable(lua_State *L) {
 //     LuaSkin *skin = [LuaSkin shared] ;
 //     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-//     ASMWindow *window = [skin toNSObjectAtIndex:1] ;
+//     HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 //
 //     if (lua_gettop(L) == 1) {
 //         lua_pushboolean(L, window.restorable) ;
@@ -1335,7 +1385,7 @@ static int enclosure_show(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     [window makeKeyAndOrderFront:nil];
     lua_pushvalue(L, 1);
     return 1;
@@ -1347,7 +1397,7 @@ static int enclosure_hide(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     [window orderOut:nil];
 
     lua_pushvalue(L, 1);
@@ -1360,7 +1410,7 @@ static int enclosure_clickActivating(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_type(L, 2) != LUA_TNONE) {
         if (lua_toboolean(L, 2)) {
@@ -1383,7 +1433,7 @@ static int enclosure_frame(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSRect oldFrame = RectWithFlippedYCoordinate(window.frame);
 
     if (lua_gettop(L) == 1) {
@@ -1408,7 +1458,7 @@ static int enclosure_topLeft(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSRect oldFrame = RectWithFlippedYCoordinate(window.frame);
 
     if (lua_gettop(L) == 1) {
@@ -1434,7 +1484,7 @@ static int enclosure_size(lua_State *L) {
                     LS_TBOOLEAN | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     NSRect oldFrame = window.frame;
 
     if (lua_gettop(L) == 1) {
@@ -1468,11 +1518,11 @@ static int enclosure_delete(lua_State *L) {
                     LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
 
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     lua_pushcfunction(L, userdata_gc) ;
     lua_pushvalue(L, 1) ;
     if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-        [skin logBreadcrumb:[NSString stringWithFormat:@"%s:error invoking _gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+        [skin logError:[NSString stringWithFormat:@"%s:error invoking _gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
         lua_pop(L, 1) ;
         [window orderOut:nil] ; // the least we can do is hide the enclosure if an error occurs with __gc
     }
@@ -1484,7 +1534,7 @@ static int enclosure_delete(lua_State *L) {
 static int enclosure_isShowing(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     lua_pushboolean(L, [window isVisible]) ;
     return 1 ;
@@ -1493,7 +1543,7 @@ static int enclosure_isShowing(lua_State *L) {
 static int enclosure_isOccluded(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
 
     lua_pushboolean(L, ([window occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible) ;
     return 1 ;
@@ -1517,7 +1567,7 @@ static int enclosure_isOccluded(lua_State *L) {
 static int enclosure_hswindow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMWindow *window = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *window = [skin toNSObjectAtIndex:1] ;
     CGWindowID windowID = (CGWindowID)[window windowNumber];
     [skin requireModule:"hs.window"] ;
     lua_getfield(L, -1, "windowForID") ;
@@ -1528,42 +1578,82 @@ static int enclosure_hswindow(lua_State *L) {
 
 #pragma mark - Module Constants
 
+/// hs._asm.enclosure.windowBehaviors[]
+/// Constant
+/// Array of window behavior labels for determining how an enclosure is handled in Spaces and Exposé
+///
+/// * `default`                   - The window can be associated to one space at a time.
+/// * `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.
+/// * `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.
+///
+/// Only one of these may be active at a time:
+///
+/// * `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.
+/// * `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.
+/// * `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.
+///
+/// Only one of these may be active at a time:
+///
+/// * `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.
+/// * `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.
+///
+/// Only one of these may be active at a time:
+///
+/// * `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.
+/// * `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.
+///
+/// Only one of these may be active at a time (Available in OS X 10.11 and later):
+///
+/// * `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.
+/// * `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile.
 static int window_collectionTypeTable(lua_State *L) {
     lua_newtable(L) ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorDefault) ;
-    lua_setfield(L, -2, "default") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorCanJoinAllSpaces) ;
-    lua_setfield(L, -2, "canJoinAllSpaces") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorMoveToActiveSpace) ;
-    lua_setfield(L, -2, "moveToActiveSpace") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorManaged) ;
-    lua_setfield(L, -2, "managed") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorTransient) ;
-    lua_setfield(L, -2, "transient") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorStationary) ;
-    lua_setfield(L, -2, "stationary") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorParticipatesInCycle) ;
-    lua_setfield(L, -2, "participatesInCycle") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorIgnoresCycle) ;
-    lua_setfield(L, -2, "ignoresCycle") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenPrimary) ;
-    lua_setfield(L, -2, "fullScreenPrimary") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAuxiliary) ;
-    lua_setfield(L, -2, "fullScreenAuxiliary") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAllowsTiling) ;
-    lua_setfield(L, -2, "fullScreenAllowsTiling") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenDisallowsTiling) ;
-    lua_setfield(L, -2, "fullScreenDisallowsTiling") ;
-// According to macOS 10.12 SDK, this should have been defined in NSWindow.h as of 10.7, but it
-// doesn't appear in the 10.11 SDK.
-#ifndef NSWindowCollectionBehaviorFullScreenNone
-#define NSWindowCollectionBehaviorFullScreenNone 1 << 9
-#endif
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenNone) ;
-    lua_setfield(L, -2, "fullScreenNone") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorDefault) ;                   lua_setfield(L, -2, "default") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorCanJoinAllSpaces) ;          lua_setfield(L, -2, "canJoinAllSpaces") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorMoveToActiveSpace) ;         lua_setfield(L, -2, "moveToActiveSpace") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorManaged) ;                   lua_setfield(L, -2, "managed") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorTransient) ;                 lua_setfield(L, -2, "transient") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorStationary) ;                lua_setfield(L, -2, "stationary") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorParticipatesInCycle) ;       lua_setfield(L, -2, "participatesInCycle") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorIgnoresCycle) ;              lua_setfield(L, -2, "ignoresCycle") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenPrimary) ;         lua_setfield(L, -2, "fullScreenPrimary") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAuxiliary) ;       lua_setfield(L, -2, "fullScreenAuxiliary") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAllowsTiling) ;    lua_setfield(L, -2, "fullScreenAllowsTiling") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenDisallowsTiling) ; lua_setfield(L, -2, "fullScreenDisallowsTiling") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenNone) ;            lua_setfield(L, -2, "fullScreenNone") ;
     return 1 ;
 }
 
+
+/// hs._asm.enclosure.windowLevels
+/// Constant
+/// A table of predefined window levels usable with [hs._asm.enclosure:level](#level)
+///
+/// Predefined levels are:
+///  * _MinimumWindowLevelKey - lowest allowed window level
+///  * desktop
+///  * desktopIcon            - [hs._asm.enclosure:sendToBack](#sendToBack) is equivalent to this level - 1
+///  * normal                 - normal application windows
+///  * tornOffMenu
+///  * floating               - equivalent to [hs._asm.enclosure:bringToFront(false)](#bringToFront); where "Always Keep On Top" windows are usually set
+///  * modalPanel             - modal alert dialog
+///  * utility
+///  * dock                   - level of the Dock
+///  * mainMenu               - level of the Menubar
+///  * status
+///  * popUpMenu              - level of a menu when displayed (open)
+///  * overlay
+///  * help
+///  * dragging
+///  * screenSaver            - equivalent to [hs._asm.enclosure:bringToFront(true)](#bringToFront)
+///  * assistiveTechHigh
+///  * cursor
+///  * _MaximumWindowLevelKey - highest allowed window level
+///
+/// Notes:
+///  * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.
+///  * Each window level is sorted separately and [hs._asm.enclosure:orderAbove](#orderAbove) and [hs._asm.enclosure:orderBelow](#orderBelow) only arrange windows within the same level.
+///  * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.
 static int window_windowLevels(lua_State *L) {
     lua_newtable(L) ;
 //       lua_pushinteger(L, CGWindowLevelForKey(kCGBaseWindowLevelKey)) ;              lua_setfield(L, -2, "kCGBaseWindowLevelKey") ;
@@ -1591,28 +1681,27 @@ static int window_windowLevels(lua_State *L) {
     return 1 ;
 }
 
-// names changed in 10.12, but enough people still compile under 10.11, so not changing yet
 static int window_windowMasksTable(lua_State *L) {
     lua_newtable(L) ;
-      lua_pushinteger(L, NSWindowStyleMaskBorderless) ;             lua_setfield(L, -2, "borderless") ;
-      lua_pushinteger(L, NSWindowStyleMaskTitled) ;                 lua_setfield(L, -2, "titled") ;
-      lua_pushinteger(L, NSWindowStyleMaskClosable) ;               lua_setfield(L, -2, "closable") ;
-      lua_pushinteger(L, NSWindowStyleMaskMiniaturizable) ;         lua_setfield(L, -2, "miniaturizable") ;
-      lua_pushinteger(L, NSWindowStyleMaskResizable) ;              lua_setfield(L, -2, "resizable") ;
-      lua_pushinteger(L, NSWindowStyleMaskTexturedBackground) ;     lua_setfield(L, -2, "texturedBackground") ;
-      lua_pushinteger(L, NSWindowStyleMaskUnifiedTitleAndToolbar) ; lua_setfield(L, -2, "unifiedTitleAndToolbar") ;
-      lua_pushinteger(L, NSWindowStyleMaskFullScreen) ;             lua_setfield(L, -2, "fullScreen") ;
-      lua_pushinteger(L, NSWindowStyleMaskFullSizeContentView) ;    lua_setfield(L, -2, "fullSizeContentView") ;
-      lua_pushinteger(L, NSWindowStyleMaskUtilityWindow) ;          lua_setfield(L, -2, "utility") ;
-      lua_pushinteger(L, NSWindowStyleMaskDocModalWindow) ;         lua_setfield(L, -2, "docModal") ;
-      lua_pushinteger(L, NSWindowStyleMaskNonactivatingPanel) ;     lua_setfield(L, -2, "nonactivating") ;
-      lua_pushinteger(L, NSWindowStyleMaskHUDWindow) ;              lua_setfield(L, -2, "HUD") ;
+    lua_pushinteger(L, NSWindowStyleMaskBorderless) ;             lua_setfield(L, -2, "borderless") ;
+    lua_pushinteger(L, NSWindowStyleMaskTitled) ;                 lua_setfield(L, -2, "titled") ;
+    lua_pushinteger(L, NSWindowStyleMaskClosable) ;               lua_setfield(L, -2, "closable") ;
+    lua_pushinteger(L, NSWindowStyleMaskMiniaturizable) ;         lua_setfield(L, -2, "miniaturizable") ;
+    lua_pushinteger(L, NSWindowStyleMaskResizable) ;              lua_setfield(L, -2, "resizable") ;
+    lua_pushinteger(L, NSWindowStyleMaskTexturedBackground) ;     lua_setfield(L, -2, "texturedBackground") ;
+    lua_pushinteger(L, NSWindowStyleMaskUnifiedTitleAndToolbar) ; lua_setfield(L, -2, "unifiedTitleAndToolbar") ;
+    lua_pushinteger(L, NSWindowStyleMaskFullScreen) ;             lua_setfield(L, -2, "fullScreen") ;
+    lua_pushinteger(L, NSWindowStyleMaskFullSizeContentView) ;    lua_setfield(L, -2, "fullSizeContentView") ;
+    lua_pushinteger(L, NSWindowStyleMaskUtilityWindow) ;          lua_setfield(L, -2, "utility") ;
+    lua_pushinteger(L, NSWindowStyleMaskDocModalWindow) ;         lua_setfield(L, -2, "docModal") ;
+    lua_pushinteger(L, NSWindowStyleMaskNonactivatingPanel) ;     lua_setfield(L, -2, "nonactivating") ;
+    lua_pushinteger(L, NSWindowStyleMaskHUDWindow) ;              lua_setfield(L, -2, "HUD") ;
     return 1 ;
 }
 
 static int window_notifications(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    validNotifications = @[
+    enclosureNotifications = @[
         @"didBecomeKey",
         @"didBecomeMain",
         @"didChangeBackingProperties",
@@ -1645,7 +1734,7 @@ static int window_notifications(__unused lua_State *L) {
         @"willMove",
         @"willStartLiveResize",
     ] ;
-    [skin pushNSObject:validNotifications] ;
+    [skin pushNSObject:enclosureNotifications] ;
     return 1 ;
 }
 
@@ -1653,11 +1742,11 @@ static int window_notifications(__unused lua_State *L) {
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
 
-static int pushASMWindow(lua_State *L, id obj) {
+static int pushHSASMEnclosure(lua_State *L, id obj) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMWindow *value = obj;
+    HSASMEnclosure *value = obj;
     if (value.selfRef == LUA_NOREF) {
-        void** valuePtr = lua_newuserdata(L, sizeof(ASMWindow *));
+        void** valuePtr = lua_newuserdata(L, sizeof(HSASMEnclosure *));
         *valuePtr = (__bridge_retained void *)value;
         luaL_getmetatable(L, USERDATA_TAG);
         lua_setmetatable(L, -2);
@@ -1667,11 +1756,11 @@ static int pushASMWindow(lua_State *L, id obj) {
     return 1;
 }
 
-id toASMWindowFromLua(lua_State *L, int idx) {
+id toHSASMEnclosureFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMWindow *value ;
+    HSASMEnclosure *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
-        value = get_objectFromUserdata(__bridge ASMWindow, L, idx, USERDATA_TAG) ;
+        value = get_objectFromUserdata(__bridge HSASMEnclosure, L, idx, USERDATA_TAG) ;
     } else {
         [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
                                                    lua_typename(L, lua_type(L, idx))]] ;
@@ -1683,7 +1772,7 @@ id toASMWindowFromLua(lua_State *L, int idx) {
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMWindow *obj = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
+    HSASMEnclosure *obj = [skin luaObjectAtIndex:1 toClass:"HSASMEnclosure"] ;
     NSString *title = obj.title ;
     if (!title) title = @"<untitled>" ;
     title = [NSString stringWithFormat:@"%@ %@", title, NSStringFromRect(RectWithFlippedYCoordinate(obj.frame))] ;
@@ -1696,8 +1785,8 @@ static int userdata_eq(lua_State* L) {
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
         LuaSkin *skin = [LuaSkin shared] ;
-        ASMWindow *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMWindow"] ;
-        ASMWindow *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMWindow"] ;
+        HSASMEnclosure *obj1 = [skin luaObjectAtIndex:1 toClass:"HSASMEnclosure"] ;
+        HSASMEnclosure *obj2 = [skin luaObjectAtIndex:2 toClass:"HSASMEnclosure"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
@@ -1707,7 +1796,7 @@ static int userdata_eq(lua_State* L) {
 
 static int userdata_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    ASMWindow *obj = get_objectFromUserdata(__bridge_transfer ASMWindow, L, 1, USERDATA_TAG) ;
+    HSASMEnclosure *obj = get_objectFromUserdata(__bridge_transfer HSASMEnclosure, L, 1, USERDATA_TAG) ;
     if (obj) {
         obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
         obj.notificationCallback = [skin luaUnref:refTable ref:obj.notificationCallback] ;
@@ -1732,7 +1821,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"clickActivating",                         enclosure_clickActivating},
     {"closeOnEscape",                           enclosure_closeOnEscape},
     {"contentView",                             enclosure_contentView},
-    {"contentViewBounds",                       enclosue_contentViewBounds},
+    {"contentViewBounds",                       enclosure_contentViewBounds},
     {"delete",                                  enclosure_delete},
     {"frame",                                   enclosure_frame},
     {"hide",                                    enclosure_hide},
@@ -1747,8 +1836,9 @@ static const luaL_Reg userdata_metaLib[] = {
     {"specifyCanBecomeMainWindow",              enclosure_specifyCanBecomeMainWindow},
     {"topLeft",                                 enclosure_topLeft},
     {"notificationCallback",                    enclosure_notificationCallback},
-    {"notificationMessages",                    enlosure_notificationWatchFor},
+    {"notificationMessages",                    enclosure_notificationWatchFor},
     {"accessibilitySubrole",                    enclosure_accessibilitySubrole},
+    {"hswindow",                                enclosure_hswindow},
 
     {"acceptsMouseMovedEvents",                 window_acceptsMouseMovedEvents},
     {"allowsConcurrentViewDrawing",             window_allowsConcurrentViewDrawing},
@@ -1757,7 +1847,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"animationBehavior",                       window_animationBehavior},
     {"aspectRatio",                             window_aspectRatio},
     {"backgroundColor",                         window_backgroundColor},
-    {"becomesKeyOnlyIfNeeded",                  panel_becomesKeyOnlyIfNeeded},
     {"canHide",                                 window_canHide},
     {"collectionBehavior",                      window_collectionBehavior},
     {"contentAspectRatio",                      window_contentAspectRatio},
@@ -1768,9 +1857,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"displaysWhenScreenProfileChanges",        window_displaysWhenScreenProfileChanges},
     {"documentEdited",                          window_documentEdited},
     {"excludedFromWindowsMenu",                 window_excludedFromWindowsMenu},
-    {"floatingPanel",                           panel_floatingPanel},
     {"hasShadow",                               window_hasShadow},
-    {"hswindow",                                enclosure_hswindow},
     {"hidesOnDeactivate",                       window_hidesOnDeactivate},
     {"ignoresMouseEvents",                      window_ignoresMouseEvents},
     {"level",                                   window_level},
@@ -1785,6 +1872,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"opaque",                                  window_opaque},
     {"preservesContentDuringLiveResize",        window_preservesContentDuringLiveResize},
     {"preventsApplicationTerminationWhenModal", window_preventsApplicationTerminationWhenModal},
+    {"showsResizeIndicator",                    window_showsResizeIndicator},
+    {"showsToolbarButton",                      window_showsToolbarButton},
     {"representedFilename",                     window_representedFilename},
     {"representedURL",                          window_representedURL},
     {"resizeIncrements",                        window_resizeIncrements},
@@ -1793,7 +1882,12 @@ static const luaL_Reg userdata_metaLib[] = {
     {"title",                                   window_title},
     {"titlebarAppearsTransparent",              window_titlebarAppearsTransparent},
     {"titleVisibility",                         window_titleVisibility},
+
+    {"becomesKeyOnlyIfNeeded",                  panel_becomesKeyOnlyIfNeeded},
+    {"floatingPanel",                           panel_floatingPanel},
     {"worksWhenModal",                          panel_worksWhenModal},
+
+    {"appearance",                              appearanceCustomization_appearance},
 
     {"__tostring", userdata_tostring},
     {"__eq",       userdata_eq},
@@ -1815,7 +1909,6 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-// NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_enclosure_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
@@ -1823,9 +1916,9 @@ int luaopen_hs__asm_enclosure_internal(lua_State* L) {
                                  metaFunctions:nil    // or module_metaLib
                                objectFunctions:userdata_metaLib];
 
-    [skin registerPushNSHelper:pushASMWindow         forClass:"ASMWindow"];
-    [skin registerLuaObjectHelper:toASMWindowFromLua forClass:"ASMWindow"
-                                             withUserdataMapping:USERDATA_TAG];
+    [skin registerPushNSHelper:pushHSASMEnclosure         forClass:"HSASMEnclosure"];
+    [skin registerLuaObjectHelper:toHSASMEnclosureFromLua forClass:"HSASMEnclosure"
+                                               withUserdataMapping:USERDATA_TAG];
 
     window_collectionTypeTable(L) ; lua_setfield(L, -2, "behaviors") ;
     window_windowLevels(L) ;        lua_setfield(L, -2, "levels") ;
