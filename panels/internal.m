@@ -1,6 +1,6 @@
-#import <Cocoa/Cocoa.h>
-#import <Carbon/Carbon.h>
-#import <LuaSkin/LuaSkin.h>
+@import Cocoa ;
+// @import Carbon ;
+@import LuaSkin ;
 
 #define USERDATA_TAG  "hs._asm.panels"
 static int refTable = LUA_NOREF ;
@@ -32,13 +32,14 @@ static int refTable = LUA_NOREF ;
     return self ;
 }
 
+// second argument to callback is true indicating this is a close color panel event
 - (void)colorClose:(__unused NSNotification*)note {
     if (_callbackRef != LUA_NOREF) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
             NSColorPanel *cp = [NSColorPanel sharedColorPanel];
-            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
             [skin pushNSObject:cp.color] ;
             lua_pushboolean(L, YES) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
@@ -51,12 +52,13 @@ static int refTable = LUA_NOREF ;
     }
 }
 
+// second argument to callback is false indicating that the color panel is still open (i.e. they may change color again)
 - (void)colorCallback:(NSColorPanel*)colorPanel {
     if (_callbackRef != LUA_NOREF) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
-            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
             [skin pushNSObject:colorPanel.color] ;
             lua_pushboolean(L, NO) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
@@ -104,7 +106,7 @@ static int refTable = LUA_NOREF ;
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
-            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
             [skin pushNSObject:[[NSFontManager sharedFontManager] selectedFont]] ;
             lua_pushboolean(L, YES) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
@@ -126,7 +128,7 @@ static int refTable = LUA_NOREF ;
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
-            [skin pushLuaRef:refTable ref:_callbackRef] ;
+            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
             [skin pushNSObject:[obj selectedFont]] ;
             lua_pushboolean(L, NO) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
@@ -144,10 +146,10 @@ static int refTable = LUA_NOREF ;
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
-            [skin pushLuaRef:refTable ref:_callbackRef] ;
-            _attributesDictionary = [obj convertAttributes:_attributesDictionary] ;
-            [[NSFontManager sharedFontManager] setSelectedAttributes:_attributesDictionary isMultiple:NO] ;
-            [skin pushNSObject:_attributesDictionary] ;
+            [skin pushLuaRef:refTable ref:self->_callbackRef] ;
+            self->_attributesDictionary = [obj convertAttributes:self->_attributesDictionary] ;
+            [[NSFontManager sharedFontManager] setSelectedAttributes:self->_attributesDictionary isMultiple:NO] ;
+            [skin pushNSObject:self->_attributesDictionary] ;
             lua_pushboolean(L, NO) ;
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
                 [skin logError:[NSString stringWithFormat:@"%s: font callback error, %s",
@@ -228,37 +230,38 @@ static int colorPanelMode(lua_State *L) {
     if (lua_gettop(L) == 1) {
         NSString *theMode = [skin toNSObjectAtIndex:1] ;
         if ([theMode isEqualToString:@"none"]) {
-            [cp setMode:NSNoModeColorPanel];
+            [cp setMode:NSColorPanelModeNone];
         } else if ([theMode isEqualToString:@"gray"]) {
-            [cp setMode:NSGrayModeColorPanel];
+            [cp setMode:NSColorPanelModeGray];
         } else if ([theMode isEqualToString:@"RGB"]) {
-            [cp setMode:NSRGBModeColorPanel];
+            [cp setMode:NSColorPanelModeRGB];
         } else if ([theMode isEqualToString:@"CMYK"]) {
-            [cp setMode:NSCMYKModeColorPanel];
+            [cp setMode:NSColorPanelModeCMYK];
         } else if ([theMode isEqualToString:@"HSB"]) {
-            [cp setMode:NSHSBModeColorPanel];
+            [cp setMode:NSColorPanelModeHSB];
         } else if ([theMode isEqualToString:@"custom"]) {
-            [cp setMode:NSCustomPaletteModeColorPanel];
+            [cp setMode:NSColorPanelModeCustomPalette];
         } else if ([theMode isEqualToString:@"list"]) {
-            [cp setMode:NSColorListModeColorPanel];
+            [cp setMode:NSColorPanelModeColorList];
         } else if ([theMode isEqualToString:@"wheel"]) {
-            [cp setMode:NSWheelModeColorPanel];
+            [cp setMode:NSColorPanelModeWheel];
         } else if ([theMode isEqualToString:@"crayon"]) {
-            [cp setMode:NSCrayonModeColorPanel];
+            [cp setMode:NSColorPanelModeCrayon];
         } else {
             return luaL_error(L, "unknown color panel mode") ;
         }
     }
-    switch([cp mode]) {
-        case NSNoModeColorPanel:            [skin pushNSObject:@"none"] ; break ;
-        case NSGrayModeColorPanel:          [skin pushNSObject:@"gray"] ; break ;
-        case NSRGBModeColorPanel:           [skin pushNSObject:@"RGB"] ; break ;
-        case NSCMYKModeColorPanel:          [skin pushNSObject:@"CMYK"] ; break ;
-        case NSHSBModeColorPanel:           [skin pushNSObject:@"HSB"] ; break ;
-        case NSCustomPaletteModeColorPanel: [skin pushNSObject:@"custom"] ; break ;
-        case NSColorListModeColorPanel:     [skin pushNSObject:@"list"] ; break ;
-        case NSWheelModeColorPanel:         [skin pushNSObject:@"wheel"] ; break ;
-        case NSCrayonModeColorPanel:        [skin pushNSObject:@"crayon"] ; break ;
+
+    switch(cp.mode) {
+        case NSColorPanelModeNone:          [skin pushNSObject:@"none"] ; break ;
+        case NSColorPanelModeGray:          [skin pushNSObject:@"gray"] ; break ;
+        case NSColorPanelModeRGB:           [skin pushNSObject:@"RGB"] ; break ;
+        case NSColorPanelModeCMYK:          [skin pushNSObject:@"CMYK"] ; break ;
+        case NSColorPanelModeHSB:           [skin pushNSObject:@"HSB"] ; break ;
+        case NSColorPanelModeCustomPalette: [skin pushNSObject:@"custom"] ; break ;
+        case NSColorPanelModeColorList:     [skin pushNSObject:@"list"] ; break ;
+        case NSColorPanelModeWheel:         [skin pushNSObject:@"wheel"] ; break ;
+        case NSColorPanelModeCrayon:        [skin pushNSObject:@"crayon"] ; break ;
         default:
             [skin pushNSObject:[NSString stringWithFormat:@"** unrecognized mode:%ld", [cp mode]]] ;
             break ;
@@ -316,7 +319,7 @@ static int fontPanelCallback(lua_State *L) {
 static int fontPanelShow(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
-    [NSApp orderFrontFontPanel:nil] ;
+    [[NSFontPanel sharedFontPanel] orderFront:nil] ;
     return 0 ;
 }
 
@@ -339,7 +342,7 @@ static int fontPanelMode(lua_State *L) {
 
 #pragma mark - Module Constants
 
-static int pushFontPanelTypes(__unused lua_State *L) {
+static int pushFontPanelTypes(lua_State *L) {
     lua_newtable(L) ;
     lua_pushinteger(L, NSFontPanelFaceModeMask) ;                lua_setfield(L, -2, "face") ;
     lua_pushinteger(L, NSFontPanelSizeModeMask) ;                lua_setfield(L, -2, "size") ;
@@ -409,7 +412,7 @@ static luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 };
 
-int luaopen_hs__asm_panels_internal(lua_State* __unused L) {
+int luaopen_hs__asm_panels_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared];
     refTable = [skin registerLibrary:moduleLib metaFunctions:module_metaLib] ;
 
