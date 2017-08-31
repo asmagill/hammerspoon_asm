@@ -2,42 +2,64 @@
 @import LuaSkin ;
 @import SystemConfiguration ;
 
-#define USERDATA_TAG    "hs._asm.preferences"
-static int              refTable          = LUA_NOREF;
-static dispatch_queue_t preferencesQueue = nil ;
+static const char * const USERDATA_TAG     = "hs._asm.preferences" ;
+static int                refTable         = LUA_NOREF ;
+static dispatch_queue_t   preferencesQueue = nil ;
 
-#define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))
+#define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
 
-typedef struct _preferences_t {
-    SCPreferencesRef prefObject;
-    int              callbackRef ;
-    int              selfRef ;
-    BOOL             watcherEnabled ;
-} preferences_t;
+@interface HSASMPreferencesObject : NSObject
+@property SCPreferencesRef prefObject ;
+@property int              callbackRef ;
+@property int              selfRefCount ;
+@property BOOL             watcherEnabled ;
+@end
 
-static void doPreferencesCallback(__unused SCPreferencesRef prefs, SCPreferencesNotification notificationType, void *info) {
-    preferences_t *thePtr = (preferences_t *)info ;
-    if (thePtr->callbackRef != LUA_NOREF) {
+@implementation HSASMPreferencesObject
+
+- (instancetype)initWithName:(NSString *)name prefsID:(NSString *)prefsID {
+    self = [super init] ;
+    if (self) {
+        SCPreferencesRef po = SCPreferencesCreate(kCFAllocatorDefault, (__bridge CFStringRef)name, (__bridge CFStringRef)prefsID) ;
+        if (po) {
+                               // This is the observed behavior, but I can't find docs to confirm:
+            _prefObject = po ; //   can be stored in property but doesn't do a new retain, so don't release it
+                               //   NULLing it in __gc will release it, though, so don't do a CFRelease there...
+
+            _callbackRef    = LUA_NOREF ;
+            _selfRefCount   = 0 ;
+            _watcherEnabled = NO ;
+        } else {
+            [LuaSkin logError:[NSString stringWithFormat:@"%s.open - error getting preferences reference:%s", USERDATA_TAG, SCErrorString(SCError())]] ;
+            self = nil ;
+        }
+    }
+    return self ;
+}
+
+@end
+
+static void preferencesWatcherCallback(__unused SCPreferencesRef prefs, SCPreferencesNotification notificationType, void *info) {
+    HSASMPreferencesObject *self = (__bridge HSASMPreferencesObject *)info ;
+
+    if (self.callbackRef != LUA_NOREF) {
         dispatch_async(dispatch_get_main_queue(), ^{
             LuaSkin   *skin = [LuaSkin shared] ;
             lua_State *L    = [skin L] ;
-            [skin pushLuaRef:refTable ref:thePtr->callbackRef] ;
-            [skin pushLuaRef:refTable ref:thePtr->selfRef] ;
+            [skin pushLuaRef:refTable ref:self.callbackRef] ;
+            [skin pushNSObject:self] ;
             switch(notificationType ) {
                 case kSCPreferencesNotificationCommit: [skin pushNSObject:@"commit"] ; break ;
-                case kSCPreferencesNotificationApply:  [skin pushNSObject:@"apply"] ; break ;
+                case kSCPreferencesNotificationApply:  [skin pushNSObject:@"apply"]  ; break ;
                 default:
-                    [skin pushNSObject:[NSString stringWithFormat:@"unrecognized notification:%d",
-                                                                    notificationType]] ;
+                    [skin pushNSObject:[NSString stringWithFormat:@"unrecognized notification:%d", notificationType]] ;
                     break ;
             }
             if (![skin protectedCallAndTraceback:2 nresults:0]) {
-                [skin logError:[NSString stringWithFormat:@"%s:error in Lua callback:%@",
-                                                            USERDATA_TAG,
-                                                            [skin toNSObjectAtIndex:-1]]] ;
-                lua_pop(L, 1) ; // error string from pcall
+                [skin logError:[NSString stringWithFormat:@"%s:callback error:%@", USERDATA_TAG, [skin toNSObjectAtIndex:-1]]] ;
+                lua_pop(L, 1) ;
             }
         }) ;
     }
@@ -48,22 +70,13 @@ static void doPreferencesCallback(__unused SCPreferencesRef prefs, SCPreferences
 static int newPreferencesObject(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    NSString *prefName = (lua_gettop(L) == 0) ? nil : [[skin toNSObjectAtIndex:1] stringByExpandingTildeInPath];
-    NSString *theName = [[NSUUID UUID] UUIDString] ;
-    SCPreferencesRef thePrefs = SCPreferencesCreate(kCFAllocatorDefault, (__bridge CFStringRef)theName, (__bridge CFStringRef)prefName);
-    preferences_t *thePtr = lua_newuserdata(L, sizeof(preferences_t)) ;
-    memset(thePtr, 0, sizeof(preferences_t)) ;
-    if (thePrefs) {
-        thePtr->prefObject     = CFRetain(thePrefs) ;
-        thePtr->callbackRef    = LUA_NOREF ;
-        thePtr->selfRef        = LUA_NOREF ;
-        thePtr->watcherEnabled = NO ;
-
-        luaL_getmetatable(L, USERDATA_TAG) ;
-        lua_setmetatable(L, -2) ;
-        CFRelease(thePrefs) ; // we retained it in the structure, so release it here
+    NSString *prefsID = (lua_gettop(L) == 0) ? nil : [[skin toNSObjectAtIndex:1] stringByExpandingTildeInPath] ;
+    NSString *name    = [[NSUUID UUID] UUIDString] ;
+    HSASMPreferencesObject *obj = [[HSASMPreferencesObject alloc] initWithName:name prefsID:prefsID] ;
+    if (obj) {
+        [skin pushNSObject:obj] ;
     } else {
-        return luaL_error(L, "** unable to get preferences reference:%s", SCErrorString(SCError())) ;
+        lua_pushnil(L) ;
     }
     return 1 ;
 }
@@ -71,46 +84,46 @@ static int newPreferencesObject(lua_State *L) {
 #pragma mark - Module Methods
 
 static int preferencesKeys(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-
-    CFArrayRef results = SCPreferencesCopyKeyList(thePrefs);
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+    CFArrayRef results = SCPreferencesCopyKeyList(obj.prefObject) ;
     if (results) {
         [skin pushNSObject:(__bridge NSArray *)results withOptions:(LS_NSDescribeUnknownTypes | LS_NSUnsignedLongLongPreserveBits)] ;
         CFRelease(results) ;
     } else {
-        return luaL_error(L, "** unable to get preferences keys:%s", SCErrorString(SCError())) ;
+        return luaL_error(L, "error getting keys:%s", SCErrorString(SCError())) ;
     }
     return 1 ;
 }
 
 static int preferencesSignature(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
 
-    CFDataRef results = SCPreferencesGetSignature(thePrefs);
+    CFDataRef results = SCPreferencesGetSignature(obj.prefObject) ;
     if (results) {
         [skin pushNSObject:(__bridge NSData *)results] ;
         CFRelease(results) ;
     } else {
-        return luaL_error(L, "** unable to get preferences signature:%s", SCErrorString(SCError())) ;
+        return luaL_error(L, "error getting signature:%s", SCErrorString(SCError())) ;
     }
     return 1 ;
 }
 
-static int preferencesValueForKey(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-    luaL_tolstring(L, 2, NULL) ;
+static int preferencesValueForKey(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+    luaL_tolstring(L, 2, NULL) ; // force into string
     NSString *keyName = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
 
-    SCPreferencesLock(thePrefs, true) ;
-    CFPropertyListRef theValue = SCPreferencesGetValue(thePrefs, (__bridge CFStringRef)keyName);
-    SCPreferencesUnlock(thePrefs) ;
+    SCPreferencesLock(obj.prefObject, true) ;
+    CFPropertyListRef theValue = SCPreferencesGetValue(obj.prefObject, (__bridge CFStringRef)keyName) ;
+    SCPreferencesUnlock(obj.prefObject) ;
+
     if (theValue) {
         CFTypeID theType = CFGetTypeID(theValue) ;
         if (theType == CFDataGetTypeID())            { [skin pushNSObject:(__bridge NSData *)theValue] ; }
@@ -127,17 +140,18 @@ static int preferencesValueForKey(__unused lua_State *L) {
     return 1 ;
 }
 
-static int preferencesValueForPath(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-    luaL_tolstring(L, 2, NULL) ;
+static int preferencesValueForPath(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+    luaL_tolstring(L, 2, NULL) ; // force into string
     NSString *pathName = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
 
-    SCPreferencesLock(thePrefs, true) ;
-    CFDictionaryRef theValue = SCPreferencesPathGetValue(thePrefs, (__bridge CFStringRef)pathName);
-    SCPreferencesUnlock(thePrefs) ;
+    SCPreferencesLock(obj.prefObject, true) ;
+    CFDictionaryRef theValue = SCPreferencesPathGetValue(obj.prefObject, (__bridge CFStringRef)pathName) ;
+    SCPreferencesUnlock(obj.prefObject) ;
+
     if (theValue) {
         [skin pushNSObject:(__bridge NSDictionary *)theValue] ;
     } else {
@@ -146,17 +160,18 @@ static int preferencesValueForPath(__unused lua_State *L) {
     return 1 ;
 }
 
-static int preferencesLinkForPath(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK];
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-    luaL_tolstring(L, 2, NULL) ;
+static int preferencesLinkForPath(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+    luaL_tolstring(L, 2, NULL) ; // force into string
     NSString *pathName = [skin toNSObjectAtIndex:-1] ;
     lua_pop(L, 1) ;
 
-    SCPreferencesLock(thePrefs, true) ;
-    CFStringRef theValue = SCPreferencesPathGetLink(thePrefs, (__bridge CFStringRef)pathName);
-    SCPreferencesUnlock(thePrefs) ;
+    SCPreferencesLock(obj.prefObject, true) ;
+    CFStringRef theValue = SCPreferencesPathGetLink(obj.prefObject, (__bridge CFStringRef)pathName) ;
+    SCPreferencesUnlock(obj.prefObject) ;
+
     if (theValue) {
         [skin pushNSObject:(__bridge NSString *)theValue] ;
     } else {
@@ -166,68 +181,95 @@ static int preferencesLinkForPath(__unused lua_State *L) {
 }
 
 static int preferencesCallback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
-    preferences_t* thePtr = get_structFromUserdata(preferences_t, L, 1) ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
 
-    // in either case, we need to remove an existing callback, so...
-    thePtr->callbackRef = [skin luaUnref:refTable ref:thePtr->callbackRef];
-    if (lua_type(L, 2) == LUA_TFUNCTION) {
-        lua_pushvalue(L, 2);
-        thePtr->callbackRef = [skin luaRef:refTable];
-        if (thePtr->selfRef == LUA_NOREF) {               // make sure that we won't be __gc'd if a callback exists
-            lua_pushvalue(L, 1) ;                         // but the user doesn't save us somewhere
-            thePtr->selfRef = [skin luaRef:refTable];
+    if (lua_gettop(L) == 2) {
+        obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            obj.callbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
         }
     } else {
-        thePtr->selfRef = [skin luaUnref:refTable ref:thePtr->selfRef] ;
+        if (obj.callbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:obj.callbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
     }
-
-    lua_pushvalue(L, 1);
-    return 1;
+    return 1 ;
 }
 
 static int preferencesStartWatcher(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    preferences_t* thePtr = get_structFromUserdata(preferences_t, L, 1) ;
-    if (!thePtr->watcherEnabled) {
-        SCPreferencesContext context = { 0, NULL, NULL, NULL, NULL };
-        context.info = (void *)thePtr;
-        if(SCPreferencesSetCallback(thePtr->prefObject, doPreferencesCallback, &context)) {
-            if (SCPreferencesSetDispatchQueue(thePtr->prefObject, preferencesQueue)) {
-                thePtr->watcherEnabled = YES ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+
+    if (!obj.watcherEnabled) {
+        SCPreferencesContext context = { 0, (__bridge void *)obj, NULL, NULL, NULL } ;
+        if (SCPreferencesSetCallback(obj.prefObject, preferencesWatcherCallback, &context)) {
+            if (SCPreferencesSetDispatchQueue(obj.prefObject, preferencesQueue)) {
+                obj.watcherEnabled = YES ;
             } else {
-                SCPreferencesSetCallback(thePtr->prefObject, NULL, NULL);
-                return luaL_error(L, "unable to set watcher dispatch queue:%s", SCErrorString(SCError())) ;
+                SCPreferencesSetCallback(obj.prefObject, NULL, NULL) ;
+                return luaL_error(L, "error setting watcher dispatch queue:%s", SCErrorString(SCError())) ;
             }
         } else {
-            return luaL_error(L, "unable to set watcher callback:%s", SCErrorString(SCError())) ;
+            return luaL_error(L, "error setting watcher callback:%s", SCErrorString(SCError())) ;
         }
     }
-    lua_pushvalue(L, 1);
-    return 1;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
 }
 
 static int preferencesStopWatcher(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
-    preferences_t* thePtr = get_structFromUserdata(preferences_t, L, 1) ;
-    SCPreferencesSetCallback(thePtr->prefObject, NULL, NULL);
-    SCPreferencesSetDispatchQueue(thePtr->prefObject, NULL);
-    thePtr->watcherEnabled = NO ;
-    lua_pushvalue(L, 1);
-    return 1;
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMPreferencesObject *obj = [skin toNSObjectAtIndex:1] ;
+
+    SCPreferencesSetCallback(obj.prefObject, NULL, NULL) ;
+    SCPreferencesSetDispatchQueue(obj.prefObject, NULL) ;
+    obj.watcherEnabled = NO ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
 }
 
 #pragma mark - Module Constants
+
+#pragma mark - Lua<->NSObject Conversion Functions
+// These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
+// delegates and blocks.
+
+static int pushHSASMPreferencesObject(lua_State *L, id obj) {
+    HSASMPreferencesObject *value = obj ;
+    value.selfRefCount++ ;
+    void** valuePtr = lua_newuserdata(L, sizeof(HSASMPreferencesObject *)) ;
+    *valuePtr = (__bridge_retained void *)value ;
+    luaL_getmetatable(L, USERDATA_TAG) ;
+    lua_setmetatable(L, -2) ;
+    return 1 ;
+}
+
+id toHSASMPreferencesObjectFromLua(lua_State *L, int idx) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    HSASMPreferencesObject *value ;
+    if (luaL_testudata(L, idx, USERDATA_TAG)) {
+        value = get_objectFromUserdata(__bridge HSASMPreferencesObject, L, idx, USERDATA_TAG) ;
+    } else {
+        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
+                                                   lua_typename(L, lua_type(L, idx))]] ;
+    }
+    return value ;
+}
 
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    SCPreferencesRef thePrefs = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-    [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, thePrefs]] ;
+//     HSASMPreferencesObject *obj = [skin luaObjectAtIndex:1 toClass:"HSASMPreferencesObject"] ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
 }
 
@@ -235,9 +277,10 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        SCPreferencesRef thePrefs1 = get_structFromUserdata(preferences_t, L, 1)->prefObject ;
-        SCPreferencesRef thePrefs2 = get_structFromUserdata(preferences_t, L, 2)->prefObject ;
-        lua_pushboolean(L, CFEqual(thePrefs1, thePrefs2)) ;
+        LuaSkin *skin = [LuaSkin shared] ;
+        HSASMPreferencesObject *obj1 = [skin luaObjectAtIndex:1 toClass:"HSASMPreferencesObject"] ;
+        HSASMPreferencesObject *obj2 = [skin luaObjectAtIndex:2 toClass:"HSASMPreferencesObject"] ;
+        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
     }
@@ -245,19 +288,21 @@ static int userdata_eq(lua_State* L) {
 }
 
 static int userdata_gc(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-//     [skin logDebug:@"preferences GC"] ;
-    preferences_t* thePtr = get_structFromUserdata(preferences_t, L, 1) ;
-    if (thePtr->callbackRef != LUA_NOREF) {
-        thePtr->callbackRef = [skin luaUnref:refTable ref:thePtr->callbackRef] ;
-        if (!SCPreferencesSetDispatchQueue(thePtr->prefObject, NULL)) {
-            [skin logBreadcrumb:[NSString stringWithFormat:@"%s:__gc, error removing watcher from dispatch queue:%s",
-                                                            USERDATA_TAG, SCErrorString(SCError())]] ;
+    HSASMPreferencesObject *obj = get_objectFromUserdata(__bridge_transfer HSASMPreferencesObject, L, 1, USERDATA_TAG) ;
+    if (obj) {
+        obj.selfRefCount-- ;
+        if (obj.selfRefCount == 0) {
+            LuaSkin *skin = [LuaSkin shared] ;
+            obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
+            SCPreferencesSetCallback(obj.prefObject, NULL, NULL) ;
+            SCPreferencesSetDispatchQueue(obj.prefObject, NULL) ;
+            // see notes in init method above
+            obj.prefObject = NULL ;
         }
+        obj = nil ;
     }
-    thePtr->selfRef = [skin luaUnref:refTable ref:thePtr->selfRef] ;
 
-    CFRelease(thePtr->prefObject) ;
+    // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
     lua_setmetatable(L, 1) ;
     return 0 ;
@@ -275,7 +320,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"valueForKey",  preferencesValueForKey},
     {"valueForPath", preferencesValueForPath},
     {"linkForPath",  preferencesLinkForPath},
-    {"setCallback",  preferencesCallback},
+    {"callback",     preferencesCallback},
     {"start",        preferencesStartWatcher},
     {"stop",         preferencesStopWatcher},
 
@@ -283,29 +328,32 @@ static const luaL_Reg userdata_metaLib[] = {
     {"__eq",         userdata_eq},
     {"__gc",         userdata_gc},
     {NULL,           NULL}
-};
+} ;
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"open", newPreferencesObject},
     {NULL,   NULL}
-};
+} ;
 
 // Metatable for module, if needed
 static const luaL_Reg module_metaLib[] = {
     {"__gc", meta_gc},
     {NULL,   NULL}
-};
+} ;
 
 int luaopen_hs__asm_preferences_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
-// Use this some of your functions return or act on a specific object unique to this module
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:module_metaLib
-                               objectFunctions:userdata_metaLib];
+                               objectFunctions:userdata_metaLib] ;
 
-    preferencesQueue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+    preferencesQueue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0) ;
 
-    return 1;
+    [skin registerPushNSHelper:pushHSASMPreferencesObject         forClass:"HSASMPreferencesObject"] ;
+    [skin registerLuaObjectHelper:toHSASMPreferencesObjectFromLua forClass:"HSASMPreferencesObject"
+                                                       withUserdataMapping:USERDATA_TAG] ;
+
+    return 1 ;
 }

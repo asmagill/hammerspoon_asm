@@ -1,8 +1,8 @@
---- === hs._asm.preferences ===
+--- === hs._asm.cfpreferences ===
 ---
 --- Stuff about the module
 
-local USERDATA_TAG = "hs._asm.preferences"
+local USERDATA_TAG = "hs._asm.cfpreferences"
 local module       = require(USERDATA_TAG..".internal")
 
 local basePath = package.searchpath(USERDATA_TAG, package.path)
@@ -18,6 +18,8 @@ end
 -- private variables and methods -----------------------------------------
 
 -- Public interface ------------------------------------------------------
+
+-- module.predefinedKeys = ls.makeConstantsTable(module.predefinedKeys)
 
 -- Return Module Object --------------------------------------------------
 
