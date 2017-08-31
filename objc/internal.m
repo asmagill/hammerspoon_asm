@@ -98,17 +98,25 @@ static int objc_classNamesForImage(lua_State *L) {
 ///
 ///  * The following example shows the most basic form for sending the messages necessary to create a newly initialized NSObject.
 ///  * In it's most raw form, a newly initialized NSObject is created as follows:
-///    * `hs._asm.objc.objc_msgSend(
+///    *
+///    ~~~lua
+///      hs._asm.objc.objc_msgSend(
 ///           hs._asm.objc.objc_msgSend(
 ///               hs._asm.objc.class.fromString("NSObject"),
 ///               hs._asm.objc.selector.fromString("alloc")
 ///           ), hs._asm.objc.selector.fromString("init")
-///       )`
+///       )
+///     ~~~
+///
 ///  * Using the optional bit-flag, this can be shortened to:
-///    * `hs._asm.objc.objc_msgSend(0x02,
-///           hs._asm.objc.class.fromString("NSObject"),
-///           hs._asm.objc.selector.fromString("init")
-///       )`
+///    *
+///    ~~~lua
+///      hs._asm.objc.objc_msgSend(0x02,
+///          hs._asm.objc.class.fromString("NSObject"),
+///          hs._asm.objc.selector.fromString("init")
+///      )
+///    ~~~
+///
 ///  * Note that `.fromString` is optional for the [hs._asm.objc.class.fromString](#fromString) and [hs._asm.objc.selector.fromString](#fromString3) functions as described in the documentation for each -- they are provided here for completeness and clarity.
 ///  * Even shorter variants are possible and will be documented where appropriate.
 ///

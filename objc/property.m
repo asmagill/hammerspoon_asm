@@ -128,7 +128,7 @@ int push_property(lua_State *L, objc_property_t prop) {
 
 static int property_userdata_tostring(lua_State* L) {
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
-    lua_pushfstring(L, "%s: %s (%p)", PROPERTY_USERDATA_TAG, property_getName(prop), prop) ;
+    lua_pushfstring(L, "%s: %s {%s} (%p)", PROPERTY_USERDATA_TAG, property_getName(prop), property_getAttributes(prop), prop) ;
     return 1 ;
 }
 

@@ -32,10 +32,41 @@ You probably want to look at [some examples](EXAMPLES.md), but come back here fo
 
 * Creating an Objective-C class at run-time with Hammerspoon/Lua as the language/environment of the class methods.  An interesting idea, but not one I have had the time to play with yet.  I don't know if this will be added or not because even if it is feasible to do so, it will still be significantly slower than anything coded directly in Objective-C or Swift.  Still, since this module is for playing around, who knows if the bug will bite hard enough to make a go at it :-]
 
+
+### Installation
+
+A precompiled version of this module can be found in this directory with a name along the lines of `objc-v0.x.tar.gz`. This can be installed by downloading the file and then expanding it as follows:
+
+~~~sh
+$ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
+$ tar -xzf ~/Downloads/objc-v0.x.tar.gz # or wherever your downloads are located
+~~~
+
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `internal.m`, `class.m`, `ivar.m`, `method.m`, `object.m`, `property.m`, `protocol.m`, `selector.m`, `obj.h` and `Makefile` (at present, nothing else is required) into a directory of your choice and then do the following:
+
+~~~sh
+$ cd wherever-you-downloaded-the-files
+$ [HS_APPLICATION=/Applications] [PREFIX=~/.hammerspoon] make docs install
+~~~
+
+If your Hammerspoon application is located in `/Applications`, you can leave out the `HS_APPLICATION` environment variable, and if your Hammerspoon files are located in their default location, you can leave out the `PREFIX` environment variable.  For most people it will be sufficient to just type `make docs install`.
+
+As always, whichever method you chose, if you are updating from an earlier version it is recommended to fully quit and restart Hammerspoon after installing this module to ensure that the latest version of the module is loaded into memory.
+
 ### Usage
 ~~~lua
 objc = require("hs._asm.objc")
 ~~~
+
+### Contents
+
+
+##### Module Functions
+* <a href="#classNamesForImage">objc.classNamesForImage(imageName) -> table</a>
+* <a href="#imageNames">objc.imageNames() -> table</a>
+* <a href="#objc_msgSend">objc.objc_msgSend([flags], target, selector, ...) -> result</a>
+
+- - -
 
 ### Module Functions
 
@@ -96,7 +127,7 @@ Notes:
 
  * The following example shows the most basic form for sending the messages necessary to create a newly initialized NSObject.
  * In it's most raw form, a newly initialized NSObject is created as follows:
-   * 
+   *
    ~~~lua
      hs._asm.objc.objc_msgSend(
          hs._asm.objc.objc_msgSend(
@@ -136,6 +167,40 @@ The submodule for hs._asm.objc which provides methods for working with and exami
 ~~~lua
 class = require("hs._asm.objc").class
 ~~~
+
+### Contents
+
+
+##### Module Constructors
+* <a href="#fromString">class.fromString(name) -> classObject</a>
+* <a href="#list">class.list() -> table</a>
+
+##### Module Methods
+* <a href="#adoptedProtocols">class:adoptedProtocols() -> table</a>
+* <a href="#classMethod">class:classMethod(selector) -> methodObject</a>
+* <a href="#classMethodList">class:classMethodList() -> table</a>
+* <a href="#conformsToProtocol">class:conformsToProtocol(protocol) -> boolean</a>
+* <a href="#imageName">class:imageName() -> string</a>
+* <a href="#instanceMethod">class:instanceMethod(selector) -> methodObject</a>
+* <a href="#instanceSize">class:instanceSize() -> bytes</a>
+* <a href="#instanceVariable">class:instanceVariable(name) -> ivarObject</a>
+* <a href="#isMetaClass">class:isMetaClass() -> boolean</a>
+* <a href="#ivarLayout">class:ivarLayout() -> string | nil</a>
+* <a href="#ivarList">class:ivarList() -> table</a>
+* <a href="#metaClass">class:metaClass() -> classObject</a>
+* <a href="#methodList">class:methodList() -> table</a>
+* <a href="#msgSend">class:msgSend(selector, [...]) -> return value</a>
+* <a href="#name">class:name() -> string</a>
+* <a href="#property">class:property(name) -> propertyObject</a>
+* <a href="#propertyList">class:propertyList() -> table</a>
+* <a href="#respondsToSelector">class:respondsToSelector(selector) -> boolean</a>
+* <a href="#selector">class:selector(string) -> selectorObject</a>
+* <a href="#signatureForMethod">class:signatureForMethod(selector) -> table</a>
+* <a href="#superclass">class:superclass() -> classObject</a>
+* <a href="#version">class:version() -> integer</a>
+* <a href="#weakIvarLayout">class:weakIvarLayout() -> string | nil</a>
+
+- - -
 
 ### Module Constructors
 
@@ -198,6 +263,23 @@ Returns:
 
 Notes:
  * see also [hs._asm.objc.class:instanceMethod](#instanceMethod)
+
+- - -
+
+<a name="classMethodList"></a>
+~~~lua
+class:classMethodList() -> table
+~~~
+Returns a table containing the class methods defined for the class.
+
+Parameters:
+ * None
+
+Returns:
+ * a table of key-value pairs where the key is a string of the method's name (technically the method selector's name) and the value is the methodObject for the specified selector name.
+
+Notes:
+ * This is syntactic sugar for `hs._asm.objc.class("className"):metaClass():methodList()`.
 
 - - -
 
@@ -541,6 +623,16 @@ Except in rare cases, instance variables back properties and should generally be
 ivar = require("hs._asm.objc").ivar
 ~~~
 
+### Contents
+
+
+##### Module Methods
+* <a href="#name">ivar:name() -> string</a>
+* <a href="#offset">ivar:offset() -> integer</a>
+* <a href="#typeEncoding">ivar:typeEncoding() -> string</a>
+
+- - -
+
 ### Module Methods
 
 <a name="name"></a>
@@ -599,6 +691,19 @@ The terms `selector` and `method` are often used interchangeably in this documen
 ~~~lua
 method = require("hs._asm.objc").method
 ~~~
+
+### Contents
+
+
+##### Module Methods
+* <a href="#argumentType">method:argumentType(index) -> string | nil</a>
+* <a href="#description">method:description() -> table</a>
+* <a href="#numberOfArguments">method:numberOfArguments() -> integer</a>
+* <a href="#returnType">method:returnType() -> string</a>
+* <a href="#selector2">method:selector() -> selectorObject</a>
+* <a href="#typeEncoding">method:typeEncoding() -> string</a>
+
+- - -
 
 ### Module Methods
 
@@ -718,6 +823,27 @@ Most of the methods of this sub-module concentrate on the object as an Objective
 object = require("hs._asm.objc").object
 ~~~
 
+### Contents
+
+
+##### Module Constructors
+* <a href="#fromLuaObject">object.fromLuaObject(value) -> idObject | nil</a>
+
+##### Module Methods
+* <a href="#allocAndMsgSend">object:allocAndMsgSend(selector, [...]) -> return value</a>
+* <a href="#class">object:class() -> classObject</a>
+* <a href="#className">object:className() -> string</a>
+* <a href="#methodList2">object:methodList() -> table</a>
+* <a href="#msgSend">object:msgSend(selector, [...]) -> return value</a>
+* <a href="#msgSendSuper">object:msgSendSuper(selector, [...]) -> return value</a>
+* <a href="#property">object:property(propertyName) -> value</a>
+* <a href="#propertyList">object:propertyList([includeNSObject]) -> table</a>
+* <a href="#propertyValues">object:propertyValues([includeNSObject]) -> table</a>
+* <a href="#selector3">object:selector(string) -> selectorObject</a>
+* <a href="#value">object:value() -> any</a>
+
+- - -
+
 ### Module Constructors
 
 <a name="fromLuaObject"></a>
@@ -797,6 +923,24 @@ Parameters:
 
 Returns:
  * the name of the object's class as a string
+
+- - -
+
+<a name="methodList2"></a>
+~~~lua
+object:methodList() -> table
+~~~
+Returns a table containing the methods defined for the object's class.
+
+Parameters:
+ * None
+
+Returns:
+ * a table of key-value pairs where the key is a string of the method's name (technically the method selector's name) and the value is the methodObject for the specified selector name.
+
+Notes:
+ * This method returns the instance methods for the object's class and is syntatic sugar for `hs._asm.objc.object:class():methodList()`.
+ * To get a table of the class methods for the object's class, invoke this method on the meta class of the object's class, e.g. `hs._asm.objc.object:class():metaClass():methodList()`.
 
 - - -
 
@@ -930,6 +1074,17 @@ The submodule for hs._asm.objc which provides methods for working with and exami
 property = require("hs._asm.objc").property
 ~~~
 
+### Contents
+
+
+##### Module Methods
+* <a href="#attributeList">property:attributeList() -> table</a>
+* <a href="#attributeValue">property:attributeValue(attribute) -> string</a>
+* <a href="#attributes">property:attributes() -> string</a>
+* <a href="#name">property:name() -> string</a>
+
+- - -
+
 ### Module Methods
 
 <a name="attributeList"></a>
@@ -1009,6 +1164,25 @@ The submodule for hs._asm.objc which provides methods for working with and exami
 ~~~lua
 protocol = require("hs._asm.objc").protocol
 ~~~
+
+### Contents
+
+
+##### Module Constructors
+* <a href="#fromString2">protocol.fromString(name) -> protocolObject</a>
+* <a href="#list">protocol.list() -> table</a>
+
+##### Module Methods
+* <a href="#adoptedProtocols">protocol:adoptedProtocols() -> table</a>
+* <a href="#conformsToProtocol">protocol:conformsToProtocol(protocol) -> boolean</a>
+* <a href="#methodDescription">protocol:methodDescription(selector, required, instance) -> table</a>
+* <a href="#methodDescriptionList">protocol:methodDescriptionList(required, instance) -> table</a>
+* <a href="#name">protocol:name() -> string</a>
+* <a href="#property">protocol:property(name, required, instance) -> propertyObject</a>
+* <a href="#propertyList">protocol:propertyList() -> table</a>
+* <a href="#selector4">protocol:selector(string) -> selectorObject</a>
+
+- - -
 
 ### Module Constructors
 
@@ -1172,6 +1346,17 @@ The terms `selector` and `method` are often used interchangeably in this documen
 selector = require("hs._asm.objc").selector
 ~~~
 
+### Contents
+
+
+##### Module Constructors
+* <a href="#fromString3">selector.fromString(name) -> selectorObject</a>
+
+##### Module Methods
+* <a href="#name">selector:name() -> string</a>
+
+- - -
+
 ### Module Constructors
 
 <a name="fromString3"></a>
@@ -1207,14 +1392,19 @@ Parameters:
 Returns:
  * the selector's name as a string.
 
+- - -
+
 ### License
 
 > The MIT License (MIT)
 >
-> Copyright (c) 2016 Aaron Magill
+> Copyright (c) 2017 Aaron Magill
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 >
 >The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 >
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+>
+
+

@@ -12,7 +12,7 @@
 ---
 ---
 ---
---- Known limitations, unsupported features and data types (for arguments and return values), and things being considered:
+--- **Known limitations, unsupported features and data types (for arguments and return values), and things being considered:**
 ---
 ---   * Methods with a variable number of arguments (vararg) -- this is not supported by NSInvocation, so is not likely to ever be supported without a substantial (and very non-trivial) re-write.
 ---   * C style union arguments -- this is not supported by NSInvocation, so is not likely to ever be supported without a substantial (and very non-trivial) re-write.
@@ -24,7 +24,7 @@
 ---   * Structure support is currently limited to those recognized by LuaSkin (currently a WIP, pull #825) or that can be fully stored as an NSValue with a static objC encoding type and stored in a packed format.  Lua 5.3's `string.pack` appears to recognize most of the type encoding specifiers and the internal storage of this data, so it is likely that a more robust and seamless solution will be added in the near future. Structures with pointers to data not fully contained within the packed data are not likely to ever be supported.
 ---
 --- * Property qualifiers as specified in the Encoding specification provided by Apple at the URL above -- these include specifiers for: const, in, inout, out, bycopy, byref, and oneway.  Currently these are just ignored.
----   * Any value which can be presented as a basic lua data type (boolean, numeric, string, table) is "copied" into the Lua environment -- unless you call a properties setter, the value available to Hammerspoon/Lua is a copy of what the value was when it was queried.
+---   * Any value which can be presented as a basic lua data type (boolean, numeric, string, table) is "copied" into the Lua environment -- the value available to Hammerspoon/Lua is a copy of what the value was when it was queried.
 ---   * Objective-C objects (id instances) are represented in Lua as userdata, and the Objective-C retain count is adjusted indicating that Hammerspoon has a strong reference to the object.  While this has not posed a problem in early testing (except perhaps in the form of memory leaks when an object has lost all references except for the Hammerspoon userdata strong reference), this really should be fixed at some point so that property attributes and qualifiers are honored.
 ---
 ---   * Accessing ivar values directly -- currently not supported.  Most instance variables are just the backing for a property and you should access them as property objects or with class getter and setter methods.  Most "best practices" for Objective-C coding generally recommend against using instance variables directly, especially in an ARC environment; however some older frameworks and specific coding situations still use instance variables without the supporting property structures.  Support for direct examination and manipulation of ivar's may be added if a compelling reason occurs -- I just haven't found anything worth examining yet that justifies the testing and troubleshooting!
@@ -347,6 +347,35 @@ objectMT.property = function(self, name)
         return nil
     end
 end
+
+--- hs._asm.objc.class:classMethodList() -> table
+--- Method
+--- Returns a table containing the class methods defined for the class.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * a table of key-value pairs where the key is a string of the method's name (technically the method selector's name) and the value is the methodObject for the specified selector name.
+---
+--- Notes:
+---  * This is syntactic sugar for `hs._asm.objc.class("className"):metaClass():methodList()`.
+classMT.classMethodList = function(self, ...) return self:metaClass():methodList() end
+
+--- hs._asm.objc.object:methodList() -> table
+--- Method
+--- Returns a table containing the methods defined for the object's class.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * a table of key-value pairs where the key is a string of the method's name (technically the method selector's name) and the value is the methodObject for the specified selector name.
+---
+--- Notes:
+---  * This method returns the instance methods for the object's class and is syntatic sugar for `hs._asm.objc.object:class():methodList()`.
+---  * To get a table of the class methods for the object's class, invoke this method on the meta class of the object's class, e.g. `hs._asm.objc.object:class():metaClass():methodList()`.
+objectMT.methodList = function(self, ...) return self:class():methodList(...) end
 
 objectMT.__call = function(obj, ...) return objectMT.msgSend(obj, ...) end
 classMT.__call  = function(obj, ...) return classMT.msgSend(obj, ...) end
