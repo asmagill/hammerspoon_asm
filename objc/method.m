@@ -169,7 +169,7 @@ int push_method(lua_State *L, Method meth) {
 
 static int method_userdata_tostring(lua_State* L) {
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
-    lua_pushfstring(L, "%s: %s (%p)", METHOD_USERDATA_TAG, method_getName(meth), meth) ;
+    lua_pushfstring(L, "%s: %s {%s} (%p)", METHOD_USERDATA_TAG, method_getName(meth), method_getTypeEncoding(meth), meth) ;
     return 1 ;
 }
 

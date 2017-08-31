@@ -91,7 +91,7 @@ int push_ivar(lua_State *L, Ivar iv) {
 
 static int ivar_userdata_tostring(lua_State* L) {
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
-    lua_pushfstring(L, "%s: %s (%p)", IVAR_USERDATA_TAG, ivar_getName(iv), iv) ;
+    lua_pushfstring(L, "%s: %s {%s} (%p)", IVAR_USERDATA_TAG, ivar_getName(iv), ivar_getTypeEncoding(iv), iv) ;
     return 1 ;
 }
 
