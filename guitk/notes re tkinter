@@ -1,0 +1,48 @@
+Tk provides the following widgets:
+
+    button          NSButton
+    canvas          hs.canvas view (see touchbar)
+    checkbutton     NSButton
+    combobox
+    entry
+    frame
+    label
+    labelframe
+    listbox
+    menu
+    menubutton
+    message
+    notebook
+    tk_optionMenu
+    panedwindow
+    progressbar
+    radiobutton     NSButton
+    scale
+    scrollbar
+    separator
+    sizegrip
+    spinbox
+    text
+    treeview
+
+It provides the following top-level windows:
+
+    tk_chooseColor - pops up a dialog box for the user to select a color.
+    tk_chooseDirectory - pops up a dialog box for the user to select a directory.
+    tk_dialog - creates a modal dialog and waits for a response.
+    tk_getOpenFile - pops up a dialog box for the user to select a file to open.
+    tk_getSaveFile - pops up a dialog box for the user to select a file to save.
+    tk_messageBox - pops up a message window and waits for a user response.
+    tk_popup - posts a popup menu.
+    toplevel - creates and manipulates toplevel widgets.
+
+Tk also provides three geometry managers:
+
+place - which positions widgets at absolute locations
+grid - which arranges widgets in a grid
+pack - which packs widgets into a cavity
+
+See
+http://infohost.nmt.edu/tcc/help/pubs/tkinter/web/index.html
+http://tcl.tk/man/tcl8.5/TkCmd/contents.htm
+http://www.python-course.eu/python_tkinter.php
