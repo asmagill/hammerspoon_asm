@@ -1,3 +1,7 @@
+// TODO:
+//    test proper __gc/close behavior with deleteOnClose = YES and delete with fade time
+//    passthroughCallback for guitk object
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -21,6 +25,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 
 @interface HSASMGuiWindow : NSPanel <NSWindowDelegate>
 @property int          selfRef ;
+@property int          contentManagerRef ;
 @property int          notificationCallback ;
 @property BOOL         allowKeyboardEntry ;
 @property BOOL         deleteOnClose ;
@@ -28,7 +33,6 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 @property NSNumber     *animationTime ;
 @property NSMutableSet *notifyFor ;
 @property NSString     *subroleOverride ;
-
 @end
 
 @implementation HSASMGuiWindow
@@ -51,6 +55,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         self.level              = NSNormalWindowLevel ;
 
         _selfRef                = LUA_NOREF ;
+        _contentManagerRef      = LUA_NOREF ;
         _notificationCallback   = LUA_NOREF ;
         _deleteOnClose          = NO ;
         _closeOnEscape          = NO ;
@@ -128,17 +133,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
           HSASMGuiWindow *mySelf = bself ;
           if (mySelf) {
               if (deleteWindow) {
-              LuaSkin *skin = [LuaSkin shared] ;
-                  lua_State *L = [skin L] ;
                   [mySelf close] ; // trigger callback, if set, then cleanup
-                  if (!mySelf.deleteOnClose) {
-                      lua_pushcfunction(L, userdata_gc) ;
-                      [skin pushLuaRef:refTable ref:mySelf.selfRef] ;
-                      if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-                          [skin logBreadcrumb:[NSString stringWithFormat:@"%s:error invoking _gc for delete (with fade) method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
-                          lua_pop(L, 1) ;
-                      }
-                  }
               } else {
                   [mySelf orderOut:nil];
                   [mySelf setAlphaValue:1.0];
@@ -722,14 +717,17 @@ static int guitk_delete(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
-    lua_pushcfunction(L, userdata_gc) ;
-    lua_pushvalue(L, 1) ;
-    if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-        [skin logError:[NSString stringWithFormat:@"%s:error invoking _gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
-        lua_pop(L, 1) ;
-        [window orderOut:nil] ; // the least we can do is hide the guitk if an error occurs with __gc
+    if (lua_gettop(L) == 1) {
+        lua_pushcfunction(L, userdata_gc) ;
+        lua_pushvalue(L, 1) ;
+        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+            [skin logError:[NSString stringWithFormat:@"%s:error invoking _gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+            lua_pop(L, 1) ;
+            [window orderOut:nil] ; // the least we can do is hide the guitk if an error occurs with __gc
+        }
+    } else {
+        [window fadeOut:lua_tonumber(L, 2) andDelete:YES] ;
     }
-
     lua_pushnil(L);
     return 1;
 }
@@ -903,6 +901,38 @@ static int window_isOccluded(lua_State *L) {
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     lua_pushboolean(L, ([window occlusionState] & NSWindowOcclusionStateVisible) != NSWindowOcclusionStateVisible) ;
+    return 1 ;
+}
+
+static int window_contentView(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        if (window.contentManagerRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:window.contentManagerRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            window.contentManagerRef = [skin luaUnref:refTable ref:window.contentManagerRef] ;
+            // placeholder, since a window/panel always has one after init, let's follow that pattern
+            window.contentView = [[NSView alloc] initWithFrame:window.contentView.bounds] ;
+        } else {
+            NSView *manager = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+            if (!manager || ![manager isKindOfClass:[NSView class]]) {
+                return luaL_argerror(L, 2, "expected userdata representing a gui content manager (NSView subclass)") ;
+            }
+            window.contentManagerRef = [skin luaUnref:refTable ref:window.contentManagerRef] ;
+            lua_pushvalue(L, 2) ;
+            // maintain our own reference to the the userdata for the manager in case the user doesn't.
+            window.contentManagerRef = [skin luaRef:refTable] ;
+            window.contentView = manager ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
     return 1 ;
 }
 
@@ -1127,12 +1157,15 @@ static int userdata_gc(lua_State* L) {
     HSASMGuiWindow *obj = get_objectFromUserdata(__bridge_transfer HSASMGuiWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
         LuaSkin *skin = [LuaSkin shared];
-        obj.selfRef        = [skin luaUnref:refTable ref:obj.selfRef] ;
+        obj.selfRef              = [skin luaUnref:refTable ref:obj.selfRef] ;
         obj.notificationCallback = [skin luaUnref:refTable ref:obj.notificationCallback] ;
-
+        obj.contentManagerRef    = [skin luaUnref:refTable ref:obj.contentManagerRef] ;
+        obj.delegate             = nil ;
+        obj.deleteOnClose        = NO ; // shouldn't matter since delegate already nil, but just in case we don't want a loop
+        obj.contentView          = nil ;
+//         obj.releasedWhenClosed   = YES ;
         [obj close] ;
-        obj.delegate = nil ;
-        obj          = nil ;
+        obj                      = nil ;
     }
     // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -1175,6 +1208,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"title",                      window_title},
     {"titlebarAppearsTransparent", window_titlebarAppearsTransparent},
     {"titleVisibility",            window_titleVisibility},
+    {"contentManager",             window_contentView},
 
     {"appearance",                 appearanceCustomization_appearance},
 
@@ -1196,7 +1230,6 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-// NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_guitk_internal(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG

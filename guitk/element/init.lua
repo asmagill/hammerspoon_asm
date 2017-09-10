@@ -1,9 +1,13 @@
 --- === hs._asm.guitk.element ===
 ---
---- Elements which can be used with `hs._asm.guitk.manager` placement managers for `hs._asm.guitk` windows.
+--- Elements which can be used with `hs._asm.guitk.manager` objects for display `hs._asm.guitk` windows.
 
 local USERDATA_TAG = "hs._asm.guitk.element"
-local module = {}
+local module       = {}
+
+local fnutils = require("hs.fnutils")
+local inspect = require("hs.inspect")
+
 local metatables = {}
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
@@ -29,6 +33,36 @@ end
 -- private variables and methods -----------------------------------------
 
 -- Public interface ------------------------------------------------------
+
+for k,v in pairs(metatables) do
+    if v._propertyList and not v.properties then
+        v.properties = function(self, ...)
+            local args = table.pack(...)
+            if args.n == 0 or (args.n == 1 and type(args[1]) == "table") then
+                if args.n == 0 then
+                    local results = {}
+                    local propertiesList = v._propertyList
+                    if propertiesList then
+                        for i2,v2 in ipairs(propertiesList) do results[v2] = self[v2](self) end
+                    end
+                    return setmetatable(results, { __tostring = inspect })
+                else
+                    local propertiesList = getmetatable(self)["_propertyList"]
+                    if propertiesList then
+                        for k2,v2 in pairs(args[1]) do
+                            if fnutils.contains(propertiesList, k2) then
+                                self[k2](self, v2)
+                            end
+                        end
+                    end
+                    return self
+                end
+            else
+                error("expected table of properties for argument 1", 2)
+            end
+        end
+    end
+end
 
 -- Return Module Object --------------------------------------------------
 

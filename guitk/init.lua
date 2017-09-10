@@ -2,15 +2,11 @@
 ---
 --- This module allows you to build gui elements for a variety of types of user input within Hammerspoon.  It is very much a work in progress and will probably change a lot before it approaches something near true usefulness.
 ---
---- The design methodology and approach taken is expected to be heavily influenced by Python's tkinter module because:
----  * it gives me an excuse to finally get around to learning python
----  * I know some users of Hammerspoon already know python and so similarities should reduce the learning curve
----  * it seemed like a good idea at the time
----
---- That said, it will likely differ in a lot of ways as well to take advantage of existing Hammerspoon modules and because the macOS has a rich variety of GUI elements available through Objective-C and Swift, some of which may not translate quite exactly to tkinter and Hammerspoon is first and foremost a macOS application.
 
 local USERDATA_TAG = "hs._asm.guitk"
-local module       = require(USERDATA_TAG..".internal")
+local module       = require(USERDATA_TAG .. ".internal")
+module.manager     = require(USERDATA_TAG .. ".manager")
+module.element     = require(USERDATA_TAG .. ".element")
 
 local guitkMT = hs.getObjectMetatable(USERDATA_TAG)
 
