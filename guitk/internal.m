@@ -1,6 +1,6 @@
 // TODO:
 //    test proper __gc/close behavior with deleteOnClose = YES and delete with fade time
-//    passthroughCallback for guitk object
+// *  passthroughCallback for guitk object
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -27,6 +27,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 @property int          selfRef ;
 @property int          contentManagerRef ;
 @property int          notificationCallback ;
+@property int          passthroughCallbackRef ;
 @property BOOL         allowKeyboardEntry ;
 @property BOOL         deleteOnClose ;
 @property BOOL         closeOnEscape ;
@@ -57,6 +58,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         _selfRef                = LUA_NOREF ;
         _contentManagerRef      = LUA_NOREF ;
         _notificationCallback   = LUA_NOREF ;
+        _passthroughCallbackRef = LUA_NOREF ;
         _deleteOnClose          = NO ;
         _closeOnEscape          = NO ;
         _allowKeyboardEntry     = YES ;
@@ -142,6 +144,26 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
       }];
       [[self animator] setAlphaValue:0.0];
     [NSAnimationContext endGrouping];
+}
+
+// perform callback for subviews which don't have a callback defined; see manager/internal.m for how to allow this chaining
+- (void)preformPassthroughCallback:(NSArray *)arguments {
+    if (_passthroughCallbackRef != LUA_NOREF) {
+        LuaSkin *skin    = [LuaSkin shared] ;
+        int     argCount = 1 ;
+
+        [skin pushLuaRef:refTable ref:_passthroughCallbackRef] ;
+        [skin pushNSObject:self] ;
+        if (arguments) {
+            [skin pushNSObject:arguments] ;
+            argCount += 1 ;
+        }
+        if (![skin protectedCallAndTraceback:argCount nresults:0]) {
+            NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+            lua_pop(skin.L, 1) ;
+            [skin logError:[NSString stringWithFormat:@"%s:passthroughCallback error:%@", USERDATA_TAG, errorMessage]] ;
+        }
+    }
 }
 
 #pragma mark * NSWindowDelegate Notifications
@@ -936,6 +958,27 @@ static int window_contentView(lua_State *L) {
     return 1 ;
 }
 
+static int window_passthroughCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        window.passthroughCallbackRef = [skin luaUnref:refTable ref:window.passthroughCallbackRef] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            window.passthroughCallbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (window.passthroughCallbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:window.passthroughCallbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
 
 #pragma mark - Module Constants
 
@@ -1157,15 +1200,15 @@ static int userdata_gc(lua_State* L) {
     HSASMGuiWindow *obj = get_objectFromUserdata(__bridge_transfer HSASMGuiWindow, L, 1, USERDATA_TAG) ;
     if (obj) {
         LuaSkin *skin = [LuaSkin shared];
-        obj.selfRef              = [skin luaUnref:refTable ref:obj.selfRef] ;
-        obj.notificationCallback = [skin luaUnref:refTable ref:obj.notificationCallback] ;
-        obj.contentManagerRef    = [skin luaUnref:refTable ref:obj.contentManagerRef] ;
-        obj.delegate             = nil ;
-        obj.deleteOnClose        = NO ; // shouldn't matter since delegate already nil, but just in case we don't want a loop
-        obj.contentView          = nil ;
-//         obj.releasedWhenClosed   = YES ;
+        obj.selfRef                = [skin luaUnref:refTable ref:obj.selfRef] ;
+        obj.notificationCallback   = [skin luaUnref:refTable ref:obj.notificationCallback] ;
+        obj.contentManagerRef      = [skin luaUnref:refTable ref:obj.contentManagerRef] ;
+        obj.passthroughCallbackRef = [skin luaUnref:refTable ref:obj.passthroughCallbackRef] ;
+        obj.delegate               = nil ;
+        obj.deleteOnClose          = NO ; // shouldn't matter since delegate already nil, but just in case we don't want a loop
+        obj.contentView            = nil ;
         [obj close] ;
-        obj                      = nil ;
+        obj                        = nil ;
     }
     // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -1209,6 +1252,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"titlebarAppearsTransparent", window_titlebarAppearsTransparent},
     {"titleVisibility",            window_titleVisibility},
     {"contentManager",             window_contentView},
+    {"passthroughCallback",        window_passthroughCallback},
 
     {"appearance",                 appearanceCustomization_appearance},
 

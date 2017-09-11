@@ -62,6 +62,21 @@ for k,v in pairs(metatables) do
             end
         end
     end
+
+    if v._nextResponder then
+        v.__core = v.__index
+        v.__index = function(self, key)
+            if v.__core[key] then
+                return v.__core[key]
+            else
+                local parentFN = self:_nextResponder()[key]
+                if parentFN then
+                    return function(self, ...) return parentFN(self:_nextResponder(), ...) end
+                end
+            end
+            return nil
+        end
+    end
 end
 
 -- Return Module Object --------------------------------------------------

@@ -1,5 +1,10 @@
 // TODO:
-//    shrink to fit when manager is not contentView of a window
+// *  size to fit when manager is not contentView of a window
+// *    override fittingSize for HSASMGUITKManager
+// ?    optionally recurse through subviews also sizing to fit
+//    additional functions/methods to line up groups of items
+// +  item metatable methods to edit like tables
+//    add replaceSubview and insert so manager metatables methods can create/replace/remove items
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -17,6 +22,7 @@ static int refTable = LUA_NOREF;
 @property int                 selfRefCount ;
 @property int                 passthroughCallbackRef ;
 @property NSMutableDictionary *subviewReferences ;
+@property NSColor             *frameDebugColor ;
 @end
 
 @implementation HSASMGUITKManager
@@ -27,6 +33,7 @@ static int refTable = LUA_NOREF;
         _selfRefCount           = 0 ;
         _passthroughCallbackRef = LUA_NOREF ;
         _subviewReferences      = [[NSMutableDictionary alloc] init] ;
+        _frameDebugColor        = nil ;
     }
     return self ;
 }
@@ -38,6 +45,44 @@ static int refTable = LUA_NOREF;
 //     return YES ;
 // }
 
+- (NSSize)fittingSize {
+    NSSize fittedContentSize = NSZeroSize ;
+
+    if ([self.subviews count] > 0) {
+        __block NSPoint bottomRight = NSZeroPoint ;
+        [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSRect frame             = view.frame ;
+            NSPoint frameBottomRight = NSMakePoint(frame.origin.x + frame.size.width, frame.origin.y + frame.size.height) ;
+            NSSize viewFittingSize   = view.fittingSize ;
+            if (!CGSizeEqualToSize(viewFittingSize, NSZeroSize)) {
+                frameBottomRight = NSMakePoint(frame.origin.x + viewFittingSize.width, frame.origin.y + viewFittingSize.height) ;
+            }
+            if (frameBottomRight.x > bottomRight.x) bottomRight.x = frameBottomRight.x ;
+            if (frameBottomRight.y > bottomRight.y) bottomRight.y = frameBottomRight.y ;
+        }] ;
+
+        fittedContentSize = NSMakeSize(bottomRight.x, bottomRight.y) ;
+    }
+    return fittedContentSize ;
+}
+
+- (void)drawRect:(NSRect)dirtyRect {
+    if (_frameDebugColor) {
+        NSDisableScreenUpdates() ;
+        NSGraphicsContext* gc = [NSGraphicsContext currentContext];
+        [gc saveGraphicsState];
+
+        [NSBezierPath setDefaultLineWidth:2.0] ;
+        [_frameDebugColor setStroke] ;
+        [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
+            [NSBezierPath strokeRect:view.frame] ;
+        }] ;
+        [gc restoreGraphicsState];
+        NSEnableScreenUpdates() ;
+    }
+    [super drawRect:dirtyRect] ;
+}
+
 // perform callback for subviews which don't have a callback defined; see button.m for how to allow this chaining
 - (void)preformPassthroughCallback:(NSArray *)arguments {
     if (_passthroughCallbackRef != LUA_NOREF) {
@@ -47,18 +92,24 @@ static int refTable = LUA_NOREF;
         [skin pushLuaRef:refTable ref:_passthroughCallbackRef] ;
         [skin pushNSObject:self] ;
         if (arguments) {
-            if ([arguments isKindOfClass:[NSArray class]]) {
-                for (id object in arguments) [skin pushNSObject:object] ;
-                argCount += arguments.count ;
-            } else {
-                [skin pushNSObject:arguments] ;
-                argCount += 1 ;
-            }
+            [skin pushNSObject:arguments] ;
+            argCount += 1 ;
         }
         if (![skin protectedCallAndTraceback:argCount nresults:0]) {
             NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
             lua_pop(skin.L, 1) ;
-            [skin logError:[NSString stringWithFormat:@"%s:callback error:%@", USERDATA_TAG, errorMessage]] ;
+            [skin logError:[NSString stringWithFormat:@"%s:passthroughCallback error:%@", USERDATA_TAG, errorMessage]] ;
+        }
+    } else {
+        // allow next responder a chance since we don't have a callback set
+        id nextInChain = [self nextResponder] ;
+        if (nextInChain) {
+            SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
+            if ([nextInChain respondsToSelector:passthroughCallback]) {
+                [nextInChain performSelectorOnMainThread:passthroughCallback
+                                              withObject:@[ self, arguments ]
+                                           waitUntilDone:YES] ;
+            }
         }
     }
 }
@@ -112,6 +163,33 @@ static int manager_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
+static int manager_highlightFrames(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    if (lua_gettop(L) == 1) {
+        if (manager.frameDebugColor) {
+            [skin pushNSObject:manager.frameDebugColor] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    } else {
+        if (lua_type(L, 2) == LUA_TTABLE) {
+            manager.frameDebugColor = [skin luaObjectAtIndex:2 toClass:"NSColor"] ;
+        } else {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL, LS_TBREAK] ;
+            if (lua_toboolean(L, 2)) {
+                manager.frameDebugColor = [NSColor keyboardFocusIndicatorColor] ;
+            } else {
+                manager.frameDebugColor = nil ;
+            }
+        }
+        manager.needsDisplay = YES ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int manager_addElement(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -134,6 +212,8 @@ static int manager_addElement(lua_State *L) {
 
     [manager addSubview:item] ;
     [item setFrameOrigin:newOrigin] ;
+    manager.needsDisplay = YES ;
+    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
@@ -149,11 +229,41 @@ static int manager_removeElement(lua_State *L) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
     [item removeFromSuperview] ;
+    manager.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
-static int manager_shrinkToFit(lua_State *L) {
+static int manager_elementFittingSize(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!item || ![item isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:item]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+    [skin pushNSSize:item.fittingSize] ;
+    return 1 ;
+}
+
+static int manager_autosizeElements(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    if (manager.subviews.count > 0) {
+        [manager.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSSize viewFittingSize   = view.fittingSize ;
+            if (!CGSizeEqualToSize(viewFittingSize, NSZeroSize)) [view setFrameSize:viewFittingSize] ;
+        }] ;
+    }
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_sizeToFit(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
@@ -161,7 +271,8 @@ static int manager_shrinkToFit(lua_State *L) {
     CGFloat hPadding = (lua_gettop(L) > 1) ? lua_tonumber(L, 2) : 0.0 ;
     CGFloat vPadding = (lua_gettop(L) > 2) ? lua_tonumber(L, 3) : ((lua_gettop(L) > 1) ? hPadding : 0.0) ;
 
-    if ([manager isEqualTo:manager.window.contentView] && [manager.window isKindOfClass:NSClassFromString(@"HSASMGuiWindow")] && manager.subviews.count > 0) {
+//     if ([manager isEqualTo:manager.window.contentView] && [manager.window isKindOfClass:NSClassFromString(@"HSASMGuiWindow")] && manager.subviews.count > 0) {
+    if (manager.subviews.count > 0) {
         __block NSPoint topLeft     = manager.subviews.firstObject.frame.origin ;
         __block NSPoint bottomRight = NSZeroPoint ;
         [manager.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
@@ -179,21 +290,27 @@ static int manager_shrinkToFit(lua_State *L) {
             view.frame = frame ;
         }] ;
 
-        NSRect oldWindowFrame = manager.window.frame ;
         NSSize oldContentSize = manager.frame.size ;
         NSSize newContentSize = NSMakeSize(2 * hPadding + bottomRight.x - topLeft.x, 2 * vPadding + bottomRight.y - topLeft.y) ;
-        NSSize newWindowSize  = NSMakeSize(
-            newContentSize.width  + (oldWindowFrame.size.width - oldContentSize.width),
-            newContentSize.height + (oldWindowFrame.size.height - oldContentSize.height)
-        ) ;
-        NSRect newWindowFrame = NSMakeRect
-            (oldWindowFrame.origin.x,
-            oldWindowFrame.origin.y + oldWindowFrame.size.height - newWindowSize.height,
-            newWindowSize.width,
-            newWindowSize.height
-        ) ;
-        [manager.window setFrame:newWindowFrame display:YES animate:NO] ;
+
+        if (manager.window && [manager isEqualTo:manager.window.contentView]) {
+            NSRect oldFrame = manager.window.frame ;
+            NSSize newSize  = NSMakeSize(
+                newContentSize.width  + (oldFrame.size.width - oldContentSize.width),
+                newContentSize.height + (oldFrame.size.height - oldContentSize.height)
+            ) ;
+            NSRect newFrame = NSMakeRect
+                (oldFrame.origin.x,
+                oldFrame.origin.y + oldFrame.size.height - newSize.height,
+                newSize.width,
+                newSize.height
+            ) ;
+            [manager.window setFrame:newFrame display:YES animate:NO] ;
+        } else {
+            [manager setFrameSize:newContentSize] ;
+        }
     }
+    manager.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -222,7 +339,7 @@ static int manager_elementLocation(lua_State *L) {
             lua_pop(L, 1) ;
             if (lua_getfield(L, 3, "w") == LUA_TNUMBER) newRect.size.width  = lua_tonumber(L, -1) ;
             lua_pop(L, 1) ;
-        } else if (!lua_toboolean(L, 3)) {
+        } else {
             newRect.size = [item fittingSize] ;
         }
         item.frame = newRect ;
@@ -263,12 +380,12 @@ static int manager_passthroughCallback(lua_State *L) {
     return 1 ;
 }
 
-static int manager__guitk(lua_State *L) {
+static int manager__nextResponder(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
-    if ([manager isEqualTo:manager.window.contentView] && [manager.window isKindOfClass:NSClassFromString(@"HSASMGuiWindow")]) {
-        [skin pushNSObject:manager.window] ;
+    if (manager.nextResponder) {
+        [skin pushNSObject:manager.nextResponder] ;
     } else {
         lua_pushnil(L) ;
     }
@@ -359,9 +476,12 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementLocation",     manager_elementLocation},
     {"elements",            manager_elements},
     {"passthroughCallback", manager_passthroughCallback},
-    {"shrinkToFit",         manager_shrinkToFit},
+    {"sizeToFit",           manager_sizeToFit},
+    {"elementFittingSize",  manager_elementFittingSize},
+    {"autosizeElements",    manager_autosizeElements},
 
-    {"_guitk",              manager__guitk},
+    {"_debugFrames",        manager_highlightFrames},
+    {"_nextResponder",      manager__nextResponder},
 
     {"__tostring",          userdata_tostring},
     {"__eq",                userdata_eq},

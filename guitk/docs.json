@@ -1,0 +1,527 @@
+[
+  {
+    "Constant" : [
+      {
+        "doc" : "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé\n\n* `default`                   - The window can be associated to one space at a time.\n* `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.\n* `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.\n\nOnly one of these may be active at a time:\n\n* `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.\n* `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.\n* `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.\n\nOnly one of these may be active at a time:\n\n* `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.\n* `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.\n\nOnly one of these may be active at a time:\n\n* `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.\n* `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.\n\nOnly one of these may be active at a time (Available in OS X 10.11 and later):\n\n* `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.\n* `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile.",
+        "desc" : "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé",
+        "stripped_doc" : [
+          "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé",
+          "",
+          "* `default`                   - The window can be associated to one space at a time.",
+          "* `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.",
+          "* `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.",
+          "* `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.",
+          "* `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.",
+          "* `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.",
+          "* `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.",
+          "",
+          "Only one of these may be active at a time (Available in OS X 10.11 and later):",
+          "",
+          "* `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.",
+          "* `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile."
+        ],
+        "def" : "hs._asm.guitk.windowBehaviors[]",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.windowBehaviors[]",
+        "type" : "Constant",
+        "returns" : [
+
+        ],
+        "name" : "windowBehaviors",
+        "parameters" : [
+
+        ]
+      },
+      {
+        "doc" : "A table of predefined window levels usable with [hs._asm.guitk:level](#level)\n\nPredefined levels are:\n * _MinimumWindowLevelKey - lowest allowed window level\n * desktop\n * desktopIcon            - [hs._asm.guitk:sendToBack](#sendToBack) is equivalent to this level - 1\n * normal                 - normal application windows\n * tornOffMenu\n * floating               - equivalent to [hs._asm.guitk:bringToFront(false)](#bringToFront); where \"Always Keep On Top\" windows are usually set\n * modalPanel             - modal alert dialog\n * utility\n * dock                   - level of the Dock\n * mainMenu               - level of the Menubar\n * status\n * popUpMenu              - level of a menu when displayed (open)\n * overlay\n * help\n * dragging\n * screenSaver            - equivalent to [hs._asm.guitk:bringToFront(true)](#bringToFront)\n * assistiveTechHigh\n * cursor\n * _MaximumWindowLevelKey - highest allowed window level\n\nNotes:\n * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.\n * Each window level is sorted separately and [hs._asm.guitk:orderAbove](#orderAbove) and [hs._asm.guitk:orderBelow](#orderBelow) only arrange windows within the same level.\n * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.",
+        "desc" : "A table of predefined window levels usable with [hs._asm.guitk:level](#level)",
+        "stripped_doc" : [
+          "A table of predefined window levels usable with [hs._asm.guitk:level](#level)",
+          "",
+          "Predefined levels are:",
+          " * _MinimumWindowLevelKey - lowest allowed window level",
+          " * desktop",
+          " * desktopIcon            - [hs._asm.guitk:sendToBack](#sendToBack) is equivalent to this level - 1",
+          " * normal                 - normal application windows",
+          " * tornOffMenu",
+          " * floating               - equivalent to [hs._asm.guitk:bringToFront(false)](#bringToFront); where \"Always Keep On Top\" windows are usually set",
+          " * modalPanel             - modal alert dialog",
+          " * utility",
+          " * dock                   - level of the Dock",
+          " * mainMenu               - level of the Menubar",
+          " * status",
+          " * popUpMenu              - level of a menu when displayed (open)",
+          " * overlay",
+          " * help",
+          " * dragging",
+          " * screenSaver            - equivalent to [hs._asm.guitk:bringToFront(true)](#bringToFront)",
+          " * assistiveTechHigh",
+          " * cursor",
+          " * _MaximumWindowLevelKey - highest allowed window level",
+          ""
+        ],
+        "def" : "hs._asm.guitk.windowLevels",
+        "notes" : [
+          " * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.",
+          " * Each window level is sorted separately and [hs._asm.guitk:orderAbove](#orderAbove) and [hs._asm.guitk:orderBelow](#orderBelow) only arrange windows within the same level.",
+          " * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level."
+        ],
+        "signature" : "hs._asm.guitk.windowLevels",
+        "type" : "Constant",
+        "returns" : [
+
+        ],
+        "name" : "windowLevels",
+        "parameters" : [
+
+        ]
+      }
+    ],
+    "submodules" : [
+
+    ],
+    "Function" : [
+      {
+        "doc" : "Get or set whether or not the title is displayed in the guitk window titlebar.\n\nParameters:\n * state - an optional string containing the text \"visible\" or \"hidden\", specifying whether or not the guitk window's title text appears.\n\nReturns:\n * a string of \"visible\" or \"hidden\" specifying the current (possibly changed) state of the window title's visibility.\n\nNotes:\n * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title (\"visible\") or in the window's title bar itself, as seen in applications like Safari (\"hidden\").",
+        "desc" : "Get or set whether or not the title is displayed in the guitk window titlebar.",
+        "stripped_doc" : [
+          "Get or set whether or not the title is displayed in the guitk window titlebar.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:titleVisibility([state]) -> guitkObject | currentValue",
+        "notes" : [
+          " * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title (\"visible\") or in the window's title bar itself, as seen in applications like Safari (\"hidden\")."
+        ],
+        "signature" : "hs._asm.guitk:titleVisibility([state]) -> guitkObject | currentValue",
+        "type" : "Function",
+        "returns" : [
+          " * a string of \"visible\" or \"hidden\" specifying the current (possibly changed) state of the window title's visibility.",
+          ""
+        ],
+        "name" : "titleVisibility",
+        "parameters" : [
+          " * state - an optional string containing the text \"visible\" or \"hidden\", specifying whether or not the guitk window's title text appears.",
+          ""
+        ]
+      }
+    ],
+    "Variable" : [
+
+    ],
+    "stripped_doc" : [
+
+    ],
+    "Deprecated" : [
+
+    ],
+    "type" : "Module",
+    "desc" : "This module allows you to build gui elements for a variety of types of user input within Hammerspoon.  It is very much a work in progress and will probably change a lot before it approaches something near true usefulness.",
+    "Constructor" : [
+
+    ],
+    "doc" : "This module allows you to build gui elements for a variety of types of user input within Hammerspoon.  It is very much a work in progress and will probably change a lot before it approaches something near true usefulness.",
+    "Method" : [
+      {
+        "doc" : "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.\n\nParameters:\n * `value` - an optional boolean value which sets whether or not the guitk will accept keyboard input.\n\nReturns:\n * If a value is provided, then this method returns the guitk object; otherwise the current value",
+        "desc" : "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.",
+        "stripped_doc" : [
+          "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:allowTextEntry([value]) -> guitkObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:allowTextEntry([value]) -> guitkObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * If a value is provided, then this method returns the guitk object; otherwise the current value"
+        ],
+        "name" : "allowTextEntry",
+        "parameters" : [
+          " * `value` - an optional boolean value which sets whether or not the guitk will accept keyboard input.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the guitk should delete itself when its window is closed.\n\nParameters:\n * `value` - an optional boolean value which sets whether or not the guitk will delete itself when its window is closed by any method.  Defaults to false.\n\nReturns:\n * If a value is provided, then this method returns the guitk object; otherwise the current value",
+        "desc" : "Get or set whether or not the guitk should delete itself when its window is closed.",
+        "stripped_doc" : [
+          "Get or set whether or not the guitk should delete itself when its window is closed.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:deleteOnClose([value]) -> guitkObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:deleteOnClose([value]) -> guitkObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * If a value is provided, then this method returns the guitk object; otherwise the current value"
+        ],
+        "name" : "deleteOnClose",
+        "parameters" : [
+          " * `value` - an optional boolean value which sets whether or not the guitk will delete itself when its window is closed by any method.  Defaults to false.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the alpha level of the window representing the guitk object.\n\nParameters:\n * `alpha` - an optional number specifying the new alpha level (0.0 - 1.0, inclusive) for the window.\n\nReturns:\n * If an argument is provided, the guitk object; otherwise the current value.",
+        "desc" : "Get or set the alpha level of the window representing the guitk object.",
+        "stripped_doc" : [
+          "Get or set the alpha level of the window representing the guitk object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:alpha([alpha]) -> guitkObject | currentValue",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:alpha([alpha]) -> guitkObject | currentValue",
+        "type" : "Method",
+        "returns" : [
+          " * If an argument is provided, the guitk object; otherwise the current value."
+        ],
+        "name" : "alpha",
+        "parameters" : [
+          " * `alpha` - an optional number specifying the new alpha level (0.0 - 1.0, inclusive) for the window.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Destroys the guitk object, optionally fading it out first (if currently visible).\n\nParameters:\n * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * None\n\nNotes:\n * This method is automatically called during garbage collection, notably during a Hammerspoon termination or reload, with a fade time of 0.",
+        "desc" : "Destroys the guitk object, optionally fading it out first (if currently visible).",
+        "stripped_doc" : [
+          "Destroys the guitk object, optionally fading it out first (if currently visible).",
+          ""
+        ],
+        "def" : "hs._asm.guitk:delete([fadeOutTime]) -> none",
+        "notes" : [
+          " * This method is automatically called during garbage collection, notably during a Hammerspoon termination or reload, with a fade time of 0."
+        ],
+        "signature" : "hs._asm.guitk:delete([fadeOutTime]) -> none",
+        "type" : "Method",
+        "returns" : [
+          " * None",
+          ""
+        ],
+        "name" : "delete",
+        "parameters" : [
+          " * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      },
+      {
+        "doc" : "Hides the guitk object\n\nParameters:\n * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * The guitk object",
+        "desc" : "Hides the guitk object",
+        "stripped_doc" : [
+          "Hides the guitk object",
+          ""
+        ],
+        "def" : "hs._asm.guitk:hide([fadeOutTime]) -> guitkObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:hide([fadeOutTime]) -> guitkObject",
+        "type" : "Method",
+        "returns" : [
+          " * The guitk object"
+        ],
+        "name" : "hide",
+        "parameters" : [
+          " * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      },
+      {
+        "doc" : "Displays the guitk object\n\nParameters:\n * `fadeInTime` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * The guitk object",
+        "desc" : "Displays the guitk object",
+        "stripped_doc" : [
+          "Displays the guitk object",
+          ""
+        ],
+        "def" : "hs._asm.guitk:show([fadeInTime]) -> guitkObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:show([fadeInTime]) -> guitkObject",
+        "type" : "Method",
+        "returns" : [
+          " * The guitk object"
+        ],
+        "name" : "show",
+        "parameters" : [
+          " * `fadeInTime` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      }
+    ],
+    "items" : [
+      {
+        "doc" : "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé\n\n* `default`                   - The window can be associated to one space at a time.\n* `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.\n* `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.\n\nOnly one of these may be active at a time:\n\n* `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.\n* `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.\n* `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.\n\nOnly one of these may be active at a time:\n\n* `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.\n* `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.\n\nOnly one of these may be active at a time:\n\n* `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.\n* `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.\n\nOnly one of these may be active at a time (Available in OS X 10.11 and later):\n\n* `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.\n* `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile.",
+        "desc" : "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé",
+        "stripped_doc" : [
+          "Array of window behavior labels for determining how an guitk is handled in Spaces and Exposé",
+          "",
+          "* `default`                   - The window can be associated to one space at a time.",
+          "* `canJoinAllSpaces`          - The window appears in all spaces. The menu bar behaves this way.",
+          "* `moveToActiveSpace`         - Making the window active does not cause a space switch; the window switches to the active space.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `managed`                   - The window participates in Spaces and Exposé. This is the default behavior if windowLevel is equal to NSNormalWindowLevel.",
+          "* `transient`                 - The window floats in Spaces and is hidden by Exposé. This is the default behavior if windowLevel is not equal to NSNormalWindowLevel.",
+          "* `stationary`                - The window is unaffected by Exposé; it stays visible and stationary, like the desktop window.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `participatesInCycle`       - The window participates in the window cycle for use with the Cycle Through Windows Window menu item.",
+          "* `ignoresCycle`              - The window is not part of the window cycle for use with the Cycle Through Windows Window menu item.",
+          "",
+          "Only one of these may be active at a time:",
+          "",
+          "* `fullScreenPrimary`         - A window with this collection behavior has a fullscreen button in the upper right of its titlebar.",
+          "* `fullScreenAuxiliary`       - Windows with this collection behavior can be shown on the same space as the fullscreen window.",
+          "",
+          "Only one of these may be active at a time (Available in OS X 10.11 and later):",
+          "",
+          "* `fullScreenAllowsTiling`    - A window with this collection behavior be a full screen tile window and does not have to have `fullScreenPrimary` set.",
+          "* `fullScreenDisallowsTiling` - A window with this collection behavior cannot be made a fullscreen tile window, but it can have `fullScreenPrimary` set.  You can use this setting to prevent other windows from being placed in the window’s fullscreen tile."
+        ],
+        "def" : "hs._asm.guitk.windowBehaviors[]",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.windowBehaviors[]",
+        "type" : "Constant",
+        "returns" : [
+
+        ],
+        "name" : "windowBehaviors",
+        "parameters" : [
+
+        ]
+      },
+      {
+        "doc" : "A table of predefined window levels usable with [hs._asm.guitk:level](#level)\n\nPredefined levels are:\n * _MinimumWindowLevelKey - lowest allowed window level\n * desktop\n * desktopIcon            - [hs._asm.guitk:sendToBack](#sendToBack) is equivalent to this level - 1\n * normal                 - normal application windows\n * tornOffMenu\n * floating               - equivalent to [hs._asm.guitk:bringToFront(false)](#bringToFront); where \"Always Keep On Top\" windows are usually set\n * modalPanel             - modal alert dialog\n * utility\n * dock                   - level of the Dock\n * mainMenu               - level of the Menubar\n * status\n * popUpMenu              - level of a menu when displayed (open)\n * overlay\n * help\n * dragging\n * screenSaver            - equivalent to [hs._asm.guitk:bringToFront(true)](#bringToFront)\n * assistiveTechHigh\n * cursor\n * _MaximumWindowLevelKey - highest allowed window level\n\nNotes:\n * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.\n * Each window level is sorted separately and [hs._asm.guitk:orderAbove](#orderAbove) and [hs._asm.guitk:orderBelow](#orderBelow) only arrange windows within the same level.\n * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.",
+        "desc" : "A table of predefined window levels usable with [hs._asm.guitk:level](#level)",
+        "stripped_doc" : [
+          "A table of predefined window levels usable with [hs._asm.guitk:level](#level)",
+          "",
+          "Predefined levels are:",
+          " * _MinimumWindowLevelKey - lowest allowed window level",
+          " * desktop",
+          " * desktopIcon            - [hs._asm.guitk:sendToBack](#sendToBack) is equivalent to this level - 1",
+          " * normal                 - normal application windows",
+          " * tornOffMenu",
+          " * floating               - equivalent to [hs._asm.guitk:bringToFront(false)](#bringToFront); where \"Always Keep On Top\" windows are usually set",
+          " * modalPanel             - modal alert dialog",
+          " * utility",
+          " * dock                   - level of the Dock",
+          " * mainMenu               - level of the Menubar",
+          " * status",
+          " * popUpMenu              - level of a menu when displayed (open)",
+          " * overlay",
+          " * help",
+          " * dragging",
+          " * screenSaver            - equivalent to [hs._asm.guitk:bringToFront(true)](#bringToFront)",
+          " * assistiveTechHigh",
+          " * cursor",
+          " * _MaximumWindowLevelKey - highest allowed window level",
+          ""
+        ],
+        "def" : "hs._asm.guitk.windowLevels",
+        "notes" : [
+          " * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.",
+          " * Each window level is sorted separately and [hs._asm.guitk:orderAbove](#orderAbove) and [hs._asm.guitk:orderBelow](#orderBelow) only arrange windows within the same level.",
+          " * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level."
+        ],
+        "signature" : "hs._asm.guitk.windowLevels",
+        "type" : "Constant",
+        "returns" : [
+
+        ],
+        "name" : "windowLevels",
+        "parameters" : [
+
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the title is displayed in the guitk window titlebar.\n\nParameters:\n * state - an optional string containing the text \"visible\" or \"hidden\", specifying whether or not the guitk window's title text appears.\n\nReturns:\n * a string of \"visible\" or \"hidden\" specifying the current (possibly changed) state of the window title's visibility.\n\nNotes:\n * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title (\"visible\") or in the window's title bar itself, as seen in applications like Safari (\"hidden\").",
+        "desc" : "Get or set whether or not the title is displayed in the guitk window titlebar.",
+        "stripped_doc" : [
+          "Get or set whether or not the title is displayed in the guitk window titlebar.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:titleVisibility([state]) -> guitkObject | currentValue",
+        "notes" : [
+          " * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title (\"visible\") or in the window's title bar itself, as seen in applications like Safari (\"hidden\")."
+        ],
+        "signature" : "hs._asm.guitk:titleVisibility([state]) -> guitkObject | currentValue",
+        "type" : "Function",
+        "returns" : [
+          " * a string of \"visible\" or \"hidden\" specifying the current (possibly changed) state of the window title's visibility.",
+          ""
+        ],
+        "name" : "titleVisibility",
+        "parameters" : [
+          " * state - an optional string containing the text \"visible\" or \"hidden\", specifying whether or not the guitk window's title text appears.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.\n\nParameters:\n * `value` - an optional boolean value which sets whether or not the guitk will accept keyboard input.\n\nReturns:\n * If a value is provided, then this method returns the guitk object; otherwise the current value",
+        "desc" : "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.",
+        "stripped_doc" : [
+          "Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:allowTextEntry([value]) -> guitkObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:allowTextEntry([value]) -> guitkObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * If a value is provided, then this method returns the guitk object; otherwise the current value"
+        ],
+        "name" : "allowTextEntry",
+        "parameters" : [
+          " * `value` - an optional boolean value which sets whether or not the guitk will accept keyboard input.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the alpha level of the window representing the guitk object.\n\nParameters:\n * `alpha` - an optional number specifying the new alpha level (0.0 - 1.0, inclusive) for the window.\n\nReturns:\n * If an argument is provided, the guitk object; otherwise the current value.",
+        "desc" : "Get or set the alpha level of the window representing the guitk object.",
+        "stripped_doc" : [
+          "Get or set the alpha level of the window representing the guitk object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:alpha([alpha]) -> guitkObject | currentValue",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:alpha([alpha]) -> guitkObject | currentValue",
+        "type" : "Method",
+        "returns" : [
+          " * If an argument is provided, the guitk object; otherwise the current value."
+        ],
+        "name" : "alpha",
+        "parameters" : [
+          " * `alpha` - an optional number specifying the new alpha level (0.0 - 1.0, inclusive) for the window.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Destroys the guitk object, optionally fading it out first (if currently visible).\n\nParameters:\n * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * None\n\nNotes:\n * This method is automatically called during garbage collection, notably during a Hammerspoon termination or reload, with a fade time of 0.",
+        "desc" : "Destroys the guitk object, optionally fading it out first (if currently visible).",
+        "stripped_doc" : [
+          "Destroys the guitk object, optionally fading it out first (if currently visible).",
+          ""
+        ],
+        "def" : "hs._asm.guitk:delete([fadeOutTime]) -> none",
+        "notes" : [
+          " * This method is automatically called during garbage collection, notably during a Hammerspoon termination or reload, with a fade time of 0."
+        ],
+        "signature" : "hs._asm.guitk:delete([fadeOutTime]) -> none",
+        "type" : "Method",
+        "returns" : [
+          " * None",
+          ""
+        ],
+        "name" : "delete",
+        "parameters" : [
+          " * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the guitk should delete itself when its window is closed.\n\nParameters:\n * `value` - an optional boolean value which sets whether or not the guitk will delete itself when its window is closed by any method.  Defaults to false.\n\nReturns:\n * If a value is provided, then this method returns the guitk object; otherwise the current value",
+        "desc" : "Get or set whether or not the guitk should delete itself when its window is closed.",
+        "stripped_doc" : [
+          "Get or set whether or not the guitk should delete itself when its window is closed.",
+          ""
+        ],
+        "def" : "hs._asm.guitk:deleteOnClose([value]) -> guitkObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:deleteOnClose([value]) -> guitkObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * If a value is provided, then this method returns the guitk object; otherwise the current value"
+        ],
+        "name" : "deleteOnClose",
+        "parameters" : [
+          " * `value` - an optional boolean value which sets whether or not the guitk will delete itself when its window is closed by any method.  Defaults to false.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Hides the guitk object\n\nParameters:\n * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * The guitk object",
+        "desc" : "Hides the guitk object",
+        "stripped_doc" : [
+          "Hides the guitk object",
+          ""
+        ],
+        "def" : "hs._asm.guitk:hide([fadeOutTime]) -> guitkObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:hide([fadeOutTime]) -> guitkObject",
+        "type" : "Method",
+        "returns" : [
+          " * The guitk object"
+        ],
+        "name" : "hide",
+        "parameters" : [
+          " * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      },
+      {
+        "doc" : "Displays the guitk object\n\nParameters:\n * `fadeInTime` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).\n\nReturns:\n * The guitk object",
+        "desc" : "Displays the guitk object",
+        "stripped_doc" : [
+          "Displays the guitk object",
+          ""
+        ],
+        "def" : "hs._asm.guitk:show([fadeInTime]) -> guitkObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk:show([fadeInTime]) -> guitkObject",
+        "type" : "Method",
+        "returns" : [
+          " * The guitk object"
+        ],
+        "name" : "show",
+        "parameters" : [
+          " * `fadeInTime` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).",
+          ""
+        ]
+      }
+    ],
+    "Field" : [
+
+    ],
+    "Command" : [
+
+    ],
+    "name" : "hs._asm.guitk"
+  }
+]

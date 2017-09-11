@@ -1,0 +1,2150 @@
+[
+  {
+    "Constant" : [
+
+    ],
+    "submodules" : [
+      "avplayer",
+      "progress"
+    ],
+    "Function" : [
+
+    ],
+    "Variable" : [
+
+    ],
+    "stripped_doc" : [
+
+    ],
+    "Deprecated" : [
+
+    ],
+    "type" : "Module",
+    "desc" : "Elements which can be used with `hs._asm.guitk.manager` objects for display `hs._asm.guitk` windows.",
+    "Constructor" : [
+
+    ],
+    "doc" : "Elements which can be used with `hs._asm.guitk.manager` objects for display `hs._asm.guitk` windows.",
+    "Method" : [
+
+    ],
+    "items" : [
+
+    ],
+    "Field" : [
+
+    ],
+    "Command" : [
+
+    ],
+    "name" : "hs._asm.guitk.element"
+  },
+  {
+    "Constant" : [
+
+    ],
+    "submodules" : [
+
+    ],
+    "Function" : [
+
+    ],
+    "Variable" : [
+
+    ],
+    "stripped_doc" : [
+
+    ],
+    "Deprecated" : [
+
+    ],
+    "type" : "Module",
+    "desc" : "Provides an AudioVisual player element for `hs._asm.guitk`.",
+    "Constructor" : [
+      {
+        "doc" : "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.\n\nParameters:\n * `frame` - an optional frame table specifying the position and size of the frame for the avplayer object.\n\nReturns:\n * the avplayerObject",
+        "desc" : "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.",
+        "stripped_doc" : [
+          "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer.new([frame]) -> avplayerObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer.new([frame]) -> avplayerObject",
+        "type" : "Constructor",
+        "returns" : [
+          " * the avplayerObject"
+        ],
+        "name" : "new",
+        "parameters" : [
+          " * `frame` - an optional frame table specifying the position and size of the frame for the avplayer object.",
+          ""
+        ]
+      }
+    ],
+    "doc" : "Provides an AudioVisual player element for `hs._asm.guitk`.\n\nPlayback of remote or streaming content has not been thoroughly tested; it's not something I do very often.  However, it has been tested against http:\/\/devimages.apple.com\/iphone\/samples\/bipbop\/bipbopall.m3u8, which is a sample URL provided in the Apple documentation at https:\/\/developer.apple.com\/library\/prerelease\/content\/documentation\/AudioVideo\/Conceptual\/AVFoundationPG\/Articles\/02_Playback.html#\/\/apple_ref\/doc\/uid\/TP40010188-CH3-SW4",
+    "Method" : [
+      {
+        "doc" : "Get or set the style of controls displayed in the avplayerObject for controlling media playback.\n\nParameters:\n * `style` - an optional string, default \"default\", specifying the stye of the controls displayed for controlling media playback.  The string may be one of the following:\n   * `none`     - no controls are provided -- playback must be managed programmatically through Hammerspoon Lua code.\n   * `inline`   - media controls are displayed in an autohiding status bar at the bottom of the media display.\n   * `floating` - media controls are displayed in an autohiding panel which floats over the media display.\n   * `minimal`  - media controls are displayed as a round circle in the center of the media display.\n   * `none`     - no media controls are displayed in the media display.\n   * `default`  - use the OS X default control style; under OS X 10.11, this is the \"inline\".\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set the style of controls displayed in the avplayerObject for controlling media playback.",
+        "stripped_doc" : [
+          "Get or set the style of controls displayed in the avplayerObject for controlling media playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "controlsStyle",
+        "parameters" : [
+          " * `style` - an optional string, default \"default\", specifying the stye of the controls displayed for controlling media playback.  The string may be one of the following:",
+          "   * `none`     - no controls are provided -- playback must be managed programmatically through Hammerspoon Lua code.",
+          "   * `inline`   - media controls are displayed in an autohiding status bar at the bottom of the media display.",
+          "   * `floating` - media controls are displayed in an autohiding panel which floats over the media display.",
+          "   * `minimal`  - media controls are displayed as a round circle in the center of the media display.",
+          "   * `none`     - no media controls are displayed in the media display.",
+          "   * `default`  - use the OS X default control style; under OS X 10.11, this is the \"inline\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether frame stepping or scrubbing controls are included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether frame stepping (true) or scrubbing (false) controls are included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether frame stepping or scrubbing controls are included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether frame stepping or scrubbing controls are included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "frameSteppingButtons",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether frame stepping (true) or scrubbing (false) controls are included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the sharing services button is included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the sharing services button is included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether or not the sharing services button is included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "sharingServiceButton",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Flashes the number and optional string over the media playback display momentarily.\n\nParameters:\n * `number` - an integer specifying the chapter number to display.\n * `string` - an optional string specifying the chapter name to display.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * If only a number is provided, the text \"Chapter #\" is displayed.  If a string is also provided, \"#. string\" is displayed.",
+        "desc" : "Flashes the number and optional string over the media playback display momentarily.",
+        "stripped_doc" : [
+          "Flashes the number and optional string over the media playback display momentarily.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:flashChapterAndTitle(number, [string]) -> avplayerObject",
+        "notes" : [
+          " * If only a number is provided, the text \"Chapter #\" is displayed.  If a string is also provided, \"#. string\" is displayed."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:flashChapterAndTitle(number, [string]) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "flashChapterAndTitle",
+        "parameters" : [
+          " * `number` - an integer specifying the chapter number to display.",
+          " * `string` - an optional string specifying the chapter name to display.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not playback of media should be paused when the avplayer object is hidden.\n\nParameters:\n * `state` - an optional boolean, default true, specifying whether or not media playback should be paused when the avplayer object is hidden.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not playback of media should be paused when the avplayer object is hidden.",
+        "stripped_doc" : [
+          "Get or set whether or not playback of media should be paused when the avplayer object is hidden.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "pauseWhenHidden",
+        "parameters" : [
+          " * `state` - an optional boolean, default true, specifying whether or not media playback should be paused when the avplayer object is hidden.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Set the callback function for the avplayerObject.\n\nParameters:\n * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * The callback function should expect 2 or more arguments.  The first two arguments will always be:\n   * `avplayObject` - the avplayerObject userdata\n   * `message`      - a string specifying the reason for the callback.\n * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:\n   * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)\n   * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)\n   * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)\n   * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)\n   * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)\n   * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)\n   * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)",
+        "desc" : "Set the callback function for the avplayerObject.",
+        "stripped_doc" : [
+          "Set the callback function for the avplayerObject.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:setCallback(fn) -> avplayerObject",
+        "notes" : [
+          " * The callback function should expect 2 or more arguments.  The first two arguments will always be:",
+          "   * `avplayObject` - the avplayerObject userdata",
+          "   * `message`      - a string specifying the reason for the callback.",
+          " * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:",
+          "   * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)",
+          "   * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)",
+          "   * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)",
+          "   * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)",
+          "   * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)",
+          "   * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)",
+          "   * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:setCallback(fn) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "setCallback",
+        "parameters" : [
+          " * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Load the specified resource for playback.\n\nParameters:\n * `path` - a string specifying the file path or URL to the audiovisual resource.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * Content will not start autoplaying when loaded - you must use the controls provided in the audiovisual player or one of [hs._asm.guitk.element.avplayer:play](#play) or [hs._asm.guitk.element.avplayer:rate](#rate) to begin playback.\n\n * If the path or URL are malformed, unreachable, or otherwise unavailable, [hs._asm.guitk.element.avplayer:status](#status) will return \"failed\".\n * Because a remote URL may not respond immediately, you can also setup a callback with [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) to be notified when the item has loaded or if it has failed.",
+        "desc" : "Load the specified resource for playback.",
+        "stripped_doc" : [
+          "Load the specified resource for playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:load(path) -> avplayerObject",
+        "notes" : [
+          " * Content will not start autoplaying when loaded - you must use the controls provided in the audiovisual player or one of [hs._asm.guitk.element.avplayer:play](#play) or [hs._asm.guitk.element.avplayer:rate](#rate) to begin playback.",
+          "",
+          " * If the path or URL are malformed, unreachable, or otherwise unavailable, [hs._asm.guitk.element.avplayer:status](#status) will return \"failed\".",
+          " * Because a remote URL may not respond immediately, you can also setup a callback with [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) to be notified when the item has loaded or if it has failed."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:load(path) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "load",
+        "parameters" : [
+          " * `path` - a string specifying the file path or URL to the audiovisual resource.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Play the audiovisual media currently loaded in the avplayer object.\n\nParameters:\n * `fromBeginning` - an optional boolean, default false, specifying whether or not the media playback should start from the beginning or from the current location.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate(1.0)](#rate)`)",
+        "desc" : "Play the audiovisual media currently loaded in the avplayer object.",
+        "stripped_doc" : [
+          "Play the audiovisual media currently loaded in the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:play([fromBeginning]) -> avplayerObject",
+        "notes" : [
+          " * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate(1.0)](#rate)`)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:play([fromBeginning]) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "play",
+        "parameters" : [
+          " * `fromBeginning` - an optional boolean, default false, specifying whether or not the media playback should start from the beginning or from the current location.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Pause the audiovisual media currently loaded in the avplayer object.\n\nParameters:\n * None\n\nReturns:\n * the avplayerObject\n\nNotes:\n * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate(0.0)](#rate)`)",
+        "desc" : "Pause the audiovisual media currently loaded in the avplayer object.",
+        "stripped_doc" : [
+          "Pause the audiovisual media currently loaded in the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:pause() -> avplayerObject",
+        "notes" : [
+          " * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate(0.0)](#rate)`)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:pause() -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "pause",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the rate of playback for the audiovisual content of the avplayer object.\n\nParameters:\n * `rate` - an optional number specifying the rate you wish for the audiovisual content to be played.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * This method affects the playback rate of both video and audio -- if you wish to mute audio during a \"fast forward\" or \"rewind\", see [hs._asm.guitk.element.avplayer:mute](#mute).\n * A value of 0.0 is equivalent to [hs._asm.guitk.element.avplayer:pause](#pause).\n * A value of 1.0 is equivalent to [hs._asm.guitk.element.avplayer:play](#play).\n\n * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:\n   * Rates between 0.0 and 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field\n   * Rates greater than 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field\n   * The item can be played in reverse (a rate of -1.0) if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field\n   * Rates between 0.0 and -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field\n   * Rates less than -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field",
+        "desc" : "Get or set the rate of playback for the audiovisual content of the avplayer object.",
+        "stripped_doc" : [
+          "Get or set the rate of playback for the audiovisual content of the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | current value",
+        "notes" : [
+          " * This method affects the playback rate of both video and audio -- if you wish to mute audio during a \"fast forward\" or \"rewind\", see [hs._asm.guitk.element.avplayer:mute](#mute).",
+          " * A value of 0.0 is equivalent to [hs._asm.guitk.element.avplayer:pause](#pause).",
+          " * A value of 1.0 is equivalent to [hs._asm.guitk.element.avplayer:play](#play).",
+          "",
+          " * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:",
+          "   * Rates between 0.0 and 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field",
+          "   * Rates greater than 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field",
+          "   * The item can be played in reverse (a rate of -1.0) if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field",
+          "   * Rates between 0.0 and -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field",
+          "   * Rates less than -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "rate",
+        "parameters" : [
+          " * `rate` - an optional number specifying the rate you wish for the audiovisual content to be played.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not audio output is muted for the audovisual media item.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not audio output has been muted for the avplayer object.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not audio output is muted for the audovisual media item.",
+        "stripped_doc" : [
+          "Get or set whether or not audio output is muted for the audovisual media item.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "mute",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not audio output has been muted for the avplayer object.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).\n\nParameters:\n * `volume` - an optional number, default as specified by the media or 1.0 if no designation is specified by the media, specifying the player's volume relative to the system volume level.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).",
+        "stripped_doc" : [
+          "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "volume",
+        "parameters" : [
+          " * `volume` - an optional number, default as specified by the media or 1.0 if no designation is specified by the media, specifying the player's volume relative to the system volume level.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the player should display closed captioning information, if it is available.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.",
+        "stripped_doc" : [
+          "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "ccEnabled",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the player should display closed captioning information, if it is available.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a periodic callback at the interval specified.\n\nParameters:\n * `number` - an optional number specifying how often, in seconds, the callback function should be invoked to report progress.  If an explicit nil is specified, then the progress callback is disabled. Defaults to nil.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.  A return value of `nil` indicates that no progress callback is in effect.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:\n   * the avplayerObject\n   * \"progress\"\n   * the time in seconds specifying the current location in the media playback.\n\n * From Apple Documentation: The block is invoked periodically at the interval specified, interpreted according to the timeline of the current item. The block is also invoked whenever time jumps and whenever playback starts or stops. If the interval corresponds to a very short interval in real time, the player may invoke the block less frequently than requested. Even so, the player will invoke the block sufficiently often for the client to update indications of the current time appropriately in its end-user interface.",
+        "desc" : "Enable or disable a periodic callback at the interval specified.",
+        "stripped_doc" : [
+          "Enable or disable a periodic callback at the interval specified.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:",
+          "   * the avplayerObject",
+          "   * \"progress\"",
+          "   * the time in seconds specifying the current location in the media playback.",
+          "",
+          " * From Apple Documentation: The block is invoked periodically at the interval specified, interpreted according to the timeline of the current item. The block is also invoked whenever time jumps and whenever playback starts or stops. If the interval corresponds to a very short interval in real time, the player may invoke the block less frequently than requested. Even so, the player will invoke the block sufficiently often for the client to update indications of the current time appropriately in its end-user interface."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.  A return value of `nil` indicates that no progress callback is in effect.",
+          ""
+        ],
+        "name" : "trackProgress",
+        "parameters" : [
+          " * `number` - an optional number specifying how often, in seconds, the callback function should be invoked to report progress.  If an explicit nil is specified, then the progress callback is disabled. Defaults to nil.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever the rate of playback changes.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not playback rate changes should invoke a callback.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:\n   * the avplayerObject\n   * \"pause\", if the rate changes to 0.0, or \"play\" if the rate changes to any other value\n   * the rate that the playback was changed to.\n\n * Not all media content can have its playback rate changed; attempts to do so will invoke the callback twice -- once signifying that the change was made, and a second time indicating that the rate of play was reset back to the limits of the media content.  See [hs._asm:rate](#rate) for more information.",
+        "desc" : "Enable or disable a callback whenever the rate of playback changes.",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever the rate of playback changes.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:",
+          "   * the avplayerObject",
+          "   * \"pause\", if the rate changes to 0.0, or \"play\" if the rate changes to any other value",
+          "   * the rate that the playback was changed to.",
+          "",
+          " * Not all media content can have its playback rate changed; attempts to do so will invoke the callback twice -- once signifying that the change was made, and a second time indicating that the rate of play was reset back to the limits of the media content.  See [hs._asm:rate](#rate) for more information."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackRate",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not playback rate changes should invoke a callback.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.\n\nParameters:\n * None\n\nReturns:\n * a table containing the following media characteristics, or `nil` if no media content is currently loaded:\n   * \"playbackLikelyToKeepUp\" - Indicates whether the item will likely play through without stalling.  Note that this is only a prediction.\n   * \"playbackBufferEmpty\"    - Indicates whether playback has consumed all buffered media and that playback may stall or end.\n   * \"playbackBufferFull\"     - Indicates whether the internal media buffer is full and that further I\/O is suspended.\n   * \"canPlayReverse\"         - A Boolean value indicating whether the item can be played with a rate of -1.0.\n   * \"canPlayFastForward\"     - A Boolean value indicating whether the item can be played at rates greater than 1.0.\n   * \"canPlayFastReverse\"     - A Boolean value indicating whether the item can be played at rates less than –1.0.\n   * \"canPlaySlowForward\"     - A Boolean value indicating whether the item can be played at a rate between 0.0 and 1.0.\n   * \"canPlaySlowReverse\"     - A Boolean value indicating whether the item can be played at a rate between -1.0 and 0.0.",
+        "desc" : "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.",
+        "stripped_doc" : [
+          "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:playbackInformation() -> table | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:playbackInformation() -> table | nil",
+        "type" : "Method",
+        "returns" : [
+          " * a table containing the following media characteristics, or `nil` if no media content is currently loaded:",
+          "   * \"playbackLikelyToKeepUp\" - Indicates whether the item will likely play through without stalling.  Note that this is only a prediction.",
+          "   * \"playbackBufferEmpty\"    - Indicates whether playback has consumed all buffered media and that playback may stall or end.",
+          "   * \"playbackBufferFull\"     - Indicates whether the internal media buffer is full and that further I\/O is suspended.",
+          "   * \"canPlayReverse\"         - A Boolean value indicating whether the item can be played with a rate of -1.0.",
+          "   * \"canPlayFastForward\"     - A Boolean value indicating whether the item can be played at rates greater than 1.0.",
+          "   * \"canPlayFastReverse\"     - A Boolean value indicating whether the item can be played at rates less than –1.0.",
+          "   * \"canPlaySlowForward\"     - A Boolean value indicating whether the item can be played at a rate between 0.0 and 1.0.",
+          "   * \"canPlaySlowReverse\"     - A Boolean value indicating whether the item can be played at a rate between -1.0 and 0.0."
+        ],
+        "name" : "playbackInformation",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the current status of the media content loaded for playback.\n\nParameters:\n * None\n\nReturns:\n * One of the following status strings, or `nil` if no media content is currently loaded:\n   * \"unknown\"     - The content's status is unknown; often this is returned when remote content is still loading or being evaluated for playback.\n   * \"readyToPlay\" - The content has been loaded or sufficiently buffered so that playback may begin\n   * \"failed\"      - There was an error loading the content; a second return value will contain a string which may contain more information about the error.",
+        "desc" : "Returns the current status of the media content loaded for playback.",
+        "stripped_doc" : [
+          "Returns the current status of the media content loaded for playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:status() -> status[, error] | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:status() -> status[, error] | nil",
+        "type" : "Method",
+        "returns" : [
+          " * One of the following status strings, or `nil` if no media content is currently loaded:",
+          "   * \"unknown\"     - The content's status is unknown; often this is returned when remote content is still loading or being evaluated for playback.",
+          "   * \"readyToPlay\" - The content has been loaded or sufficiently buffered so that playback may begin",
+          "   * \"failed\"      - There was an error loading the content; a second return value will contain a string which may contain more information about the error."
+        ],
+        "name" : "status",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not completing the playback of media should invoke a callback.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 2 arguments:\n   * the avplayerObject\n   * \"finished\"",
+        "desc" : "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 2 arguments:",
+          "   * the avplayerObject",
+          "   * \"finished\""
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackCompleted",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not completing the playback of media should invoke a callback.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever the status of loading a media item changes.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not changes to the status of audiovisual media's loading status should generate a callback..\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:\n   * the avplayerObject\n   * \"status\"\n   * a string matching one of the states described in [hs._asm.guitk.element.avplayer:status](#status)\n   * if the state reported is failed, an error message describing the error that occurred.",
+        "desc" : "Enable or disable a callback whenever the status of loading a media item changes.",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever the status of loading a media item changes.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:",
+          "   * the avplayerObject",
+          "   * \"status\"",
+          "   * a string matching one of the states described in [hs._asm.guitk.element.avplayer:status](#status)",
+          "   * if the state reported is failed, an error message describing the error that occurred."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackStatus",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not changes to the status of audiovisual media's loading status should generate a callback..",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the current position in seconds within the audiovisual media content.\n\nParameters:\n * None\n\nReturns:\n * the current position, in seconds, within the audiovisual media content, or `nil` if no media content is currently loaded.",
+        "desc" : "Returns the current position in seconds within the audiovisual media content.",
+        "stripped_doc" : [
+          "Returns the current position in seconds within the audiovisual media content.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:time() -> number | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:time() -> number | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the current position, in seconds, within the audiovisual media content, or `nil` if no media content is currently loaded."
+        ],
+        "name" : "time",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the duration, in seconds, of the audiovisual media content currently loaded.\n\nParameters:\n * None\n\nReturns:\n * the duration, in seconds, of the audiovisual media content currently loaded, if it can be determined, or `nan` (not-a-number) if it cannot.  If no item has been loaded, this method will return nil.\n\nNotes:\n * the duration of an item which is still loading cannot be determined; you may want to use [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) and wait until it receives a \"readyToPlay\" state before querying this method.\n\n * a live stream may not provide duration information and also return `nan` for this method.\n\n * Lua defines `nan` as a number which is not equal to itself.  To test if the value of this method is `nan` requires code like the following:\n ~~~lua\n duration = avplayer:duration()\n if type(duration) == \"number\" and duration ~= duration then\n     -- the duration is equal to `nan`\n end\n~~~",
+        "desc" : "Returns the duration, in seconds, of the audiovisual media content currently loaded.",
+        "stripped_doc" : [
+          "Returns the duration, in seconds, of the audiovisual media content currently loaded.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:duration() -> number | nil",
+        "notes" : [
+          " * the duration of an item which is still loading cannot be determined; you may want to use [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) and wait until it receives a \"readyToPlay\" state before querying this method.",
+          "",
+          " * a live stream may not provide duration information and also return `nan` for this method.",
+          "",
+          " * Lua defines `nan` as a number which is not equal to itself.  To test if the value of this method is `nan` requires code like the following:",
+          " ~~~lua",
+          " duration = avplayer:duration()",
+          " if type(duration) == \"number\" and duration ~= duration then",
+          "     -- the duration is equal to `nan`",
+          " end",
+          "~~~"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:duration() -> number | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the duration, in seconds, of the audiovisual media content currently loaded, if it can be determined, or `nan` (not-a-number) if it cannot.  If no item has been loaded, this method will return nil.",
+          ""
+        ],
+        "name" : "duration",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Jumps to the specified location in the audiovisual content currently loaded into the player.\n\nParameters:\n * `time`     - the location, in seconds, within the audiovisual content to seek to.\n * `callback` - an optional boolean, default false, specifying whether or not a callback should be invoked when the seek operation has completed.\n\nReturns:\n * the avplayerObject, or nil if no media content is currently loaded\n\nNotes:\n * If you specify `callback` as true, the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:\n   * the avplayerObject\n   * \"seek\"\n   * the current time, in seconds, specifying the current playback position in the media content\n   * `true` if the seek operation was allowed to complete, or `false` if it was interrupted (for example by another seek request).",
+        "desc" : "Jumps to the specified location in the audiovisual content currently loaded into the player.",
+        "stripped_doc" : [
+          "Jumps to the specified location in the audiovisual content currently loaded into the player.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:seek(time, [callback]) -> avplayerObject | nil",
+        "notes" : [
+          " * If you specify `callback` as true, the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:",
+          "   * the avplayerObject",
+          "   * \"seek\"",
+          "   * the current time, in seconds, specifying the current playback position in the media content",
+          "   * `true` if the seek operation was allowed to complete, or `false` if it was interrupted (for example by another seek request)."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:seek(time, [callback]) -> avplayerObject | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject, or nil if no media content is currently loaded",
+          ""
+        ],
+        "name" : "seek",
+        "parameters" : [
+          " * `time`     - the location, in seconds, within the audiovisual content to seek to.",
+          " * `callback` - an optional boolean, default false, specifying whether or not a callback should be invoked when the seek operation has completed.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the full screen toggle button should be included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the full screen toggle button should be included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether or not the full screen toggle button should be included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "fullScreenButton",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not external playback via AirPlay is allowed for this item.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether external playback via AirPlay is allowed for this item.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * External playback via AirPlay is only available in macOS 10.11 and newer.",
+        "desc" : "Get or set whether or not external playback via AirPlay is allowed for this item.",
+        "stripped_doc" : [
+          "Get or set whether or not external playback via AirPlay is allowed for this item.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * External playback via AirPlay is only available in macOS 10.11 and newer."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "allowExternalPlayback",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether external playback via AirPlay is allowed for this item.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns whether or not external playback via AirPlay is currently active for the avplayer object.\n\nParameters:\n * None\n\nReturns:\n * true, if AirPlay is currently being used to play the audiovisual content, or false if it is not.\n\nNotes:\n * External playback via AirPlay is only available in macOS 10.11 and newer.",
+        "desc" : "Returns whether or not external playback via AirPlay is currently active for the avplayer object.",
+        "stripped_doc" : [
+          "Returns whether or not external playback via AirPlay is currently active for the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:externalPlayback() -> Boolean",
+        "notes" : [
+          " * External playback via AirPlay is only available in macOS 10.11 and newer."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:externalPlayback() -> Boolean",
+        "type" : "Method",
+        "returns" : [
+          " * true, if AirPlay is currently being used to play the audiovisual content, or false if it is not.",
+          ""
+        ],
+        "name" : "externalPlayback",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      }
+    ],
+    "items" : [
+      {
+        "doc" : "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.\n\nParameters:\n * `frame` - an optional frame table specifying the position and size of the frame for the avplayer object.\n\nReturns:\n * the avplayerObject",
+        "desc" : "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.",
+        "stripped_doc" : [
+          "Creates a new AVPlayer element for `hs._asm.guitk` which can display audiovisual media.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer.new([frame]) -> avplayerObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer.new([frame]) -> avplayerObject",
+        "type" : "Constructor",
+        "returns" : [
+          " * the avplayerObject"
+        ],
+        "name" : "new",
+        "parameters" : [
+          " * `frame` - an optional frame table specifying the position and size of the frame for the avplayer object.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not external playback via AirPlay is allowed for this item.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether external playback via AirPlay is allowed for this item.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * External playback via AirPlay is only available in macOS 10.11 and newer.",
+        "desc" : "Get or set whether or not external playback via AirPlay is allowed for this item.",
+        "stripped_doc" : [
+          "Get or set whether or not external playback via AirPlay is allowed for this item.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * External playback via AirPlay is only available in macOS 10.11 and newer."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "allowExternalPlayback",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether external playback via AirPlay is allowed for this item.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the player should display closed captioning information, if it is available.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.",
+        "stripped_doc" : [
+          "Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "ccEnabled",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the player should display closed captioning information, if it is available.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the style of controls displayed in the avplayerObject for controlling media playback.\n\nParameters:\n * `style` - an optional string, default \"default\", specifying the stye of the controls displayed for controlling media playback.  The string may be one of the following:\n   * `none`     - no controls are provided -- playback must be managed programmatically through Hammerspoon Lua code.\n   * `inline`   - media controls are displayed in an autohiding status bar at the bottom of the media display.\n   * `floating` - media controls are displayed in an autohiding panel which floats over the media display.\n   * `minimal`  - media controls are displayed as a round circle in the center of the media display.\n   * `none`     - no media controls are displayed in the media display.\n   * `default`  - use the OS X default control style; under OS X 10.11, this is the \"inline\".\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set the style of controls displayed in the avplayerObject for controlling media playback.",
+        "stripped_doc" : [
+          "Get or set the style of controls displayed in the avplayerObject for controlling media playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "controlsStyle",
+        "parameters" : [
+          " * `style` - an optional string, default \"default\", specifying the stye of the controls displayed for controlling media playback.  The string may be one of the following:",
+          "   * `none`     - no controls are provided -- playback must be managed programmatically through Hammerspoon Lua code.",
+          "   * `inline`   - media controls are displayed in an autohiding status bar at the bottom of the media display.",
+          "   * `floating` - media controls are displayed in an autohiding panel which floats over the media display.",
+          "   * `minimal`  - media controls are displayed as a round circle in the center of the media display.",
+          "   * `none`     - no media controls are displayed in the media display.",
+          "   * `default`  - use the OS X default control style; under OS X 10.11, this is the \"inline\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the duration, in seconds, of the audiovisual media content currently loaded.\n\nParameters:\n * None\n\nReturns:\n * the duration, in seconds, of the audiovisual media content currently loaded, if it can be determined, or `nan` (not-a-number) if it cannot.  If no item has been loaded, this method will return nil.\n\nNotes:\n * the duration of an item which is still loading cannot be determined; you may want to use [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) and wait until it receives a \"readyToPlay\" state before querying this method.\n\n * a live stream may not provide duration information and also return `nan` for this method.\n\n * Lua defines `nan` as a number which is not equal to itself.  To test if the value of this method is `nan` requires code like the following:\n ~~~lua\n duration = avplayer:duration()\n if type(duration) == \"number\" and duration ~= duration then\n     -- the duration is equal to `nan`\n end\n~~~",
+        "desc" : "Returns the duration, in seconds, of the audiovisual media content currently loaded.",
+        "stripped_doc" : [
+          "Returns the duration, in seconds, of the audiovisual media content currently loaded.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:duration() -> number | nil",
+        "notes" : [
+          " * the duration of an item which is still loading cannot be determined; you may want to use [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) and wait until it receives a \"readyToPlay\" state before querying this method.",
+          "",
+          " * a live stream may not provide duration information and also return `nan` for this method.",
+          "",
+          " * Lua defines `nan` as a number which is not equal to itself.  To test if the value of this method is `nan` requires code like the following:",
+          " ~~~lua",
+          " duration = avplayer:duration()",
+          " if type(duration) == \"number\" and duration ~= duration then",
+          "     -- the duration is equal to `nan`",
+          " end",
+          "~~~"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:duration() -> number | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the duration, in seconds, of the audiovisual media content currently loaded, if it can be determined, or `nan` (not-a-number) if it cannot.  If no item has been loaded, this method will return nil.",
+          ""
+        ],
+        "name" : "duration",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns whether or not external playback via AirPlay is currently active for the avplayer object.\n\nParameters:\n * None\n\nReturns:\n * true, if AirPlay is currently being used to play the audiovisual content, or false if it is not.\n\nNotes:\n * External playback via AirPlay is only available in macOS 10.11 and newer.",
+        "desc" : "Returns whether or not external playback via AirPlay is currently active for the avplayer object.",
+        "stripped_doc" : [
+          "Returns whether or not external playback via AirPlay is currently active for the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:externalPlayback() -> Boolean",
+        "notes" : [
+          " * External playback via AirPlay is only available in macOS 10.11 and newer."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:externalPlayback() -> Boolean",
+        "type" : "Method",
+        "returns" : [
+          " * true, if AirPlay is currently being used to play the audiovisual content, or false if it is not.",
+          ""
+        ],
+        "name" : "externalPlayback",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Flashes the number and optional string over the media playback display momentarily.\n\nParameters:\n * `number` - an integer specifying the chapter number to display.\n * `string` - an optional string specifying the chapter name to display.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * If only a number is provided, the text \"Chapter #\" is displayed.  If a string is also provided, \"#. string\" is displayed.",
+        "desc" : "Flashes the number and optional string over the media playback display momentarily.",
+        "stripped_doc" : [
+          "Flashes the number and optional string over the media playback display momentarily.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:flashChapterAndTitle(number, [string]) -> avplayerObject",
+        "notes" : [
+          " * If only a number is provided, the text \"Chapter #\" is displayed.  If a string is also provided, \"#. string\" is displayed."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:flashChapterAndTitle(number, [string]) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "flashChapterAndTitle",
+        "parameters" : [
+          " * `number` - an integer specifying the chapter number to display.",
+          " * `string` - an optional string specifying the chapter name to display.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether frame stepping or scrubbing controls are included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether frame stepping (true) or scrubbing (false) controls are included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether frame stepping or scrubbing controls are included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether frame stepping or scrubbing controls are included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "frameSteppingButtons",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether frame stepping (true) or scrubbing (false) controls are included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the full screen toggle button should be included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the full screen toggle button should be included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether or not the full screen toggle button should be included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "fullScreenButton",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the full screen toggle button should be included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Load the specified resource for playback.\n\nParameters:\n * `path` - a string specifying the file path or URL to the audiovisual resource.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * Content will not start autoplaying when loaded - you must use the controls provided in the audiovisual player or one of [hs._asm.guitk.element.avplayer:play](#play) or [hs._asm.guitk.element.avplayer:rate](#rate) to begin playback.\n\n * If the path or URL are malformed, unreachable, or otherwise unavailable, [hs._asm.guitk.element.avplayer:status](#status) will return \"failed\".\n * Because a remote URL may not respond immediately, you can also setup a callback with [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) to be notified when the item has loaded or if it has failed.",
+        "desc" : "Load the specified resource for playback.",
+        "stripped_doc" : [
+          "Load the specified resource for playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:load(path) -> avplayerObject",
+        "notes" : [
+          " * Content will not start autoplaying when loaded - you must use the controls provided in the audiovisual player or one of [hs._asm.guitk.element.avplayer:play](#play) or [hs._asm.guitk.element.avplayer:rate](#rate) to begin playback.",
+          "",
+          " * If the path or URL are malformed, unreachable, or otherwise unavailable, [hs._asm.guitk.element.avplayer:status](#status) will return \"failed\".",
+          " * Because a remote URL may not respond immediately, you can also setup a callback with [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus) to be notified when the item has loaded or if it has failed."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:load(path) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "load",
+        "parameters" : [
+          " * `path` - a string specifying the file path or URL to the audiovisual resource.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not audio output is muted for the audovisual media item.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not audio output has been muted for the avplayer object.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not audio output is muted for the audovisual media item.",
+        "stripped_doc" : [
+          "Get or set whether or not audio output is muted for the audovisual media item.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "mute",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not audio output has been muted for the avplayer object.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Pause the audiovisual media currently loaded in the avplayer object.\n\nParameters:\n * None\n\nReturns:\n * the avplayerObject\n\nNotes:\n * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate(0.0)](#rate)`)",
+        "desc" : "Pause the audiovisual media currently loaded in the avplayer object.",
+        "stripped_doc" : [
+          "Pause the audiovisual media currently loaded in the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:pause() -> avplayerObject",
+        "notes" : [
+          " * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate(0.0)](#rate)`)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:pause() -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "pause",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not playback of media should be paused when the avplayer object is hidden.\n\nParameters:\n * `state` - an optional boolean, default true, specifying whether or not media playback should be paused when the avplayer object is hidden.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not playback of media should be paused when the avplayer object is hidden.",
+        "stripped_doc" : [
+          "Get or set whether or not playback of media should be paused when the avplayer object is hidden.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "pauseWhenHidden",
+        "parameters" : [
+          " * `state` - an optional boolean, default true, specifying whether or not media playback should be paused when the avplayer object is hidden.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Play the audiovisual media currently loaded in the avplayer object.\n\nParameters:\n * `fromBeginning` - an optional boolean, default false, specifying whether or not the media playback should start from the beginning or from the current location.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate(1.0)](#rate)`)",
+        "desc" : "Play the audiovisual media currently loaded in the avplayer object.",
+        "stripped_doc" : [
+          "Play the audiovisual media currently loaded in the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:play([fromBeginning]) -> avplayerObject",
+        "notes" : [
+          " * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate(1.0)](#rate)`)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:play([fromBeginning]) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "play",
+        "parameters" : [
+          " * `fromBeginning` - an optional boolean, default false, specifying whether or not the media playback should start from the beginning or from the current location.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.\n\nParameters:\n * None\n\nReturns:\n * a table containing the following media characteristics, or `nil` if no media content is currently loaded:\n   * \"playbackLikelyToKeepUp\" - Indicates whether the item will likely play through without stalling.  Note that this is only a prediction.\n   * \"playbackBufferEmpty\"    - Indicates whether playback has consumed all buffered media and that playback may stall or end.\n   * \"playbackBufferFull\"     - Indicates whether the internal media buffer is full and that further I\/O is suspended.\n   * \"canPlayReverse\"         - A Boolean value indicating whether the item can be played with a rate of -1.0.\n   * \"canPlayFastForward\"     - A Boolean value indicating whether the item can be played at rates greater than 1.0.\n   * \"canPlayFastReverse\"     - A Boolean value indicating whether the item can be played at rates less than –1.0.\n   * \"canPlaySlowForward\"     - A Boolean value indicating whether the item can be played at a rate between 0.0 and 1.0.\n   * \"canPlaySlowReverse\"     - A Boolean value indicating whether the item can be played at a rate between -1.0 and 0.0.",
+        "desc" : "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.",
+        "stripped_doc" : [
+          "Returns a table containing information about the media playback characteristics of the audiovisual media currently loaded in the avplayerObject.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:playbackInformation() -> table | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:playbackInformation() -> table | nil",
+        "type" : "Method",
+        "returns" : [
+          " * a table containing the following media characteristics, or `nil` if no media content is currently loaded:",
+          "   * \"playbackLikelyToKeepUp\" - Indicates whether the item will likely play through without stalling.  Note that this is only a prediction.",
+          "   * \"playbackBufferEmpty\"    - Indicates whether playback has consumed all buffered media and that playback may stall or end.",
+          "   * \"playbackBufferFull\"     - Indicates whether the internal media buffer is full and that further I\/O is suspended.",
+          "   * \"canPlayReverse\"         - A Boolean value indicating whether the item can be played with a rate of -1.0.",
+          "   * \"canPlayFastForward\"     - A Boolean value indicating whether the item can be played at rates greater than 1.0.",
+          "   * \"canPlayFastReverse\"     - A Boolean value indicating whether the item can be played at rates less than –1.0.",
+          "   * \"canPlaySlowForward\"     - A Boolean value indicating whether the item can be played at a rate between 0.0 and 1.0.",
+          "   * \"canPlaySlowReverse\"     - A Boolean value indicating whether the item can be played at a rate between -1.0 and 0.0."
+        ],
+        "name" : "playbackInformation",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the rate of playback for the audiovisual content of the avplayer object.\n\nParameters:\n * `rate` - an optional number specifying the rate you wish for the audiovisual content to be played.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * This method affects the playback rate of both video and audio -- if you wish to mute audio during a \"fast forward\" or \"rewind\", see [hs._asm.guitk.element.avplayer:mute](#mute).\n * A value of 0.0 is equivalent to [hs._asm.guitk.element.avplayer:pause](#pause).\n * A value of 1.0 is equivalent to [hs._asm.guitk.element.avplayer:play](#play).\n\n * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:\n   * Rates between 0.0 and 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field\n   * Rates greater than 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field\n   * The item can be played in reverse (a rate of -1.0) if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field\n   * Rates between 0.0 and -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field\n   * Rates less than -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field",
+        "desc" : "Get or set the rate of playback for the audiovisual content of the avplayer object.",
+        "stripped_doc" : [
+          "Get or set the rate of playback for the audiovisual content of the avplayer object.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | current value",
+        "notes" : [
+          " * This method affects the playback rate of both video and audio -- if you wish to mute audio during a \"fast forward\" or \"rewind\", see [hs._asm.guitk.element.avplayer:mute](#mute).",
+          " * A value of 0.0 is equivalent to [hs._asm.guitk.element.avplayer:pause](#pause).",
+          " * A value of 1.0 is equivalent to [hs._asm.guitk.element.avplayer:play](#play).",
+          "",
+          " * Other rates may not be available for all media and will be ignored if specified and the media does not support playback at the specified rate:",
+          "   * Rates between 0.0 and 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowForward` field",
+          "   * Rates greater than 1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastForward` field",
+          "   * The item can be played in reverse (a rate of -1.0) if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayReverse` field",
+          "   * Rates between 0.0 and -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlaySlowReverse` field",
+          "   * Rates less than -1.0 are allowed if [hs._asm.guitk.element.avplayer:playbackInformation](#playbackInformation) returns true for the `canPlayFastReverse` field"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "rate",
+        "parameters" : [
+          " * `rate` - an optional number specifying the rate you wish for the audiovisual content to be played.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Jumps to the specified location in the audiovisual content currently loaded into the player.\n\nParameters:\n * `time`     - the location, in seconds, within the audiovisual content to seek to.\n * `callback` - an optional boolean, default false, specifying whether or not a callback should be invoked when the seek operation has completed.\n\nReturns:\n * the avplayerObject, or nil if no media content is currently loaded\n\nNotes:\n * If you specify `callback` as true, the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:\n   * the avplayerObject\n   * \"seek\"\n   * the current time, in seconds, specifying the current playback position in the media content\n   * `true` if the seek operation was allowed to complete, or `false` if it was interrupted (for example by another seek request).",
+        "desc" : "Jumps to the specified location in the audiovisual content currently loaded into the player.",
+        "stripped_doc" : [
+          "Jumps to the specified location in the audiovisual content currently loaded into the player.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:seek(time, [callback]) -> avplayerObject | nil",
+        "notes" : [
+          " * If you specify `callback` as true, the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:",
+          "   * the avplayerObject",
+          "   * \"seek\"",
+          "   * the current time, in seconds, specifying the current playback position in the media content",
+          "   * `true` if the seek operation was allowed to complete, or `false` if it was interrupted (for example by another seek request)."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:seek(time, [callback]) -> avplayerObject | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject, or nil if no media content is currently loaded",
+          ""
+        ],
+        "name" : "seek",
+        "parameters" : [
+          " * `time`     - the location, in seconds, within the audiovisual content to seek to.",
+          " * `callback` - an optional boolean, default false, specifying whether or not a callback should be invoked when the seek operation has completed.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Set the callback function for the avplayerObject.\n\nParameters:\n * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.\n\nReturns:\n * the avplayerObject\n\nNotes:\n * The callback function should expect 2 or more arguments.  The first two arguments will always be:\n   * `avplayObject` - the avplayerObject userdata\n   * `message`      - a string specifying the reason for the callback.\n * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:\n   * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)\n   * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)\n   * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)\n   * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)\n   * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)\n   * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)\n   * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)",
+        "desc" : "Set the callback function for the avplayerObject.",
+        "stripped_doc" : [
+          "Set the callback function for the avplayerObject.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:setCallback(fn) -> avplayerObject",
+        "notes" : [
+          " * The callback function should expect 2 or more arguments.  The first two arguments will always be:",
+          "   * `avplayObject` - the avplayerObject userdata",
+          "   * `message`      - a string specifying the reason for the callback.",
+          " * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:",
+          "   * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)",
+          "   * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)",
+          "   * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)",
+          "   * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)",
+          "   * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)",
+          "   * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)",
+          "   * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)"
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:setCallback(fn) -> avplayerObject",
+        "type" : "Method",
+        "returns" : [
+          " * the avplayerObject",
+          ""
+        ],
+        "name" : "setCallback",
+        "parameters" : [
+          " * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the sharing services button is included in the media controls.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set whether or not the sharing services button is included in the media controls.",
+        "stripped_doc" : [
+          "Get or set whether or not the sharing services button is included in the media controls.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "sharingServiceButton",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the current status of the media content loaded for playback.\n\nParameters:\n * None\n\nReturns:\n * One of the following status strings, or `nil` if no media content is currently loaded:\n   * \"unknown\"     - The content's status is unknown; often this is returned when remote content is still loading or being evaluated for playback.\n   * \"readyToPlay\" - The content has been loaded or sufficiently buffered so that playback may begin\n   * \"failed\"      - There was an error loading the content; a second return value will contain a string which may contain more information about the error.",
+        "desc" : "Returns the current status of the media content loaded for playback.",
+        "stripped_doc" : [
+          "Returns the current status of the media content loaded for playback.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:status() -> status[, error] | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:status() -> status[, error] | nil",
+        "type" : "Method",
+        "returns" : [
+          " * One of the following status strings, or `nil` if no media content is currently loaded:",
+          "   * \"unknown\"     - The content's status is unknown; often this is returned when remote content is still loading or being evaluated for playback.",
+          "   * \"readyToPlay\" - The content has been loaded or sufficiently buffered so that playback may begin",
+          "   * \"failed\"      - There was an error loading the content; a second return value will contain a string which may contain more information about the error."
+        ],
+        "name" : "status",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Returns the current position in seconds within the audiovisual media content.\n\nParameters:\n * None\n\nReturns:\n * the current position, in seconds, within the audiovisual media content, or `nil` if no media content is currently loaded.",
+        "desc" : "Returns the current position in seconds within the audiovisual media content.",
+        "stripped_doc" : [
+          "Returns the current position in seconds within the audiovisual media content.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:time() -> number | nil",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:time() -> number | nil",
+        "type" : "Method",
+        "returns" : [
+          " * the current position, in seconds, within the audiovisual media content, or `nil` if no media content is currently loaded."
+        ],
+        "name" : "time",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not completing the playback of media should invoke a callback.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 2 arguments:\n   * the avplayerObject\n   * \"finished\"",
+        "desc" : "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever playback of the current media content is completed (reaches the end).",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 2 arguments:",
+          "   * the avplayerObject",
+          "   * \"finished\""
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackCompleted",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not completing the playback of media should invoke a callback.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a periodic callback at the interval specified.\n\nParameters:\n * `number` - an optional number specifying how often, in seconds, the callback function should be invoked to report progress.  If an explicit nil is specified, then the progress callback is disabled. Defaults to nil.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.  A return value of `nil` indicates that no progress callback is in effect.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:\n   * the avplayerObject\n   * \"progress\"\n   * the time in seconds specifying the current location in the media playback.\n\n * From Apple Documentation: The block is invoked periodically at the interval specified, interpreted according to the timeline of the current item. The block is also invoked whenever time jumps and whenever playback starts or stops. If the interval corresponds to a very short interval in real time, the player may invoke the block less frequently than requested. Even so, the player will invoke the block sufficiently often for the client to update indications of the current time appropriately in its end-user interface.",
+        "desc" : "Enable or disable a periodic callback at the interval specified.",
+        "stripped_doc" : [
+          "Enable or disable a periodic callback at the interval specified.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:",
+          "   * the avplayerObject",
+          "   * \"progress\"",
+          "   * the time in seconds specifying the current location in the media playback.",
+          "",
+          " * From Apple Documentation: The block is invoked periodically at the interval specified, interpreted according to the timeline of the current item. The block is also invoked whenever time jumps and whenever playback starts or stops. If the interval corresponds to a very short interval in real time, the player may invoke the block less frequently than requested. Even so, the player will invoke the block sufficiently often for the client to update indications of the current time appropriately in its end-user interface."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.  A return value of `nil` indicates that no progress callback is in effect.",
+          ""
+        ],
+        "name" : "trackProgress",
+        "parameters" : [
+          " * `number` - an optional number specifying how often, in seconds, the callback function should be invoked to report progress.  If an explicit nil is specified, then the progress callback is disabled. Defaults to nil.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever the rate of playback changes.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not playback rate changes should invoke a callback.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:\n   * the avplayerObject\n   * \"pause\", if the rate changes to 0.0, or \"play\" if the rate changes to any other value\n   * the rate that the playback was changed to.\n\n * Not all media content can have its playback rate changed; attempts to do so will invoke the callback twice -- once signifying that the change was made, and a second time indicating that the rate of play was reset back to the limits of the media content.  See [hs._asm:rate](#rate) for more information.",
+        "desc" : "Enable or disable a callback whenever the rate of playback changes.",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever the rate of playback changes.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 arguments:",
+          "   * the avplayerObject",
+          "   * \"pause\", if the rate changes to 0.0, or \"play\" if the rate changes to any other value",
+          "   * the rate that the playback was changed to.",
+          "",
+          " * Not all media content can have its playback rate changed; attempts to do so will invoke the callback twice -- once signifying that the change was made, and a second time indicating that the rate of play was reset back to the limits of the media content.  See [hs._asm:rate](#rate) for more information."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackRate",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not playback rate changes should invoke a callback.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Enable or disable a callback whenever the status of loading a media item changes.\n\nParameters:\n * `state` - an optional boolean, default false, specifying whether or not changes to the status of audiovisual media's loading status should generate a callback..\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.\n\nNotes:\n * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:\n   * the avplayerObject\n   * \"status\"\n   * a string matching one of the states described in [hs._asm.guitk.element.avplayer:status](#status)\n   * if the state reported is failed, an error message describing the error that occurred.",
+        "desc" : "Enable or disable a callback whenever the status of loading a media item changes.",
+        "stripped_doc" : [
+          "Enable or disable a callback whenever the status of loading a media item changes.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | current value",
+        "notes" : [
+          " * the callback function (see [hs._asm.guitk.element.avplayer:setCallback](#setCallback)) will be invoked with the following 3 or 4 arguments:",
+          "   * the avplayerObject",
+          "   * \"status\"",
+          "   * a string matching one of the states described in [hs._asm.guitk.element.avplayer:status](#status)",
+          "   * if the state reported is failed, an error message describing the error that occurred."
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value.",
+          ""
+        ],
+        "name" : "trackStatus",
+        "parameters" : [
+          " * `state` - an optional boolean, default false, specifying whether or not changes to the status of audiovisual media's loading status should generate a callback..",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).\n\nParameters:\n * `volume` - an optional number, default as specified by the media or 1.0 if no designation is specified by the media, specifying the player's volume relative to the system volume level.\n\nReturns:\n * if an argument is provided, the avplayerObject; otherwise the current value.",
+        "desc" : "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).",
+        "stripped_doc" : [
+          "Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | current value",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if an argument is provided, the avplayerObject; otherwise the current value."
+        ],
+        "name" : "volume",
+        "parameters" : [
+          " * `volume` - an optional number, default as specified by the media or 1.0 if no designation is specified by the media, specifying the player's volume relative to the system volume level.",
+          ""
+        ]
+      }
+    ],
+    "Field" : [
+
+    ],
+    "Command" : [
+
+    ],
+    "name" : "hs._asm.guitk.element.avplayer"
+  },
+  {
+    "Constant" : [
+
+    ],
+    "submodules" : [
+
+    ],
+    "Function" : [
+
+    ],
+    "Variable" : [
+
+    ],
+    "stripped_doc" : [
+
+    ],
+    "Deprecated" : [
+
+    ],
+    "type" : "Module",
+    "desc" : "Provides a progress indicator element for use with `hs._asm.guitk`.",
+    "Constructor" : [
+      {
+        "doc" : "Creates a new Progress Indicator element for `hs._asm.guitk`.\n\nParameters:\n * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.\n\nReturns:\n * the progressIndicatorObject",
+        "desc" : "Creates a new Progress Indicator element for `hs._asm.guitk`.",
+        "stripped_doc" : [
+          "Creates a new Progress Indicator element for `hs._asm.guitk`.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress.new([frame]) -> progressIndicatorObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.progress.new([frame]) -> progressIndicatorObject",
+        "type" : "Constructor",
+        "returns" : [
+          " * the progressIndicatorObject"
+        ],
+        "name" : "new",
+        "parameters" : [
+          " * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.",
+          ""
+        ]
+      }
+    ],
+    "doc" : "Provides a progress indicator element for use with `hs._asm.guitk`.",
+    "Method" : [
+      {
+        "doc" : "If the progress indicator is indeterminate, starts the animation for the indicator.\n\nParameters:\n * None\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method has no effect if the indicator is not indeterminate.",
+        "desc" : "If the progress indicator is indeterminate, starts the animation for the indicator.",
+        "stripped_doc" : [
+          "If the progress indicator is indeterminate, starts the animation for the indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:start() -> progressObject",
+        "notes" : [
+          " * This method has no effect if the indicator is not indeterminate."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:start() -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "start",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "If the progress indicator is indeterminate, stops the animation for the indicator.\n\nParameters:\n * None\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method has no effect if the indicator is not indeterminate.",
+        "desc" : "If the progress indicator is indeterminate, stops the animation for the indicator.",
+        "stripped_doc" : [
+          "If the progress indicator is indeterminate, stops the animation for the indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:stop() -> progressObject",
+        "notes" : [
+          " * This method has no effect if the indicator is not indeterminate."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:stop() -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "stop",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the animation for an indicator occurs in a separate process thread.\n\nParameters:\n * flag - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * If this flag is set to false, the indicator animation speed will fluctuate as Hammerspoon performs other activities, though not consistently enough to provide a reliable \"activity level\" feedback indicator.",
+        "desc" : "Get or set whether or not the animation for an indicator occurs in a separate process thread.",
+        "stripped_doc" : [
+          "Get or set whether or not the animation for an indicator occurs in a separate process thread.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * If this flag is set to false, the indicator animation speed will fluctuate as Hammerspoon performs other activities, though not consistently enough to provide a reliable \"activity level\" feedback indicator."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "threaded",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator is indeterminate.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * If this setting is set to false, you should also take a look at [hs._asm.guitk.element.progress:min](#min) and [hs._asm.guitk.element.progress:max](#max), and periodically update the status with [hs._asm.guitk.element.progress:value](#value) or [hs._asm.guitk.element.progress:increment](#increment)",
+        "desc" : "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * If this setting is set to false, you should also take a look at [hs._asm.guitk.element.progress:min](#min) and [hs._asm.guitk.element.progress:max](#max), and periodically update the status with [hs._asm.guitk.element.progress:value](#value) or [hs._asm.guitk.element.progress:increment](#increment)"
+        ],
+        "signature" : "hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "indeterminate",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator is indeterminate.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator's frame is bezeled.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).",
+        "desc" : "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "bezeled",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator's frame is bezeled.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is visible when animation has been stopped.\n\nParameters:\n * flag - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.",
+        "desc" : "Get or set whether or not the progress indicator is visible when animation has been stopped.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is visible when animation has been stopped.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "visibleWhenStopped",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is false.\n * An indeterminate circular indicator is displayed as the spinning star seen during system startup.\n * A determinate circular indicator is displayed as a pie chart which fills up as its value increases.\n * An indeterminate progress indicator is displayed as a rounded rectangle with a moving pulse.\n * A determinate progress indicator is displayed as a rounded rectangle that fills up as its value increases.",
+        "desc" : "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:circular([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is false.",
+          " * An indeterminate circular indicator is displayed as the spinning star seen during system startup.",
+          " * A determinate circular indicator is displayed as a pie chart which fills up as its value increases.",
+          " * An indeterminate progress indicator is displayed as a rounded rectangle with a moving pulse.",
+          " * A determinate progress indicator is displayed as a rounded rectangle that fills up as its value increases."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:circular([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "circular",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the current value of the progress indicator's completion status.\n\nParameters:\n * value - an optional number indicating the current extent of the progress.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 0.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, this will affect how \"filled\" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be reset to that value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be reset to that value.",
+        "desc" : "Get or set the current value of the progress indicator's completion status.",
+        "stripped_doc" : [
+          "Get or set the current value of the progress indicator's completion status.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:value([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 0.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, this will affect how \"filled\" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be reset to that value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be reset to that value."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:value([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "value",
+        "parameters" : [
+          " * value - an optional number indicating the current extent of the progress.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.\n\nParameters:\n * value - an optional number indicating the minimum value.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 0.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, the behavior is undefined if this value is greater than [hs._asm.guitk.element.progress:max](#max).",
+        "desc" : "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.",
+        "stripped_doc" : [
+          "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:min([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 0.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, the behavior is undefined if this value is greater than [hs._asm.guitk.element.progress:max](#max)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:min([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "min",
+        "parameters" : [
+          " * value - an optional number indicating the minimum value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.\n\nParameters:\n * value - an optional number indicating the maximum value.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 100.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, the behavior is undefined if this value is less than [hs._asm.guitk.element.progress:min](#min).",
+        "desc" : "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.",
+        "stripped_doc" : [
+          "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:max([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 100.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, the behavior is undefined if this value is less than [hs._asm.guitk.element.progress:min](#min)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:max([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "max",
+        "parameters" : [
+          " * value - an optional number indicating the maximum value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Increment the current value of a progress indicator's progress by the amount specified.\n\nParameters:\n * value - the value by which to increment the progress indicator's current value.\n\nReturns:\n * the progress indicator object\n\nNotes:\n * Programmatically, this is equivalent to `hs._asm.guitk.element.progress:value(hs._asm.guitk.element.progress:value() + value)`, but is faster.",
+        "desc" : "Increment the current value of a progress indicator's progress by the amount specified.",
+        "stripped_doc" : [
+          "Increment the current value of a progress indicator's progress by the amount specified.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:increment(value) -> progressObject | current value",
+        "notes" : [
+          " * Programmatically, this is equivalent to `hs._asm.guitk.element.progress:value(hs._asm.guitk.element.progress:value() + value)`, but is faster."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:increment(value) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "increment",
+        "parameters" : [
+          " * value - the value by which to increment the progress indicator's current value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the indicator's tint.\n\nParameters:\n * tint - an optional string specifying the tint of the progress indicator.  May be one of \"default\", \"blue\", \"graphite\", or \"clear\".\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is \"default\".\n * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).",
+        "desc" : "Get or set the indicator's tint.",
+        "stripped_doc" : [
+          "Get or set the indicator's tint.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is \"default\".",
+          " * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "tint",
+        "parameters" : [
+          " * tint - an optional string specifying the tint of the progress indicator.  May be one of \"default\", \"blue\", \"graphite\", or \"clear\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the indicator's size.\n\nParameters:\n * size - an optional string specifying the size of the progress indicator object.  May be one of \"regular\", \"small\", or \"mini\".\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is \"regular\".\n * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.\n * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11.",
+        "desc" : "Get or set the indicator's size.",
+        "stripped_doc" : [
+          "Get or set the indicator's size.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is \"regular\".",
+          " * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.",
+          " * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "indicatorSize",
+        "parameters" : [
+          " * size - an optional string specifying the size of the progress indicator object.  May be one of \"regular\", \"small\", or \"mini\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Sets the fill color for a progress indicator.\n\nParameters:\n * color - a table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator.\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http:\/\/stackoverflow.com\/a\/32396595 utilizing a CIFilter object to adjust the view's output.\n * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.guitk.element.progress:circular](#circular).",
+        "desc" : "Sets the fill color for a progress indicator.",
+        "stripped_doc" : [
+          "Sets the fill color for a progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:color(color) -> progressObject",
+        "notes" : [
+          " * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http:\/\/stackoverflow.com\/a\/32396595 utilizing a CIFilter object to adjust the view's output.",
+          " * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.guitk.element.progress:circular](#circular)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:color(color) -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "color",
+        "parameters" : [
+          " * color - a table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator.",
+          ""
+        ]
+      }
+    ],
+    "items" : [
+      {
+        "doc" : "Creates a new Progress Indicator element for `hs._asm.guitk`.\n\nParameters:\n * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.\n\nReturns:\n * the progressIndicatorObject",
+        "desc" : "Creates a new Progress Indicator element for `hs._asm.guitk`.",
+        "stripped_doc" : [
+          "Creates a new Progress Indicator element for `hs._asm.guitk`.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress.new([frame]) -> progressIndicatorObject",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.guitk.element.progress.new([frame]) -> progressIndicatorObject",
+        "type" : "Constructor",
+        "returns" : [
+          " * the progressIndicatorObject"
+        ],
+        "name" : "new",
+        "parameters" : [
+          " * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator's frame is bezeled.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).",
+        "desc" : "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "bezeled",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator's frame is bezeled.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is false.\n * An indeterminate circular indicator is displayed as the spinning star seen during system startup.\n * A determinate circular indicator is displayed as a pie chart which fills up as its value increases.\n * An indeterminate progress indicator is displayed as a rounded rectangle with a moving pulse.\n * A determinate progress indicator is displayed as a rounded rectangle that fills up as its value increases.",
+        "desc" : "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is circular or a in the form of a progress bar.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:circular([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is false.",
+          " * An indeterminate circular indicator is displayed as the spinning star seen during system startup.",
+          " * A determinate circular indicator is displayed as a pie chart which fills up as its value increases.",
+          " * An indeterminate progress indicator is displayed as a rounded rectangle with a moving pulse.",
+          " * A determinate progress indicator is displayed as a rounded rectangle that fills up as its value increases."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:circular([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "circular",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)",
+          ""
+        ]
+      },
+      {
+        "doc" : "Sets the fill color for a progress indicator.\n\nParameters:\n * color - a table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator.\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http:\/\/stackoverflow.com\/a\/32396595 utilizing a CIFilter object to adjust the view's output.\n * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.guitk.element.progress:circular](#circular).",
+        "desc" : "Sets the fill color for a progress indicator.",
+        "stripped_doc" : [
+          "Sets the fill color for a progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:color(color) -> progressObject",
+        "notes" : [
+          " * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http:\/\/stackoverflow.com\/a\/32396595 utilizing a CIFilter object to adjust the view's output.",
+          " * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.guitk.element.progress:circular](#circular)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:color(color) -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "color",
+        "parameters" : [
+          " * color - a table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Increment the current value of a progress indicator's progress by the amount specified.\n\nParameters:\n * value - the value by which to increment the progress indicator's current value.\n\nReturns:\n * the progress indicator object\n\nNotes:\n * Programmatically, this is equivalent to `hs._asm.guitk.element.progress:value(hs._asm.guitk.element.progress:value() + value)`, but is faster.",
+        "desc" : "Increment the current value of a progress indicator's progress by the amount specified.",
+        "stripped_doc" : [
+          "Increment the current value of a progress indicator's progress by the amount specified.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:increment(value) -> progressObject | current value",
+        "notes" : [
+          " * Programmatically, this is equivalent to `hs._asm.guitk.element.progress:value(hs._asm.guitk.element.progress:value() + value)`, but is faster."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:increment(value) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "increment",
+        "parameters" : [
+          " * value - the value by which to increment the progress indicator's current value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.\n\nParameters:\n * flag - an optional boolean indicating whether or not the indicator is indeterminate.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * If this setting is set to false, you should also take a look at [hs._asm.guitk.element.progress:min](#min) and [hs._asm.guitk.element.progress:max](#max), and periodically update the status with [hs._asm.guitk.element.progress:value](#value) or [hs._asm.guitk.element.progress:increment](#increment)",
+        "desc" : "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * If this setting is set to false, you should also take a look at [hs._asm.guitk.element.progress:min](#min) and [hs._asm.guitk.element.progress:max](#max), and periodically update the status with [hs._asm.guitk.element.progress:value](#value) or [hs._asm.guitk.element.progress:increment](#increment)"
+        ],
+        "signature" : "hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "indeterminate",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the indicator is indeterminate.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the indicator's size.\n\nParameters:\n * size - an optional string specifying the size of the progress indicator object.  May be one of \"regular\", \"small\", or \"mini\".\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is \"regular\".\n * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.\n * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11.",
+        "desc" : "Get or set the indicator's size.",
+        "stripped_doc" : [
+          "Get or set the indicator's size.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is \"regular\".",
+          " * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.",
+          " * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "indicatorSize",
+        "parameters" : [
+          " * size - an optional string specifying the size of the progress indicator object.  May be one of \"regular\", \"small\", or \"mini\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.\n\nParameters:\n * value - an optional number indicating the maximum value.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 100.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, the behavior is undefined if this value is less than [hs._asm.guitk.element.progress:min](#min).",
+        "desc" : "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.",
+        "stripped_doc" : [
+          "Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:max([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 100.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, the behavior is undefined if this value is less than [hs._asm.guitk.element.progress:min](#min)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:max([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "max",
+        "parameters" : [
+          " * value - an optional number indicating the maximum value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.\n\nParameters:\n * value - an optional number indicating the minimum value.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 0.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, the behavior is undefined if this value is greater than [hs._asm.guitk.element.progress:max](#max).",
+        "desc" : "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.",
+        "stripped_doc" : [
+          "Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:min([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 0.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, the behavior is undefined if this value is greater than [hs._asm.guitk.element.progress:max](#max)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:min([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "min",
+        "parameters" : [
+          " * value - an optional number indicating the minimum value.",
+          ""
+        ]
+      },
+      {
+        "doc" : "If the progress indicator is indeterminate, starts the animation for the indicator.\n\nParameters:\n * None\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method has no effect if the indicator is not indeterminate.",
+        "desc" : "If the progress indicator is indeterminate, starts the animation for the indicator.",
+        "stripped_doc" : [
+          "If the progress indicator is indeterminate, starts the animation for the indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:start() -> progressObject",
+        "notes" : [
+          " * This method has no effect if the indicator is not indeterminate."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:start() -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "start",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "If the progress indicator is indeterminate, stops the animation for the indicator.\n\nParameters:\n * None\n\nReturns:\n * the progress indicator object\n\nNotes:\n * This method has no effect if the indicator is not indeterminate.",
+        "desc" : "If the progress indicator is indeterminate, stops the animation for the indicator.",
+        "stripped_doc" : [
+          "If the progress indicator is indeterminate, stops the animation for the indicator.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:stop() -> progressObject",
+        "notes" : [
+          " * This method has no effect if the indicator is not indeterminate."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:stop() -> progressObject",
+        "type" : "Method",
+        "returns" : [
+          " * the progress indicator object",
+          ""
+        ],
+        "name" : "stop",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the animation for an indicator occurs in a separate process thread.\n\nParameters:\n * flag - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.\n * If this flag is set to false, the indicator animation speed will fluctuate as Hammerspoon performs other activities, though not consistently enough to provide a reliable \"activity level\" feedback indicator.",
+        "desc" : "Get or set whether or not the animation for an indicator occurs in a separate process thread.",
+        "stripped_doc" : [
+          "Get or set whether or not the animation for an indicator occurs in a separate process thread.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true.",
+          " * If this flag is set to false, the indicator animation speed will fluctuate as Hammerspoon performs other activities, though not consistently enough to provide a reliable \"activity level\" feedback indicator."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "threaded",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the indicator's tint.\n\nParameters:\n * tint - an optional string specifying the tint of the progress indicator.  May be one of \"default\", \"blue\", \"graphite\", or \"clear\".\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is \"default\".\n * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).",
+        "desc" : "Get or set the indicator's tint.",
+        "stripped_doc" : [
+          "Get or set the indicator's tint.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is \"default\".",
+          " * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions)."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "tint",
+        "parameters" : [
+          " * tint - an optional string specifying the tint of the progress indicator.  May be one of \"default\", \"blue\", \"graphite\", or \"clear\".",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set the current value of the progress indicator's completion status.\n\nParameters:\n * value - an optional number indicating the current extent of the progress.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default value for this is 0.0\n * This value has no effect on the display of an indeterminate progress indicator.\n * For a determinate indicator, this will affect how \"filled\" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be reset to that value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be reset to that value.",
+        "desc" : "Get or set the current value of the progress indicator's completion status.",
+        "stripped_doc" : [
+          "Get or set the current value of the progress indicator's completion status.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:value([value]) -> progressObject | current value",
+        "notes" : [
+          " * The default value for this is 0.0",
+          " * This value has no effect on the display of an indeterminate progress indicator.",
+          " * For a determinate indicator, this will affect how \"filled\" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be reset to that value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be reset to that value."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:value([value]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "value",
+        "parameters" : [
+          " * value - an optional number indicating the current extent of the progress.",
+          ""
+        ]
+      },
+      {
+        "doc" : "Get or set whether or not the progress indicator is visible when animation has been stopped.\n\nParameters:\n * flag - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.\n\nReturns:\n * if a value is provided, returns the progress indicator object ; otherwise returns the current value.\n\nNotes:\n * The default setting for this is true.",
+        "desc" : "Get or set whether or not the progress indicator is visible when animation has been stopped.",
+        "stripped_doc" : [
+          "Get or set whether or not the progress indicator is visible when animation has been stopped.",
+          ""
+        ],
+        "def" : "hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | current value",
+        "notes" : [
+          " * The default setting for this is true."
+        ],
+        "signature" : "hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | current value",
+        "type" : "Method",
+        "returns" : [
+          " * if a value is provided, returns the progress indicator object ; otherwise returns the current value.",
+          ""
+        ],
+        "name" : "visibleWhenStopped",
+        "parameters" : [
+          " * flag - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.",
+          ""
+        ]
+      }
+    ],
+    "Field" : [
+
+    ],
+    "Command" : [
+
+    ],
+    "name" : "hs._asm.guitk.element.progress"
+  }
+]

@@ -1,0 +1,41 @@
+[
+  {
+    "Constant" : [
+
+    ],
+    "submodules" : [
+
+    ],
+    "Function" : [
+
+    ],
+    "Variable" : [
+
+    ],
+    "stripped_doc" : [
+
+    ],
+    "Deprecated" : [
+
+    ],
+    "type" : "Module",
+    "desc" : "Element placement managers for use with `hs._asm.guitk` windows.",
+    "Constructor" : [
+
+    ],
+    "doc" : "Element placement managers for use with `hs._asm.guitk` windows.",
+    "Method" : [
+
+    ],
+    "items" : [
+
+    ],
+    "Field" : [
+
+    ],
+    "Command" : [
+
+    ],
+    "name" : "hs._asm.guitk.manager"
+  }
+]
