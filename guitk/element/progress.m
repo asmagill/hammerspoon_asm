@@ -1,6 +1,6 @@
 // TODO:
 //    test
-//    can custom color become a two-way property?
+// *  can custom color become a two-way property?
 
 /// === hs._asm.guitk.element.progress ===
 ///
@@ -33,7 +33,6 @@ static int refTable = LUA_NOREF;
 #pragma mark - Support Functions and Classes
 
 @interface HSASMGUITKElementProgress : NSProgressIndicator
-@property (readonly) NSColor *usedCustomColor ;
 @property            int     selfRefCount ;
 @end
 
@@ -41,8 +40,7 @@ static int refTable = LUA_NOREF;
 - (id)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect];
     if (self) {
-        _selfRefCount     = 0 ;
-        _usedCustomColor  = nil ;
+        _selfRefCount = 0 ;
         self.usesThreadedAnimation = YES ;
     }
     return self;
@@ -57,26 +55,32 @@ static int refTable = LUA_NOREF;
 // Color works for spinner (both indeterminate and determinate) and partially for bar:
 //    indeterminate bar becomes a solid, un-animating color; determinate bar looks fine.
 - (void)setCustomColor:(NSColor *)aColor {
-    _usedCustomColor = aColor ; // is there a way to get this from the filter directly rather than having to store it as a readonly property?
-    CIFilter *colorPoly = [CIFilter filterWithName:@"CIColorPolynomial"];
-    [colorPoly setDefaults];
+    if (aColor) {
+        CIFilter *colorPoly = [CIFilter filterWithName:@"CIColorPolynomial"];
+        [colorPoly setDefaults];
 
-    CIVector *redVector ;
-    CIVector *greenVector ;
-    CIVector *blueVector ;
-    if (self.style == NSProgressIndicatorSpinningStyle) {
-        redVector   = [CIVector vectorWithX:aColor.redComponent   Y:0 Z:0 W:0];
-        greenVector = [CIVector vectorWithX:aColor.greenComponent Y:0 Z:0 W:0];
-        blueVector  = [CIVector vectorWithX:aColor.blueComponent  Y:0 Z:0 W:0];
+        CIVector *redVector   = [CIVector vectorWithX:aColor.redComponent   Y:0 Z:0 W:0] ;
+        CIVector *greenVector = [CIVector vectorWithX:aColor.greenComponent Y:0 Z:0 W:0] ;
+        CIVector *blueVector  = [CIVector vectorWithX:aColor.blueComponent  Y:0 Z:0 W:0] ;
+        [colorPoly setValue:redVector   forKey:@"inputRedCoefficients"];
+        [colorPoly setValue:greenVector forKey:@"inputGreenCoefficients"];
+        [colorPoly setValue:blueVector  forKey:@"inputBlueCoefficients"];
+        [self setContentFilters:[NSArray arrayWithObject:colorPoly]];
     } else {
-        redVector   = [CIVector vectorWithX:0 Y:aColor.redComponent   Z:0 W:0];
-        greenVector = [CIVector vectorWithX:0 Y:aColor.greenComponent Z:0 W:0];
-        blueVector  = [CIVector vectorWithX:0 Y:aColor.blueComponent  Z:0 W:0];
+        [self setContentFilters:[NSArray array]];
     }
-    [colorPoly setValue:redVector   forKey:@"inputRedCoefficients"];
-    [colorPoly setValue:greenVector forKey:@"inputGreenCoefficients"];
-    [colorPoly setValue:blueVector  forKey:@"inputBlueCoefficients"];
-    [self setContentFilters:[NSArray arrayWithObjects:colorPoly, nil]];
+}
+
+- (NSColor *)customColor {
+    CIFilter *colorPoly = self.contentFilters.firstObject ;
+    if (colorPoly) {
+        CIVector *redVector   = [colorPoly valueForKey:@"inputRedCoefficients"] ;
+        CIVector *greenVector = [colorPoly valueForKey:@"inputGreenCoefficients"] ;
+        CIVector *blueVector  = [colorPoly valueForKey:@"inputBlueCoefficients"] ;
+        return [NSColor colorWithSRGBRed:redVector.X green:greenVector.X blue:blueVector.X alpha:1.0] ;
+    } else {
+        return nil ;
+    }
 }
 
 @end
@@ -487,29 +491,37 @@ static int progress_controlSize(lua_State *L) {
 
 /// hs._asm.guitk.element.progress:color(color) -> progressObject
 /// Method
-/// Sets the fill color for a progress indicator.
+/// Get or set the fill color for a progress indicator.
 ///
 /// Parameters:
-///  * color - a table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator.
+///  * color - an optional table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator, or an explicit nil to reset the behavior to macOS default.
 ///
 /// Returns:
 ///  * the progress indicator object
 ///
 /// Notes:
 ///  * This method is not based upon the methods inherent in the NSProgressIndicator Objective-C class, but rather on code found at http://stackoverflow.com/a/32396595 utilizing a CIFilter object to adjust the view's output.
-///  * Because the filter must be applied differently depending upon the progress indicator style, make sure to invoke this method *after* [hs._asm.guitk.element.progress:circular](#circular).
-static int progress_setCustomColor(lua_State *L) {
+///  * When a color is applied to a bar indicator, the visible pulsing of the bar is no longer visible; this is a side effect of applying the filter to the view and no workaround is currently known.
+static int progress_customColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
 
-    NSColor *theColor = [[skin luaObjectAtIndex:2 toClass:"NSColor"] colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
-    if (theColor) {
-        [progress setCustomColor:theColor] ;
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:progress.customColor] ;
     } else {
-        return luaL_error(L, "color must be expressible as RGB") ;
+        if (lua_type(L, 2) == LUA_TNIL) {
+            progress.customColor = nil ;
+        } else {
+            NSColor *theColor = [[skin luaObjectAtIndex:2 toClass:"NSColor"] colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+            if (theColor) {
+                [progress setCustomColor:theColor] ;
+            } else {
+                return luaL_error(L, "color must be expressible in the RGB color space") ;
+            }
+        }
+        lua_pushvalue(L, 1) ;
     }
-    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
@@ -605,7 +617,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"increment",          progress_increment},
     {"indicatorSize",      progress_controlSize},
     {"tint",               progress_controlTint},
-    {"color",              progress_setCustomColor},
+    {"color",              progress_customColor},
 
     {"_nextResponder",     progress__nextResponder},
 
@@ -649,10 +661,9 @@ int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
         @"value",
         @"min",
         @"max",
-        @"increment",
         @"indicatorSize",
         @"tint",
-//         @"color",
+        @"color",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
     lua_pop(L, 1) ;

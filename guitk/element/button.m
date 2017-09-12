@@ -341,14 +341,15 @@ static int button_title(lua_State *L) {
 
     if (lua_gettop(L) == 1) {
         NSString *title = button.title ;
-        [skin pushNSObject:(([title isEqualToString:@""]) ? [button.attributedTitle string] : title)] ;
+        [skin pushNSObject:([title isEqualToString:@""] ? button.attributedTitle : title)] ;
     } else {
-        if (lua_type(L, 2) == LUA_TUSERDATA && luaL_testudata(L, 2, "hs.styledtext")) {
+        if (lua_type(L, 2) == LUA_TUSERDATA) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
+            button.title = @"" ;
             button.attributedTitle = [skin toNSObjectAtIndex:2] ;
         } else {
-            luaL_tolstring(L, 2, NULL) ;
-            button.title = [skin toNSObjectAtIndex:-1] ;
-            lua_pop(L, 1) ;
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+            button.title = [skin toNSObjectAtIndex:2] ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -364,12 +365,13 @@ static int button_alternateTitle(lua_State *L) {
         NSString *alternateTitle = button.alternateTitle ;
         [skin pushNSObject:(([alternateTitle isEqualToString:@""]) ? [button.attributedAlternateTitle string] : alternateTitle)] ;
     } else {
-        if (lua_type(L, 2) == LUA_TUSERDATA && luaL_testudata(L, 2, "hs.styledtext")) {
+        if (lua_type(L, 2) == LUA_TUSERDATA) {
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
+            button.alternateTitle = @"" ;
             button.attributedAlternateTitle = [skin toNSObjectAtIndex:2] ;
         } else {
-            luaL_tolstring(L, 2, NULL) ;
-            button.alternateTitle = [skin toNSObjectAtIndex:-1] ;
-            lua_pop(L, 1) ;
+            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
+            button.alternateTitle = [skin toNSObjectAtIndex:2] ;
         }
         lua_pushvalue(L, 1) ;
     }

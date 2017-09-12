@@ -2,9 +2,14 @@
 // *  size to fit when manager is not contentView of a window
 // *    override fittingSize for HSASMGUITKManager
 // ?    optionally recurse through subviews also sizing to fit
-//    additional functions/methods to line up groups of items
 // +  item metatable methods to edit like tables
+//    additional functions/methods to line up groups of items (a way to treat them as a group or is nesting managers sufficient for this?)
 //    add replaceSubview and insert so manager metatables methods can create/replace/remove items
+//    need more placement options, possible rewrite of add for additional placement/arrangement argument(s)
+//      nextTo
+//      above/below
+//      padding
+//    check into assigning a manager to itself... will likely crash (but I'm curious), so make sure to prevent it
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -204,6 +209,20 @@ static int manager_addElement(lua_State *L) {
     NSPoint newOrigin ;
     if ((lua_gettop(L) == 3) && (lua_type(L, 3)) == LUA_TTABLE) {
         newOrigin = [skin tableToPointAtIndex:3] ;
+        BOOL hasSize = NO ;
+        CGFloat h = 0.0 ;
+        CGFloat w = 0.0 ;
+        if (lua_getfield(L, 3, "h") == LUA_TNUMBER) {
+            hasSize = YES ;
+            h = lua_tonumber(L, -1) ;
+        }
+        lua_pop(L, 1) ;
+        if (lua_getfield(L, 3, "w") == LUA_TNUMBER) {
+            hasSize = YES ;
+            w = lua_tonumber(L, -1) ;
+        }
+        lua_pop(L, 1) ;
+        if (hasSize) [item setFrameSize:NSMakeSize(w, h)] ;
     } else {
         NSRect lastItemFrame = manager.subviews.lastObject.frame ;
         newOrigin = NSMakePoint(lastItemFrame.origin.x, lastItemFrame.origin.y + lastItemFrame.size.height + 1) ;

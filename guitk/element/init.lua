@@ -5,6 +5,10 @@
 local USERDATA_TAG = "hs._asm.guitk.element"
 local module       = {}
 
+require("hs.drawing.color")
+require("hs.image")
+require("hs.styledtext")
+
 local fnutils = require("hs.fnutils")
 local inspect = require("hs.inspect")
 

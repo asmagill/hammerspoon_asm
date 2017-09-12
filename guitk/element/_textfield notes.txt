@@ -1,0 +1,22 @@
+NSTextField
+
+//       - (BOOL)textShouldBeginEditing:(NSText *)textObject;
+//       - (BOOL)textShouldEndEditing:(NSText *)textObject;
+//       - (void)selectText:(id)sender;
+//       - (void)textDidBeginEditing:(NSNotification *)notification;
+//       - (void)textDidChange:(NSNotification *)notification;
+//       - (void)textDidEndEditing:(NSNotification *)notification;
+
+NSTextFieldDelegate
+
+      - (BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)fieldEditor;
+      - (BOOL)control:(NSControl *)control textShouldEndEditing:(NSText *)fieldEditor;
+
+10.12 - (NSArray<NSTextCheckingResult *> *)textField:(NSTextField *)textField textView:(NSTextView *)textView candidates:(NSArray<NSTextCheckingResult *> *)candidates forSelectedRange:(NSRange)selectedRange;
+10.12 - (NSArray *)textField:(NSTextField *)textField textView:(NSTextView *)textView candidatesForSelectedRange:(NSRange)selectedRange;
+10.12 - (BOOL)textField:(NSTextField *)textField textView:(NSTextView *)textView shouldSelectCandidateAtIndex:(NSUInteger)index;
+      - (BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error;
+      - (BOOL)control:(NSControl *)control isValidObject:(id)obj;
+      - (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector;
+      - (NSArray<NSString *> *)control:(NSControl *)control textView:(NSTextView *)textView completions:(NSArray<NSString *> *)words forPartialWordRange:(NSRange)charRange indexOfSelectedItem:(NSInteger *)index;
+      - (void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error;
