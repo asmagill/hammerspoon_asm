@@ -80,7 +80,26 @@ static int refTable = LUA_NOREF;
         [NSBezierPath setDefaultLineWidth:2.0] ;
         [_frameDebugColor setStroke] ;
         [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
-            [NSBezierPath strokeRect:view.frame] ;
+            NSRect frame = view.frame ;
+            // comparing floats is problematic, but for our purposes, if size or width are less than half a point, then the view has no height or width
+            if ((frame.size.height < 0.5) || (frame.size.width < 0.5)) {
+                NSPoint topLeft = NSMakePoint(frame.origin.x, frame.origin.y) ;
+                NSPoint btRight = NSMakePoint(frame.origin.x + frame.size.width, frame.origin.y + frame.size.height) ;
+            // comparing floats is problematic, but for our purposes, if the difference is less than this component has no visible difference
+                if (btRight.x - topLeft.x < 0.5) {
+                    topLeft.x -= 5 ;
+                    btRight.x += 5 ;
+                }
+            // comparing floats is problematic, but for our purposes, if the difference is less than this component has no visible difference
+                if (btRight.y - topLeft.y < 0.5) {
+                    topLeft.y -= 5 ;
+                    btRight.y += 5 ;
+                }
+                [NSBezierPath strokeLineFromPoint:topLeft toPoint:btRight] ;
+                [NSBezierPath strokeLineFromPoint:NSMakePoint(topLeft.x, btRight.y) toPoint:NSMakePoint(btRight.x, topLeft.y)] ;
+            } else {
+                [NSBezierPath strokeRect:view.frame] ;
+            }
         }] ;
         [gc restoreGraphicsState];
         NSEnableScreenUpdates() ;
@@ -411,6 +430,24 @@ static int manager__nextResponder(lua_State *L) {
     return 1 ;
 }
 
+static int manager_toolTip(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:manager.toolTip] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            manager.toolTip = nil ;
+        } else {
+            manager.toolTip = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -498,6 +535,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"sizeToFit",           manager_sizeToFit},
     {"elementFittingSize",  manager_elementFittingSize},
     {"autosizeElements",    manager_autosizeElements},
+    {"tooltip",             manager_toolTip},
 
     {"_debugFrames",        manager_highlightFrames},
     {"_nextResponder",      manager__nextResponder},

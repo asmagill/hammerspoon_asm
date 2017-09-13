@@ -48,6 +48,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         contentRect = RectWithFlippedYCoordinate(contentRect) ;
         [self setFrameOrigin:contentRect.origin] ;
 
+        self.autorecalculatesKeyViewLoop = YES ;
         self.releasedWhenClosed = NO ;
         self.ignoresMouseEvents = NO ;
         self.restorable         = NO ;
@@ -980,6 +981,39 @@ static int window_passthroughCallback(lua_State *L) {
     return 1 ;
 }
 
+static int window_firstResponder(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+    // some views use internally created subviews that we don't care about or don't have a userdata type for, so this hack until I can come up
+    // with something cleaner...
+        NSResponder *trying = window.firstResponder ;
+        [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
+        while (trying && (lua_type(L, -1) == LUA_TSTRING)) {
+            lua_pop(L, 1) ;
+            trying = trying.nextResponder ;
+            [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
+        }
+        if (!trying) {
+            lua_pop(L, 1) ;
+            lua_pushnil(L) ;
+        }
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            lua_pushboolean(L, [window makeFirstResponder:nil]) ;
+        } else {
+            NSView *view = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+            if (!view || ![view isKindOfClass:[NSView class]]) {
+                return luaL_argerror(L, 2, "expected userdata representing a gui content manager or gui element (NSView subclass)") ;
+            }
+            lua_pushboolean(L, [window makeFirstResponder:view]) ;
+        }
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 /// hs._asm.guitk.windowBehaviors[]
@@ -1253,6 +1287,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"titleVisibility",            window_titleVisibility},
     {"contentManager",             window_contentView},
     {"passthroughCallback",        window_passthroughCallback},
+    {"activeElement",              window_firstResponder},
 
     {"appearance",                 appearanceCustomization_appearance},
 

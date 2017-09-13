@@ -525,6 +525,24 @@ static int progress_customColor(lua_State *L) {
     return 1 ;
 }
 
+static int progress_toolTip(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:progress.toolTip] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            progress.toolTip = nil ;
+        } else {
+            progress.toolTip = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -618,6 +636,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"indicatorSize",      progress_controlSize},
     {"tint",               progress_controlTint},
     {"color",              progress_customColor},
+    {"tooltip",            progress_toolTip},
 
     {"_nextResponder",     progress__nextResponder},
 
@@ -664,6 +683,7 @@ int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
         @"indicatorSize",
         @"tint",
         @"color",
+        @"tooltip",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
     lua_pop(L, 1) ;

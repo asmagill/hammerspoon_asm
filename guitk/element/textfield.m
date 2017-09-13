@@ -21,6 +21,7 @@ static int refTable = LUA_NOREF;
 
 @interface HSASMGUITKElementTextField : NSTextField <NSTextFieldDelegate>
 @property int callbackRef ;
+@property int editingCallbackRef ;
 @property int selfRefCount ;
 @end
 
@@ -29,68 +30,122 @@ static int refTable = LUA_NOREF;
 - (instancetype)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect] ;
     if (self) {
-        _callbackRef  = LUA_NOREF ;
-        _selfRefCount = 0 ;
-
-        self.delegate = self ;
+        _selfRefCount       = 0 ;
+        _callbackRef        = LUA_NOREF ;
+        _editingCallbackRef = LUA_NOREF ;
+        self.delegate       = self ;
+//         self.target         = self ;
+//         self.action         = @selector(targetAction:) ;
     }
     return self ;
 }
 
-// - (void)performCallback:(NSButton *)button {
-//     NSNumber *state  = @(button.state) ;
-//     NSArray  *temp   = [BUTTON_STATES allKeysForObject:state];
-//     NSString *answer = [temp firstObject] ;
-//     if (!answer) answer = [NSString stringWithFormat:@"unrecognized button state %@", state] ;
-//
-//     if (_callbackRef != LUA_NOREF) {
-//         LuaSkin *skin = [LuaSkin shared] ;
-//         [skin pushLuaRef:refTable ref:_callbackRef] ;
-//         [skin pushNSObject:button] ;
-//         [skin pushNSObject:answer] ;
-//         if (![skin protectedCallAndTraceback:2 nresults:0]) {
-//             NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
-//             lua_pop(skin.L, 1) ;
-//             [skin logError:[NSString stringWithFormat:@"%s:callback error:%@", USERDATA_TAG, errorMessage]] ;
-//         }
-//     } else {
-//         // allow next responder a chance since we don't have a callback set
-//         id nextInChain = [self nextResponder] ;
-//         if (nextInChain) {
-//             SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-//             if ([nextInChain respondsToSelector:passthroughCallback]) {
-//                 [nextInChain performSelectorOnMainThread:passthroughCallback
-//                                               withObject:@[ button, answer ]
-//                                            waitUntilDone:YES] ;
-//             }
-//         }
-//     }
-// }
+- (void)performCallback:(id)message {
+    NSArray *arguments = @[] ;
+    if (message) {
+        if ([message isKindOfClass:[NSArray class]]) {
+            arguments = message ;
+        } else {
+            arguments = @[ message ] ;
+        }
+    }
+
+    if (_callbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        [skin pushLuaRef:refTable ref:_callbackRef] ;
+        [skin pushNSObject:self] ;
+        int argumentCount = 1 ;
+        for (id object in arguments) [skin pushNSObject:object] ;
+        argumentCount += arguments.count ;
+        if (![skin protectedCallAndTraceback:argumentCount nresults:0]) {
+            NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+            lua_pop(skin.L, 1) ;
+            [skin logError:[NSString stringWithFormat:@"%s:callback(%@) error:%@", USERDATA_TAG, message, errorMessage]] ;
+        }
+    } else {
+        // allow next responder a chance since we don't have a callback set
+        id nextInChain = [self nextResponder] ;
+        if (nextInChain) {
+            SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
+            if ([nextInChain respondsToSelector:passthroughCallback]) {
+                NSMutableArray *passThroughArguments = [arguments mutableCopy] ;
+                [passThroughArguments insertObject:self atIndex:0] ;
+                [nextInChain performSelectorOnMainThread:passthroughCallback
+                                              withObject:passThroughArguments
+                                           waitUntilDone:YES] ;
+            }
+        }
+    }
+}
+
+- (BOOL)performEditingCallback:(id)message withDefault:(BOOL)defaultResult {
+    BOOL result = defaultResult ;
+
+    if (_editingCallbackRef != LUA_NOREF) {
+        NSArray *arguments = @[] ;
+        if (message) {
+            if ([message isKindOfClass:[NSArray class]]) {
+                arguments = message ;
+            } else {
+                arguments = @[ message ] ;
+            }
+        }
+        LuaSkin   *skin = [LuaSkin shared] ;
+        lua_State *L    = skin.L ;
+        [skin pushLuaRef:refTable ref:_editingCallbackRef] ;
+        [skin pushNSObject:self] ;
+        int argumentCount = 2 ; // self + the boolean that will follow the other arguments
+        for (id object in arguments) [skin pushNSObject:object] ;
+        argumentCount += arguments.count ;
+        lua_pushboolean(L, defaultResult) ;
+        if ([skin protectedCallAndTraceback:argumentCount nresults:1]) {
+            if (lua_type(L, -1) != LUA_TNIL) result = (BOOL)lua_toboolean(L, -1) ;
+        } else {
+            NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+            [skin logError:[NSString stringWithFormat:@"%s:editingCallback(%@) error:%@", USERDATA_TAG, message, errorMessage]] ;
+        }
+        lua_pop(L, 1) ;
+    }
+    return result ;
+
+}
 
 - (BOOL)textShouldBeginEditing:(NSText *)textObject {
-    BOOL result = [super textShouldBeginEditing:textObject] ;
-    // check for callback to verify value
-    return result ;
+    return [self performEditingCallback:@"shouldBeginEditing" withDefault:[super textShouldBeginEditing:textObject]] ;
 }
 
 - (BOOL)textShouldEndEditing:(NSText *)textObject {
-    BOOL result = [super textShouldEndEditing:textObject] ;
-    // check for callback to verify value
-    return result ;
+    return [self performEditingCallback:@"shouldEndEditing" withDefault:[super textShouldEndEditing:textObject]] ;
 }
 
 #pragma mark * NSTextFieldDelegate methods
 
 - (void)controlTextDidBeginEditing:(__unused NSNotification *)aNotification {
-    // do callback
+//     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidBeginEditing - %@", USERDATA_TAG, aNotification]] ;
+    [self performCallback:@"didBeginEditing"] ;
 }
 
 - (void)controlTextDidChange:(__unused NSNotification *)aNotification {
-    // do callback
+//     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidChange - %@", USERDATA_TAG, aNotification]] ;
+    [self performCallback:@"textChanged"] ;
 }
 
-- (void)controlTextDidEndEditing:(__unused NSNotification *)aNotification {
-    // do callback
+- (void)controlTextDidEndEditing:(NSNotification *)aNotification {
+//     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidEndEditing - %@", USERDATA_TAG, aNotification]] ;
+    NSNumber   *reasonCodeNumber = aNotification.userInfo[@"NSTextMovement"] ;
+    NSUInteger reasonCode        = reasonCodeNumber ? reasonCodeNumber.unsignedIntValue : NSOtherTextMovement ;
+    NSString   *reason           = [NSString stringWithFormat:@"unknown reasonCode:%lu", reasonCode] ;
+    if (reasonCode == NSOtherTextMovement)   reason = @"other" ; // also NSIllegalTextMovement which is marked as currently unused
+    if (reasonCode == NSTabTextMovement)     reason = @"tab" ;
+    if (reasonCode == NSBacktabTextMovement) reason = @"shiftTab" ;
+// not sure if these are valid movement codes for textfield; haven't found a way to make them do anything yet
+    if (reasonCode == NSReturnTextMovement)  reason = @"return" ;
+    if (reasonCode == NSCancelTextMovement)  reason = @"cancel" ;
+    if (reasonCode == NSLeftTextMovement)    reason = @"left" ;
+    if (reasonCode == NSRightTextMovement)   reason = @"right" ;
+    if (reasonCode == NSUpTextMovement)      reason = @"up" ;
+    if (reasonCode == NSDownTextMovement)    reason = @"down" ;
+    [self performCallback:@[ @"didEndEditing", reason]] ;
 }
 
 // - (NSArray<NSTextCheckingResult *> *)textField:(NSTextField *)textField textView:(NSTextView *)textView candidates:(NSArray<NSTextCheckingResult *> *)candidates forSelectedRange:(NSRange)selectedRange;
@@ -198,6 +253,50 @@ static int textfield__nextResponder(lua_State *L) {
         [skin pushNSObject:textfield.nextResponder] ;
     } else {
         lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int textfield_callback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        textfield.callbackRef = [skin luaUnref:refTable ref:textfield.callbackRef] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            textfield.callbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (textfield.callbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:textfield.callbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
+
+static int textfield_editingCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        textfield.editingCallbackRef = [skin luaUnref:refTable ref:textfield.editingCallbackRef] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            textfield.editingCallbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (textfield.editingCallbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:textfield.editingCallbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
     }
     return 1 ;
 }
@@ -401,6 +500,24 @@ static int textfield_selectable(lua_State *L) {
     return 1 ;
 }
 
+static int textfield_toolTip(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:textfield.toolTip] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            textfield.toolTip = nil ;
+        } else {
+            textfield.toolTip = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int textfield_stringValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -596,7 +713,8 @@ static int userdata_gc(lua_State* L) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
-            obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
+            obj.callbackRef        = [skin luaUnref:refTable ref:obj.callbackRef] ;
+            obj.editingCallbackRef = [skin luaUnref:refTable ref:obj.editingCallbackRef] ;
 
             obj.delegate = nil ;
             obj = nil ;
@@ -628,6 +746,9 @@ static const luaL_Reg userdata_metaLib[] = {
     {"selectable",              textfield_selectable},
     {"value",                   textfield_stringValue},
     {"selectAll",               textfield_selectText},
+    {"callback",                textfield_callback},
+    {"editingCallback",         textfield_editingCallback},
+    {"tooltip",                 textfield_toolTip},
 
     {"allowsCharacterPicker",   textfield_allowsCharacterPickerTouchBarItem},
     {"tighteningForTruncation", textfield_allowsDefaultTighteningForTruncation},
@@ -684,6 +805,9 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         @"editable",
         @"selectable",
         @"value",
+        @"tooltip",
+        @"callback",
+        @"editingCallback",
     ]] ;
     if ([NSTextField instancesRespondToSelector:NSSelectorFromString(@"allowsCharacterPickerTouchBarItem")]) {
         lua_pushstring(L, "allowsCharacterPicker") ;

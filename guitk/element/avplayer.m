@@ -453,22 +453,24 @@ static int avplayer_pauseWhenHidden(lua_State *L) {
 ///    * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)
 static int avplayer_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
-                    LS_TFUNCTION | LS_TNIL,
-                    LS_TBREAK] ;
-
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
 
-    // We're either removing a callback, or setting a new one. Either way, remove existing.
-    playerView.callbackRef = [skin luaUnref:refTable ref:playerView.callbackRef];
-
-    if (lua_type(L, 2) == LUA_TFUNCTION) {
-        lua_pushvalue(L, 2);
-        playerView.callbackRef = [skin luaRef:refTable] ;
+    if (lua_gettop(L) == 2) {
+        playerView.callbackRef = [skin luaUnref:refTable ref:playerView.callbackRef];
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2);
+            playerView.callbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (playerView.callbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:playerView.callbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
     }
-
-    lua_pushvalue(L, 1);
-    return 1;
+    return 1 ;
 }
 
 // /// hs._asm.guitk.element.avplayer:actionMenu(menutable | nil) -> avplayerObject
@@ -1241,6 +1243,24 @@ static int avplayer__nextResponder(lua_State *L) {
     return 1 ;
 }
 
+static int avplayer_toolTip(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:playerView.toolTip] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            playerView.toolTip = nil ;
+        } else {
+            playerView.toolTip = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -1361,6 +1381,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"fullScreenButton",       avplayer_showsFullScreenToggleButton},
     {"allowsExternalPlayback", avplayer_allowsExternalPlayback},
     {"externalPlaybackActive", avplayer_externalPlaybackActive},
+    {"tooltip",                avplayer_toolTip},
 
     {"_nextResponder",         avplayer__nextResponder},
 
@@ -1409,6 +1430,8 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
         @"trackCompleted",
         @"trackStatus",
         @"fullScreenButton",
+        @"tooltip",
+        @"callback",
     ]] ;
     if ([AVPlayer instancesRespondToSelector:NSSelectorFromString(@"allowExternalPlayback")]) {
         lua_pushstring(L, "allowExternalPlayback") ;

@@ -714,6 +714,24 @@ static int button__nextResponder(lua_State *L) {
     return 1 ;
 }
 
+static int button_toolTip(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        [skin pushNSObject:button.toolTip] ;
+    } else {
+        if (lua_type(L, 2) == LUA_TNIL) {
+            button.toolTip = nil ;
+        } else {
+            button.toolTip = [skin toNSObjectAtIndex:2] ;
+        }
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -807,6 +825,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"maxAcceleratorLevel", button_maxAcceleratorLevel},
     {"periodicDelay",       button_periodicDelay},
     {"enabled",             button_enabled},
+    {"tooltip",             button_toolTip},
 
     {"_nextResponder",      button__nextResponder},
 
@@ -864,6 +883,8 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         @"periodicDelay",
         @"highlight",
         @"enabled",
+        @"tooltip",
+        @"callback",
     ]] ;
     if ([NSButton instancesRespondToSelector:NSSelectorFromString(@"maxAcceleratorLevel")]) {
         lua_pushstring(L, "maxAcceleratorLevel") ;
