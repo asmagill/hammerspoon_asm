@@ -5,6 +5,7 @@
 //   ?
 
 @import Cocoa ;
+@import Carbon ;
 @import LuaSkin ;
 
 static const char * const USERDATA_TAG = "hs._asm.guitk.element.textfield" ;
@@ -116,6 +117,27 @@ static int refTable = LUA_NOREF;
 
 - (BOOL)textShouldEndEditing:(NSText *)textObject {
     return [self performEditingCallback:@"shouldEndEditing" withDefault:[super textShouldEndEditing:textObject]] ;
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent *)event {
+    unsigned short       keyCode       = event.keyCode ;
+//     NSEventModifierFlags modifierFlags = event.modifierFlags & NSDeviceIndependentModifierFlagsMask ;
+//     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:performKeyEquivalent - key:%3d, mods:0x%08lx %@", USERDATA_TAG, keyCode, (unsigned long)modifierFlags, event]] ;
+
+    if ((keyCode == kVK_Return)     && [self performEditingCallback:@[ @"keyPress", @"return" ] withDefault:NO]) return YES ;
+    if ((keyCode == kVK_LeftArrow)  && [self performEditingCallback:@[ @"keyPress", @"left"   ] withDefault:NO]) return YES ;
+    if ((keyCode == kVK_RightArrow) && [self performEditingCallback:@[ @"keyPress", @"right"  ] withDefault:NO]) return YES ;
+    if ((keyCode == kVK_DownArrow)  && [self performEditingCallback:@[ @"keyPress", @"down"   ] withDefault:NO]) return YES ;
+    if ((keyCode == kVK_UpArrow)    && [self performEditingCallback:@[ @"keyPress", @"up"     ] withDefault:NO]) return YES ;
+
+    return [super performKeyEquivalent:event] ;
+}
+
+- (void)cancelOperation:(__unused id)sender {
+    // calling super with this crashes, so return value doesn't really matter unless we decide to implement something here...
+    // I considered allowing escape to "undo" the types input, but realized this can just as easily be done by the lua callbac
+    // so not sure what else we might add here.
+    [self performEditingCallback:@[ @"keyPress", @"escape" ] withDefault:NO] ;
 }
 
 #pragma mark * NSTextFieldDelegate methods
