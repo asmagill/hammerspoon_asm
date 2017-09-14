@@ -135,12 +135,10 @@ static int refTable = LUA_NOREF;
 
 - (void)cancelOperation:(__unused id)sender {
     // calling super with this crashes, so return value doesn't really matter unless we decide to implement something here...
-    // I considered allowing escape to "undo" the types input, but realized this can just as easily be done by the lua callbac
+    // I considered allowing escape to "undo" the types input, but realized this can just as easily be done by the lua callback
     // so not sure what else we might add here.
     [self performEditingCallback:@[ @"keyPress", @"escape" ] withDefault:NO] ;
 }
-
-#pragma mark * NSTextFieldDelegate methods
 
 - (void)controlTextDidBeginEditing:(__unused NSNotification *)aNotification {
 //     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidBeginEditing - %@", USERDATA_TAG, aNotification]] ;
@@ -169,15 +167,6 @@ static int refTable = LUA_NOREF;
     if (reasonCode == NSDownTextMovement)    reason = @"down" ;
     [self performCallback:@[ @"didEndEditing", reason]] ;
 }
-
-// - (NSArray<NSTextCheckingResult *> *)textField:(NSTextField *)textField textView:(NSTextView *)textView candidates:(NSArray<NSTextCheckingResult *> *)candidates forSelectedRange:(NSRange)selectedRange;
-// - (NSArray *)textField:(NSTextField *)textField textView:(NSTextView *)textView candidatesForSelectedRange:(NSRange)selectedRange;
-// - (BOOL)textField:(NSTextField *)textField textView:(NSTextView *)textView shouldSelectCandidateAtIndex:(NSUInteger)index;
-// - (BOOL)control:(NSControl *)control didFailToFormatString:(NSString *)string errorDescription:(NSString *)error;
-// - (BOOL)control:(NSControl *)control isValidObject:(id)obj;
-// - (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector;
-// - (NSArray<NSString *> *)control:(NSControl *)control textView:(NSTextView *)textView completions:(NSArray<NSString *> *)words forPartialWordRange:(NSRange)charRange indexOfSelectedItem:(NSInteger *)index;
-// - (void)control:(NSControl *)control didFailToValidatePartialString:(NSString *)string errorDescription:(NSString *)error;
 
 @end
 
