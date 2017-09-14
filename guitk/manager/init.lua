@@ -122,8 +122,8 @@ managerMT.elementProperties = function(self, item, ...)
                 for i,v in ipairs(propertiesList) do results[v] = item[v](item) end
             end
             results["location"] = self:elementLocation(item)
-            results.__self = item
-            results.__type = getmetatable(item).__type
+            results.__item        = item
+            results.__type        = getmetatable(item).__type
             results.__fittingSize = self:elementFittingSize(item)
             return setmetatable(results, { __tostring = function(o) return dump_table(o) end })
         else
