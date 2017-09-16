@@ -1,0 +1,14 @@
+Notes re what the manager needs to be able to do:
+
+    add table containing manager properties for each element
+        minimumSize = { h =, w = } - if not set, use fittingSize where provided
+        center = { x =, y = }      - allow percentages like canvas
+        others?
+
+    insert element - to specify order of selectable controls
+
+    need a way to adjust frame where missing elements don't change
+                                     missing elements are set to fitting/minimum
+
+    need a way to add in specific direction from a given element (currently defaults to underneath)
+

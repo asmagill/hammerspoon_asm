@@ -658,7 +658,6 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-// NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
