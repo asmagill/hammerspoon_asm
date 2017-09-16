@@ -1,14 +1,59 @@
 Notes re what the manager needs to be able to do:
 
-    add table containing manager properties for each element
-        minimumSize = { h =, w = } - if not set, use fittingSize where provided
-        center = { x =, y = }      - allow percentages like canvas
-        others?
+add to element properties table {
+    -- setting one adjusts the other
+    -- if not specified when added, assume topLeft
+    -- when adjusting, only need to specify changing field -- missing remains unchanged
+    -- may be number or percentage string; if setting one to a percentage, forces other to number
+    center = { x =, y = }
+    topLeft = { x=, y = }
 
-    insert element - to specify order of selectable controls
+    -- need only specify which should be constrained; missing comes from fittingSize if available
+    -- when adjusting, set to false to switch back to fittingSize
+    -- may be number or percentage string
+    size = { h=, w= }
 
-    need a way to adjust frame where missing elements don't change
-                                     missing elements are set to fitting/minimum
+    identifier = "string" -- alternative to # when accessing as array
+}
 
-    need a way to add in specific direction from a given element (currently defaults to underneath)
+add methods for moving -- moves element1 relative to element2 and adjusts position (not size), does not change order or move others out of the way
+    mgr:above  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
+    mgr:below  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
+    mgr:leftOf (element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
+    mgr:rightOf(element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
+      -- padding = padding between element1 and element2 (so vertical padding for above/below, horizontal for left/right), positive further apart, negative overlaps
 
+mgr:autoadjust(element) -- readjust to fitting size in case content changed, also adjust position if as percentage
+
+mgr:insert(element, [frame/position/size], [pos]) -- default #mgr + 1 (replace add?)
+
+When adding/inserting, frame field options (absent x,y and cX,cY assume :bottom(lastElement, 0, "flushLeft")):
+{
+    x=, y=   -- topLeft
+    cX=, cY= -- centered position -- x,y or cX,cY, not both allowed
+    h=       -- if missing use fittingSize -- warn if fittingSize 0
+    w=       -- if missing use fittingSize -- warn if fittingSize 0
+}
+
+mgr:move(element, frame, [delta])
+  -- frame is above table with =false for h,w to switch it back to fittingSize; adjust only those properties provided, others unchanged
+  -- delta boolean, default false, specifying settings are an adjustment rather than a replacement for the fields given
+
+
+wrappedElementMT, add to __index so unrecognized keys are checked against methods and returned as functions if found
+    add above, below, leftOf, rightOf, autoadjust, move as well
+    a, b, l, r should be further wrapped so array as element2 looks for __item key (as per properties table of wrapped result)
+    Add to metatable for hs._asm.guitk.element.* as well?
+        e.g. "psudeo" methods (e.g. element1:above(element2, ...) --> element1:_nextResponder():above(element1, element2, ...))
+        how does that affect other future managers? unless other managers are a superset of this one?
+
+managerMT, add to __index result so can use identifier as well as index position
+
+-- # must be [1, #mgr + 1]
+mgr[#] = hs._asm.guitk.element.type.new...(...)
+mgr[#] = {
+    __item = hs.asm.guitk.element.type.new...(...), -- required else error
+    ... additional properties set after constructor returns ...
+}
+
+mgr[#] = nil -- removes, # must be [1, #mgr]
