@@ -22,6 +22,7 @@ static int refTable = LUA_NOREF;
 
 // static int push<moduleType>(lua_State *L, id obj) {
 //     <moduleType> *value = obj;
+//     value.selfRefCount++ ;
 //     void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
 //     *valuePtr = (__bridge_retained void *)value;
 //     luaL_getmetatable(L, USERDATA_TAG);
@@ -67,7 +68,12 @@ static int refTable = LUA_NOREF;
 
 // static int userdata_gc(lua_State* L) {
 //     <moduleType> *obj = get_objectFromUserdata(__bridge_transfer <moduleType>, L, 1, USERDATA_TAG) ;
-//     if (obj) obj = nil ;
+//     if (obj) {
+//         obj.selfRefCount-- ;
+//         if (obj.selfRefCount == 0) {
+//             obj = nil ;
+//         }
+//     }
 //     // Remove the Metatable so future use of the variable in Lua won't think its valid
 //     lua_pushnil(L) ;
 //     lua_setmetatable(L, 1) ;
