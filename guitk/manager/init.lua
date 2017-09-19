@@ -9,181 +9,199 @@ local managerMT    = hs.getObjectMetatable(USERDATA_TAG)
 local fnutils = require("hs.fnutils")
 local inspect = require("hs.inspect")
 
--- in case I ever get the specialized managers working
-local metatables = {}
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
     basePath = basePath:match("^(.+)/init.lua$")
-    local fs = require("hs.fs")
-    for file in fs.dir(basePath) do
-        if file:match("%.so$") then
-            local name = file:match("^(.*)%.so$")
-            if name ~= "internal" then
-                module[name] = require(USERDATA_TAG .. "." .. name)
-                metatables[name] = hs.getObjectMetatable(USERDATA_TAG .. "." .. name)
-            end
-        end
-    end
-
-    if fs.attributes(basePath .. "/docs.json") then
+    if require"hs.fs".attributes(basePath .. "/docs.json") then
         require"hs.doc".registerJSONFile(basePath .. "/docs.json")
     end
-else
-    return error("unable to determine basepath for " .. USERDATA_TAG, 2)
 end
 
 local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
 -- private variables and methods -----------------------------------------
 
--- can't use inspect directly because the tables are dynamically generated
-local dump_table = function(value)
-    local keyWidth = 0
-    for k,v in pairs(value) do
-        local currentWidth = #tostring(k)
-        if type(k) == "number" then currentWidth = currentWidth + 2 end
-        if currentWidth > keyWidth then keyWidth = currentWidth end
-    end
-    local result = "{\n"
-    for k,v in fnutils.sortByKeys(value) do
-        local displayValue = v
-        if type(v) == "table" then
-            displayValue = (inspect(v):gsub("%s+", " "))
-        elseif type(v) == "string" then
-            displayValue = "\"" .. v .. "\""
-        end
-        local displayKey = k
-        if type(k) == "number" then
-            displayKey = "[" .. tostring(k) .. "]"
-        end
-        result = result .. string.format("  %-" .. tostring(keyWidth) .. "s = %s,\n", tostring(displayKey), tostring(displayValue))
-    end
-    result = result .. "}"
-    return result
-end
-
 local wrappedElementMT = {
     __e = setmetatable({}, { __mode = "k" })
 }
 
-wrappedElementMT.__index = function(_, key)
-    local obj = wrappedElementMT.__e[_]
-    local properties = obj.manager:elementProperties(obj.item)
-    return properties[key]
-end
-
-wrappedElementMT.__newindex = function(_, key, value)
-    local obj = wrappedElementMT.__e[_]
-    obj.manager:elementProperties(obj.item, { [key] = value })
-end
-
-wrappedElementMT.__pairs = function(_)
-    local obj = wrappedElementMT.__e[_]
-    local propertiesList = getmetatable(obj.item)["_propertyList"] or {}
-    if #propertiesList > 0 then table.insert(propertiesList, "location") end
-
-    return function(__, k)
-        local nextK, v = table.remove(propertiesList), nil
-        if nextK then
-            if nextK == "location" then
-                v = obj.manager:elementLocation(obj.item)
-            else
-                v = obj.item[nextK](obj.item)
-            end
-        end
-        return k, v
-    end, _, nil
-
-end
-
--- wrappedElementMT.__len -- for now we don't have any elements that might act in an array like capacity
-
-wrappedElementMT.__tostring = function(_)
-    local obj = wrappedElementMT.__e[_]
-    local properties = obj.manager:elementProperties(obj.item)
-    return dump_table(properties)
-end
-
-local wrappedElementWithMT = function(manager, item)
+local wrappedElementWithMT = function(manager, element)
     local newItem = {}
-    wrappedElementMT.__e[newItem] = { manager = manager, item = item }
+    wrappedElementMT.__e[newItem] = { manager = manager, element = element }
     return setmetatable(newItem, wrappedElementMT)
 end
 
--- Public interface ------------------------------------------------------
+wrappedElementMT.__index = function(self, key)
+    local obj = wrappedElementMT.__e[self]
+    local manager, element = obj.manager, obj.element
 
-managerMT.elementProperties = function(self, item, ...)
-    local args = table.pack(...)
-    if args.n == 0 or (args.n == 1 and type(args[1]) == "table") then
-        if args.n == 0 then
-            local results = {}
-            local propertiesList = getmetatable(item)["_propertyList"]
-            if propertiesList then
-                for i,v in ipairs(propertiesList) do results[v] = item[v](item) end
-            end
-            results["location"] = self:elementLocation(item)
-            results.__item        = item
-            results.__type        = getmetatable(item).__type
-            results.__fittingSize = self:elementFittingSize(item)
-            return setmetatable(results, { __tostring = function(o) return dump_table(o) end })
-        else
-            local propertiesList = getmetatable(item)["_propertyList"]
-            if propertiesList then
-                for k,v in pairs(args[1]) do
-                    if k == "location" then
-                        self:elementLocation(item, v)
-                    elseif fnutils.contains(propertiesList, k) then
-                        item[k](item, v)
-                    else
-                        log.wf("%s property %s for element %s; ignoring", (k:match("^__") and "unsettable" or "invalid"), k, tostring(self))
-                    end
-                end
-            end
-            return self
-        end
+-- this key doesn't correspond to a method
+    if key == "_element" then
+        return element
+
+-- should be inherited through hs._asm.guitk.element init.lua's metamethods, but nsviews from other
+-- sources (e.g. canvas, webview, etc) don't get included through this mechanism yet
+    elseif key == "frameDetails" then
+        return manager:elementFrameDetails(element)
+    elseif key == "_fittingSize" then
+        return manager:elementFittingSize(element)
+
+-- convenience lookup
+    elseif key == "_type" then
+        return getmetatable(element).__type
+
+-- try property methods
+    elseif element[key] then
+        return element[key](element)
     else
-        error("expected table of properties for argument 2", 2)
+        return nil
     end
 end
 
--- pass through method requests that aren't defined for the manager to the guitk object itself
-managerMT.__core = managerMT.__index
+wrappedElementMT.__newindex = function(self, key, value)
+    local obj = wrappedElementMT.__e[self]
+    local manager, element = obj.manager, obj.element
+
+    if key == "_element" or key == "_type" or key == "_fittingSize" then
+        return error(key .. " cannot be modified", 2)
+    elseif key == "frameDetails" then
+        return manager:elementFrameDetails(element, value)
+    elseif element[key] then
+        element[key](element, value)
+    else
+        error(tostring(key) .. " unrecognized property", 2)
+    end
+end
+
+wrappedElementMT.__pairs = function(self)
+    local obj = wrappedElementMT.__e[self]
+    local manager, element = obj.manager, obj.element
+    local propertiesList = getmetatable(obj.element)["_propertyList"] or {}
+    local builtin = { "_element", "_fittingSize", "frameDetails", "_type" }
+    table.move(builtin, 1, #builtin, #propertiesList + 1, propertiesList)
+
+    return function(_, k)
+        local v = nil
+        k = table.remove(propertiesList)
+        if k then v = self[k] end
+        return k, v
+    end, self, nil
+end
+
+wrappedElementMT.__tostring = function(self)
+    local obj = wrappedElementMT.__e[self]
+    local manager, element = obj.manager, obj.element
+    return tostring(manager:elementPropertyList(element))
+end
+
+wrappedElementMT.__len = function(self) return 0 end
+
+-- Public interface ------------------------------------------------------
+
+managerMT.elementPropertyList = function(self, element, ...)
+    local results = {}
+    local propertiesList = getmetatable(element)["_propertyList"] or {}
+    for i,v in ipairs(propertiesList) do results[v] = element[v](element) end
+    results._element     = element
+    results.frameDetails = self:elementFrameDetails(element)
+    results._fittingSize = self:elementFittingSize(element)
+    results._type        = getmetatable(element).__type
+    return setmetatable(results, { __tostring = inspect })
+end
+
+managerMT.elementRemoveFromManager = function(self, element, ...)
+    local idx
+    for i,v in ipairs(self:elements()) do
+        if element == v then
+            idx = i
+            break
+        end
+    end
+    if idx then
+        return self:remove(idx, ...)
+    else
+        error("invalid element or element not managed by this content manager", 2)
+    end
+end
+
+managerMT.__call  = function(self, ...) return self:element(...) end
+managerMT.__len   = function(self) return #self:elements() end
+
+managerMT.__core  = managerMT.__index
 managerMT.__index = function(self, key)
     if managerMT.__core[key] then
         return managerMT.__core[key]
-    elseif math.type(key) == "integer" then
-        local elements = self:elements()
-        local item = elements[key]
-        if item then return wrappedElementWithMT(self, item) end
     else
-        local parentFN = self:_nextResponder()[key]
-        if parentFN then
-            return function(self, ...) return parentFN(self:_nextResponder(), ...) end
+        local element = self(key)
+        if element then
+            return wrappedElementWithMT(self, element)
+        end
+
+-- pass through method requests that aren't defined for the manager to the guitk object itself
+        if type(key) == "string" then
+            local parentObj = self:_nextResponder()
+            if parentObj then
+                local parentFN = parentObj[key]
+                if parentFN then
+                    return function(self, ...)
+                        local answer = parentFN(parentObj, ...)
+                        if answer == parentObj then
+                            return self
+                        else
+                            return answer
+                        end
+                    end
+                end
+            end
         end
     end
     return nil
 end
 
-managerMT.__len = function(self)
-    return #self:elements()
-end
-
--- in case I ever get the specialized managers working
-for k,v in pairs(metatables) do
-    if v._nextResponder then
-        v.__core = v.__index
-        v.__index = function(self, key)
-            if v.__core[key] then
-                return v.__core[key]
-            else
-                local parentFN = self:_nextResponder()[key]
-                if parentFN then
-                    return function(self, ...) return parentFN(self:_nextResponder(), ...) end
-                end
+managerMT.__newindex = function(self, key, value)
+    if type(value) == "nil" then
+        if type(key) == "string" or math.type(key) == "integer" then
+            local element = self(key)
+            if element then
+                return managerMT.elementRemoveFromManager(self, element)
             end
-            return nil
+        end
+        error("invalid identifier or index for element removal", 2)
+    else
+        if math.type(key) == "integer" then
+            if key < 1 or key > (#self + 1) then
+                error("replacement index out of bounds", 2)
+            end
+            if type(value) == "userdata" then value = { _element = value } end
+            if type(value) == "table" and pcall(self.elementFittingSize, self, value._element) then
+                local newElement = value._element
+                for k, v in pairs(value) do
+                    if k ~= "_element" and k ~= "frameDetails" then
+                        newElement[k](newElement, v)
+                    end
+                end
+                local oldElement = self:element(key)
+                if oldElement then self:remove(key) end
+                self:insert(newElement, value.frameDetails or {}, key)
+            else
+                error("replacement value does not specify an element", 2)
+            end
+        else
+            error("expected integer for element assignment", 2)
         end
     end
+end
+
+managerMT.__pairs = function(self)
+    local keys = {}
+    for i = #self, 1, -1 do table.insert(keys, i) end
+
+    return function(_, k)
+        local v = nil
+        k = table.remove(keys)
+        if k then v = self[k] end
+        return k, v
+    end, self, nil
 end
 
 -- Return Module Object --------------------------------------------------

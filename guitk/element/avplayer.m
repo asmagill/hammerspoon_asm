@@ -830,7 +830,7 @@ static int avplayer_trackProgress(lua_State *L) {
 ///  * Not all media content can have its playback rate changed; attempts to do so will invoke the callback twice -- once signifying that the change was made, and a second time indicating that the rate of play was reset back to the limits of the media content.  See [hs._asm:rate](#rate) for more information.
 static int avplayer_trackRate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
     AVPlayer         *player     = playerView.player ;
 
@@ -958,7 +958,7 @@ static int avplayer_status(lua_State *L) {
 ///    * "finished"
 static int avplayer_trackCompleted(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
     AVPlayerItem     *playerItem = playerView.player.currentItem ;
 
@@ -1002,7 +1002,7 @@ static int avplayer_trackCompleted(lua_State *L) {
 ///    * if the state reported is failed, an error message describing the error that occurred.
 static int avplayer_trackStatus(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
     AVPlayerItem     *playerItem = playerView.player.currentItem ;
 
@@ -1231,36 +1231,6 @@ static int avplayer_externalPlaybackActive(lua_State *L) {
     return 1 ;
 }
 
-static int avplayer__nextResponder(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
-    if (playerView.nextResponder) {
-        [skin pushNSObject:playerView.nextResponder] ;
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
-
-static int avplayer_toolTip(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        [skin pushNSObject:playerView.toolTip] ;
-    } else {
-        if (lua_type(L, 2) == LUA_TNIL) {
-            playerView.toolTip = nil ;
-        } else {
-            playerView.toolTip = [skin toNSObjectAtIndex:2] ;
-        }
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -1381,9 +1351,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"fullScreenButton",       avplayer_showsFullScreenToggleButton},
     {"allowsExternalPlayback", avplayer_allowsExternalPlayback},
     {"externalPlaybackActive", avplayer_externalPlaybackActive},
-    {"tooltip",                avplayer_toolTip},
-
-    {"_nextResponder",         avplayer__nextResponder},
 
     {"__tostring",             userdata_tostring},
     {"__eq",                   userdata_eq},
@@ -1430,7 +1397,6 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
         @"trackCompleted",
         @"trackStatus",
         @"fullScreenButton",
-        @"tooltip",
         @"callback",
     ]] ;
     if ([AVPlayer instancesRespondToSelector:NSSelectorFromString(@"allowExternalPlayback")]) {
@@ -1438,6 +1404,7 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

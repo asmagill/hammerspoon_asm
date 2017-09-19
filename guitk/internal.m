@@ -987,19 +987,21 @@ static int window_firstResponder(lua_State *L) {
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-    // some views use internally created subviews that we don't care about or don't have a userdata type for, so this hack until I can come up
-    // with something cleaner...
+//     // some views use internally created subviews that we don't care about or don't have a userdata type for, so this hack until I can come up
+//     // with something cleaner...
         NSResponder *trying = window.firstResponder ;
-        [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
-        while (trying && (lua_type(L, -1) == LUA_TSTRING)) {
-            lua_pop(L, 1) ;
-            trying = trying.nextResponder ;
-            [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
-        }
-        if (!trying) {
-            lua_pop(L, 1) ;
-            lua_pushnil(L) ;
-        }
+//         [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
+//         while (trying && (lua_type(L, -1) == LUA_TSTRING)) {
+//             lua_pop(L, 1) ;
+//             trying = trying.nextResponder ;
+//             [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
+//         }
+//         if (!trying) {
+//             lua_pop(L, 1) ;
+//             lua_pushnil(L) ;
+//         }
+        while (trying && ![skin canPushNSObject:trying]) trying = trying.nextResponder ;
+        [skin pushNSObject:trying] ; // will either be a responder we can work with or nil
     } else {
         if (lua_type(L, 2) == LUA_TNIL) {
             lua_pushboolean(L, [window makeFirstResponder:nil]) ;

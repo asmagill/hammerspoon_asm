@@ -404,6 +404,8 @@ int luaopen_hs__asm_guitk_element_image(lua_State* L) {
         @"callback",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

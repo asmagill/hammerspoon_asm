@@ -17,18 +17,18 @@ static int refTable = LUA_NOREF;
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
-#define PROGRESS_SIZE @{ \
-    @"regular" : @(NSControlSizeRegular), \
-    @"small"   : @(NSControlSizeSmall), \
-    @"mini"    : @(NSControlSizeMini), \
-}
+// #define PROGRESS_SIZE @{ \
+//     @"regular" : @(NSControlSizeRegular), \
+//     @"small"   : @(NSControlSizeSmall), \
+//     @"mini"    : @(NSControlSizeMini), \
+// }
 
-#define PROGRESS_TINT @{ \
-    @"default"  : @(NSDefaultControlTint), \
-    @"blue"     : @(NSBlueControlTint), \
-    @"graphite" : @(NSGraphiteControlTint), \
-    @"clear"    : @(NSClearControlTint), \
-}
+// #define PROGRESS_TINT @{ \
+//     @"default"  : @(NSDefaultControlTint), \
+//     @"blue"     : @(NSBlueControlTint), \
+//     @"graphite" : @(NSGraphiteControlTint), \
+//     @"clear"    : @(NSClearControlTint), \
+// }
 
 #pragma mark - Support Functions and Classes
 
@@ -113,18 +113,6 @@ static int progress_new(lua_State *L) {
 }
 
 #pragma mark - Module Methods
-
-static int progress__nextResponder(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
-    if (progress.nextResponder) {
-        [skin pushNSObject:progress.nextResponder] ;
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
 
 /// hs._asm.guitk.element.progress:start() -> progressObject
 /// Method
@@ -403,91 +391,89 @@ static int progress_increment(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value
-/// Method
-/// Get or set the indicator's tint.
-///
-/// Parameters:
-///  * tint - an optional string specifying the tint of the progress indicator.  May be one of "default", "blue", "graphite", or "clear".
-///
-/// Returns:
-///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
-///
-/// Notes:
-///  * The default setting for this is "default".
-///  * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).
-static int progress_controlTint(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared]  ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
+// /// hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value
+// /// Method
+// /// Get or set the indicator's tint.
+// ///
+// /// Parameters:
+// ///  * tint - an optional string specifying the tint of the progress indicator.  May be one of "default", "blue", "graphite", or "clear".
+// ///
+// /// Returns:
+// ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
+// ///
+// /// Notes:
+// ///  * The default setting for this is "default".
+// ///  * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).
+// static int progress_controlTint(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared]  ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+//     HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
+//
+//     if (lua_gettop(L) == 2) {
+//         NSString *key = [skin toNSObjectAtIndex:2] ;
+//         NSNumber *controlTint = PROGRESS_TINT[key] ;
+//         if (controlTint) {
+//             progress.controlTint = [controlTint unsignedIntegerValue] ;
+//         } else {
+//             return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[PROGRESS_TINT allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
+//         }
+//         lua_pushvalue(L, 1) ;
+//     } else {
+//         NSNumber *controlTint = @(progress.controlTint) ;
+//         NSArray *temp = [PROGRESS_TINT allKeysForObject:controlTint];
+//         NSString *answer = [temp firstObject] ;
+//         if (answer) {
+//             [skin pushNSObject:answer] ;
+//         } else {
+//             [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control tint %@ -- notify developers", USERDATA_TAG, controlTint]] ;
+//             lua_pushnil(L) ;
+//         }
+//     }
+//     return 1;
+// }
 
-    if (lua_gettop(L) == 2) {
-        NSString *key = [skin toNSObjectAtIndex:2] ;
-        NSNumber *controlTint = PROGRESS_TINT[key] ;
-        if (controlTint) {
-            progress.controlTint = [controlTint unsignedIntegerValue] ;
-        } else {
-            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[PROGRESS_TINT allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
-        }
-        lua_pushvalue(L, 1) ;
-    } else {
-        NSNumber *controlTint = @(progress.controlTint) ;
-        NSArray *temp = [PROGRESS_TINT allKeysForObject:controlTint];
-        NSString *answer = [temp firstObject] ;
-        if (answer) {
-            [skin pushNSObject:answer] ;
-        } else {
-            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control tint %@ -- notify developers", USERDATA_TAG, controlTint]] ;
-            lua_pushnil(L) ;
-        }
-    }
-    return 1;
-
-
-}
-
-/// hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value
-/// Method
-/// Get or set the indicator's size.
-///
-/// Parameters:
-///  * size - an optional string specifying the size of the progress indicator object.  May be one of "regular", "small", or "mini".
-///
-/// Returns:
-///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
-///
-/// Notes:
-///  * The default setting for this is "regular".
-///  * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.
-///  * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11.
-static int progress_controlSize(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared]  ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 2) {
-        NSString *key = [skin toNSObjectAtIndex:2] ;
-        NSNumber *controlSize = PROGRESS_SIZE[key] ;
-        if (controlSize) {
-            progress.controlSize = [controlSize unsignedIntegerValue] ;
-//             [progress sizeToFit] ;
-        } else {
-            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[PROGRESS_SIZE allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
-        }
-        lua_pushvalue(L, 1) ;
-    } else {
-        NSNumber *controlSize = @(progress.controlSize) ;
-        NSArray *temp = [PROGRESS_SIZE allKeysForObject:controlSize];
-        NSString *answer = [temp firstObject] ;
-        if (answer) {
-            [skin pushNSObject:answer] ;
-        } else {
-            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control size %@ -- notify developers", USERDATA_TAG, controlSize]] ;
-            lua_pushnil(L) ;
-        }
-    }
-    return 1;
-}
+// /// hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value
+// /// Method
+// /// Get or set the indicator's size.
+// ///
+// /// Parameters:
+// ///  * size - an optional string specifying the size of the progress indicator object.  May be one of "regular", "small", or "mini".
+// ///
+// /// Returns:
+// ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
+// ///
+// /// Notes:
+// ///  * The default setting for this is "regular".
+// ///  * For circular indicators, the sizes seem to be 32x32, 16x16, and 10x10 in 10.11.
+// ///  * For bar indicators, the height seems to be 20 and 12; the mini size seems to be ignored, at least in 10.11.
+// static int progress_controlSize(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin shared]  ;
+//     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+//     HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
+//
+//     if (lua_gettop(L) == 2) {
+//         NSString *key = [skin toNSObjectAtIndex:2] ;
+//         NSNumber *controlSize = PROGRESS_SIZE[key] ;
+//         if (controlSize) {
+//             progress.controlSize = [controlSize unsignedIntegerValue] ;
+// //             [progress sizeToFit] ;
+//         } else {
+//             return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[PROGRESS_SIZE allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
+//         }
+//         lua_pushvalue(L, 1) ;
+//     } else {
+//         NSNumber *controlSize = @(progress.controlSize) ;
+//         NSArray *temp = [PROGRESS_SIZE allKeysForObject:controlSize];
+//         NSString *answer = [temp firstObject] ;
+//         if (answer) {
+//             [skin pushNSObject:answer] ;
+//         } else {
+//             [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control size %@ -- notify developers", USERDATA_TAG, controlSize]] ;
+//             lua_pushnil(L) ;
+//         }
+//     }
+//     return 1;
+// }
 
 /// hs._asm.guitk.element.progress:color(color) -> progressObject
 /// Method
@@ -519,24 +505,6 @@ static int progress_customColor(lua_State *L) {
             } else {
                 return luaL_error(L, "color must be expressible in the RGB color space") ;
             }
-        }
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-static int progress_toolTip(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementProgress *progress = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        [skin pushNSObject:progress.toolTip] ;
-    } else {
-        if (lua_type(L, 2) == LUA_TNIL) {
-            progress.toolTip = nil ;
-        } else {
-            progress.toolTip = [skin toNSObjectAtIndex:2] ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -633,12 +601,9 @@ static const luaL_Reg userdata_metaLib[] = {
     {"min",                progress_min},
     {"max",                progress_max},
     {"increment",          progress_increment},
-    {"indicatorSize",      progress_controlSize},
-    {"tint",               progress_controlTint},
+//     {"indicatorSize",      progress_controlSize},
+//     {"tint",               progress_controlTint},
     {"color",              progress_customColor},
-    {"tooltip",            progress_toolTip},
-
-    {"_nextResponder",     progress__nextResponder},
 
     {"__tostring",         userdata_tostring},
     {"__eq",               userdata_eq},
@@ -679,12 +644,13 @@ int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
         @"value",
         @"min",
         @"max",
-        @"indicatorSize",
-        @"tint",
+//         @"indicatorSize",
+//         @"tint",
         @"color",
-        @"tooltip",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

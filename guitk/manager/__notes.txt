@@ -1,43 +1,50 @@
+// add fittingSize to canvas
+//   modify canvas methods that disable themselves when canvas not in hs.canvas window? can they be made to work here/touchbar as well?
+//
+// check for need in webview
+//   webview needs detachment from window (primary object); what problems will this cause or does it need to be rewritten to be more like
+//   canvas in this respect first?
+
 Notes re what the manager needs to be able to do:
 
-add to element properties table {
-    -- setting one adjusts the other
-    -- if not specified when added, assume topLeft
-    -- when adjusting, only need to specify changing field -- missing remains unchanged
-    -- may be number or percentage string; if setting one to a percentage, forces other to number
-    center = { x =, y = }
-    topLeft = { x=, y = }
+// add to element properties table {
+//     -- setting one adjusts the other
+//     -- if not specified when added, assume topLeft
+//     -- when adjusting, only need to specify changing field -- missing remains unchanged
+//     -- may be number or percentage string; if setting one to a percentage, forces other to number
+//     center = { x =, y = }
+//     topLeft = { x=, y = }
+//
+//     -- need only specify which should be constrained; missing comes from fittingSize if available
+//     -- when adjusting, set to false to switch back to fittingSize
+//     -- may be number or percentage string
+//     size = { h=, w= }
+//
+//     identifier = "string" -- alternative to # when accessing as array
+// }
 
-    -- need only specify which should be constrained; missing comes from fittingSize if available
-    -- when adjusting, set to false to switch back to fittingSize
-    -- may be number or percentage string
-    size = { h=, w= }
+// add methods for moving -- moves element1 relative to element2 and adjusts position (not size), does not change order or move others out of the way
+//    mgr:above  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
+//    mgr:below  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
+//    mgr:leftOf (element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
+//    mgr:rightOf(element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
+//      -- padding = padding between element1 and element2 (so vertical padding for above/below, horizontal for left/right), positive further apart, negative overlaps
 
-    identifier = "string" -- alternative to # when accessing as array
-}
+// mgr:autoadjust(element) -- readjust to fitting size in case content changed, also adjust position if as percentage
 
-add methods for moving -- moves element1 relative to element2 and adjusts position (not size), does not change order or move others out of the way
-    mgr:above  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
-    mgr:below  (element1, element2, [padding], [ "centered"|"flushLeft"|"flushRight" ]) -- default "flushLeft"
-    mgr:leftOf (element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
-    mgr:rightOf(element1, element2, [padding], [ "centered"|"flushTop"|"flushBottom" ]) -- default "flushTop"
-      -- padding = padding between element1 and element2 (so vertical padding for above/below, horizontal for left/right), positive further apart, negative overlaps
+// mgr:insert(element, [frame/position/size], [pos]) -- default #mgr + 1 (replace add?)
 
-mgr:autoadjust(element) -- readjust to fitting size in case content changed, also adjust position if as percentage
+// When adding/inserting, frame field options (absent x,y and cX,cY assume :bottom(lastElement, 0, "flushLeft")):
+// {
+//     x=, y=   -- topLeft
+//     cX=, cY= -- centered position -- cX or x, not both; cY or y, not both
+//     h=       -- if missing use fittingSize -- warn if fittingSize 0
+//     w=       -- if missing use fittingSize -- warn if fittingSize 0
+// }
 
-mgr:insert(element, [frame/position/size], [pos]) -- default #mgr + 1 (replace add?)
-
-When adding/inserting, frame field options (absent x,y and cX,cY assume :bottom(lastElement, 0, "flushLeft")):
-{
-    x=, y=   -- topLeft
-    cX=, cY= -- centered position -- x,y or cX,cY, not both allowed
-    h=       -- if missing use fittingSize -- warn if fittingSize 0
-    w=       -- if missing use fittingSize -- warn if fittingSize 0
-}
-
-mgr:move(element, frame, [delta])
-  -- frame is above table with =false for h,w to switch it back to fittingSize; adjust only those properties provided, others unchanged
-  -- delta boolean, default false, specifying settings are an adjustment rather than a replacement for the fields given
+// mgr:move(element, frame, [delta])
+//   -- frame is above table with =false for h,w to switch it back to fittingSize; adjust only those properties provided, others unchanged
+//   -- delta boolean, default false, specifying settings are an adjustment rather than a replacement for the fields given
 
 
 wrappedElementMT, add to __index so unrecognized keys are checked against methods and returned as functions if found
@@ -46,6 +53,8 @@ wrappedElementMT, add to __index so unrecognized keys are checked against method
     Add to metatable for hs._asm.guitk.element.* as well?
         e.g. "psudeo" methods (e.g. element1:above(element2, ...) --> element1:_nextResponder():above(element1, element2, ...))
         how does that affect other future managers? unless other managers are a superset of this one?
+        :addTo(mgr) ?
+        -- do we need method to determine if _nextResponder has manager methods? or is it sufficient to return nil if method function not found?
 
 managerMT, add to __index result so can use identifier as well as index position
 

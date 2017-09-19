@@ -18,6 +18,16 @@ static int refTable = LUA_NOREF;
     @"rounded" : @(NSTextFieldRoundedBezel), \
 }
 
+
+#define TEXT_LINEBREAK @{                                 \
+    @"wordWrap"       : @(NSLineBreakByWordWrapping),     \
+    @"charWrap"       : @(NSLineBreakByCharWrapping),     \
+    @"clip"           : @(NSLineBreakByClipping),         \
+    @"truncateHead"   : @(NSLineBreakByTruncatingHead),   \
+    @"truncateTail"   : @(NSLineBreakByTruncatingTail),   \
+    @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle), \
+}
+
 #pragma mark - Support Functions and Classes
 
 @interface HSASMGUITKElementTextField : NSTextField <NSTextFieldDelegate>
@@ -256,18 +266,6 @@ static int textfield_newWrappingLabel(lua_State *L) {
 
 #pragma mark - Module Methods
 
-static int textfield__nextResponder(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
-    if (textfield.nextResponder) {
-        [skin pushNSObject:textfield.nextResponder] ;
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
-
 static int textfield_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -405,6 +403,34 @@ static int textfield_bezelStyle(lua_State *L) {    LuaSkin *skin = [LuaSkin shar
     return 1 ;
 }
 
+static int textfield_lineBreakMode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared]  ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        NSString *key = [skin toNSObjectAtIndex:2] ;
+        NSNumber *lineBreakMode = TEXT_LINEBREAK[key] ;
+        if (lineBreakMode) {
+            textfield.lineBreakMode = [lineBreakMode unsignedIntegerValue] ;
+        } else {
+            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[TEXT_LINEBREAK allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
+        }
+        lua_pushvalue(L, 1) ;
+    } else {
+        NSNumber *lineBreakMode = @(textfield.lineBreakMode) ;
+        NSArray *temp = [TEXT_LINEBREAK allKeysForObject:lineBreakMode];
+        NSString *answer = [temp firstObject] ;
+        if (answer) {
+            [skin pushNSObject:answer] ;
+        } else {
+            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control tint %@ -- notify developers", USERDATA_TAG, lineBreakMode]] ;
+            lua_pushnil(L) ;
+        }
+    }
+    return 1;
+}
+
 static int textfield_backgroundColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -439,16 +465,16 @@ static int textfield_placeholderString(lua_State *L) {
     HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        NSString *placeholderString = textfield.placeholderString ;
-        [skin pushNSObject:([placeholderString isEqualToString:@""] ? textfield.placeholderAttributedString : placeholderString)] ;
+        NSString *placeholderString = ((NSTextFieldCell *)textfield.cell).placeholderString ;
+        [skin pushNSObject:([placeholderString isEqualToString:@""] ? ((NSTextFieldCell *)textfield.cell).placeholderAttributedString : placeholderString)] ;
     } else {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
-            textfield.placeholderString = @"" ;
-            textfield.placeholderAttributedString = [skin toNSObjectAtIndex:2] ;
+            ((NSTextFieldCell *)textfield.cell).placeholderString = @"" ;
+            ((NSTextFieldCell *)textfield.cell).placeholderAttributedString = [skin toNSObjectAtIndex:2] ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
-            textfield.placeholderString = [skin toNSObjectAtIndex:2] ;
+            ((NSTextFieldCell *)textfield.cell).placeholderString = [skin toNSObjectAtIndex:2] ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -483,6 +509,34 @@ static int textfield_bordered(lua_State *L) {
     return 1 ;
 }
 
+static int textfield_allowsExpansionToolTips(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, textfield.allowsExpansionToolTips) ;
+    } else {
+        textfield.allowsExpansionToolTips = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+static int textfield_usesSingleLineMode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, textfield.usesSingleLineMode) ;
+    } else {
+        textfield.usesSingleLineMode = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int textfield_editable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -506,24 +560,6 @@ static int textfield_selectable(lua_State *L) {
         lua_pushboolean(L, textfield.selectable) ;
     } else {
         textfield.selectable = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-static int textfield_toolTip(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        [skin pushNSObject:textfield.toolTip] ;
-    } else {
-        if (lua_type(L, 2) == LUA_TNIL) {
-            textfield.toolTip = nil ;
-        } else {
-            textfield.toolTip = [skin toNSObjectAtIndex:2] ;
-        }
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -759,14 +795,14 @@ static const luaL_Reg userdata_metaLib[] = {
     {"selectAll",               textfield_selectText},
     {"callback",                textfield_callback},
     {"editingCallback",         textfield_editingCallback},
-    {"tooltip",                 textfield_toolTip},
+    {"singleLineMode",          textfield_usesSingleLineMode},
+    {"expandIntoTooltip",       textfield_allowsExpansionToolTips},
+    {"lineBreakMode",           textfield_lineBreakMode},
 
     {"allowsCharacterPicker",   textfield_allowsCharacterPickerTouchBarItem},
     {"tighteningForTruncation", textfield_allowsDefaultTighteningForTruncation},
     {"maximumNumberOfLines",    textfield_maximumNumberOfLines},
     {"automaticTextCompletion", textfield_automaticTextCompletionEnabled},
-
-    {"_nextResponder",          textfield__nextResponder},
 
     {"__tostring",              userdata_tostring},
     {"__eq",                    userdata_eq},
@@ -816,9 +852,11 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         @"editable",
         @"selectable",
         @"value",
-        @"tooltip",
         @"callback",
         @"editingCallback",
+        @"singleLineMode",
+        @"expandIntoTooltip",
+        @"lineBreakMode",
     ]] ;
     if ([NSTextField instancesRespondToSelector:NSSelectorFromString(@"allowsCharacterPickerTouchBarItem")]) {
         lua_pushstring(L, "allowsCharacterPicker") ;
@@ -837,6 +875,8 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

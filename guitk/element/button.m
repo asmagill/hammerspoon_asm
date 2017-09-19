@@ -606,19 +606,6 @@ static int button_highlight(lua_State *L) {
     return 1 ;
 }
 
-static int button_enabled(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, button.enabled) ;
-    } else {
-        button.enabled = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
 static int button_value(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -697,36 +684,6 @@ static int button_periodicDelay(lua_State *L) {
         }
         lua_pop(L, 1) ;
         [button setPeriodicDelay:delay interval:interval] ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-static int button__nextResponder(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
-    if (button.nextResponder) {
-        [skin pushNSObject:button.nextResponder] ;
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
-
-static int button_toolTip(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        [skin pushNSObject:button.toolTip] ;
-    } else {
-        if (lua_type(L, 2) == LUA_TNIL) {
-            button.toolTip = nil ;
-        } else {
-            button.toolTip = [skin toNSObjectAtIndex:2] ;
-        }
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -824,10 +781,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"value",               button_value},
     {"maxAcceleratorLevel", button_maxAcceleratorLevel},
     {"periodicDelay",       button_periodicDelay},
-    {"enabled",             button_enabled},
-    {"tooltip",             button_toolTip},
-
-    {"_nextResponder",      button__nextResponder},
 
     {"__tostring",          userdata_tostring},
     {"__eq",                userdata_eq},
@@ -882,8 +835,6 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         @"state",
         @"periodicDelay",
         @"highlight",
-        @"enabled",
-        @"tooltip",
         @"callback",
     ]] ;
     if ([NSButton instancesRespondToSelector:NSSelectorFromString(@"maxAcceleratorLevel")]) {
@@ -891,6 +842,8 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

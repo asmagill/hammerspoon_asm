@@ -1,16 +1,6 @@
 // TODO:
-// *  size to fit when manager is not contentView of a window
-// *    override fittingSize for HSASMGUITKManager
-// ?    optionally recurse through subviews also sizing to fit
-// +  item metatable methods to edit like tables
-//    additional functions/methods to line up groups of items (a way to treat them as a group or is nesting managers sufficient for this?)
-//    add replaceSubview and insert so manager metatables methods can create/replace/remove items
-//    need more placement options, possible rewrite of add for additional placement/arrangement argument(s)
-//      nextTo
-//      above/below
-//      padding
-//    check into assigning a manager to itself... will likely crash (but I'm curious), so make sure to prevent it
-
+//   document
+//
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -18,16 +8,37 @@ static const char * const USERDATA_TAG = "hs._asm.guitk.manager" ;
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
 
+static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
+    NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+    formatter.locale = [NSLocale currentLocale] ;
+
+    formatter.numberStyle = NSNumberFormatterDecimalStyle ;
+    NSNumber *tmpValue = [formatter numberFromString:stringValue] ;
+    if (!tmpValue) {
+        formatter.numberStyle = NSNumberFormatterPercentStyle ;
+        tmpValue = [formatter numberFromString:stringValue] ;
+    }
+    // just to be sure, let's also check with the en_US locale
+    if (!tmpValue) {
+        formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US"] ;
+        formatter.numberStyle = NSNumberFormatterDecimalStyle ;
+        tmpValue = [formatter numberFromString:stringValue] ;
+        if (!tmpValue) {
+            formatter.numberStyle = NSNumberFormatterPercentStyle ;
+            tmpValue = [formatter numberFromString:stringValue] ;
+        }
+    }
+    return tmpValue ;
+}
+
 @interface HSASMGUITKManager : NSView
-@property int                 selfRefCount ;
-@property int                 passthroughCallbackRef ;
-@property NSMutableDictionary *subviewReferences ;
-@property NSColor             *frameDebugColor ;
+@property int        selfRefCount ;
+@property int        passthroughCallbackRef ;
+@property NSMapTable *subviewDetails ;
+@property NSColor    *frameDebugColor ;
 @end
 
 @implementation HSASMGUITKManager
@@ -37,18 +48,89 @@ static int refTable = LUA_NOREF;
     if (self) {
         _selfRefCount           = 0 ;
         _passthroughCallbackRef = LUA_NOREF ;
-        _subviewReferences      = [[NSMutableDictionary alloc] init] ;
+        _subviewDetails         = [NSMapTable strongToStrongObjectsMapTable] ;
         _frameDebugColor        = nil ;
+
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(managerFrameChanged:)
+                                                     name:NSViewFrameDidChangeNotification
+                                                   object:nil] ;
+
     }
     return self ;
 }
 
-- (BOOL)isFlipped { return YES; }
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:NSViewFrameDidChangeNotification
+                                                  object:nil] ;
+}
 
-// Not sure if we need this yet or not
-// - (BOOL)acceptsFirstMouse:(NSEvent * __unused)theEvent {
-//     return YES ;
-// }
+- (void) managerFrameChanged:(__unused NSNotification *)notification {
+    [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
+        [self updateFrameFor:view] ;
+    }] ;
+}
+
+- (void) updateFrameFor:(NSView *)view {
+    NSMutableDictionary *details = [_subviewDetails objectForKey:view] ;
+    NSRect frame = view.frame ;
+    if (details[@"h"]) {
+        NSNumber *value = details[@"h"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.height * value.doubleValue) ;
+        }
+        frame.size.height = value.doubleValue ;
+    } else {
+        frame.size.height = view.fittingSize.height ;
+    }
+    if (details[@"w"]) {
+        NSNumber *value = details[@"w"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.width * value.doubleValue) ;
+        }
+        frame.size.width = value.doubleValue ;
+    } else {
+        frame.size.width = view.fittingSize.width ;
+    }
+    if (details[@"x"]) {
+        NSNumber *value = details[@"x"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.width * value.doubleValue) ;
+        }
+        frame.origin.x = value.doubleValue ;
+    }
+    if (details[@"y"]) {
+        NSNumber *value = details[@"y"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.height * value.doubleValue) ;
+        }
+        frame.origin.y = value.doubleValue ;
+    }
+    if (details[@"cX"]) {
+        NSNumber *value = details[@"cX"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.width * value.doubleValue) ;
+        }
+        frame.origin.x = value.doubleValue - (frame.size.width / 2) ;
+    }
+    if (details[@"cY"]) {
+        NSNumber *value = details[@"cY"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.height * value.doubleValue) ;
+        }
+        frame.origin.y = value.doubleValue - (frame.size.height / 2) ;
+    }
+    view.frame = frame ;
+}
+
+- (BOOL)isFlipped { return YES; }
 
 - (NSSize)fittingSize {
     NSSize fittedContentSize = NSZeroSize ;
@@ -81,16 +163,16 @@ static int refTable = LUA_NOREF;
         [_frameDebugColor setStroke] ;
         [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
             NSRect frame = view.frame ;
-            // comparing floats is problematic, but for our purposes, if size or width are less than half a point, then the view has no height or width
+            // Since this if for debugging frames, check if a size component approaches/is effectively invisible... .5 point should do
             if ((frame.size.height < 0.5) || (frame.size.width < 0.5)) {
                 NSPoint topLeft = NSMakePoint(frame.origin.x, frame.origin.y) ;
                 NSPoint btRight = NSMakePoint(frame.origin.x + frame.size.width, frame.origin.y + frame.size.height) ;
-            // comparing floats is problematic, but for our purposes, if the difference is less than this component has no visible difference
+            // comparing floats is problematic, but for our purposes, if the difference is less than 1/2 point this component has no visible width
                 if (btRight.x - topLeft.x < 0.5) {
                     topLeft.x -= 5 ;
                     btRight.x += 5 ;
                 }
-            // comparing floats is problematic, but for our purposes, if the difference is less than this component has no visible difference
+            // comparing floats is problematic, but for our purposes, if the difference is less than 1/2 point this component has no visible height
                 if (btRight.y - topLeft.y < 0.5) {
                     topLeft.y -= 5 ;
                     btRight.y += 5 ;
@@ -140,35 +222,144 @@ static int refTable = LUA_NOREF;
 
 - (void)didAddSubview:(NSView *)subview {
     LuaSkin   *skin = [LuaSkin shared] ;
-    lua_State *L    = skin.L ;
-    [skin pushNSObject:subview] ;
-    if (lua_type(L, -1) == LUA_TUSERDATA) {
-        // increase reference count of subview and save for later use
-        _subviewReferences[@([skin luaRef:refTable])] = subview ;
-    } else {
-        lua_pop(L, 1) ;
+//     [skin logInfo:[NSString stringWithFormat:@"%s:didAddSubview - added %@", USERDATA_TAG, subview]] ;
+    // increase lua reference count of subview so it won't be collected
+    if (![skin luaRetain:refTable forNSObject:subview]) {
         [skin logDebug:[NSString stringWithFormat:@"%s:didAddSubview - unrecognized subview added:%@", USERDATA_TAG, subview]] ;
     }
 }
 
 - (void)willRemoveSubview:(NSView *)subview {
     LuaSkin *skin = [LuaSkin shared] ;
-    NSArray *references = [_subviewReferences allKeysForObject:subview] ;
-    if (references.count > 0) {
-        if (references.count > 1) {
-            [skin logWarn:[NSString stringWithFormat:@"%s:willRemoveSubview - more then one reference to subview %@ found:%@", USERDATA_TAG, subview, references]] ;
-        }
-        // decrease reference count of subview
-        for (NSNumber *ref in references) {
-            [skin luaUnref:refTable ref:ref.intValue] ;
-            _subviewReferences[ref] = nil ;
-        }
-    } else {
-        [skin logDebug:[NSString stringWithFormat:@"%s:willRemoveSubview - unrecognized subview being removed:%@", USERDATA_TAG, subview]] ;
-    }
+//     [skin logInfo:[NSString stringWithFormat:@"%s:willRemoveSubview - removed %@", USERDATA_TAG, subview]] ;
+    [skin luaRelease:refTable forNSObject:subview] ;
 }
 
 @end
+
+static void validateElementDetailsTable(lua_State *L, int idx, NSMutableDictionary *details) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    idx = lua_absindex(L, idx) ;
+    if (lua_type(L, idx) == LUA_TTABLE) {
+        if (lua_getfield(L, idx, "id") == LUA_TSTRING) {
+            details[@"id"] = [skin toNSObjectAtIndex:-1] ;
+        } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)) {
+            details[@"id"] = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected string or false for id key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "cX") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"cX"] = [skin toNSObjectAtIndex:-1] ;
+                details[@"x"]  = nil ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for cX key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"cX"] = [skin toNSObjectAtIndex:-1] ;
+            details[@"x"]  = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for cX key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "cY") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"cY"] = [skin toNSObjectAtIndex:-1] ;
+                details[@"y"]  = nil ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for cY key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"cY"] = [skin toNSObjectAtIndex:-1] ;
+            details[@"y"]  = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for cY key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "x") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"x"] = [skin toNSObjectAtIndex:-1] ;
+                details[@"cX"]  = nil ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for x key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"x"] = [skin toNSObjectAtIndex:-1] ;
+            details[@"cX"]  = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for x key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "y") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"y"] = [skin toNSObjectAtIndex:-1] ;
+                details[@"cY"]  = nil ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for y key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"y"] = [skin toNSObjectAtIndex:-1] ;
+            details[@"cY"]  = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for y key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "h") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"h"] = [skin toNSObjectAtIndex:-1] ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for h key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"h"] = [skin toNSObjectAtIndex:-1] ;
+        } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)) {
+            details[@"h"] = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number, string, or false for h key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+        if (lua_getfield(L, idx, "w") == LUA_TSTRING) {
+            NSString *value = [skin toNSObjectAtIndex:-1] ;
+            if (convertPercentageStringToNumber(value)) {
+                details[@"w"] = [skin toNSObjectAtIndex:-1] ;
+            } else {
+                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for w key in element details", USERDATA_TAG, value]] ;
+            }
+        } else if (lua_type(L, -1) == LUA_TNUMBER) {
+            details[@"w"] = [skin toNSObjectAtIndex:-1] ;
+        } else if ((lua_type(L, -1) == LUA_TBOOLEAN) && !lua_toboolean(L, -1)) {
+            details[@"w"] = nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected number, string, or false for w key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
+    } else {
+        [skin logWarn:[NSString stringWithFormat:@"%s expected table for element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, idx))]] ;
+    }
+}
+
+static void adjustElementDetailsTable(lua_State *L, HSASMGUITKManager *manager, NSView *element, NSDictionary *changes) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSMutableDictionary *details = [manager.subviewDetails objectForKey:element] ;
+    if (!details) details = [[NSMutableDictionary alloc] init] ;
+    [skin pushNSObject:changes] ;
+    validateElementDetailsTable(L, -1, details) ;
+    [manager.subviewDetails setObject:details forKey:element] ;
+    [manager updateFrameFor:element] ;
+}
 
 #pragma mark - Module Functions
 
@@ -187,7 +378,7 @@ static int manager_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
-static int manager_highlightFrames(lua_State *L) {
+static int manager__debugFrames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
@@ -214,42 +405,45 @@ static int manager_highlightFrames(lua_State *L) {
     return 1 ;
 }
 
-static int manager_addElement(lua_State *L) {
+static int manager_insertElement(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!item || ![item isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if ([manager.subviews containsObject:item]) {
-        return luaL_argerror(L, 2, "element already managed by this content manager") ;
-    }
-    NSPoint newOrigin ;
-    if ((lua_gettop(L) == 3) && (lua_type(L, 3)) == LUA_TTABLE) {
-        newOrigin = [skin tableToPointAtIndex:3] ;
-        BOOL hasSize = NO ;
-        CGFloat h = 0.0 ;
-        CGFloat w = 0.0 ;
-        if (lua_getfield(L, 3, "h") == LUA_TNUMBER) {
-            hasSize = YES ;
-            h = lua_tonumber(L, -1) ;
-        }
-        lua_pop(L, 1) ;
-        if (lua_getfield(L, 3, "w") == LUA_TNUMBER) {
-            hasSize = YES ;
-            w = lua_tonumber(L, -1) ;
-        }
-        lua_pop(L, 1) ;
-        if (hasSize) [item setFrameSize:NSMakeSize(w, h)] ;
-    } else {
-        NSRect lastItemFrame = manager.subviews.lastObject.frame ;
-        newOrigin = NSMakePoint(lastItemFrame.origin.x, lastItemFrame.origin.y + lastItemFrame.size.height + 1) ;
-        if ((lua_type(L, 3) == LUA_TBOOLEAN) && lua_toboolean(L, 3)) [item setFrameSize:[item fittingSize]] ;
+    if ([item isDescendantOf:manager]) {
+        return luaL_argerror(L, 2, "element already managed by this content manager or one of its subviews") ;
     }
 
-    [manager addSubview:item] ;
-    [item setFrameOrigin:newOrigin] ;
+    NSInteger idx = (lua_type(L, -1) == LUA_TNUMBER) ? (lua_tointeger(L, -1) - 1) : (NSInteger)manager.subviews.count ;
+    if ((idx < 0) || (idx > (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "insert index out of bounds") ;
+
+    NSMutableDictionary *details = [[NSMutableDictionary alloc] init] ;
+    if (manager.subviews.count > 0) {
+        NSRect lastElementFrame = manager.subviews.lastObject.frame ;
+        details[@"x"] = @(lastElementFrame.origin.x) ;
+        details[@"y"] = @(lastElementFrame.origin.y + lastElementFrame.size.height) ;
+    } else {
+        details[@"x"] = @(0) ;
+        details[@"y"] = @(0) ;
+    }
+    if (lua_type(L, 3) == LUA_TTABLE) validateElementDetailsTable(L, 3, details) ;
+
+    NSMutableArray *subviewHolder = [manager.subviews mutableCopy] ;
+    [subviewHolder insertObject:item atIndex:(NSUInteger)idx] ;
+    manager.subviews = subviewHolder ;
+    adjustElementDetailsTable(L, manager, item, details) ;
+
+    // Comparing floats is problematic; but if the item is effectively invisible, warn if not set on purpose
+    if ((item.fittingSize.height < 0.1) && !details[@"h"]) {
+        [skin logWarn:[NSString stringWithFormat:@"%s:insert - height not specified and default height for element is 0", USERDATA_TAG]] ;
+    }
+    if ((item.fittingSize.width < 0.1)  && !details[@"w"]) {
+        [skin logWarn:[NSString stringWithFormat:@"%s:insert - width not specified and default width for element is 0", USERDATA_TAG]] ;
+    }
+
     manager.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
@@ -257,47 +451,193 @@ static int manager_addElement(lua_State *L) {
 
 static int manager_removeElement(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
-    NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
-    if (!item || ![item isKindOfClass:[NSView class]]) {
+    NSInteger idx = ((lua_type(L, 2) == LUA_TNUMBER) ? lua_tointeger(L, 2) : (NSInteger)manager.subviews.count) - 1 ;
+    if ((idx < 0) || (idx >= (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "remove index out of bounds") ;
+
+    NSMutableArray *subviewHolder = [manager.subviews mutableCopy] ;
+    [subviewHolder removeObjectAtIndex:(NSUInteger)idx] ;
+    manager.subviews = subviewHolder ;
+
+    manager.needsDisplay = YES ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_moveElementAbove(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:item]) {
+    if (![manager.subviews containsObject:element1]) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
-    [item removeFromSuperview] ;
+    NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 3, "element not managed by this content manager") ;
+    }
+    CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
+    NSString *where  = (lua_type(L, -1) == LUA_TSTRING) ? [skin toNSObjectAtIndex:-1] : @"flushLeft" ;
+
+    NSRect elementFrame = element1.frame ;
+    NSRect anchorFrame  = element2.frame ;
+
+    elementFrame.origin.y = anchorFrame.origin.y - (elementFrame.size.height + padding) ;
+    if ([where isEqualToString:@"flushLeft"]) {
+        elementFrame.origin.x = anchorFrame.origin.x ;
+    } else if ([where isEqualToString:@"centered"]) {
+        elementFrame.origin.x = anchorFrame.origin.x + (anchorFrame.size.width - elementFrame.size.width) / 2 ;
+    } else if ([where isEqualToString:@"flushRight"]) {
+        elementFrame.origin.x = anchorFrame.origin.x + anchorFrame.size.width - elementFrame.size.width ;
+    } else {
+        return luaL_argerror(L, lua_gettop(L), "expected flushLeft, centered, or flushRight") ;
+    }
+    adjustElementDetailsTable(L, manager, element1, @{ @"x" : @(elementFrame.origin.x), @"y" : @(elementFrame.origin.y) }) ;
+    manager.needsDisplay = YES ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_moveElementBelow(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+    NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 3, "element not managed by this content manager") ;
+    }
+    CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
+    NSString *where  = (lua_type(L, -1) == LUA_TSTRING) ? [skin toNSObjectAtIndex:-1] : @"flushLeft" ;
+
+    NSRect elementFrame = element1.frame ;
+    NSRect anchorFrame  = element2.frame ;
+
+    elementFrame.origin.y = anchorFrame.origin.y + anchorFrame.size.height + padding ;
+    if ([where isEqualToString:@"flushLeft"]) {
+        elementFrame.origin.x = anchorFrame.origin.x ;
+    } else if ([where isEqualToString:@"centered"]) {
+        elementFrame.origin.x = anchorFrame.origin.x + (anchorFrame.size.width - elementFrame.size.width) / 2 ;
+    } else if ([where isEqualToString:@"flushRight"]) {
+        elementFrame.origin.x = anchorFrame.origin.x + anchorFrame.size.width - elementFrame.size.width ;
+    } else {
+        return luaL_argerror(L, lua_gettop(L), "expected flushLeft, centered, or flushRight") ;
+    }
+    adjustElementDetailsTable(L, manager, element1, @{ @"x" : @(elementFrame.origin.x), @"y" : @(elementFrame.origin.y) }) ;
+    manager.needsDisplay = YES ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_moveElementLeftOf(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+    NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 3, "element not managed by this content manager") ;
+    }
+    CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
+    NSString *where  = (lua_type(L, -1) == LUA_TSTRING) ? [skin toNSObjectAtIndex:-1] : @"flushTop" ;
+
+    NSRect elementFrame = element1.frame ;
+    NSRect anchorFrame  = element2.frame ;
+
+    elementFrame.origin.x = anchorFrame.origin.x - (elementFrame.size.width + padding) ;
+    if ([where isEqualToString:@"flushTop"]) {
+        elementFrame.origin.y = anchorFrame.origin.y ;
+    } else if ([where isEqualToString:@"centered"]) {
+        elementFrame.origin.y = anchorFrame.origin.y + (anchorFrame.size.height - elementFrame.size.height) / 2 ;
+    } else if ([where isEqualToString:@"flushBottom"]) {
+        elementFrame.origin.y = anchorFrame.origin.y + anchorFrame.size.height - elementFrame.size.height ;
+    } else {
+        return luaL_argerror(L, lua_gettop(L), "expected flushTop, centered, or flushBottom") ;
+    }
+    adjustElementDetailsTable(L, manager, element1, @{ @"x" : @(elementFrame.origin.x), @"y" : @(elementFrame.origin.y) }) ;
+    manager.needsDisplay = YES ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_moveElementRightOf(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+    NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
+    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:element1]) {
+        return luaL_argerror(L, 3, "element not managed by this content manager") ;
+    }
+    CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
+    NSString *where  = (lua_type(L, -1) == LUA_TSTRING) ? [skin toNSObjectAtIndex:-1] : @"flushTop" ;
+
+    NSRect elementFrame = element1.frame ;
+    NSRect anchorFrame  = element2.frame ;
+
+    elementFrame.origin.x = anchorFrame.origin.x + anchorFrame.size.width + padding ;
+    if ([where isEqualToString:@"flushTop"]) {
+        elementFrame.origin.y = anchorFrame.origin.y ;
+    } else if ([where isEqualToString:@"centered"]) {
+        elementFrame.origin.y = anchorFrame.origin.y + (anchorFrame.size.height - elementFrame.size.height) / 2 ;
+    } else if ([where isEqualToString:@"flushBottom"]) {
+        elementFrame.origin.y = anchorFrame.origin.y + anchorFrame.size.height - elementFrame.size.height ;
+    } else {
+        return luaL_argerror(L, lua_gettop(L), "expected flushTop, centered, or flushBottom") ;
+    }
+    adjustElementDetailsTable(L, manager, element1, @{ @"x" : @(elementFrame.origin.x), @"y" : @(elementFrame.origin.y) }) ;
     manager.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
 static int manager_elementFittingSize(lua_State *L) {
+// This is a method so it can be inherited by elements, but it doesn't really have to be
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TBREAK] ;
-    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+//     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!item || ![item isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:item]) {
-        return luaL_argerror(L, 2, "element not managed by this content manager") ;
-    }
+//     if (![manager.subviews containsObject:item]) {
+//         return luaL_argerror(L, 2, "element not managed by this content manager") ;
+//     }
     [skin pushNSSize:item.fittingSize] ;
-    return 1 ;
-}
-
-static int manager_autosizeElements(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
-    if (manager.subviews.count > 0) {
-        [manager.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
-            NSSize viewFittingSize   = view.fittingSize ;
-            if (!CGSizeEqualToSize(viewFittingSize, NSZeroSize)) [view setFrameSize:viewFittingSize] ;
-        }] ;
-    }
-    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
@@ -309,7 +649,6 @@ static int manager_sizeToFit(lua_State *L) {
     CGFloat hPadding = (lua_gettop(L) > 1) ? lua_tonumber(L, 2) : 0.0 ;
     CGFloat vPadding = (lua_gettop(L) > 2) ? lua_tonumber(L, 3) : ((lua_gettop(L) > 1) ? hPadding : 0.0) ;
 
-//     if ([manager isEqualTo:manager.window.contentView] && [manager.window isKindOfClass:NSClassFromString(@"HSASMGuiWindow")] && manager.subviews.count > 0) {
     if (manager.subviews.count > 0) {
         __block NSPoint topLeft     = manager.subviews.firstObject.frame.origin ;
         __block NSPoint bottomRight = NSZeroPoint ;
@@ -325,7 +664,7 @@ static int manager_sizeToFit(lua_State *L) {
             NSRect frame = view.frame ;
             frame.origin.x = frame.origin.x + hPadding - topLeft.x ;
             frame.origin.y = frame.origin.y + vPadding - topLeft.y ;
-            view.frame = frame ;
+            adjustElementDetailsTable(L, manager, view, @{ @"x" : @(frame.origin.x), @"y" : @(frame.origin.y) }) ;
         }] ;
 
         NSSize oldContentSize = manager.frame.size ;
@@ -350,40 +689,6 @@ static int manager_sizeToFit(lua_State *L) {
     }
     manager.needsDisplay = YES ;
     lua_pushvalue(L, 1) ;
-    return 1 ;
-}
-
-static int manager_elementLocation(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TNIL | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
-    NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
-    if (!item || ![item isKindOfClass:[NSView class]]) {
-        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
-    }
-    if (![manager.subviews containsObject:item]) {
-        return luaL_argerror(L, 2, "element not managed by this content manager") ;
-    }
-    if (lua_gettop(L) == 2) {
-        [skin pushNSRect:item.frame] ;
-    } else {
-        NSRect newRect = item.frame ;
-        if (lua_type(L, 3) == LUA_TTABLE) {
-            if (lua_getfield(L, 3, "x") == LUA_TNUMBER) newRect.origin.x    = lua_tonumber(L, -1) ;
-            lua_pop(L, 1) ;
-            if (lua_getfield(L, 3, "y") == LUA_TNUMBER) newRect.origin.y    = lua_tonumber(L, -1) ;
-            lua_pop(L, 1) ;
-            if (lua_getfield(L, 3, "h") == LUA_TNUMBER) newRect.size.height = lua_tonumber(L, -1) ;
-            lua_pop(L, 1) ;
-            if (lua_getfield(L, 3, "w") == LUA_TNUMBER) newRect.size.width  = lua_tonumber(L, -1) ;
-            lua_pop(L, 1) ;
-        } else {
-            newRect.size = [item fittingSize] ;
-        }
-        item.frame = newRect ;
-        manager.needsDisplay = YES ;
-        lua_pushvalue(L, 1) ;
-    }
     return 1 ;
 }
 
@@ -448,6 +753,56 @@ static int manager_toolTip(lua_State *L) {
     return 1 ;
 }
 
+static int manager_element(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    if (lua_type(L, 2) == LUA_TSTRING) {
+        NSString *identifier = [skin toNSObjectAtIndex:2] ;
+        BOOL found = NO ;
+        for (NSView *view in manager.subviewDetails) {
+            NSMutableDictionary *details = [manager.subviewDetails objectForKey:view] ;
+            if ([details[@"id"] isEqualToString:identifier]) {
+                [skin pushNSObject:view] ;
+                found = YES ;
+                break ;
+            }
+        }
+        if (!found) lua_pushnil(L) ;
+    } else {
+        NSInteger idx = lua_tointeger(L, 2) - 1 ;
+        if ((idx < 0) || (idx >= (NSInteger)manager.subviews.count)) {
+            lua_pushnil(L) ;
+        } else {
+            [skin pushNSObject:manager.subviews[(NSUInteger)idx]] ;
+        }
+    }
+    return 1 ;
+}
+
+static int manager_elementFrameDetails(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!item || ![item isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:item]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+
+    if (lua_gettop(L) == 2) {
+        [skin pushNSObject:[manager.subviewDetails objectForKey:item]] ;
+        [skin pushNSRect:item.frame] ;
+        lua_setfield(L, -2, "_effective") ;
+    } else {
+        adjustElementDetailsTable(L, manager, item, [skin toNSObjectAtIndex:3]) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -507,11 +862,11 @@ static int userdata_gc(lua_State* L) {
         if (obj.selfRefCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
             obj.passthroughCallbackRef = [skin luaUnref:refTable ref:obj.passthroughCallbackRef] ;
-            [obj.subviewReferences enumerateKeysAndObjectsUsingBlock:^(NSNumber *ref, NSView *view, __unused BOOL *stop) {
-                [skin luaUnref:refTable ref:ref.intValue] ;
-                [view removeFromSuperview] ;
+            [obj.subviews enumerateObjectsUsingBlock:^(NSView *subview, __unused NSUInteger idx, __unused BOOL *stop) {
+                [skin luaRelease:refTable forNSObject:subview] ;
             }] ;
-            obj.subviewReferences = nil ;
+            [obj.subviewDetails removeAllObjects] ;
+            obj.subviewDetails = nil ;
         }
         obj = nil ;
     }
@@ -527,17 +882,25 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"add",                 manager_addElement},
+    {"insert",              manager_insertElement},
     {"remove",              manager_removeElement},
-    {"elementLocation",     manager_elementLocation},
+
     {"elements",            manager_elements},
+    {"element",             manager_element},
+
     {"passthroughCallback", manager_passthroughCallback},
     {"sizeToFit",           manager_sizeToFit},
-    {"elementFittingSize",  manager_elementFittingSize},
-    {"autosizeElements",    manager_autosizeElements},
     {"tooltip",             manager_toolTip},
 
-    {"_debugFrames",        manager_highlightFrames},
+    // recognized by elements as needing (manager, element, ...) in args when passing through
+    {"elementFrameDetails", manager_elementFrameDetails},
+    {"elementMoveAbove",    manager_moveElementAbove},
+    {"elementMoveBelow",    manager_moveElementBelow},
+    {"elementMoveLeftOf",   manager_moveElementLeftOf},
+    {"elementMoveRightOf",  manager_moveElementRightOf},
+    {"elementFittingSize",  manager_elementFittingSize},
+
+    {"_debugFrames",        manager__debugFrames},
     {"_nextResponder",      manager__nextResponder},
 
     {"__tostring",          userdata_tostring},

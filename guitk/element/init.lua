@@ -12,13 +12,16 @@ require("hs.styledtext")
 local fnutils = require("hs.fnutils")
 local inspect = require("hs.inspect")
 
+local commonControllerMethods = require(USERDATA_TAG .. "._controller")
+local commonViewMethods       = require(USERDATA_TAG .. "._view")
+
 local metatables = {}
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
     basePath = basePath:match("^(.+)/init.lua$")
     local fs = require("hs.fs")
     for file in fs.dir(basePath) do
-        if file:match("%.so$") then
+        if file:match("^[^_].*%.so$") then
             local name = file:match("^(.*)%.so$")
             module[name] = require(USERDATA_TAG .. "." .. name)
             metatables[name] = hs.getObjectMetatable(USERDATA_TAG .. "." .. name)
@@ -39,43 +42,96 @@ end
 -- Public interface ------------------------------------------------------
 
 for k,v in pairs(metatables) do
-    if v._propertyList and not v.properties then
-        v.properties = function(self, ...)
-            local args = table.pack(...)
-            if args.n == 0 or (args.n == 1 and type(args[1]) == "table") then
-                if args.n == 0 then
-                    local results = {}
-                    local propertiesList = v._propertyList
-                    if propertiesList then
-                        for i2,v2 in ipairs(propertiesList) do results[v2] = self[v2](self) end
-                    end
-                    return setmetatable(results, { __tostring = inspect })
-                else
-                    local propertiesList = getmetatable(self)["_propertyList"]
-                    if propertiesList then
-                        for k2,v2 in pairs(args[1]) do
-                            if fnutils.contains(propertiesList, k2) then
-                                self[k2](self, v2)
-                            end
+
+    -- if requested, merge in common controller methods and update properties table
+    if v._inheritController then
+        local propertieslist = v._propertyList or {}
+        for k2,v2 in pairs(commonControllerMethods) do
+            if not v[k2] then
+                if type(v2) == "function" then
+                    v[k2] = function(self, ...)
+                        if getmetatable(self) ~= v then -- keep an explicit override
+                            error(string.format("ERROR: incorrect userdata type for argument 1 (expected %s)", v.__type), 2)
                         end
+                        return v2(self, ...)
                     end
-                    return self
+                    if fnutils.contains(commonControllerMethods._propertyList, k2) then
+                        table.insert(propertieslist, k2)
+                    end
+                else
+                    v[k2] = v2
                 end
-            else
-                error("expected table of properties for argument 1", 2)
             end
         end
+        v._propertyList      = propertieslist
+        v._inheritController = nil
     end
 
+    -- if requested, merge in common view methods and update properties table
+    if v._inheritView then
+        local propertieslist = v._propertyList or {}
+        for k2,v2 in pairs(commonViewMethods) do
+            if not v[k2] then
+                if type(v2) == "function" then
+                    v[k2] = function(self, ...)
+                        if getmetatable(self) ~= v then -- keep an explicit override
+                            error(string.format("ERROR: incorrect userdata type for argument 1 (expected %s)", v.__type), 2)
+                        end
+                        return v2(self, ...)
+                    end
+                    if fnutils.contains(commonViewMethods._propertyList, k2) then
+                        table.insert(propertieslist, k2)
+                    end
+                else
+                    v[k2] = v2
+                end
+            end
+        end
+        v._propertyList = propertieslist
+        v._inheritView  = nil
+    end
+
+    -- if nextResponder method exists, allow passing unrecognized methods up the chain
     if v._nextResponder then
         v.__core = v.__index
         v.__index = function(self, key)
             if v.__core[key] then
                 return v.__core[key]
-            else
-                local parentFN = self:_nextResponder()[key]
-                if parentFN then
-                    return function(self, ...) return parentFN(self:_nextResponder(), ...) end
+            elseif type(key) == "string" then
+                local parentObj = self:_nextResponder()
+                if parentObj then
+                    local parentFN = parentObj[key]
+                    if parentFN then
+                        if type(parentFN) == "function" then
+                            return function(self, ...)
+                                local answer = parentFN(parentObj, ...)
+                                if answer == parentObj then
+                                    return self
+                                else
+                                    return answer
+                                end
+                            end
+                        else
+                            return parentFN
+                        end
+                    else
+    -- if parent has a method matching our key prefixed with "element", pass self in as first argument
+                        parentFN = parentObj["element" .. key:sub(1,1):upper() .. key:sub(2)]
+                        if parentFN then
+                            if type(parentFN) == "function" then
+                                return function(self, ...)
+                                    local answer = parentFN(parentObj, self, ...)
+                                    if answer == parentObj then
+                                        return self
+                                    else
+                                        return answer
+                                    end
+                                end
+                            else
+                                return parentFN
+                            end
+                        end
+                    end
                 end
             end
             return nil

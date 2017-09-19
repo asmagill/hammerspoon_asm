@@ -1,9 +1,4 @@
-    @interface ABPeoplePickerView         : NSView
-    @interface ABPersonView               : NSView
-    @interface NSBox                      : NSView
-    @interface NSClipView                 : NSView
-    @interface NSCollectionView           : NSView
-^   @interface NSControl                  : NSView
++   @interface NSControl                  : NSView
         @interface NSBrowser          : NSControl
     +   @interface NSButton           : NSControl
         @interface NSColorWell        : NSControl
@@ -18,11 +13,17 @@
         @interface NSSlider           : NSControl
         @interface NSStepper          : NSControl
         @interface NSTableView        : NSControl
-        @interface NSTextField        : NSControl
+    +   @interface NSTextField        : NSControl
             @interface NSComboBox        : NSTextField
             @interface NSSearchField     : NSTextField
             @interface NSSecureTextField : NSTextField
             @interface NSTokenField      : NSTextField
+
+    @interface ABPeoplePickerView         : NSView
+    @interface ABPersonView               : NSView
+    @interface NSBox                      : NSView
+    @interface NSClipView                 : NSView
+    @interface NSCollectionView           : NSView
     @interface NSGridView                 : NSView
     @interface NSMenuView                 : NSView
     @interface NSOpenGLView               : NSView
@@ -70,4 +71,27 @@
     @interface SKView                     : NSView
     @interface WebFrameView               : NSView
     @interface WebView                    : NSView
-+   @interface WKWebView                  : NSView
+-   @interface WKWebView                  : NSView
+
+Common properties:
+
+NSView
+    @property CGFloat frameCenterRotation
+    @property(getter=isHidden) BOOL hidden
+    @property(getter=isHiddenOrHasHiddenAncestor, readonly) BOOL hiddenOrHasHiddenAncestor
+    @property CGFloat alphaValue
+
+    @property(copy) NSShadow *shadow
+    @property(getter=isOpaque, readonly) BOOL opaque
+    @property BOOL wantsLayer
+
+    @property BOOL acceptsTouchEvents
+    @property BOOL wantsRestingTouches
+    @property CGFloat boundsRotation
+    @property CGFloat frameRotation
+    @property NSRect bounds
+    @property NSRect frame
+    @property NSRect preparedContentRect
+    @property(copy) NSArray <__kindof NSGestureRecognizer *> *gestureRecognizers
+    @property(getter=isInFullScreenMode, readonly) BOOL inFullScreenMode
+    @property(strong) NSPressureConfiguration *pressureConfiguration
