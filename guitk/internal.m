@@ -595,7 +595,7 @@ static int guitk_closeOnEscape(lua_State *L) {
 
 static int window_frame(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     NSRect oldFrame = RectWithFlippedYCoordinate(window.frame);
@@ -613,7 +613,7 @@ static int window_frame(lua_State *L) {
 
 static int window_topLeft(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     NSRect oldFrame = RectWithFlippedYCoordinate(window.frame);
@@ -632,7 +632,7 @@ static int window_topLeft(lua_State *L) {
 
 static int window_size(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     NSRect oldFrame = window.frame;

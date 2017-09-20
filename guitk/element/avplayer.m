@@ -1,5 +1,6 @@
 // TODO:
 //  * test
+//    PauseWhenHidden not working
 
 /// === hs._asm.guitk.element.avplayer ===
 ///
@@ -760,7 +761,7 @@ static int avplayer_closedCaptionDisplayEnabled(lua_State *L) {
 ///  * From Apple Documentation: The block is invoked periodically at the interval specified, interpreted according to the timeline of the current item. The block is also invoked whenever time jumps and whenever playback starts or stops. If the interval corresponds to a very short interval in real time, the player may invoke the block less frequently than requested. Even so, the player will invoke the block sufficiently often for the client to update indications of the current time appropriately in its end-user interface.
 static int avplayer_trackProgress(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TNIL | LS_TOPTIONAL | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
     AVPlayer         *player     = playerView.player ;
 

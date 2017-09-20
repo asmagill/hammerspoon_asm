@@ -99,14 +99,19 @@ wrappedElementMT.__len = function(self) return 0 end
 -- Public interface ------------------------------------------------------
 
 managerMT.elementPropertyList = function(self, element, ...)
-    local results = {}
-    local propertiesList = getmetatable(element)["_propertyList"] or {}
-    for i,v in ipairs(propertiesList) do results[v] = element[v](element) end
-    results._element     = element
-    results.frameDetails = self:elementFrameDetails(element)
-    results._fittingSize = self:elementFittingSize(element)
-    results._type        = getmetatable(element).__type
-    return setmetatable(results, { __tostring = inspect })
+    local args = table.pack(...)
+    if args.n == 0 then
+        local results = {}
+        local propertiesList = getmetatable(element)["_propertyList"] or {}
+        for i,v in ipairs(propertiesList) do results[v] = element[v](element) end
+        results._element     = element
+        results.frameDetails = self:elementFrameDetails(element)
+        results._fittingSize = self:elementFittingSize(element)
+        results._type        = getmetatable(element).__type
+        return setmetatable(results, { __tostring = inspect })
+    else
+        error("unexpected arguments", 2)
+    end
 end
 
 managerMT.elementRemoveFromManager = function(self, element, ...)
@@ -121,6 +126,19 @@ managerMT.elementRemoveFromManager = function(self, element, ...)
         return self:remove(idx, ...)
     else
         error("invalid element or element not managed by this content manager", 2)
+    end
+end
+
+managerMT.elementId = function(self, element, ...)
+    local args = table.pack(...)
+    local details = self:elementFrameDetails(element)
+    if args.n == 0 then
+        return details.id
+    elseif args.n == 1 and type(args[1]) == "string" then
+        details.id = args[1]
+        return self:elementFrameDetails(element, details)
+    else
+        error("expected a single string as an argument", 2)
     end
 end
 
@@ -175,14 +193,21 @@ managerMT.__newindex = function(self, key, value)
             if type(value) == "userdata" then value = { _element = value } end
             if type(value) == "table" and pcall(self.elementFittingSize, self, value._element) then
                 local newElement = value._element
+                local details = value.frameDetails or {}
+                if value.id then details.id = value.id end
                 for k, v in pairs(value) do
-                    if k ~= "_element" and k ~= "frameDetails" then
-                        newElement[k](newElement, v)
+                    if k ~= "_element" and k ~= "frameDetails" and k ~= "id" then
+                        if newElement[k] then
+                            newElement[k](newElement, v)
+                        else
+                            log.wf("%s:insert metamethod, unrecognized key %s", USERDATA_TAG, k)
+                        end
                     end
                 end
+
                 local oldElement = self:element(key)
                 if oldElement then self:remove(key) end
-                self:insert(newElement, value.frameDetails or {}, key)
+                self:insert(newElement, details, key)
             else
                 error("replacement value does not specify an element", 2)
             end

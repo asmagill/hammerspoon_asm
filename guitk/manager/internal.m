@@ -467,7 +467,7 @@ static int manager_removeElement(lua_State *L) {
 
 static int manager_moveElementAbove(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TSTRING | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
@@ -477,10 +477,10 @@ static int manager_moveElementAbove(lua_State *L) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
     NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
-    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+    if (!element2 || ![element2 isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:element1]) {
+    if (![manager.subviews containsObject:element2]) {
         return luaL_argerror(L, 3, "element not managed by this content manager") ;
     }
     CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
@@ -507,7 +507,7 @@ static int manager_moveElementAbove(lua_State *L) {
 
 static int manager_moveElementBelow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TSTRING | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
@@ -517,10 +517,10 @@ static int manager_moveElementBelow(lua_State *L) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
     NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
-    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+    if (!element2 || ![element2 isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:element1]) {
+    if (![manager.subviews containsObject:element2]) {
         return luaL_argerror(L, 3, "element not managed by this content manager") ;
     }
     CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
@@ -547,7 +547,7 @@ static int manager_moveElementBelow(lua_State *L) {
 
 static int manager_moveElementLeftOf(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TSTRING | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
@@ -557,10 +557,10 @@ static int manager_moveElementLeftOf(lua_State *L) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
     NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
-    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+    if (!element2 || ![element2 isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:element1]) {
+    if (![manager.subviews containsObject:element2]) {
         return luaL_argerror(L, 3, "element not managed by this content manager") ;
     }
     CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
@@ -587,7 +587,7 @@ static int manager_moveElementLeftOf(lua_State *L) {
 
 static int manager_moveElementRightOf(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TSTRING | LS_TOPTIONAL, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSView *element1 = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
     if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
@@ -597,10 +597,10 @@ static int manager_moveElementRightOf(lua_State *L) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
     NSView *element2 = (lua_type(L, 3) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:3] : nil ;
-    if (!element1 || ![element1 isKindOfClass:[NSView class]]) {
+    if (!element2 || ![element2 isKindOfClass:[NSView class]]) {
         return luaL_argerror(L, 3, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    if (![manager.subviews containsObject:element1]) {
+    if (![manager.subviews containsObject:element2]) {
         return luaL_argerror(L, 3, "element not managed by this content manager") ;
     }
     CGFloat  padding = ((lua_gettop(L) > 3) && (lua_type(L, 4) == LUA_TNUMBER)) ? lua_tonumber(L, 4) : 0.0 ;
