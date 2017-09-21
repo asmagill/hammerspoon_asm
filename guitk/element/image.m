@@ -101,19 +101,6 @@ static int image_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
-static int image_enabled(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementImage *image = [skin toNSObjectAtIndex:1] ;
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, image.enabled) ;
-    } else {
-        image.enabled = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
 static int image_allowsCutCopyPaste(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -359,7 +346,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"imageFrameStyle",    image_imageFrameStyle},
     {"imageScaling",       image_imageScaling},
     {"image",              image_image},
-    {"enabled",            image_enabled},
     {"callback",           image_callback},
 
     {"__tostring",         userdata_tostring},
@@ -400,7 +386,6 @@ int luaopen_hs__asm_guitk_element_image(lua_State* L) {
         @"imageFrameStyle",
         @"imageScaling",
         @"image",
-        @"enabled",
         @"callback",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;

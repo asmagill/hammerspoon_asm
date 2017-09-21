@@ -1,7 +1,7 @@
 +   @interface NSControl                  : NSView
         @interface NSBrowser          : NSControl
     +   @interface NSButton           : NSControl
-        @interface NSColorWell        : NSControl
+    +   @interface NSColorWell        : NSControl
         @interface NSDatePicker       : NSControl
     +   @interface NSImageView        : NSControl
         @interface NSLevelIndicator   : NSControl
@@ -25,7 +25,6 @@
     @interface NSClipView                 : NSView
     @interface NSCollectionView           : NSView
     @interface NSGridView                 : NSView
-    @interface NSMenuView                 : NSView
     @interface NSOpenGLView               : NSView
 +   @interface NSProgressIndicator        : NSView
     @interface NSQuickDrawView            : NSView
