@@ -157,7 +157,7 @@ static int refTable = LUA_NOREF;
 
 - (void)controlTextDidChange:(__unused NSNotification *)aNotification {
 //     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidChange - %@", USERDATA_TAG, aNotification]] ;
-    [self performCallback:@"textChanged"] ;
+    if (self.continuous) [self performCallback:@"textChanged"] ;
 }
 
 - (void)controlTextDidEndEditing:(NSNotification *)aNotification {
