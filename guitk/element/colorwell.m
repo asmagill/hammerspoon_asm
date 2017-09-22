@@ -253,9 +253,10 @@ static int userdata_gc(lua_State* L) {
     return 0 ;
 }
 
-// static int meta_gc(lua_State* __unused L) {
-//     return 0 ;
-// }
+static int meta_gc(lua_State* __unused L) {
+    [[NSColorPanel sharedColorPanel] close] ;
+    return 0 ;
+}
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
@@ -278,17 +279,17 @@ static luaL_Reg moduleLib[] = {
     {NULL,           NULL}
 };
 
-// // Metatable for module, if needed
-// static const luaL_Reg module_metaLib[] = {
-//     {"__gc", meta_gc},
-//     {NULL,   NULL}
-// };
+// Metatable for module, if needed
+static const luaL_Reg module_metaLib[] = {
+    {"__gc", meta_gc},
+    {NULL,   NULL}
+};
 
 int luaopen_hs__asm_guitk_element_colorwell(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
-                                 metaFunctions:nil    // or module_metaLib
+                                 metaFunctions:module_metaLib
                                objectFunctions:userdata_metaLib];
 
     [skin registerPushNSHelper:pushHSASMGUITKElementColorWell         forClass:"HSASMGUITKElementColorWell"];
