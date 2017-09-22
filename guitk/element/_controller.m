@@ -178,6 +178,23 @@ static int control_font(lua_State *L) {
     return 1 ;
 }
 
+static int control_continuous(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    if (lua_type(L, 1) != LUA_TUSERDATA) {
+        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    }
+    NSControl *control = [skin toNSObjectAtIndex:1] ;
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, control.continuous) ;
+    } else {
+        control.continuous = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 // Functions for returned object when module loads
@@ -188,6 +205,7 @@ static luaL_Reg moduleLib[] = {
     {"controlSize",   control_controlSize},
     {"controlTint",   control_controlTint},
     {"textAlignment", control_textAlignment},
+    {"continuous",    control_continuous},
     {NULL,            NULL}
 };
 
@@ -202,6 +220,7 @@ int luaopen_hs__asm_guitk_element__controller(lua_State* L) {
         @"controlTint",
         @"controlSize",
         @"textAlignment",
+        @"continuous",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
 

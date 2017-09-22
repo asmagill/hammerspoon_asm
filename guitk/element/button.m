@@ -392,20 +392,6 @@ static int button_bordered(lua_State *L) {
     return 1 ;
 }
 
-static int button_continuous(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, button.continuous) ;
-    } else {
-        button.continuous = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
 static int button_transparent(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -767,7 +753,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"title",               button_title},
     {"alternateTitle",      button_alternateTitle},
     {"bordered",            button_bordered},
-    {"continuous",          button_continuous},
     {"transparent",         button_transparent},
     {"borderOnHover",       button_borderOnHover},
     {"allowsMixedState",    button_allowsMixedState},
@@ -823,7 +808,6 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         @"title",
         @"alternateTitle",
         @"bordered",
-        @"continuous",
         @"transparent",
         @"borderOnHover",
         @"allowsMixedState",
