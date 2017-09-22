@@ -66,15 +66,18 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
                                                   object:nil] ;
 }
 
-- (void) managerFrameChanged:(__unused NSNotification *)notification {
-    [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
-        [self updateFrameFor:view] ;
-    }] ;
+- (void) managerFrameChanged:(NSNotification *)notification {
+    if ([notification.object isEqualTo:self]) {
+        [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
+            [self updateFrameFor:view] ;
+        }] ;
+    }
 }
 
 - (void) updateFrameFor:(NSView *)view {
     NSMutableDictionary *details = [_subviewDetails objectForKey:view] ;
     NSRect frame = view.frame ;
+//     [LuaSkin logInfo:[NSString stringWithFormat:@"oldFrame: %@", NSStringFromRect(frame)]] ;
     if (details[@"h"]) {
         NSNumber *value = details[@"h"] ;
         if ([value isKindOfClass:[NSString class]]) {
@@ -127,6 +130,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         }
         frame.origin.y = value.doubleValue - (frame.size.height / 2) ;
     }
+//     [LuaSkin logInfo:[NSString stringWithFormat:@"newFrame: %@", NSStringFromRect(frame)]] ;
     view.frame = frame ;
 }
 
@@ -380,7 +384,7 @@ static int manager_new(lua_State *L) {
 
 static int manager__debugFrames(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
         if (manager.frameDebugColor) {
@@ -392,7 +396,6 @@ static int manager__debugFrames(lua_State *L) {
         if (lua_type(L, 2) == LUA_TTABLE) {
             manager.frameDebugColor = [skin luaObjectAtIndex:2 toClass:"NSColor"] ;
         } else {
-            [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL, LS_TBREAK] ;
             if (lua_toboolean(L, 2)) {
                 manager.frameDebugColor = [NSColor keyboardFocusIndicatorColor] ;
             } else {
@@ -402,6 +405,31 @@ static int manager__debugFrames(lua_State *L) {
         manager.needsDisplay = YES ;
         lua_pushvalue(L, 1) ;
     }
+    return 1 ;
+}
+
+static int manager_autoPosition(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    [manager managerFrameChanged:[NSNotification notificationWithName:NSViewFrameDidChangeNotification object:manager]] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int manager_elementAutoPosition(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+    NSView *item = (lua_type(L, 2) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:2] : nil ;
+    if (!item || ![item isKindOfClass:[NSView class]]) {
+        return luaL_argerror(L, 2, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+    if (![manager.subviews containsObject:item]) {
+        return luaL_argerror(L, 2, "element not managed by this content manager") ;
+    }
+    [manager updateFrameFor:item] ;
+    lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
@@ -890,6 +918,7 @@ static const luaL_Reg userdata_metaLib[] = {
 
     {"passthroughCallback", manager_passthroughCallback},
     {"sizeToFit",           manager_sizeToFit},
+    {"autoPosition",        manager_autoPosition},
     {"tooltip",             manager_toolTip},
 
     // recognized by elements as needing (manager, element, ...) in args when passing through
@@ -899,6 +928,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"elementMoveLeftOf",   manager_moveElementLeftOf},
     {"elementMoveRightOf",  manager_moveElementRightOf},
     {"elementFittingSize",  manager_elementFittingSize},
+    {"elementAutoPosition", manager_elementAutoPosition},
 
     {"_debugFrames",        manager__debugFrames},
     {"_nextResponder",      manager__nextResponder},
