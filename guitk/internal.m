@@ -1058,14 +1058,19 @@ static int window_collectionTypeTable(lua_State *L) {
     lua_pushinteger(L, NSWindowCollectionBehaviorIgnoresCycle) ;              lua_setfield(L, -2, "ignoresCycle") ;
     lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenPrimary) ;         lua_setfield(L, -2, "fullScreenPrimary") ;
     lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAuxiliary) ;       lua_setfield(L, -2, "fullScreenAuxiliary") ;
+    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenNone) ;            lua_setfield(L, -2, "fullScreenNone") ;
+// these are 10.11+ but are constants so will be compiled in and exception handler in window_collectionBehavior will catch if
+// used in 10.10, so just shut up the compiler warnings.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
     lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenAllowsTiling) ;    lua_setfield(L, -2, "fullScreenAllowsTiling") ;
     lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenDisallowsTiling) ; lua_setfield(L, -2, "fullScreenDisallowsTiling") ;
-    lua_pushinteger(L, NSWindowCollectionBehaviorFullScreenNone) ;            lua_setfield(L, -2, "fullScreenNone") ;
+#pragma clang diagnostic pop
     return 1 ;
 }
 
 
-/// hs._asm.guitk.windowLevels
+/// hs._asm.guitk.levels
 /// Constant
 /// A table of predefined window levels usable with [hs._asm.guitk:level](#level)
 ///
@@ -1092,8 +1097,12 @@ static int window_collectionTypeTable(lua_State *L) {
 ///
 /// Notes:
 ///  * These key names map to the constants used in CoreGraphics to specify window levels and may not actually be used for what the name might suggest. For example, tests suggest that an active screen saver actually runs at a level of 2002, rather than at 1000, which is the window level corresponding to kCGScreenSaverWindowLevelKey.
+///
 ///  * Each window level is sorted separately and [hs._asm.guitk:orderAbove](#orderAbove) and [hs._asm.guitk:orderBelow](#orderBelow) only arrange windows within the same level.
-///  * If you use Dock hiding (or in 10.11, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.
+///
+///  * If you use Dock hiding (or in 10.11+, Menubar hiding) please note that when the Dock (or Menubar) is popped up, it is done so with an implicit orderAbove, which will place it above any items you may also draw at the Dock (or MainMenu) level.
+///
+///  * Recent versions of macOS have made significant changes to the way full-screen apps work which may prevent placing Hammerspoon elements above some full screen applications.  At present the exact conditions are not fully understood and no work around currently exists in these situations.
 static int window_windowLevels(lua_State *L) {
     lua_newtable(L) ;
 //       lua_pushinteger(L, CGWindowLevelForKey(kCGBaseWindowLevelKey)) ;              lua_setfield(L, -2, "kCGBaseWindowLevelKey") ;
@@ -1120,7 +1129,32 @@ static int window_windowLevels(lua_State *L) {
 //       lua_pushinteger(L, CGWindowLevelForKey(kCGNumberOfWindowLevelKeys)) ;         lua_setfield(L, -2, "kCGNumberOfWindowLevelKeys") ;
     return 1 ;
 }
-
+/// hs._asm.guitk.masks[]
+/// Constant
+/// A table containing valid masks for the guitk window.
+///
+/// Table Keys:
+///  * `borderless`             - The window has no border decorations
+///  * `titled`                 - The window title bar is displayed
+///  * `closable`               - The window has a close button
+///  * `miniaturizable`         - The window has a minimize button
+///  * `resizable`              - The window is resizable
+///  * `texturedBackground`     - The window has a texturized background
+///  * `fullSizeContentView`    - If titled, the titlebar is within the frame size specified at creation, not above it.  Shrinks actual content area by the size of the titlebar, if present.
+///  * `utility`                - If titled, the window shows a utility panel titlebar (thinner than normal)
+///  * `nonactivating`          - If the window is activated, it won't bring other Hammerspoon windows forward as well
+///  * `HUD`                    - Requires utility; the window titlebar is shown dark and can only show the close button and title (if they are set)
+///
+/// The following are still being evaluated and may require additional support or specific methods to be in effect before use. Use with caution.
+///  * `unifiedTitleAndToolbar` -
+///  * `fullScreen`             -
+///  * `docModal`               -
+///
+/// Notes:
+///  * The Maximize button in the window title is enabled when Resizable is set.
+///  * The Close, Minimize, and Maximize buttons are only visible when the Window is also Titled.
+///
+///  * Not all combinations of masks are valid and will through an error if set with [hs._asm.guitk:mask](#mask).
 static int window_windowMasksTable(lua_State *L) {
     lua_newtable(L) ;
     lua_pushinteger(L, NSWindowStyleMaskBorderless) ;             lua_setfield(L, -2, "borderless") ;
@@ -1139,6 +1173,44 @@ static int window_windowMasksTable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.notifications[]
+/// Constant
+/// An array containing all of the notifications which can be enabled with [hs._asm.guitk:notificationMessages](#notificationMessages).
+///
+/// Array values:
+///  * `didBecomeKey`               -
+///  * `didBecomeMain`              -
+///  * `didChangeBackingProperties` -
+///  * `didChangeOcclusionState`    -
+///  * `didChangeScreen`            -
+///  * `didChangeScreenProfile`     -
+///  * `didDeminiaturize`           -
+///  * `didEndLiveResize`           -
+///  * `didEndSheet`                -
+///  * `didEnterFullScreen`         -
+///  * `didEnterVersionBrowser`     -
+///  * `didExitFullScreen`          -
+///  * `didExitVersionBrowser`      -
+///  * `didExpose`                  -
+///  * `didFailToEnterFullScreen`   -
+///  * `didFailToExitFullScreen`    -
+///  * `didMiniaturize`             -
+///  * `didMove`                    -
+///  * `didResignKey`               -
+///  * `didResignMain`              -
+///  * `didResize`                  -
+///  * `didUpdate`                  -
+///  * `willBeginSheet`             -
+///  * `willClose`                  -
+///  * `willEnterFullScreen`        -
+///  * `willEnterVersionBrowser`    -
+///  * `willExitFullScreen`         -
+///  * `willExitVersionBrowser`     -
+///  * `willMiniaturize`            -
+///  * `willMove`                   -
+///  * `willStartLiveResize`        -
+//
+// Notes:
 static int window_notifications(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     guitkNotifications = @[
