@@ -41,6 +41,8 @@ end
 
 -- Public interface ------------------------------------------------------
 
+module.datepicker.calendarIdentifiers = ls.makeConstantsTable(module.datepicker.calendarIdentifiers)
+
 for k,v in pairs(metatables) do
 
     -- if requested, merge in common controller methods and update properties table

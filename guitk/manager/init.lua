@@ -63,14 +63,15 @@ wrappedElementMT.__newindex = function(self, key, value)
     local manager, element = obj.manager, obj.element
 
     if key == "_element" or key == "_type" or key == "_fittingSize" then
-        return error(key .. " cannot be modified", 2)
+        error(key .. " cannot be modified", 2)
     elseif key == "frameDetails" then
-        return manager:elementFrameDetails(element, value)
+        manager:elementFrameDetails(element, value)
     elseif element[key] then
         element[key](element, value)
     else
         error(tostring(key) .. " unrecognized property", 2)
     end
+    manager:elementAutoPosition(element)
 end
 
 wrappedElementMT.__pairs = function(self)

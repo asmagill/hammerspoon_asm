@@ -273,7 +273,7 @@ static int datepicker_datePickerElements(lua_State *L) {
             return luaL_argerror(L, 2, "expected string value for dateElement key") ;
         }
         lua_pop(L, 1) ;
-        if (lua_getfield(L, 2, "incudeTimeZone") == LUA_TBOOLEAN) {
+        if (lua_getfield(L, 2, "includeTimeZone") == LUA_TBOOLEAN) {
             if (lua_toboolean(L, -1)) flags |= NSTimeZoneDatePickerElementFlag ;
         } else if (lua_type(L, -1) != LUA_TNIL) {
             return luaL_argerror(L, 2, "expected boolean value for inclueTimeZone key") ;
