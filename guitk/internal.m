@@ -42,7 +42,13 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
                                                           backing:(NSBackingStoreType)bufferingType
                                                             defer:(BOOL)deferCreation {
 
-    self = [super initWithContentRect:contentRect styleMask:windowStyle backing:bufferingType defer:deferCreation] ;
+    @try {
+        self = [super initWithContentRect:contentRect styleMask:windowStyle backing:bufferingType defer:deferCreation] ;
+    }
+    @catch (NSException *exception) {
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:new - %@", USERDATA_TAG, exception.reason]] ;
+        self = nil ;
+    }
 
     if (self) {
         contentRect = RectWithFlippedYCoordinate(contentRect) ;
@@ -55,6 +61,8 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         self.hidesOnDeactivate  = NO ;
         self.animationBehavior  = NSWindowAnimationBehaviorNone ;
         self.level              = NSNormalWindowLevel ;
+
+        self.displaysWhenScreenProfileChanges = YES ; // TODO: should this be toggle-able by the user?
 
         _selfRef                = LUA_NOREF ;
         _contentManagerRef      = LUA_NOREF ;
@@ -317,6 +325,19 @@ static int window_orderHelper(lua_State *L, NSWindowOrderingMode mode) {
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.new(rect, [styleMask]) -> guitkObject
+/// Constructor
+/// Creates a new empty guitk window.
+///
+/// Parameters:
+///  * `rect`     - a rect-table specifying the initial location and size of the guitk window.
+///  * `styleMask` - an optional integer specifying the style mask for the window as a combination of logically or'ed values from the [hs._asm.guitk.masks](#masks) table.  Defaults to `titled | closable | resizable | miniaturizable` (a standard macOS window with the appropriate titlebar and decorations).
+///
+/// Returns:
+///  * the guitk object, or nil if there was an error creating the window.
+///
+/// Notes:
+///  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
 static int window_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -343,15 +364,18 @@ static int window_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
-/// hs._asm.guitk:allowTextEntry([value]) -> guitkObject | current value
+/// hs._asm.guitk:allowTextEntry([value]) -> guitkObject | boolean
 /// Method
 /// Get or set whether or not the guitk object can accept keyboard entry. Defaults to true.
 ///
 /// Parameters:
-///  * `value` - an optional boolean value which sets whether or not the guitk will accept keyboard input.
+///  * `value` - an optional boolean, default true, which sets whether or not the guitk will accept keyboard input.
 ///
 /// Returns:
 ///  * If a value is provided, then this method returns the guitk object; otherwise the current value
+///
+/// Notes:
+///  * Most controllable elements require keybaord focus even if they do not respond directly to keyboard input.
 static int guitk_allowTextEntry(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -366,15 +390,18 @@ static int guitk_allowTextEntry(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk:deleteOnClose([value]) -> guitkObject | current value
+/// hs._asm.guitk:deleteOnClose([value]) -> guitkObject | boolean
 /// Method
-/// Get or set whether or not the guitk should delete itself when its window is closed.
+/// Get or set whether or not the guitk window should delete itself when its window is closed.
 ///
 /// Parameters:
-///  * `value` - an optional boolean value which sets whether or not the guitk will delete itself when its window is closed by any method.  Defaults to false.
+///  * `value` - an optional boolean, default false, which sets whether or not the guitk will delete itself when its window is closed by any method.
 ///
 /// Returns:
 ///  * If a value is provided, then this method returns the guitk object; otherwise the current value
+///
+/// Notes:
+///  * setting this to true allows Lua garbage collection to release the window resources when the user closes the window.
 static int guitk_deleteOnClose(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -389,12 +416,12 @@ static int guitk_deleteOnClose(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk:alpha([alpha]) -> guitkObject | currentValue
+/// hs._asm.guitk:alpha([alpha]) -> guitkObject | number
 /// Method
 /// Get or set the alpha level of the window representing the guitk object.
 ///
 /// Parameters:
-///  * `alpha` - an optional number specifying the new alpha level (0.0 - 1.0, inclusive) for the window.
+///  * `alpha` - an optional number, default 1.0, specifying the alpha level (0.0 - 1.0, inclusive) for the window.
 ///
 /// Returns:
 ///  * If an argument is provided, the guitk object; otherwise the current value.
@@ -413,6 +440,15 @@ static int window_alphaValue(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:backgroundColor([color]) -> guitkObject | color table
+/// Method
+/// Get or set the color for the background of guitk window.
+///
+/// Parameters:
+/// * color - an optional table containing color keys as described in `hs.drawing.color`
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int window_backgroundColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -427,6 +463,15 @@ static int window_backgroundColor(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:hasShadow([state]) -> guitkObject | boolean
+/// Method
+/// Get or set whether the guitk window displays a shadow.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default true, specifying whether or not the window draws a shadow.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int window_hasShadow(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -441,6 +486,15 @@ static int window_hasShadow(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:opaque([state]) -> guitkObject | boolean
+/// Method
+/// Get or set whether the guitk window is opaque.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default true, specifying whether or not the window is opaque.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int window_opaque(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -482,6 +536,15 @@ static int window_styleMask(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:title([title]) -> guitkObject | string
+/// Method
+/// Get or set the guitk window's title.
+///
+/// Parameters:
+///  * `title` - an optional string specifying the title to assign to the guitk window.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int window_title(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -496,6 +559,15 @@ static int window_title(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:titlebarAppearsTransparent([state]) -> guitkObject | boolean
+/// Method
+/// Get or set whether the guitk window's title bar draws its background.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default true, specifying whether or not the guitk window's title bar draws its background.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int window_titlebarAppearsTransparent(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -518,7 +590,7 @@ static int window_titlebarAppearsTransparent(lua_State *L) {
 ///  * state - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
 ///
 /// Returns:
-///  * a string of "visible" or "hidden" specifying the current (possibly changed) state of the window title's visibility.
+///  * If an argument is provided, the guitk object; otherwise the current value.
 ///
 /// Notes:
 ///  * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title ("visible") or in the window's title bar itself, as seen in applications like Safari ("hidden").
@@ -552,33 +624,73 @@ static int window_titleVisibility(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:appearance([appearance]) -> guitkObject | string
+/// Method
+/// Get or set the appearance name applied to the window decorations for the guitk window.
+///
+/// Parameters:
+///  * `appearance` - an optional string specifying the name of the appearance style to apply to the window frame and decorations.  Should be one of "aqua", "light", or "dark".
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * Other string values are allowed for forwards compatibility if Apple or third party software adds additional themes.
+///  * The built in labels are actually shortcuts:
+///    * "aqua"  is shorthand for "NSAppearanceNameAqua" and is the default.
+///    * "light" is shorthand for "NSAppearanceNameVibrantLight"
+///    * "dark"  is shorthand for "NSAppearanceNameVibrantDark" and can be used to mimic the macOS dark mode.
+///  * This method will return an error if the string provided does not correspond to a recognized appearance theme.
 static int appearanceCustomization_appearance(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        [skin pushNSObject:window.effectiveAppearance.name] ;
+        NSString *actual   = window.effectiveAppearance.name ;
+        NSString *returned = actual ;
+        if ([actual isEqualToString:NSAppearanceNameAqua]) {
+            returned = @"aqua" ;
+        } else if ([actual isEqualToString:NSAppearanceNameVibrantLight]) {
+            returned = @"light" ;
+        } else if ([actual isEqualToString:NSAppearanceNameVibrantDark]) {
+            returned = @"dark" ;
+        }
+        [skin pushNSObject:returned] ;
     } else {
         NSString     *type = [skin toNSObjectAtIndex:2] ;
-        NSAppearance *appearance ;
-        if ([type isEqualToString:@"aqua"]) {
-            appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua] ;
-        } else if ([type isEqualToString:@"light"]) {
-            appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantLight] ;
-        } else if ([type isEqualToString:@"dark"]) {
-            appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark] ;
+        NSAppearance *appearance = [NSAppearance appearanceNamed:type] ;
+        if (!appearance) {
+            if ([type isEqualToString:@"aqua"]) {
+                appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua] ;
+            } else if ([type isEqualToString:@"light"]) {
+                appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantLight] ;
+            } else if ([type isEqualToString:@"dark"]) {
+                appearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark] ;
+            }
         }
         if (appearance) {
             window.appearance = appearance ;
         } else {
-            return luaL_argerror(L, 2, "must be one of 'aqua', 'light', or 'dark'") ;
+            return luaL_argerror(L, 2, "should be one of 'aqua', 'light', or 'dark'") ;
         }
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
 
+/// hs._asm.guitk:closeOnEscape([flag]) -> guitkObject | boolean
+/// Method
+/// If the guitk window is closable, this will get or set whether or not the Escape key is allowed to close the guitk window.
+///
+/// Parameters:
+///  * `flag` - an optional boolean value which indicates whether the guitk window, when it's style includes `closable` (see [hs._asm.guitk:styleMask](#styleMask)), should allow the Escape key to be a shortcut for closing the window.  Defaults to false.
+///
+/// Returns:
+///  * If a value is provided, then this method returns the guitk object; otherwise the current value
+///
+/// Notes:
+///  * If this is set to true, Escape will only close the window if no other element responds to the Escape key first (e.g. if you are editing a textfield element, the Escape will be captured by the text field, not by the guitk window.)
 static int guitk_closeOnEscape(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -593,6 +705,21 @@ static int guitk_closeOnEscape(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:frame([rect], [animated]) -> guitkObject | rect-table
+/// Method
+/// Get or set the frame of the guitk window.
+///
+/// Parameters:
+///  * `rect`     - An optional rect-table containing the co-ordinates and size the guitk window should be moved and set to
+///  * `animated` - an optional boolean, default false, indicating whether the frame change should be performed with a smooth transition animation (true) or not (false).
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * a rect-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the new size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///
+///  * See also [hs._asm.guitk:animationDuration](#animationDuration).
 static int window_frame(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -611,6 +738,21 @@ static int window_frame(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk:topLeft([point], [animated]) -> guitkObject | rect-table
+/// Method
+/// Get or set the top left corner of the guitk window.
+///
+/// Parameters:
+///  * `point`     - An optional point-table specifying the new coordinate the top-left of the guitk window should be moved to
+///  * `animated` - an optional boolean, default false, indicating whether the frame change should be performed with a smooth transition animation (true) or not (false).
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * a point-table is a table with key-value pairs specifying the new top-left coordinate on the screen of the guitk (keys `x`  and `y`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///
+///  * See also [hs._asm.guitk:animationDuration](#animationDuration).
 static int window_topLeft(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -630,6 +772,21 @@ static int window_topLeft(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk:size([size], [animated]) -> guitkObject | rect-table
+/// Method
+/// Get or set the size of the guitk window.
+///
+/// Parameters:
+///  * `size`     - an optional size-table specifying the width and height the guitk window should be resized to
+///  * `animated` - an optional boolean, default false, indicating whether the frame change should be performed with a smooth transition animation (true) or not (false).
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * a size-table is a table with key-value pairs specifying the size (keys `h` and `w`) the guitk window should be resized to. The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+///
+///  * See also [hs._asm.guitk:animationDuration](#animationDuration).
 static int window_size(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -649,6 +806,7 @@ static int window_size(lua_State *L) {
     return 1;
 }
 
+// FIXME: Documentation stopping point
 static int window_animationBehavior(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1178,39 +1336,41 @@ static int window_windowMasksTable(lua_State *L) {
 /// An array containing all of the notifications which can be enabled with [hs._asm.guitk:notificationMessages](#notificationMessages).
 ///
 /// Array values:
-///  * `didBecomeKey`               -
-///  * `didBecomeMain`              -
-///  * `didChangeBackingProperties` -
-///  * `didChangeOcclusionState`    -
-///  * `didChangeScreen`            -
-///  * `didChangeScreenProfile`     -
-///  * `didDeminiaturize`           -
-///  * `didEndLiveResize`           -
-///  * `didEndSheet`                -
-///  * `didEnterFullScreen`         -
-///  * `didEnterVersionBrowser`     -
-///  * `didExitFullScreen`          -
-///  * `didExitVersionBrowser`      -
-///  * `didExpose`                  -
-///  * `didFailToEnterFullScreen`   -
-///  * `didFailToExitFullScreen`    -
-///  * `didMiniaturize`             -
-///  * `didMove`                    -
-///  * `didResignKey`               -
-///  * `didResignMain`              -
-///  * `didResize`                  -
-///  * `didUpdate`                  -
-///  * `willBeginSheet`             -
-///  * `willClose`                  -
-///  * `willEnterFullScreen`        -
-///  * `willEnterVersionBrowser`    -
-///  * `willExitFullScreen`         -
-///  * `willExitVersionBrowser`     -
-///  * `willMiniaturize`            -
-///  * `willMove`                   -
-///  * `willStartLiveResize`        -
-//
-// Notes:
+///  * `didBecomeKey`               - The window has become the key window; controls or elements of the window can now be manipulated by the user and keyboard entry (if appropriate) will be captured by the relevant elements.
+///  * `didBecomeMain`              - The window has become the main window of Hammerspoon. In most cases, this is equivalent to the window becoming key and both notifications may be sent if they are being watched for.
+///  * `didChangeBackingProperties` - The backing properties of the window have changed. This will be posted if the scaling factor of color space for the window changes, most likely because it moved to a different screen.
+///  * `didChangeOcclusionState`    - The window's occlusion state has changed (i.e. whether or not at least part of the window is currently visible)
+///  * `didChangeScreen`            - Part of the window has moved onto or off of the current screens
+///  * `didChangeScreenProfile`     - The screen the window is on has changed its properties or color profile
+///  * `didDeminiaturize`           - The window has been de-miniaturized
+///  * `didEndLiveResize`           - The user resized the window
+///  * `didEndSheet`                - The window has closed an attached sheet
+///  * `didEnterFullScreen`         - The window has entered full screen mode
+///  * `didEnterVersionBrowser`     - The window will enter version browser mode
+///  * `didExitFullScreen`          - The window has exited full screen mode
+///  * `didExitVersionBrowser`      - The window will exit version browser mode
+///  * `didExpose`                  - Posted whenever a portion of a nonretained window is exposed - may not be applicable to the way Hammerspoon manages windows; will have to evaluate further
+///  * `didFailToEnterFullScreen`   - The window failed to enter full screen mode
+///  * `didFailToExitFullScreen`    - The window failed to exit full screen mode
+///  * `didMiniaturize`             - The window was miniaturized
+///  * `didMove`                    - The window was moved
+///  * `didResignKey`               - The window has stopped being the key window
+///  * `didResignMain`              - The window has stopped being the main window
+///  * `didResize`                  - The window did resize
+///  * `didUpdate`                  - The window received an update message (a request to redraw all content and the content of its subviews)
+///  * `willBeginSheet`             - The window is about to open an attached sheet
+///  * `willClose`                  - The window is about to close; the window has not closed yet, so its userdata is still valid, even if it's set to be deleted on close, so do any clean up at this time.
+///  * `willEnterFullScreen`        - The window is about to enter full screen mode but has not done so yet
+///  * `willEnterVersionBrowser`    - The window will enter version browser mode but has not done so yet
+///  * `willExitFullScreen`         - The window will exit full screen mode but has not done so yet
+///  * `willExitVersionBrowser`     - The window will exit version browser mode but has not done so yet
+///  * `willMiniaturize`            - The window will miniaturize but has not done so yet
+///  * `willMove`                   - The window will move but has not done so yet
+///  * `willStartLiveResize`        - The window is about to be resized by the user
+///
+/// Notes:
+///  * Not all of the notifications here are currently fully supported and the specific details and support will change as this module and its submodules evolve and get fleshed out. Some may be removed if it is determined they will never be supported by this module while others may lead to additions when the need arises. Please post an issue or pull request if you would like to request specific support or provide additions yourself.
+
 static int window_notifications(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     guitkNotifications = @[

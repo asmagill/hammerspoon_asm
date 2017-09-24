@@ -42,7 +42,7 @@ local simplifiedNotificationMap = {
 
 -- Public interface ------------------------------------------------------
 
---- hs._asm.guitk:styleMask([mask]) -> guitkObject | currentMask
+--- hs._asm.guitk:styleMask([mask]) -> guitkObject | integer
 --- Method
 --- Get or set the window display style
 ---
@@ -86,7 +86,7 @@ guitkMT.styleMask = function(self, ...) -- add nice wrapper version
     end
 end
 
---- hs._asm.guitk:collectionBehavior([behaviorMask]) -> guitkObject | currentValue
+--- hs._asm.guitk:collectionBehavior([behaviorMask]) -> guitkObject | integer
 --- Method
 --- Get or set the guitk window collection behavior with respect to Spaces and Exposé.
 ---
@@ -134,7 +134,7 @@ guitkMT.collectionBehavior = function(self, ...)          -- add nice wrapper ve
     end
 end
 
---- hs._asm.guitk:level([theLevel]) -> guitkObject | currentValue
+--- hs._asm.guitk:level([theLevel]) -> guitkObject | integer
 --- Method
 --- Get or set the guitk window level
 ---
