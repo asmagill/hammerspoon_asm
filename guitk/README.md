@@ -40,9 +40,6 @@ guitk = require("hs._asm.guitk")
 ##### Module Constructors
 * <a href="#new">guitk.new(rect, [styleMask]) -> guitkObject</a>
 
-##### Module Functions
-* <a href="#titleVisibility">guitk:titleVisibility([state]) -> guitkObject | currentValue</a>
-
 ##### Module Methods
 * <a href="#accessibilitySubrole">guitk:accessibilitySubrole([label | nil]) -> guitkObject | string | nil</a>
 * <a href="#activeElement">guitk:activeElement([view | nil]) -> boolean | userdata</a>
@@ -78,6 +75,7 @@ guitk = require("hs._asm.guitk")
 * <a href="#styleMask">guitk:styleMask([mask]) -> guitkObject | integer</a>
 * <a href="#title">guitk:title([title]) -> guitkObject | string</a>
 * <a href="#titlebarAppearsTransparent">guitk:titlebarAppearsTransparent([state]) -> guitkObject | boolean</a>
+* <a href="#titleVisibility">guitk:titleVisibility([state]) -> guitkObject | currentValue</a>
 * <a href="#topLeft">guitk:topLeft([point], [animated]) -> guitkObject | rect-table</a>
 
 ##### Module Constants
@@ -105,23 +103,6 @@ Returns:
 
 Notes:
  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
-
-### Module Functions
-
-<a name="titleVisibility"></a>
-~~~lua
-guitk:titleVisibility([state]) -> guitkObject | currentValue
-~~~
-Get or set whether or not the title is displayed in the guitk window titlebar.
-
-Parameters:
- * state - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
-
-Returns:
- * If an argument is provided, the guitk object; otherwise the current value.
-
-Notes:
- * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title ("visible") or in the window's title bar itself, as seen in applications like Safari ("hidden").
 
 ### Module Methods
 
@@ -745,6 +726,23 @@ Parameters:
 
 Returns:
  * If an argument is provided, the guitk object; otherwise the current value.
+
+- - -
+
+<a name="titleVisibility"></a>
+~~~lua
+guitk:titleVisibility([state]) -> guitkObject | currentValue
+~~~
+Get or set whether or not the title is displayed in the guitk window titlebar.
+
+Parameters:
+ * state - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
+
+Returns:
+ * If an argument is provided, the guitk object; otherwise the current value.
+
+Notes:
+ * NOT IMPLEMENTED YET - When a toolbar is attached to the guitk window (see the `hs.webview.toolbar` module documentation), this function can be used to specify whether the Toolbar appears underneath the window's title ("visible") or in the window's title bar itself, as seen in applications like Safari ("hidden").
 
 - - -
 

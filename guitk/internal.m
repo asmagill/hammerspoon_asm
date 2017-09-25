@@ -581,7 +581,7 @@ static int window_titlebarAppearsTransparent(lua_State *L) {
 }
 
 /// hs._asm.guitk:titleVisibility([state]) -> guitkObject | currentValue
-/// Function
+/// Method
 /// Get or set whether or not the title is displayed in the guitk window titlebar.
 ///
 /// Parameters:
