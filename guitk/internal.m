@@ -25,7 +25,6 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 
 @interface HSASMGuiWindow : NSPanel <NSWindowDelegate>
 @property int          selfRef ;
-@property int          contentManagerRef ;
 @property int          notificationCallback ;
 @property int          passthroughCallbackRef ;
 @property BOOL         allowKeyboardEntry ;
@@ -65,7 +64,6 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         self.displaysWhenScreenProfileChanges = YES ; // TODO: should this be toggle-able by the user?
 
         _selfRef                = LUA_NOREF ;
-        _contentManagerRef      = LUA_NOREF ;
         _notificationCallback   = LUA_NOREF ;
         _passthroughCallbackRef = LUA_NOREF ;
         _deleteOnClose          = NO ;
@@ -806,7 +804,23 @@ static int window_size(lua_State *L) {
     return 1;
 }
 
-// FIXME: Documentation stopping point
+/// hs._asm.guitk:animationBehavior([behavior]) -> guitkObject | string
+/// Method
+/// Get or set the macOS animation behavior used when the guitk window is shown or hidden.
+///
+/// Parameters:
+///  * `behavior` - an optional string specifying the animation behavior. The string should be one of the following:
+///    * "default"        - The automatic animation that’s appropriate to the window type.
+///    * "none"           - No automatic animation used. This is the default which makes window appearance immediate unless you use the fade time argument with [hs._asm.guitk:show](#show), [hs._asm.guitk:hide](#hide), or [hs._asm.guitk:delete](#delete).
+///    * "documentWindow" - The animation behavior that’s appropriate to a document window.
+///    * "utilityWindow"  - The animation behavior that’s appropriate to a utility window.
+///    * "alertPanel"     - The animation behavior that’s appropriate to an alert window.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * This animation is separate from the fade-in and fade-out options provided with the [hs._asm.guitk:show](#show), [hs._asm.guitk:hide](#hide), and [hs._asm.guitk:delete](#delete) methods and is provided by the macOS operating system itself.
 static int window_animationBehavior(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -841,6 +855,15 @@ static int window_animationBehavior(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:animationDuration([duration | nil]) -> guitkObject | number | nil
+/// Method
+/// Get or set the macOS animation duration for smooth frame transitions used when the guitk window is moved or resized.
+///
+/// Parameters:
+///  * `duration` - a number or nil, default nil, specifying the time in seconds to move or resize by 150 pixels when the `animated` flag is set for [hs._asm.guitk:frame](#frame), [hs._asm.guitk:topLeft](#topLeft), or [hs._asm.guitk:size](#size). An explicit `nil` defaults to the macOS default, which is currently 0.2.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
 static int guitk_animationDuration(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -881,12 +904,12 @@ static int window_collectionBehavior(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk:delete([fadeOutTime]) -> none
+/// hs._asm.guitk:delete([fadeOut]) -> none
 /// Method
 /// Destroys the guitk object, optionally fading it out first (if currently visible).
 ///
 /// Parameters:
-///  * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).
+///  * `fadeOut` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).
 ///
 /// Returns:
 ///  * None
@@ -913,12 +936,12 @@ static int guitk_delete(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk:hide([fadeOutTime]) -> guitkObject
+/// hs._asm.guitk:hide([fadeOut]) -> guitkObject
 /// Method
 /// Hides the guitk object
 ///
 /// Parameters:
-///  * `fadeOutTime` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).
+///  * `fadeOut` - An optional number of seconds over which to fade out the guitk object. Defaults to zero (i.e. immediate).
 ///
 /// Returns:
 ///  * The guitk object
@@ -937,12 +960,12 @@ static int guitk_hide(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk:show([fadeInTime]) -> guitkObject
+/// hs._asm.guitk:show([fadeIn]) -> guitkObject
 /// Method
 /// Displays the guitk object
 ///
 /// Parameters:
-///  * `fadeInTime` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).
+///  * `fadeIn` - An optional number of seconds over which to fade in the guitk object. Defaults to zero (i.e. immediate).
 ///
 /// Returns:
 ///  * The guitk object
@@ -960,6 +983,22 @@ static int guitk_show(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk:accessibilitySubrole([label | nil]) -> guitkObject | string | nil
+/// Method
+/// Get or set the accessibility subrole value this window will report via the Accessibility API when queried.
+///
+/// Parameters:
+///  * `label` - an optional string or nil, default nil, specifying the accessibility subrole value this guitk window should report. See the notes below.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * The subrole value of a window may be used by accessibility aware applications and Hammerspoon's own `hs.window.filter` to make decisions about how to treat the window.
+///
+///  * If you specify a non-empty string for this value, the value provided will be reported when this window's subrole is queried.
+///  * If you specify an empty string (e.g. ""), the default value for this window based upon its properties will be returned when queried.
+///  * If you specify nil (the default), then the default value for this window based upon its properties will have ".Hammerspoon" appended to the string and this combined value will be returned when queried.
 static int guitk_accessibilitySubrole(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -974,6 +1013,19 @@ static int guitk_accessibilitySubrole(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:notificationCallback([fn | nil]) -> guitkObject | fn
+/// Method
+/// Get or set the notification callback for the guitk window.
+///
+/// Parameters:
+///  * `fn` - a function, or explicit nil to remove, that should be invoked whenever a registered notification concerning the guitk window occurs.  See [hs._asm.guitk:notificationMessages](#notificationMessages) for information on registering for specific notifications.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * The function should expect two arguments: the guitkObject itself and a string specifying the type of notification. See [hs._asm.guitk:notificationMessages](#notificationMessages) and [hs._asm.guitk.notifications](#notifications).
+///  * [hs._asm.guitk:simplifiedWindowCallback](#simplifiedWindowCallback) provides a wrapper to this method which conforms to the window notifications currently offered by `hs.webview`.
 static int guitk_notificationCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -997,6 +1049,20 @@ static int guitk_notificationCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:notificationMessages([notifications, [replace]]) -> guitkObject | table
+/// Method
+/// Get or set the specific notifications which should trigger a callback set with [hs._asm.guitk:notificationCallback](#notificationCallback).
+///
+/// Parameters:
+///  * `notifications` - a string, to specify one, or a table of strings to specify multiple notifications which are to trigger a callback when they occur.
+///  * `replace`       - an optional boolean, default false, specifying whether the notifications listed should be added to the current set (false) or replace the existing set with new values (true).
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * When a new guitkObject is created, the messages are initially set to `{ "didBecomeKey", "didResignKey", "didResize", "didMove" }`
+///  * See [hs._asm.guitk.notifications](#notifications) for possible notification messages that can be watched for.
 static int guitk_notificationWatchFor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1043,10 +1109,34 @@ static int guitk_notificationWatchFor(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:orderAbove([guitk2]) -> guitkObject
+/// Method
+/// Moves the guitk window above guitk2, or all guitk windows in the same presentation level, if guitk2 is not given.
+///
+/// Parameters:
+///  * `guitk2` -An optional guitk window object to place the guitk window above.
+///
+/// Returns:
+///  * The guitk object
+///
+/// Notes:
+///  * If the guitk window and guitk2 are not at the same presentation level, this method will will move the window as close to the desired relationship as possible without changing the object's presentation level. See [hs._asm.guitk.level](#level).
 static int window_orderAbove(lua_State *L) {
     return window_orderHelper(L, NSWindowAbove) ;
 }
 
+/// hs._asm.guitk:orderBelow([guitk2]) -> guitkObject
+/// Method
+/// Moves the guitk window below guitk2, or all guitk windows in the same presentation level, if guitk2 is not given.
+///
+/// Parameters:
+///  * `guitk2` -An optional guitk window object to place the guitk window below.
+///
+/// Returns:
+///  * The guitk object
+///
+/// Notes:
+///  * If the guitk window and guitk2 are not at the same presentation level, this method will will move the window as close to the desired relationship as possible without changing the object's presentation level. See [hs._asm.guitk.level](#level).
 static int window_orderBelow(lua_State *L) {
     return window_orderHelper(L, NSWindowBelow) ;
 }
@@ -1067,6 +1157,19 @@ static int window_level(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:isShowing() -> boolean
+/// Method
+/// Returns whether or not the guitk window is currently being shown.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicating whether or not the guitk window is currently being shown (true) or is currently hidden (false).
+///
+/// Notes:
+///  * This method only determines whether or not the window is being shown or is hidden -- it does not indicate whether or not the window is currently off screen or is occluded by other objects.
+///  * See also [hs._asm.guitk:isOccluded](#isOccluded).
 static int window_isShowing(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1076,6 +1179,21 @@ static int window_isShowing(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:isOccluded() -> boolean
+/// Method
+/// Returns whether or not the guitk window is currently occluded (hidden by other windows, off screen, etc).
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicating whether or not the guitk window is currently being occluded.
+///
+/// Notes:
+///  * If any part of the window is visible (even if that portion of the window does not contain any elements), then the window is not considered occluded.
+///  * a window which is completely covered by one or more opaque windows is considered occluded; however, if the windows covering the guitk window are not opaque, then the window is not occluded.
+///  * a window that is currently hidden or that has a height of 0 or a width of 0 is considered occluded.
+///  * See also [hs._asm.guitk:isShowing](#isShowing).
 static int window_isOccluded(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1085,20 +1203,38 @@ static int window_isOccluded(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:contentManager([view | nil]) -> guitkObject | manager/element userdata
+/// Method
+/// Get or set the content manager for the guitk window.
+///
+/// Parameters:
+///  * `view` - a userdata representing a content manager or content element, or an explcit nil to remove, to assign to the guitk window.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * This module provides the window or "frame" for displaying visual or user interface elements, however the content itself is provided by other modules. This method allows you to assign a manager or single element directly to the window for display and user interaction.
+///
+///  * A manager allows for attaching multiple elements to the same window, for example a series of buttons and text fields for user input. Currently the only supported manager is found in `hs._asm.guitk.manager` and you should review this module for details on how to assign multiple elements to the window for display.
+///
+///  * If the window is being used to display a single element, you can by skip using the manager and assign the element directly with this method. This works especially well for fully contained elements like `hs._asm.guitk.element.avplayer` or `hs.canvas`, but may be useful at times with other elements as well.  The following should be kept in mind when not using a manager:
+///    * The element's size is the window's size -- you cannot specify a specific location for the element within the window or make it smaller than the window to give it a visual border.
+///    * Only one element can be assigned at a time. For canvas, which has its own methods for handling multiple visual elements, this isn't necessarily an issue.
 static int window_contentView(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        if (window.contentManagerRef != LUA_NOREF) {
-            [skin pushLuaRef:refTable ref:window.contentManagerRef] ;
+        if ([skin canPushNSObject:window.contentView]) {
+            [skin pushNSObject:window.contentView] ;
         } else {
             lua_pushnil(L) ;
         }
     } else {
         if (lua_type(L, 2) == LUA_TNIL) {
-            window.contentManagerRef = [skin luaUnref:refTable ref:window.contentManagerRef] ;
+            [skin luaRelease:refTable forNSObject:window.contentView] ;
             // placeholder, since a window/panel always has one after init, let's follow that pattern
             window.contentView = [[NSView alloc] initWithFrame:window.contentView.bounds] ;
         } else {
@@ -1106,10 +1242,7 @@ static int window_contentView(lua_State *L) {
             if (!manager || ![manager isKindOfClass:[NSView class]]) {
                 return luaL_argerror(L, 2, "expected userdata representing a gui content manager (NSView subclass)") ;
             }
-            window.contentManagerRef = [skin luaUnref:refTable ref:window.contentManagerRef] ;
-            lua_pushvalue(L, 2) ;
-            // maintain our own reference to the the userdata for the manager in case the user doesn't.
-            window.contentManagerRef = [skin luaRef:refTable] ;
+            [skin luaRetain:refTable forNSObject:manager] ;
             window.contentView = manager ;
         }
         lua_pushvalue(L, 1) ;
@@ -1117,6 +1250,29 @@ static int window_contentView(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:passthroughCallback([fn | nil]) -> guitkObject | fn/nil
+/// Method
+/// Get or set the pass through callback for the guitk window.
+///
+/// Parameters:
+///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke for elements which do not have their own callbacks assigned.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * The pass through callback should expect one or two arguments and return none.
+///
+///  * The pass through callback is designed so that elements which trigger a callback based on user interaction which do not have a specifically assigned callback can still report user interaction through a commonly fallback.
+///  * The arguments received by the pass through callback will be organized as follows:
+///    * the guitk window userdata object
+///    * a table containing the arguments from the content manager or element.
+///      * if a content manager is in place, this array will contain the following arguments:
+///        * the content manager userdata object
+///        * a table containing the arguments provided by the elements callback itself, usually the element userdata followed by any additional arguments as defined for the element's callback function.
+///      * if no content manager is in place and the element is directly assigned to the guitk window, then this table will contain the arguments provided by the elements callback itself, usually the element userdata followed by any additional arguments as defined for the element's callback function.
+///
+/// Note that elements which have a callback that returns a response cannot use this common pass through callback method; in such cases a specific callback must be assigned to the element directly as described in the element's documentation.
 static int window_passthroughCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1139,25 +1295,29 @@ static int window_passthroughCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:activeElement([view | nil]) -> boolean | userdata
+/// Method
+/// Get or set the active element for the guitk window.
+///
+/// Parameters:
+///  * `view` - a userdata representing an element in the guitk window to make the active element, or an explcit nil to make no element active.
+///
+/// Returns:
+///  * If an argument is provided, returns true or false indicating whether or not the current active element (if any) relinquished focus; otherwise the current value.
+///
+/// Notes:
+///  * The active element of a window is the element which is currently receiving mouse or keyboard activity from the user when the window is focused.
+///
+///  * Not all elements can become the active element, for example textfield elements which are neither editable or selectable. If you try to make such an element active, the content manager or guitk window itself will become the active element.
+///  * Passing an explicit nil to this method will make the content manager or guitk window itself the active element.
+///    * Making the content manager or guitk window itself the active element has the visual effect of making no element active but leaving the window focus unchanged.
 static int window_firstResponder(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-//     // some views use internally created subviews that we don't care about or don't have a userdata type for, so this hack until I can come up
-//     // with something cleaner...
         NSResponder *trying = window.firstResponder ;
-//         [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
-//         while (trying && (lua_type(L, -1) == LUA_TSTRING)) {
-//             lua_pop(L, 1) ;
-//             trying = trying.nextResponder ;
-//             [skin pushNSObject:trying withOptions:LS_NSDescribeUnknownTypes] ;
-//         }
-//         if (!trying) {
-//             lua_pop(L, 1) ;
-//             lua_pushnil(L) ;
-//         }
         while (trying && ![skin canPushNSObject:trying]) trying = trying.nextResponder ;
         [skin pushNSObject:trying] ; // will either be a responder we can work with or nil
     } else {
@@ -1470,10 +1630,10 @@ static int userdata_gc(lua_State* L) {
         LuaSkin *skin = [LuaSkin shared];
         obj.selfRef                = [skin luaUnref:refTable ref:obj.selfRef] ;
         obj.notificationCallback   = [skin luaUnref:refTable ref:obj.notificationCallback] ;
-        obj.contentManagerRef      = [skin luaUnref:refTable ref:obj.contentManagerRef] ;
         obj.passthroughCallbackRef = [skin luaUnref:refTable ref:obj.passthroughCallbackRef] ;
         obj.delegate               = nil ;
         obj.deleteOnClose          = NO ; // shouldn't matter since delegate already nil, but just in case we don't want a loop
+        [skin luaRelease:refTable forNSObject:obj.contentView] ;
         obj.contentView            = nil ;
         [obj close] ;
         obj                        = nil ;
