@@ -8,13 +8,16 @@
     ],
     "Function" : [
       {
-        "doc" : "Returns a table containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.\n * This function also utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
         "desc" : "Returns a table containing information about all available windows, even those ignored by hs.window",
-        "def" : "hs._asm.extras.windowsByName([includeDesktopElements])",
         "stripped_doc" : [
           "Returns a table containing information about all available windows, even those ignored by hs.window",
           ""
         ],
+        "parameters" : [
+          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
+          ""
+        ],
+        "doc" : "Returns a table containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.\n * This function also utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
         "notes" : [
           " * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.",
           " * This function also utilizes metatables to allow an easier browsing experience of the data from the console.",
@@ -27,20 +30,20 @@
           " * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
           ""
         ],
-        "name" : "windowsByName",
-        "parameters" : [
-          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
-          ""
-        ]
+        "def" : "hs._asm.extras.windowsByName([includeDesktopElements])",
+        "name" : "windowsByName"
       },
       {
-        "doc" : "Returns a copy of the provided table, taking into account self and external references.\n\nParameters:\n * table1 -- the table to duplicate\n\nReturns:\n * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.\n\nNotes:\n * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):\n\n    newTable = setmetatable(\n            hs._asm.extras.tableCopy(originalTable),\n            hs._asm.extras.tableCopy(getmetatable(originalTable))\n    )\n\n * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/\n * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure.",
         "desc" : "Returns a copy of the provided table, taking into account self and external references.",
-        "def" : "hs._asm.extras.tableCopy(table1) -> table2",
         "stripped_doc" : [
           "Returns a copy of the provided table, taking into account self and external references.",
           ""
         ],
+        "parameters" : [
+          " * table1 -- the table to duplicate",
+          ""
+        ],
+        "doc" : "Returns a copy of the provided table, taking into account self and external references.\n\nParameters:\n * table1 -- the table to duplicate\n\nReturns:\n * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.\n\nNotes:\n * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):\n\n    newTable = setmetatable(\n            hs._asm.extras.tableCopy(originalTable),\n            hs._asm.extras.tableCopy(getmetatable(originalTable))\n    )\n\n * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/\n * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure.",
         "notes" : [
           " * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):",
           "",
@@ -58,16 +61,11 @@
           " * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.",
           ""
         ],
-        "name" : "tableCopy",
-        "parameters" : [
-          " * table1 -- the table to duplicate",
-          ""
-        ]
+        "def" : "hs._asm.extras.tableCopy(table1) -> table2",
+        "name" : "tableCopy"
       },
       {
-        "doc" : "Compare version strings and return `true` if v1 < v2, otherwise false.\n\nNote that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.\n\nLuarocks version numbers: x(%.y)*-z\n     x and y are probably numbers... but maybe not... z is a number\n\nMore generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.\n\nOur rules for testing:\n1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.\n2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)\n3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.\n\nRepeat the following for each part:\n1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)\n2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.\n\nThis does mean that the following probably won't work correctly, but at\nleast with luarocks, none have been this bad yet...\n\n    3.0 \"should\" be > then a release candidate: 3.0rc\n    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)\n    3.0.0 aren't 3.0 \"equal\" (should they be?)\n    \"dev\" should be before \"alpha\" or \"beta\"\n    \"final\" should be after \"rc\" or \"release\"\n    dates as version numbers that aren't yyyymmdd\n    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))\n    \"1a\" and \"10a\"\n\n    others?",
         "desc" : "Compare version strings and return `true` if v1 < v2, otherwise false.",
-        "def" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
         "stripped_doc" : [
           "Compare version strings and return `true` if v1 < v2, otherwise false.",
           "",
@@ -101,6 +99,10 @@
           "",
           "    others?"
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "Compare version strings and return `true` if v1 < v2, otherwise false.\n\nNote that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.\n\nLuarocks version numbers: x(%.y)*-z\n     x and y are probably numbers... but maybe not... z is a number\n\nMore generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.\n\nOur rules for testing:\n1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.\n2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)\n3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.\n\nRepeat the following for each part:\n1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)\n2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.\n\nThis does mean that the following probably won't work correctly, but at\nleast with luarocks, none have been this bad yet...\n\n    3.0 \"should\" be > then a release candidate: 3.0rc\n    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)\n    3.0.0 aren't 3.0 \"equal\" (should they be?)\n    \"dev\" should be before \"alpha\" or \"beta\"\n    \"final\" should be after \"rc\" or \"release\"\n    dates as version numbers that aren't yyyymmdd\n    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))\n    \"1a\" and \"10a\"\n\n    others?",
         "notes" : [
 
         ],
@@ -109,19 +111,20 @@
         "returns" : [
 
         ],
-        "name" : "versionCompare",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
+        "name" : "versionCompare"
       },
       {
-        "doc" : "Returns the bundle id for the application with the specified name, if it can be found.\n\nParameters:\n * app - the name of the application\n\nReturns:\n * the bundle id or \": could not find .\" if it could not be found\n\nNotes:\n * this function uses `mdls` to search for the application in the Spotlight metadata.",
         "desc" : "Returns the bundle id for the application with the specified name, if it can be found.",
-        "def" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
         "stripped_doc" : [
           "Returns the bundle id for the application with the specified name, if it can be found.",
           ""
         ],
+        "parameters" : [
+          " * app - the name of the application",
+          ""
+        ],
+        "doc" : "Returns the bundle id for the application with the specified name, if it can be found.\n\nParameters:\n * app - the name of the application\n\nReturns:\n * the bundle id or \": could not find .\" if it could not be found\n\nNotes:\n * this function uses `mdls` to search for the application in the Spotlight metadata.",
         "notes" : [
           " * this function uses `mdls` to search for the application in the Spotlight metadata."
         ],
@@ -131,20 +134,20 @@
           " * the bundle id or \": could not find .\" if it could not be found",
           ""
         ],
-        "name" : "bundleIDForApp",
-        "parameters" : [
-          " * app - the name of the application",
-          ""
-        ]
+        "def" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
+        "name" : "bundleIDForApp"
       },
       {
-        "doc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.\n\nParameters:\n * string - a string to match\n\nReturns:\n * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.\n\nNotes:\n * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.\n\n * Based on code found at http:\/\/stackoverflow.com\/a\/11402486\n * May be added to the Hammerspoon core somewhere at some point.",
         "desc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
-        "def" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
         "stripped_doc" : [
           "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
           ""
         ],
+        "parameters" : [
+          " * string - a string to match",
+          ""
+        ],
+        "doc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.\n\nParameters:\n * string - a string to match\n\nReturns:\n * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.\n\nNotes:\n * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.\n\n * Based on code found at http:\/\/stackoverflow.com\/a\/11402486\n * May be added to the Hammerspoon core somewhere at some point.",
         "notes" : [
           " * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.",
           "",
@@ -157,20 +160,21 @@
           " * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.",
           ""
         ],
-        "name" : "caseInsensitivePattern",
-        "parameters" : [
-          " * string - a string to match",
-          ""
-        ]
+        "def" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
+        "name" : "caseInsensitivePattern"
       },
       {
-        "doc" : "Returns the specified integer as a bitmask (boolean).\n\nParameters:\n * integer - the integer to convert to a bitmask\n * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.\n\nReturns:\n * the bitmask for the specified integer\n\nNotes:\n * May be added to the Hammerspoon core somewhere at some point.",
         "desc" : "Returns the specified integer as a bitmask (boolean).",
-        "def" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
         "stripped_doc" : [
           "Returns the specified integer as a bitmask (boolean).",
           ""
         ],
+        "parameters" : [
+          " * integer - the integer to convert to a bitmask",
+          " * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.",
+          ""
+        ],
+        "doc" : "Returns the specified integer as a bitmask (boolean).\n\nParameters:\n * integer - the integer to convert to a bitmask\n * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.\n\nReturns:\n * the bitmask for the specified integer\n\nNotes:\n * May be added to the Hammerspoon core somewhere at some point.",
         "notes" : [
           " * May be added to the Hammerspoon core somewhere at some point."
         ],
@@ -180,21 +184,20 @@
           " * the bitmask for the specified integer",
           ""
         ],
-        "name" : "tobits",
-        "parameters" : [
-          " * integer - the integer to convert to a bitmask",
-          " * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.",
-          ""
-        ]
+        "def" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
+        "name" : "tobits"
       },
       {
-        "doc" : "Returns true or false specifying if the number provided represents infinity\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number represents infinity or false if it is a finite number\n\nNotes:\n * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`.",
         "desc" : "Returns true or false specifying if the number provided represents infinity",
-        "def" : "hs._asm.extras.isinf(number) -> boolean",
         "stripped_doc" : [
           "Returns true or false specifying if the number provided represents infinity",
           ""
         ],
+        "parameters" : [
+          " * number - the number to check",
+          ""
+        ],
+        "doc" : "Returns true or false specifying if the number provided represents infinity\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number represents infinity or false if it is a finite number\n\nNotes:\n * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`.",
         "notes" : [
           " * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`."
         ],
@@ -204,20 +207,20 @@
           " * true if the number represents infinity or false if it is a finite number",
           ""
         ],
-        "name" : "isinf",
-        "parameters" : [
-          " * number - the number to check",
-          ""
-        ]
+        "def" : "hs._asm.extras.isinf(number) -> boolean",
+        "name" : "isinf"
       },
       {
-        "doc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number is NaN or false if it is a finite number\n\nNotes:\n * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.\n * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.",
         "desc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
-        "def" : "hs._asm.extras.isnan(number) -> boolean",
         "stripped_doc" : [
           "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
           ""
         ],
+        "parameters" : [
+          " * number - the number to check",
+          ""
+        ],
+        "doc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number is NaN or false if it is a finite number\n\nNotes:\n * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.\n * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.",
         "notes" : [
           " * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.",
           " * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`."
@@ -228,20 +231,20 @@
           " * true if the number is NaN or false if it is a finite number",
           ""
         ],
-        "name" : "isnan",
-        "parameters" : [
-          " * number - the number to check",
-          ""
-        ]
+        "def" : "hs._asm.extras.isnan(number) -> boolean",
+        "name" : "isnan"
       },
       {
-        "doc" : "Prints the colors contained within the specified hs.drawing.color list name.\n\nParameters:\n * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
         "desc" : "Prints the colors contained within the specified hs.drawing.color list name.",
-        "def" : "hs._asm.extras.colorsFor(listName) -> none",
         "stripped_doc" : [
           "Prints the colors contained within the specified hs.drawing.color list name.",
           ""
         ],
+        "parameters" : [
+          " * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`",
+          ""
+        ],
+        "doc" : "Prints the colors contained within the specified hs.drawing.color list name.\n\nParameters:\n * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
         "notes" : [
 
         ],
@@ -250,20 +253,20 @@
         "returns" : [
           " * None.  Displays the list of colors in a colored background to match each name in the console."
         ],
-        "name" : "colorsFor",
-        "parameters" : [
-          " * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`",
-          ""
-        ]
+        "def" : "hs._asm.extras.colorsFor(listName) -> none",
+        "name" : "colorsFor"
       },
       {
-        "doc" : "Prints all of the colors defined in hs.drawing.color's lists.\n\nParameters:\n * None\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
         "desc" : "Prints all of the colors defined in hs.drawing.color's lists.",
-        "def" : "hs._asm.extras.colorDump() -> none",
         "stripped_doc" : [
           "Prints all of the colors defined in hs.drawing.color's lists.",
           ""
         ],
+        "parameters" : [
+          " * None",
+          ""
+        ],
+        "doc" : "Prints all of the colors defined in hs.drawing.color's lists.\n\nParameters:\n * None\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
         "notes" : [
 
         ],
@@ -272,19 +275,18 @@
         "returns" : [
           " * None.  Displays the list of colors in a colored background to match each name in the console."
         ],
-        "name" : "colorDump",
-        "parameters" : [
-          " * None",
-          ""
-        ]
+        "def" : "hs._asm.extras.colorDump() -> none",
+        "name" : "colorDump"
       },
       {
-        "doc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
         "desc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
-        "def" : "hs._asm.extras.NSLog(luavalue)",
         "stripped_doc" : [
           "Send a representation of the lua value passed in to the Console application via NSLog."
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
         "notes" : [
 
         ],
@@ -293,19 +295,20 @@
         "returns" : [
 
         ],
-        "name" : "NSLog",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.NSLog(luavalue)",
+        "name" : "NSLog"
       },
       {
-        "doc" : "Returns an array containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
         "desc" : "Returns an array containing information about all available windows, even those ignored by hs.window",
-        "def" : "hs._asm.extras.listWindows([includeDesktopElements])",
         "stripped_doc" : [
           "Returns an array containing information about all available windows, even those ignored by hs.window",
           ""
         ],
+        "parameters" : [
+          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
+          ""
+        ],
+        "doc" : "Returns an array containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
         "notes" : [
           " * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.",
           " * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.",
@@ -317,19 +320,18 @@
           " * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
           ""
         ],
-        "name" : "listWindows",
-        "parameters" : [
-          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
-          ""
-        ]
+        "def" : "hs._asm.extras.listWindows([includeDesktopElements])",
+        "name" : "listWindows"
       },
       {
-        "doc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
         "desc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
-        "def" : "hs._asm.extras.userDataToString(userdata) -> string",
         "stripped_doc" : [
           "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
         "notes" : [
 
         ],
@@ -338,17 +340,13 @@
         "returns" : [
 
         ],
-        "name" : "userDataToString",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.userDataToString(userdata) -> string",
+        "name" : "userDataToString"
       }
     ],
     "Variable" : [
       {
-        "doc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.\n\n    hs._asm.extras.mods = {\n      casc = {                     }, casC = {                       \"ctrl\"},\n      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},\n      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},\n      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},\n      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},\n      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},\n      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},\n      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},\n    }\n\n    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.\n    A more complete list may be provided if the eventtap version of hs.hotkey goes core.\n\nWhat fun if we ever differentiate between left, right, either, and both!",
         "desc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
-        "def" : "hs._asm.extras.mods[...]",
         "stripped_doc" : [
           "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
           "",
@@ -368,6 +366,10 @@
           "",
           "What fun if we ever differentiate between left, right, either, and both!"
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.\n\n    hs._asm.extras.mods = {\n      casc = {                     }, casC = {                       \"ctrl\"},\n      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},\n      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},\n      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},\n      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},\n      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},\n      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},\n      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},\n    }\n\n    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.\n    A more complete list may be provided if the eventtap version of hs.hotkey goes core.\n\nWhat fun if we ever differentiate between left, right, either, and both!",
         "notes" : [
 
         ],
@@ -376,21 +378,21 @@
         "returns" : [
 
         ],
-        "name" : "mods",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.mods[...]",
+        "name" : "mods"
       },
       {
-        "doc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`\nCurrently defined:\n    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).\n    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
         "desc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
-        "def" : "hs._asm.extras.mtTools[...]",
         "stripped_doc" : [
           "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
           "Currently defined:",
           "    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
           "    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`\nCurrently defined:\n    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).\n    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
         "notes" : [
 
         ],
@@ -399,20 +401,20 @@
         "returns" : [
 
         ],
-        "name" : "mtTools",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.mtTools[...]",
+        "name" : "mtTools"
       },
       {
-        "doc" : "A string containing ¯\\_(ツ)_\/¯.\n\nI don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday.",
         "desc" : "A string containing ¯\\_(ツ)_\/¯.",
-        "def" : "hs._asm.extras.idunno",
         "stripped_doc" : [
           "A string containing ¯\\_(ツ)_\/¯.",
           "",
           "I don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday."
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "A string containing ¯\\_(ツ)_\/¯.\n\nI don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday.",
         "notes" : [
 
         ],
@@ -421,20 +423,20 @@
         "returns" : [
 
         ],
-        "name" : "idunno",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.idunno",
+        "name" : "idunno"
       },
       {
-        "doc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.\n\nThe image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed.",
         "desc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
-        "def" : "hs._asm.extras.graphpaperImage",
         "stripped_doc" : [
           "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
           "",
           "The image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed."
         ],
+        "parameters" : [
+
+        ],
+        "doc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.\n\nThe image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed.",
         "notes" : [
 
         ],
@@ -443,24 +445,462 @@
         "returns" : [
 
         ],
-        "name" : "graphpaperImage",
-        "parameters" : [
-
-        ]
+        "def" : "hs._asm.extras.graphpaperImage",
+        "name" : "graphpaperImage"
       }
     ],
     "stripped_doc" : [
 
     ],
+    "desc" : "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.",
     "Deprecated" : [
 
     ],
-    "desc" : "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.",
     "type" : "Module",
     "Constructor" : [
 
     ],
-    "doc" : "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.\n\nI include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions\/tools become real.",
+    "items" : [
+      {
+        "desc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
+        "stripped_doc" : [
+          "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
+          "",
+          "The image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed."
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.\n\nThe image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.graphpaperImage",
+        "type" : "Variable",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.graphpaperImage",
+        "name" : "graphpaperImage"
+      },
+      {
+        "desc" : "A string containing ¯\\_(ツ)_\/¯.",
+        "stripped_doc" : [
+          "A string containing ¯\\_(ツ)_\/¯.",
+          "",
+          "I don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday."
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "A string containing ¯\\_(ツ)_\/¯.\n\nI don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.idunno",
+        "type" : "Variable",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.idunno",
+        "name" : "idunno"
+      },
+      {
+        "desc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
+        "stripped_doc" : [
+          "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
+          "",
+          "    hs._asm.extras.mods = {",
+          "      casc = {                     }, casC = {                       \"ctrl\"},",
+          "      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},",
+          "      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},",
+          "      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},",
+          "      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},",
+          "      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},",
+          "      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},",
+          "      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},",
+          "    }",
+          "",
+          "    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.",
+          "    A more complete list may be provided if the eventtap version of hs.hotkey goes core.",
+          "",
+          "What fun if we ever differentiate between left, right, either, and both!"
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.\n\n    hs._asm.extras.mods = {\n      casc = {                     }, casC = {                       \"ctrl\"},\n      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},\n      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},\n      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},\n      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},\n      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},\n      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},\n      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},\n    }\n\n    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.\n    A more complete list may be provided if the eventtap version of hs.hotkey goes core.\n\nWhat fun if we ever differentiate between left, right, either, and both!",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.mods[...]",
+        "type" : "Variable",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.mods[...]",
+        "name" : "mods"
+      },
+      {
+        "desc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
+        "stripped_doc" : [
+          "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
+          "Currently defined:",
+          "    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+          "    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`\nCurrently defined:\n    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).\n    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.mtTools[...]",
+        "type" : "Variable",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.mtTools[...]",
+        "name" : "mtTools"
+      },
+      {
+        "desc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
+        "stripped_doc" : [
+          "Send a representation of the lua value passed in to the Console application via NSLog."
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.NSLog(luavalue)",
+        "type" : "Function",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.NSLog(luavalue)",
+        "name" : "NSLog"
+      },
+      {
+        "desc" : "Returns the bundle id for the application with the specified name, if it can be found.",
+        "stripped_doc" : [
+          "Returns the bundle id for the application with the specified name, if it can be found.",
+          ""
+        ],
+        "parameters" : [
+          " * app - the name of the application",
+          ""
+        ],
+        "doc" : "Returns the bundle id for the application with the specified name, if it can be found.\n\nParameters:\n * app - the name of the application\n\nReturns:\n * the bundle id or \": could not find .\" if it could not be found\n\nNotes:\n * this function uses `mdls` to search for the application in the Spotlight metadata.",
+        "notes" : [
+          " * this function uses `mdls` to search for the application in the Spotlight metadata."
+        ],
+        "signature" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
+        "type" : "Function",
+        "returns" : [
+          " * the bundle id or \": could not find .\" if it could not be found",
+          ""
+        ],
+        "def" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
+        "name" : "bundleIDForApp"
+      },
+      {
+        "desc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
+        "stripped_doc" : [
+          "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
+          ""
+        ],
+        "parameters" : [
+          " * string - a string to match",
+          ""
+        ],
+        "doc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.\n\nParameters:\n * string - a string to match\n\nReturns:\n * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.\n\nNotes:\n * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.\n\n * Based on code found at http:\/\/stackoverflow.com\/a\/11402486\n * May be added to the Hammerspoon core somewhere at some point.",
+        "notes" : [
+          " * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.",
+          "",
+          " * Based on code found at http:\/\/stackoverflow.com\/a\/11402486",
+          " * May be added to the Hammerspoon core somewhere at some point."
+        ],
+        "signature" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
+        "type" : "Function",
+        "returns" : [
+          " * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.",
+          ""
+        ],
+        "def" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
+        "name" : "caseInsensitivePattern"
+      },
+      {
+        "desc" : "Prints all of the colors defined in hs.drawing.color's lists.",
+        "stripped_doc" : [
+          "Prints all of the colors defined in hs.drawing.color's lists.",
+          ""
+        ],
+        "parameters" : [
+          " * None",
+          ""
+        ],
+        "doc" : "Prints all of the colors defined in hs.drawing.color's lists.\n\nParameters:\n * None\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.colorDump() -> none",
+        "type" : "Function",
+        "returns" : [
+          " * None.  Displays the list of colors in a colored background to match each name in the console."
+        ],
+        "def" : "hs._asm.extras.colorDump() -> none",
+        "name" : "colorDump"
+      },
+      {
+        "desc" : "Prints the colors contained within the specified hs.drawing.color list name.",
+        "stripped_doc" : [
+          "Prints the colors contained within the specified hs.drawing.color list name.",
+          ""
+        ],
+        "parameters" : [
+          " * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`",
+          ""
+        ],
+        "doc" : "Prints the colors contained within the specified hs.drawing.color list name.\n\nParameters:\n * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.colorsFor(listName) -> none",
+        "type" : "Function",
+        "returns" : [
+          " * None.  Displays the list of colors in a colored background to match each name in the console."
+        ],
+        "def" : "hs._asm.extras.colorsFor(listName) -> none",
+        "name" : "colorsFor"
+      },
+      {
+        "desc" : "Returns true or false specifying if the number provided represents infinity",
+        "stripped_doc" : [
+          "Returns true or false specifying if the number provided represents infinity",
+          ""
+        ],
+        "parameters" : [
+          " * number - the number to check",
+          ""
+        ],
+        "doc" : "Returns true or false specifying if the number provided represents infinity\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number represents infinity or false if it is a finite number\n\nNotes:\n * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`.",
+        "notes" : [
+          " * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`."
+        ],
+        "signature" : "hs._asm.extras.isinf(number) -> boolean",
+        "type" : "Function",
+        "returns" : [
+          " * true if the number represents infinity or false if it is a finite number",
+          ""
+        ],
+        "def" : "hs._asm.extras.isinf(number) -> boolean",
+        "name" : "isinf"
+      },
+      {
+        "desc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
+        "stripped_doc" : [
+          "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
+          ""
+        ],
+        "parameters" : [
+          " * number - the number to check",
+          ""
+        ],
+        "doc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number is NaN or false if it is a finite number\n\nNotes:\n * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.\n * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.",
+        "notes" : [
+          " * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.",
+          " * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`."
+        ],
+        "signature" : "hs._asm.extras.isnan(number) -> boolean",
+        "type" : "Function",
+        "returns" : [
+          " * true if the number is NaN or false if it is a finite number",
+          ""
+        ],
+        "def" : "hs._asm.extras.isnan(number) -> boolean",
+        "name" : "isnan"
+      },
+      {
+        "desc" : "Returns an array containing information about all available windows, even those ignored by hs.window",
+        "stripped_doc" : [
+          "Returns an array containing information about all available windows, even those ignored by hs.window",
+          ""
+        ],
+        "parameters" : [
+          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
+          ""
+        ],
+        "doc" : "Returns an array containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
+        "notes" : [
+          " * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.",
+          " * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.",
+          " * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present."
+        ],
+        "signature" : "hs._asm.extras.listWindows([includeDesktopElements])",
+        "type" : "Function",
+        "returns" : [
+          " * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
+          ""
+        ],
+        "def" : "hs._asm.extras.listWindows([includeDesktopElements])",
+        "name" : "listWindows"
+      },
+      {
+        "desc" : "Returns a copy of the provided table, taking into account self and external references.",
+        "stripped_doc" : [
+          "Returns a copy of the provided table, taking into account self and external references.",
+          ""
+        ],
+        "parameters" : [
+          " * table1 -- the table to duplicate",
+          ""
+        ],
+        "doc" : "Returns a copy of the provided table, taking into account self and external references.\n\nParameters:\n * table1 -- the table to duplicate\n\nReturns:\n * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.\n\nNotes:\n * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):\n\n    newTable = setmetatable(\n            hs._asm.extras.tableCopy(originalTable),\n            hs._asm.extras.tableCopy(getmetatable(originalTable))\n    )\n\n * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/\n * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure.",
+        "notes" : [
+          " * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):",
+          "",
+          "    newTable = setmetatable(",
+          "            hs._asm.extras.tableCopy(originalTable),",
+          "            hs._asm.extras.tableCopy(getmetatable(originalTable))",
+          "    )",
+          "",
+          " * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/",
+          " * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure."
+        ],
+        "signature" : "hs._asm.extras.tableCopy(table1) -> table2",
+        "type" : "Function",
+        "returns" : [
+          " * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.",
+          ""
+        ],
+        "def" : "hs._asm.extras.tableCopy(table1) -> table2",
+        "name" : "tableCopy"
+      },
+      {
+        "desc" : "Returns the specified integer as a bitmask (boolean).",
+        "stripped_doc" : [
+          "Returns the specified integer as a bitmask (boolean).",
+          ""
+        ],
+        "parameters" : [
+          " * integer - the integer to convert to a bitmask",
+          " * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.",
+          ""
+        ],
+        "doc" : "Returns the specified integer as a bitmask (boolean).\n\nParameters:\n * integer - the integer to convert to a bitmask\n * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.\n\nReturns:\n * the bitmask for the specified integer\n\nNotes:\n * May be added to the Hammerspoon core somewhere at some point.",
+        "notes" : [
+          " * May be added to the Hammerspoon core somewhere at some point."
+        ],
+        "signature" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
+        "type" : "Function",
+        "returns" : [
+          " * the bitmask for the specified integer",
+          ""
+        ],
+        "def" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
+        "name" : "tobits"
+      },
+      {
+        "desc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
+        "stripped_doc" : [
+          "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.userDataToString(userdata) -> string",
+        "type" : "Function",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.userDataToString(userdata) -> string",
+        "name" : "userDataToString"
+      },
+      {
+        "desc" : "Compare version strings and return `true` if v1 < v2, otherwise false.",
+        "stripped_doc" : [
+          "Compare version strings and return `true` if v1 < v2, otherwise false.",
+          "",
+          "Note that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.",
+          "",
+          "Luarocks version numbers: x(%.y)*-z",
+          "     x and y are probably numbers... but maybe not... z is a number",
+          "",
+          "More generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.",
+          "",
+          "Our rules for testing:",
+          "1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.",
+          "2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)",
+          "3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.",
+          "",
+          "Repeat the following for each part:",
+          "1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)",
+          "2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.",
+          "",
+          "This does mean that the following probably won't work correctly, but at",
+          "least with luarocks, none have been this bad yet...",
+          "",
+          "    3.0 \"should\" be > then a release candidate: 3.0rc",
+          "    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)",
+          "    3.0.0 aren't 3.0 \"equal\" (should they be?)",
+          "    \"dev\" should be before \"alpha\" or \"beta\"",
+          "    \"final\" should be after \"rc\" or \"release\"",
+          "    dates as version numbers that aren't yyyymmdd",
+          "    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))",
+          "    \"1a\" and \"10a\"",
+          "",
+          "    others?"
+        ],
+        "parameters" : [
+
+        ],
+        "doc" : "Compare version strings and return `true` if v1 < v2, otherwise false.\n\nNote that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.\n\nLuarocks version numbers: x(%.y)*-z\n     x and y are probably numbers... but maybe not... z is a number\n\nMore generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.\n\nOur rules for testing:\n1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.\n2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)\n3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.\n\nRepeat the following for each part:\n1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)\n2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.\n\nThis does mean that the following probably won't work correctly, but at\nleast with luarocks, none have been this bad yet...\n\n    3.0 \"should\" be > then a release candidate: 3.0rc\n    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)\n    3.0.0 aren't 3.0 \"equal\" (should they be?)\n    \"dev\" should be before \"alpha\" or \"beta\"\n    \"final\" should be after \"rc\" or \"release\"\n    dates as version numbers that aren't yyyymmdd\n    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))\n    \"1a\" and \"10a\"\n\n    others?",
+        "notes" : [
+
+        ],
+        "signature" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
+        "type" : "Function",
+        "returns" : [
+
+        ],
+        "def" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
+        "name" : "versionCompare"
+      },
+      {
+        "desc" : "Returns a table containing information about all available windows, even those ignored by hs.window",
+        "stripped_doc" : [
+          "Returns a table containing information about all available windows, even those ignored by hs.window",
+          ""
+        ],
+        "parameters" : [
+          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
+          ""
+        ],
+        "doc" : "Returns a table containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.\n * This function also utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
+        "notes" : [
+          " * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.",
+          " * This function also utilizes metatables to allow an easier browsing experience of the data from the console.",
+          " * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.",
+          " * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present."
+        ],
+        "signature" : "hs._asm.extras.windowsByName([includeDesktopElements])",
+        "type" : "Function",
+        "returns" : [
+          " * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
+          ""
+        ],
+        "def" : "hs._asm.extras.windowsByName([includeDesktopElements])",
+        "name" : "windowsByName"
+      }
+    ],
     "Method" : [
 
     ],
@@ -470,447 +910,7 @@
     "Field" : [
 
     ],
-    "items" : [
-      {
-        "doc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.\n\nThe image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed.",
-        "desc" : "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
-        "def" : "hs._asm.extras.graphpaperImage",
-        "stripped_doc" : [
-          "An `hs.image` object containing an image of graph paper suitable for use as a color pattern.",
-          "",
-          "The image is 50 x 50 points and contains grey graph lines every 10 points and a blue graph line at the far left and bottom of the graph.  This image is suitable for use as a color pattern by specifying `{ image = hs._asm.extras.graphpaperImage }` wherever a color is allowed."
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.graphpaperImage",
-        "type" : "Variable",
-        "returns" : [
-
-        ],
-        "name" : "graphpaperImage",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "A string containing ¯\\_(ツ)_\/¯.\n\nI don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday.",
-        "desc" : "A string containing ¯\\_(ツ)_\/¯.",
-        "def" : "hs._asm.extras.idunno",
-        "stripped_doc" : [
-          "A string containing ¯\\_(ツ)_\/¯.",
-          "",
-          "I don't know where I first saw it, but I liked it and wanted to keep a copy in case I come up with a reason to use it someday."
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.idunno",
-        "type" : "Variable",
-        "returns" : [
-
-        ],
-        "name" : "idunno",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.\n\n    hs._asm.extras.mods = {\n      casc = {                     }, casC = {                       \"ctrl\"},\n      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},\n      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},\n      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},\n      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},\n      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},\n      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},\n      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},\n    }\n\n    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.\n    A more complete list may be provided if the eventtap version of hs.hotkey goes core.\n\nWhat fun if we ever differentiate between left, right, either, and both!",
-        "desc" : "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
-        "def" : "hs._asm.extras.mods[...]",
-        "stripped_doc" : [
-          "Table of key modifier maps for hs._asm.hotkey.bind. It's a 16 element table of keys containing differing cased versions of the key \"casc\" where the letters stand for Command, Alt\/Option, Shift, and Control.",
-          "",
-          "    hs._asm.extras.mods = {",
-          "      casc = {                     }, casC = {                       \"ctrl\"},",
-          "      caSc = {              \"shift\"}, caSC = {              \"shift\", \"ctrl\"},",
-          "      cAsc = {       \"alt\"         }, cAsC = {       \"alt\",          \"ctrl\"},",
-          "      cASc = {       \"alt\", \"shift\"}, cASC = {       \"alt\", \"shift\", \"ctrl\"},",
-          "      Casc = {\"cmd\"                }, CasC = {\"cmd\",                 \"ctrl\"},",
-          "      CaSc = {\"cmd\",        \"shift\"}, CaSC = {\"cmd\",        \"shift\", \"ctrl\"},",
-          "      CAsc = {\"cmd\", \"alt\"         }, CAsC = {\"cmd\", \"alt\",          \"ctrl\"},",
-          "      CASc = {\"cmd\", \"alt\", \"shift\"}, CASC = {\"cmd\", \"alt\", \"shift\", \"ctrl\"},",
-          "    }",
-          "",
-          "    hs._asm.extras.mods.plusFN(\"label\") will return the specified modifier table with \"fn\" added.",
-          "    A more complete list may be provided if the eventtap version of hs.hotkey goes core.",
-          "",
-          "What fun if we ever differentiate between left, right, either, and both!"
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.mods[...]",
-        "type" : "Variable",
-        "returns" : [
-
-        ],
-        "name" : "mods",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`\nCurrently defined:\n    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).\n    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
-        "desc" : "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
-        "def" : "hs._asm.extras.mtTools[...]",
-        "stripped_doc" : [
-          "An array containing useful functions for metatables in a single location for reuse.  Use as `setmetatable(myTable, { __index = hs._asm.extras.mtTools })`",
-          "Currently defined:",
-          "    myTable:get(\"path.key\" [, default])      -- Retrieve a value for key at the specified path in (possibly nested) table, or a default value, if it doesn't exist.  Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN).",
-          "    myTable:set(\"path.key\", value [, build]) -- Set value for key at the specified path in table, building up the tables along the way, if build argument is true.   Note that \"path\" can be arbitrarily deeply nested tables (e.g. path.p2.p3. ... .pN)."
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.mtTools[...]",
-        "type" : "Variable",
-        "returns" : [
-
-        ],
-        "name" : "mtTools",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
-        "desc" : "Send a representation of the lua value passed in to the Console application via NSLog.",
-        "def" : "hs._asm.extras.NSLog(luavalue)",
-        "stripped_doc" : [
-          "Send a representation of the lua value passed in to the Console application via NSLog."
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.NSLog(luavalue)",
-        "type" : "Function",
-        "returns" : [
-
-        ],
-        "name" : "NSLog",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "Returns the bundle id for the application with the specified name, if it can be found.\n\nParameters:\n * app - the name of the application\n\nReturns:\n * the bundle id or \": could not find .\" if it could not be found\n\nNotes:\n * this function uses `mdls` to search for the application in the Spotlight metadata.",
-        "desc" : "Returns the bundle id for the application with the specified name, if it can be found.",
-        "def" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
-        "stripped_doc" : [
-          "Returns the bundle id for the application with the specified name, if it can be found.",
-          ""
-        ],
-        "notes" : [
-          " * this function uses `mdls` to search for the application in the Spotlight metadata."
-        ],
-        "signature" : "hs._asm.extras.bundleIDForApp(app) -> bundleID",
-        "type" : "Function",
-        "returns" : [
-          " * the bundle id or \": could not find .\" if it could not be found",
-          ""
-        ],
-        "name" : "bundleIDForApp",
-        "parameters" : [
-          " * app - the name of the application",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.\n\nParameters:\n * string - a string to match\n\nReturns:\n * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.\n\nNotes:\n * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.\n\n * Based on code found at http:\/\/stackoverflow.com\/a\/11402486\n * May be added to the Hammerspoon core somewhere at some point.",
-        "desc" : "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
-        "def" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
-        "stripped_doc" : [
-          "Returns a pattern which matches a case-insensitive version of the string provided when used with the Lua string pattern matching functions.",
-          ""
-        ],
-        "notes" : [
-          " * Example: `hs._asm.extras.caseInsensitivePattern(\"content-length: %d+\")` will return `[cC][oO][nN][tT][eE][nN][tT]-[lL][eE][nN][gG][tT][hH]: %d+`.",
-          "",
-          " * Based on code found at http:\/\/stackoverflow.com\/a\/11402486",
-          " * May be added to the Hammerspoon core somewhere at some point."
-        ],
-        "signature" : "hs._asm.extras.caseInsensitivePattern(string) -> pattern",
-        "type" : "Function",
-        "returns" : [
-          " * a pattern which can be used by the Lua string pattern matching functions to match the specified string in a case-insensitive way, properly ignoring any embedded pattern matching sequences which may already be in the string.",
-          ""
-        ],
-        "name" : "caseInsensitivePattern",
-        "parameters" : [
-          " * string - a string to match",
-          ""
-        ]
-      },
-      {
-        "doc" : "Prints all of the colors defined in hs.drawing.color's lists.\n\nParameters:\n * None\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
-        "desc" : "Prints all of the colors defined in hs.drawing.color's lists.",
-        "def" : "hs._asm.extras.colorDump() -> none",
-        "stripped_doc" : [
-          "Prints all of the colors defined in hs.drawing.color's lists.",
-          ""
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.colorDump() -> none",
-        "type" : "Function",
-        "returns" : [
-          " * None.  Displays the list of colors in a colored background to match each name in the console."
-        ],
-        "name" : "colorDump",
-        "parameters" : [
-          " * None",
-          ""
-        ]
-      },
-      {
-        "doc" : "Prints the colors contained within the specified hs.drawing.color list name.\n\nParameters:\n * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`\n\nReturns:\n * None.  Displays the list of colors in a colored background to match each name in the console.",
-        "desc" : "Prints the colors contained within the specified hs.drawing.color list name.",
-        "def" : "hs._asm.extras.colorsFor(listName) -> none",
-        "stripped_doc" : [
-          "Prints the colors contained within the specified hs.drawing.color list name.",
-          ""
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.colorsFor(listName) -> none",
-        "type" : "Function",
-        "returns" : [
-          " * None.  Displays the list of colors in a colored background to match each name in the console."
-        ],
-        "name" : "colorsFor",
-        "parameters" : [
-          " * listName - the name of the list to display.  Must be one of the lists returned by `hs.drawing.color.lists()`",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns true or false specifying if the number provided represents infinity\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number represents infinity or false if it is a finite number\n\nNotes:\n * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`.",
-        "desc" : "Returns true or false specifying if the number provided represents infinity",
-        "def" : "hs._asm.extras.isinf(number) -> boolean",
-        "stripped_doc" : [
-          "Returns true or false specifying if the number provided represents infinity",
-          ""
-        ],
-        "notes" : [
-          " * Lua represents infinity internally and displays \"inf\" when such a value is printed.  This function is (in my oppinion) more clear as to intent then `result = x == math.huge`."
-        ],
-        "signature" : "hs._asm.extras.isinf(number) -> boolean",
-        "type" : "Function",
-        "returns" : [
-          " * true if the number represents infinity or false if it is a finite number",
-          ""
-        ],
-        "name" : "isinf",
-        "parameters" : [
-          " * number - the number to check",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.\n\nParameters:\n * number - the number to check\n\nReturns:\n * true if the number is NaN or false if it is a finite number\n\nNotes:\n * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.\n * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`.",
-        "desc" : "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
-        "def" : "hs._asm.extras.isnan(number) -> boolean",
-        "stripped_doc" : [
-          "Returns true or false specifying if the number represents an invalid operation resulting in a value of NaN.",
-          ""
-        ],
-        "notes" : [
-          " * NaN represents the result of an invalid mathematical operation, the simplest of which is dividing 0 by 0.",
-          " * Lua represents NaN internally and displays \"nan\" when such a value is printed.  This function is (in my opinion) more clear as to intent then `result = x ~= x`."
-        ],
-        "signature" : "hs._asm.extras.isnan(number) -> boolean",
-        "type" : "Function",
-        "returns" : [
-          " * true if the number is NaN or false if it is a finite number",
-          ""
-        ],
-        "name" : "isnan",
-        "parameters" : [
-          " * number - the number to check",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns an array containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
-        "desc" : "Returns an array containing information about all available windows, even those ignored by hs.window",
-        "def" : "hs._asm.extras.listWindows([includeDesktopElements])",
-        "stripped_doc" : [
-          "Returns an array containing information about all available windows, even those ignored by hs.window",
-          ""
-        ],
-        "notes" : [
-          " * The companion function, hs._asm.extras.windowsByName, groups windows a little more usefully and utilizes metatables to allow an easier browsing experience of the data from the console.",
-          " * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.",
-          " * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present."
-        ],
-        "signature" : "hs._asm.extras.listWindows([includeDesktopElements])",
-        "type" : "Function",
-        "returns" : [
-          " * An array of windows in the order in which CGWindowListCopyWindowInfo returns them.  Each window entry is a table that contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
-          ""
-        ],
-        "name" : "listWindows",
-        "parameters" : [
-          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns a copy of the provided table, taking into account self and external references.\n\nParameters:\n * table1 -- the table to duplicate\n\nReturns:\n * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.\n\nNotes:\n * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):\n\n    newTable = setmetatable(\n            hs._asm.extras.tableCopy(originalTable),\n            hs._asm.extras.tableCopy(getmetatable(originalTable))\n    )\n\n * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/\n * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure.",
-        "desc" : "Returns a copy of the provided table, taking into account self and external references.",
-        "def" : "hs._asm.extras.tableCopy(table1) -> table2",
-        "stripped_doc" : [
-          "Returns a copy of the provided table, taking into account self and external references.",
-          ""
-        ],
-        "notes" : [
-          " * The metatable, if present, for table1 is applied to table2.  If you need a true duplicate of the metatable as well, do something like the following (note this only applies to the top-level tables metatable -- recursive metatable duplication is not supported):",
-          "",
-          "    newTable = setmetatable(",
-          "            hs._asm.extras.tableCopy(originalTable),",
-          "            hs._asm.extras.tableCopy(getmetatable(originalTable))",
-          "    )",
-          "",
-          " * Original code from https:\/\/forums.coronalabs.com\/topic\/27482-copy-not-direct-reference-of-table\/",
-          " * For a more complex and powerful solution, check out https:\/\/gist.github.com\/Deco\/3985043; it seems overkill for what I need right now, but may be of interest in the furure."
-        ],
-        "signature" : "hs._asm.extras.tableCopy(table1) -> table2",
-        "type" : "Function",
-        "returns" : [
-          " * table2 -- a duplicate of table1, which can be safely modified without changing the original table or subtables it references.",
-          ""
-        ],
-        "name" : "tableCopy",
-        "parameters" : [
-          " * table1 -- the table to duplicate",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns the specified integer as a bitmask (boolean).\n\nParameters:\n * integer - the integer to convert to a bitmask\n * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.\n\nReturns:\n * the bitmask for the specified integer\n\nNotes:\n * May be added to the Hammerspoon core somewhere at some point.",
-        "desc" : "Returns the specified integer as a bitmask (boolean).",
-        "def" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
-        "stripped_doc" : [
-          "Returns the specified integer as a bitmask (boolean).",
-          ""
-        ],
-        "notes" : [
-          " * May be added to the Hammerspoon core somewhere at some point."
-        ],
-        "signature" : "hs._asm.extras.tobits(integer, [width]) -> bitmask",
-        "type" : "Function",
-        "returns" : [
-          " * the bitmask for the specified integer",
-          ""
-        ],
-        "name" : "tobits",
-        "parameters" : [
-          " * integer - the integer to convert to a bitmask",
-          " * width   - an option integer specifying the number of bits to display.  If not specified, defaults to the smallest multiple of 8 that the number specified can be fully expressed as a bitmask in.",
-          ""
-        ]
-      },
-      {
-        "doc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
-        "desc" : "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc.",
-        "def" : "hs._asm.extras.userDataToString(userdata) -> string",
-        "stripped_doc" : [
-          "Returns the userdata object as a binary string. Usually userdata is pretty boring -- containing c pointers, etc.  However, for some of the more complex userdata blobs for callbacks and such this can be useful with hs._asm.extras.hexdump for debugging to see what parts of the structure are actually getting set, etc."
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.userDataToString(userdata) -> string",
-        "type" : "Function",
-        "returns" : [
-
-        ],
-        "name" : "userDataToString",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "Compare version strings and return `true` if v1 < v2, otherwise false.\n\nNote that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.\n\nLuarocks version numbers: x(%.y)*-z\n     x and y are probably numbers... but maybe not... z is a number\n\nMore generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.\n\nOur rules for testing:\n1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.\n2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)\n3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.\n\nRepeat the following for each part:\n1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)\n2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.\n\nThis does mean that the following probably won't work correctly, but at\nleast with luarocks, none have been this bad yet...\n\n    3.0 \"should\" be > then a release candidate: 3.0rc\n    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)\n    3.0.0 aren't 3.0 \"equal\" (should they be?)\n    \"dev\" should be before \"alpha\" or \"beta\"\n    \"final\" should be after \"rc\" or \"release\"\n    dates as version numbers that aren't yyyymmdd\n    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))\n    \"1a\" and \"10a\"\n\n    others?",
-        "desc" : "Compare version strings and return `true` if v1 < v2, otherwise false.",
-        "def" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
-        "stripped_doc" : [
-          "Compare version strings and return `true` if v1 < v2, otherwise false.",
-          "",
-          "Note that this started out for comparing luarocks version numbers, but should work for many cases. The basics are listed below.",
-          "",
-          "Luarocks version numbers: x(%.y)*-z",
-          "     x and y are probably numbers... but maybe not... z is a number",
-          "",
-          "More generically, we actually accept _ or . as a separator, but only 1 - to keep with the luarocks spec.",
-          "",
-          "Our rules for testing:",
-          "1. if a or b start with \"v\" or \"r\" followed immediately by a number, drop the letter.",
-          "2. break apart into x(%.y)* and z (we actually allow the same rules on z as we do for the first part, but if I understand the rockspec correctly, this should never actually happen)",
-          "3. first compare the x(%.y)* part.  If they are the same, only then compare the z part.",
-          "",
-          "Repeat the following for each part:",
-          "1. if the version matches so far, and a has more components, then return a > b. e.g. 3.0.1 > 3.0 (of course 3.0.0 > 3.0 as well... should that change?)",
-          "2. If either part n of a or part n of b cannot be successfully changed to a number, compare as strings. Otherwise compare as numbers.",
-          "",
-          "This does mean that the following probably won't work correctly, but at",
-          "least with luarocks, none have been this bad yet...",
-          "",
-          "    3.0 \"should\" be > then a release candidate: 3.0rc",
-          "    3.0rc2 and 3.0.rc1 (inconsistent lengths of parts)",
-          "    3.0.0 aren't 3.0 \"equal\" (should they be?)",
-          "    \"dev\" should be before \"alpha\" or \"beta\"",
-          "    \"final\" should be after \"rc\" or \"release\"",
-          "    dates as version numbers that aren't yyyymmdd",
-          "    runs of 0's (tonumber(\"00\") == tonumber(\"000\"))",
-          "    \"1a\" and \"10a\"",
-          "",
-          "    others?"
-        ],
-        "notes" : [
-
-        ],
-        "signature" : "hs._asm.extras.versionCompare(v1, v2) -> bool",
-        "type" : "Function",
-        "returns" : [
-
-        ],
-        "name" : "versionCompare",
-        "parameters" : [
-
-        ]
-      },
-      {
-        "doc" : "Returns a table containing information about all available windows, even those ignored by hs.window\n\nParameters:\n * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.\n\nReturns:\n * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.\n\nNotes:\n * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.\n * This function also utilizes metatables to allow an easier browsing experience of the data from the console.\n * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.\n * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present.",
-        "desc" : "Returns a table containing information about all available windows, even those ignored by hs.window",
-        "def" : "hs._asm.extras.windowsByName([includeDesktopElements])",
-        "stripped_doc" : [
-          "Returns a table containing information about all available windows, even those ignored by hs.window",
-          ""
-        ],
-        "notes" : [
-          " * The companion function, hs._asm.extras.listWindows, is a simple array of windows in the order in which CGWindowListCopyWindowInfo returns them.  This function groups them a little more usefully.",
-          " * This function also utilizes metatables to allow an easier browsing experience of the data from the console.",
-          " * The results of this function are of dubious value at the moment... while it should be possible to determine what windows are on other spaces (though probably not which space -- just \"this space\" or \"not this space\") there is at present no way to positively distinguish \"real\" windows from \"virtual\" windows used for internal application purposes.",
-          " * This may also provide a mechanism for determine when Mission Control or other System displays are active, but this is untested at present."
-        ],
-        "signature" : "hs._asm.extras.windowsByName([includeDesktopElements])",
-        "type" : "Function",
-        "returns" : [
-          " * A table whose first level contains keys which match Application names.  For each application name, its value is an array of tables describing each window created by that application.  Each window table contains the information returned by the CoreGraphics CGWindowListCopyWindowInfo function for that window.",
-          ""
-        ],
-        "name" : "windowsByName",
-        "parameters" : [
-          " * includeDesktopElements - defaults to false; if true, includes windows which that are elements of the desktop, including the background picture and desktop icons.",
-          ""
-        ]
-      }
-    ],
+    "doc" : "This module provides extras that will someday be a real boy.  But for now I want them in a consistent place before I have decided where they belong.\n\nI include these here for my convenience but they will be moved if a proper home is discovered for them where inclusion as a public function makes sense.  I will try to make it clear if something moves on the github repo where this ends up, but expect to need to make changes as these functions\/tools become real.",
     "name" : "hs._asm.extras"
   }
 ]

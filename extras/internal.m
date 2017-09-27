@@ -4,7 +4,9 @@
 @import AVFoundation;
 @import OSAKit ;
 
-// @import AddressBook ;
+static int refTable = LUA_NOREF ;
+
+@import AddressBook ;
 @import SystemConfiguration ;
 
 // @import QuartzCore.CATransform3D; // for NSValue conversion of CATransform3D
@@ -96,11 +98,11 @@ static int threadInfo(lua_State *L) {
     return 1 ;
 }
 
-// static int addressbookGroups(__unused lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared];
-//     [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
-//     return 1 ;
-// }
+static int addressbookGroups(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared];
+    [skin pushNSObject:[[ABAddressBook sharedAddressBook] groups] withOptions:LS_NSDescribeUnknownTypes] ;
+    return 1 ;
+}
 
 static int addressParserTesting(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
@@ -472,35 +474,6 @@ static int uptime(lua_State *L) {
     return 1;
 }
 
-static int thermalState(lua_State *L) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability"
-    if ([[NSProcessInfo processInfo] respondsToSelector:@selector(thermalState)]) {
-        NSProcessInfoThermalState state = [[NSProcessInfo processInfo] thermalState] ;
-#pragma clang diagnostic pop
-        switch(state) {
-            case NSProcessInfoThermalStateNominal:
-                lua_pushstring(L, "nominal") ;
-                break ;
-            case NSProcessInfoThermalStateFair:
-                lua_pushstring(L, "fair") ;
-                break ;
-            case NSProcessInfoThermalStateSerious:
-                lua_pushstring(L, "serious") ;
-                break ;
-            case NSProcessInfoThermalStateCritical:
-                lua_pushstring(L, "critical") ;
-                break ;
-            default:
-                lua_pushfstring(L, "** unrecognized thermal state: %d **", state) ;
-                break ;
-        }
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
-
 static int assertions(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -553,6 +526,142 @@ static int macSerialNumber(lua_State __unused *L) {
     return 1 ;
 }
 
+static size_t LevenshteinDistance(NSData *s1, NSData *s2) {
+    // see https://en.wikipedia.org/wiki/Levenshtein_distance
+
+    size_t        n  = s1.length ;
+    const uint8_t *s = s1.bytes ;
+    size_t        m  = s2.length ;
+    const uint8_t *t = s2.bytes ;
+
+    size_t *v0 = malloc((n + 1) * sizeof(size_t)) ;
+    size_t *v1 = malloc((n + 1) * sizeof(size_t)) ;
+    for (NSUInteger i = 0 ; i <= n ; i++) v0[i] = i ;
+
+    for (NSUInteger i = 0 ; i < m ; i++) {
+        v1[0] = i + 1 ;
+        for (NSUInteger j = 0 ; j < n ; j++) {
+            size_t deletion     = v1[j] + 1 ;
+            size_t insertion    = v0[j + 1] + 1 ;
+            size_t substitution = v0[j] + ((s[i] == t[j]) ? 0 : 1) ;
+
+            size_t newValue = (deletion < insertion) ? deletion : insertion ;
+            if (substitution < newValue) newValue = substitution ;
+            v1[j + 1] = newValue ;
+        }
+        size_t *tmp = v0 ;
+        v0 = v1 ;
+        v1 = tmp ;
+    }
+    size_t distance = v0[n] ;
+    free(v1) ;
+    free(v0) ;
+    return distance ;
+}
+
+static NSInteger meyersShortestEdit(NSData *s1, NSData *s2) {
+    // see https://blog.jcoglan.com/2017/02/15/the-myers-diff-algorithm-part-2/
+
+    NSInteger     n  = (NSInteger)s1.length ;
+    const uint8_t *s = s1.bytes ;
+    NSInteger     m  = (NSInteger)s2.length ;
+    const uint8_t *t = s2.bytes ;
+
+    // if beginning/end are the same, skip them
+    while(n > 0 && m > 0 && s[0] == t[0]) {
+        s++ ; n-- ; t++ ; m-- ;
+    }
+    while(n > 0 && m > 0 && s[n - 1] == t[m - 1]) {
+        n-- ; m-- ;
+    }
+
+    NSInteger max = n + m ;
+    NSInteger *v  = malloc(sizeof(NSInteger) * (2 * (size_t)max + 1)) ;
+    v[max + 1] = 0 ;
+    NSInteger x, y ;
+    for (NSInteger d = 0 ; d <= max ; d++) {
+        for (NSInteger k = -d ; k <= d ; k += 2) {
+            if (k == -d || (k != d && v[max + k - 1] < v[max + k + 1])) {
+                x = v[max + k + 1] ;
+            } else {
+                x = v[max + k - 1] + 1 ;
+            }
+            y = x - k ;
+            while (x < n && y < m && s[x] == t[y]) {
+                x++ ;
+                y++ ;
+            }
+            v[max + k] = x ;
+            if (x >= n && y >= m) {
+                free(v) ;
+                return d ;
+            }
+        }
+    }
+    free(v) ;
+    return -1 ;
+}
+
+static int lua_LevenshteinDistance(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TFUNCTION | LS_TOPTIONAL, LS_TBREAK] ;
+    NSData *s1 = [skin toNSObjectAtIndex:1 withOptions:LS_NSLuaStringAsDataOnly] ;
+    NSData *s2 = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
+
+    if (lua_gettop(L) == 2) {
+        lua_pushinteger(L, (lua_Integer)LevenshteinDistance(s1, s2)) ;
+        return 1 ;
+    } else {
+        lua_pushvalue(L, 3) ;
+        int fnRef = [skin luaRef:refTable] ;
+// NOTE: in addition to being slow as #$^&%$&#$%^&#, this will crash HS if you reload before the callback
+// completes....
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            size_t results = LevenshteinDistance(s1, s2) ;
+            dispatch_sync(dispatch_get_main_queue(), ^{
+                [skin pushLuaRef:refTable ref:fnRef] ; // <--- here, so need a way to detect if L is valid and skip if not
+                lua_pushinteger(L, (lua_Integer)results) ;
+                if (![skin protectedCallAndTraceback:1 nresults:0]) {
+                    [skin logError:[NSString stringWithFormat:@"levenshteinDistance callback error:%s", lua_tostring(L, -1)]] ;
+                    lua_pop(L, 1) ;
+                }
+                [skin luaUnref:refTable ref:fnRef] ;
+            }) ;
+        }) ;
+        return 0 ;
+    }
+}
+
+static int lua_meyersShortestEdit(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TFUNCTION | LS_TOPTIONAL, LS_TBREAK] ;
+    NSData *s1 = [skin toNSObjectAtIndex:1 withOptions:LS_NSLuaStringAsDataOnly] ;
+    NSData *s2 = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
+
+    if (lua_gettop(L) == 2) {
+        lua_pushinteger(L, (lua_Integer)meyersShortestEdit(s1, s2)) ;
+        return 1 ;
+    } else {
+        lua_pushvalue(L, 3) ;
+        int fnRef = [skin luaRef:refTable] ;
+// NOTE: in addition to being slow as #$^&%$&#$%^&#, this will crash HS if you reload before the callback
+// completes....
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            NSInteger results = meyersShortestEdit(s1, s2) ;
+            dispatch_sync(dispatch_get_main_queue(), ^{
+                [skin pushLuaRef:refTable ref:fnRef] ; // <--- here, so need a way to detect if L is valid and skip if not
+                lua_pushinteger(L, (lua_Integer)results) ;
+                if (![skin protectedCallAndTraceback:1 nresults:0]) {
+                    [skin logError:[NSString stringWithFormat:@"meyersShortestEdit callback error:%s", lua_tostring(L, -1)]] ;
+                    lua_pop(L, 1) ;
+                }
+                [skin luaUnref:refTable ref:fnRef] ;
+            }) ;
+        }) ;
+        return 0 ;
+    }
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -568,7 +677,7 @@ static const luaL_Reg extrasLib[] = {
 
     {"userDataToString",     ud_tostring},
     {"threadInfo",           threadInfo},
-//     {"addressbookGroups",    addressbookGroups},
+    {"addressbookGroups",    addressbookGroups},
 
     {"examineNSValue",       nsvalueTest2},
 
@@ -585,7 +694,6 @@ static const luaL_Reg extrasLib[] = {
     {"keybdType",            keybdType},
 
     {"uptime",               uptime},
-    {"thermalState",         thermalState},
 
     {"mach",                 mach_stuff},
     {"assertions",           assertions},
@@ -593,11 +701,15 @@ static const luaL_Reg extrasLib[] = {
     {"mathNumbers",          CmathNumbers},
     {"serialNumber",         macSerialNumber},
 
+    {"levenshteinDistance",  lua_LevenshteinDistance},
+    {"meyersShortestEdit",   lua_meyersShortestEdit},
+
     {NULL,                   NULL}
 };
 
-int luaopen_hs__asm_extras_internal(lua_State* L) {
-    luaL_newlib(L, extrasLib);
+int luaopen_hs__asm_extras_internal(__unused lua_State* L) {
+    refTable = [[LuaSkin shared] registerLibrary:extrasLib metaFunctions:nil] ;
+//     luaL_newlib(L, extrasLib);
 
     return 1;
 }
