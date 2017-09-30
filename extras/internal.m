@@ -526,6 +526,11 @@ static int macSerialNumber(lua_State __unused *L) {
     return 1 ;
 }
 
+// Note that LD marks edits as deletion, insertion, or substitution -- each counts as 1
+// Meyer doesn't recognize substitution; to it it's a deletion followed by an insertion
+// (thus counting 2), so the numbers won't match exactly
+//
+// And Meyers is *way* faster
 static size_t LevenshteinDistance(NSData *s1, NSData *s2) {
     // see https://en.wikipedia.org/wiki/Levenshtein_distance
 
