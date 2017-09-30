@@ -47,7 +47,15 @@ static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-valu
 }
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
-    self = [super initWithFrame:frameRect];
+
+    @try {
+        self = [super initWithFrame:frameRect] ;
+    }
+    @catch (NSException *exception) {
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:new - %@", USERDATA_TAG, exception.reason]] ;
+        self = nil ;
+    }
+
     if (self) {
         _callbackRef                     = LUA_NOREF ;
         _selfRefCount                    = 0 ;

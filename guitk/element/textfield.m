@@ -39,7 +39,14 @@ static int refTable = LUA_NOREF;
 @implementation HSASMGUITKElementTextField
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
-    self = [super initWithFrame:frameRect] ;
+    @try {
+        self = [super initWithFrame:frameRect] ;
+    }
+    @catch (NSException *exception) {
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:new - %@", USERDATA_TAG, exception.reason]] ;
+        self = nil ;
+    }
+
     if (self) {
         _selfRefCount       = 0 ;
         _callbackRef        = LUA_NOREF ;
