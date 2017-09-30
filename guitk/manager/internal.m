@@ -44,7 +44,15 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 @implementation HSASMGUITKManager
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
-    self = [super initWithFrame:frameRect] ;
+
+    @try {
+        self = [super initWithFrame:frameRect] ;
+    }
+    @catch (NSException *exception) {
+        [LuaSkin logError:[NSString stringWithFormat:@"%s:new - %@", USERDATA_TAG, exception.reason]] ;
+        self = nil ;
+    }
+
     if (self) {
         _selfRefCount           = 0 ;
         _passthroughCallbackRef = LUA_NOREF ;
@@ -367,6 +375,18 @@ static void adjustElementDetailsTable(lua_State *L, HSASMGUITKManager *manager, 
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.manager.new([frame]) -> managerObject | nil
+/// Constructor
+/// Create a new manager object for use with a `hs._asm.guitk` window or another manager.
+///
+/// Parameters:
+///  * `frame` - an optional frame table specifying the initial position and size of the manager.
+///
+/// Returns:
+///  * the manager object or nil if there was an error creating the manager.
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the manager is assigned to a `hs._asm.guitk` window or another manager. It may be useful, however, when assigning elements to an unattached manager so that proper positioning can be worked out before final assignment of the new manager to it's parent object.
 static int manager_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
