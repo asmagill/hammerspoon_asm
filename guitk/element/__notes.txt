@@ -2,7 +2,7 @@
         @interface NSBrowser          : NSControl
     +   @interface NSButton           : NSControl
     +   @interface NSColorWell        : NSControl
-        @interface NSDatePicker       : NSControl
+    +   @interface NSDatePicker       : NSControl
     +   @interface NSImageView        : NSControl
         @interface NSLevelIndicator   : NSControl
         @interface NSMatrix           : NSControl
