@@ -1,6 +1,5 @@
 // TODO:
 //    test proper __gc/close behavior with deleteOnClose = YES and delete with fade time
-// *  passthroughCallback for guitk object
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -61,7 +60,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         self.animationBehavior  = NSWindowAnimationBehaviorNone ;
         self.level              = NSNormalWindowLevel ;
 
-        self.displaysWhenScreenProfileChanges = YES ; // TODO: should this be toggle-able by the user?
+        self.displaysWhenScreenProfileChanges = YES ;
 
         _selfRef                = LUA_NOREF ;
         _notificationCallback   = LUA_NOREF ;
@@ -1263,7 +1262,7 @@ static int window_contentView(lua_State *L) {
 /// Notes:
 ///  * The pass through callback should expect one or two arguments and return none.
 ///
-///  * The pass through callback is designed so that elements which trigger a callback based on user interaction which do not have a specifically assigned callback can still report user interaction through a commonly fallback.
+///  * The pass through callback is designed so that elements which trigger a callback based on user interaction which do not have a specifically assigned callback can still report user interaction through a common fallback.
 ///  * The arguments received by the pass through callback will be organized as follows:
 ///    * the guitk window userdata object
 ///    * a table containing the arguments from the content manager or element.
@@ -1272,7 +1271,7 @@ static int window_contentView(lua_State *L) {
 ///        * a table containing the arguments provided by the elements callback itself, usually the element userdata followed by any additional arguments as defined for the element's callback function.
 ///      * if no content manager is in place and the element is directly assigned to the guitk window, then this table will contain the arguments provided by the elements callback itself, usually the element userdata followed by any additional arguments as defined for the element's callback function.
 ///
-/// Note that elements which have a callback that returns a response cannot use this common pass through callback method; in such cases a specific callback must be assigned to the element directly as described in the element's documentation.
+///  * Note that elements which have a callback that returns a response cannot use this common pass through callback method; in such cases a specific callback must be assigned to the element directly as described in the element's documentation.
 static int window_passthroughCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;

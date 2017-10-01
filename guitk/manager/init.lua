@@ -176,6 +176,8 @@ end
 ---
 --- Notes:
 ---  * This method is wrapped so that elements which are assigned to a manager can access this method as `hs._asm.guitk.element:removeFromManager()`
+---
+---  * See also [hs._asm.guitk.manager:removeElement](#removeElement)
 managerMT.elementRemoveFromManager = function(self, element, ...)
     local idx
     for i,v in ipairs(self:elements()) do
