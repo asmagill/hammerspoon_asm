@@ -75,15 +75,6 @@
 Common properties:
 
 NSView
-    @property CGFloat frameCenterRotation
-    @property(getter=isHidden) BOOL hidden
-    @property(getter=isHiddenOrHasHiddenAncestor, readonly) BOOL hiddenOrHasHiddenAncestor
-    @property CGFloat alphaValue
-
-    @property(copy) NSShadow *shadow
-    @property(getter=isOpaque, readonly) BOOL opaque
-    @property BOOL wantsLayer
-
     @property BOOL acceptsTouchEvents
     @property BOOL wantsRestingTouches
     @property CGFloat boundsRotation

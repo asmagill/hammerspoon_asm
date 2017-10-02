@@ -5,37 +5,41 @@ static const char * const USERDATA_TAG = "hs._asm.guitk.element.image" ;
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
-#define IMAGE_FRAME_STYLES @{             \
-    @"none"   : @(NSImageFrameNone),      \
-    @"photo"  : @(NSImageFramePhoto),     \
-    @"bezel"  : @(NSImageFrameGrayBezel), \
-    @"groove" : @(NSImageFrameGroove),    \
-    @"button" : @(NSImageFrameButton),    \
-}
-
-#define IMAGE_ALIGNMENTS @{                      \
-    @"center"      : @(NSImageAlignCenter),      \
-    @"top"         : @(NSImageAlignTop),         \
-    @"topLeft"     : @(NSImageAlignTopLeft),     \
-    @"topRight"    : @(NSImageAlignTopRight),    \
-    @"left"        : @(NSImageAlignLeft),        \
-    @"bottom"      : @(NSImageAlignBottom),      \
-    @"bottomLeft"  : @(NSImageAlignBottomLeft),  \
-    @"bottomRight" : @(NSImageAlignBottomRight), \
-    @"right"       : @(NSImageAlignRight),       \
-}
-
-#define IMAGE_SCALING_TYPES @{                                         \
-    @"proportionallyDown"     : @(NSImageScaleProportionallyDown),     \
-    @"axesIndependently"      : @(NSImageScaleAxesIndependently),      \
-    @"none"                   : @(NSImageScaleNone),                   \
-    @"proportionallyUpOrDown" : @(NSImageScaleProportionallyUpOrDown), \
-}
+static NSDictionary *IMAGE_FRAME_STYLES ;
+static NSDictionary *IMAGE_ALIGNMENTS ;
+static NSDictionary *IMAGE_SCALING_TYPES ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+    IMAGE_FRAME_STYLES = @{
+        @"none"   : @(NSImageFrameNone),
+        @"photo"  : @(NSImageFramePhoto),
+        @"bezel"  : @(NSImageFrameGrayBezel),
+        @"groove" : @(NSImageFrameGroove),
+        @"button" : @(NSImageFrameButton),
+    } ;
+
+    IMAGE_ALIGNMENTS = @{
+        @"center"      : @(NSImageAlignCenter),
+        @"top"         : @(NSImageAlignTop),
+        @"topLeft"     : @(NSImageAlignTopLeft),
+        @"topRight"    : @(NSImageAlignTopRight),
+        @"left"        : @(NSImageAlignLeft),
+        @"bottom"      : @(NSImageAlignBottom),
+        @"bottomLeft"  : @(NSImageAlignBottomLeft),
+        @"bottomRight" : @(NSImageAlignBottomRight),
+        @"right"       : @(NSImageAlignRight),
+    } ;
+
+    IMAGE_SCALING_TYPES = @{
+        @"proportionallyDown"     : @(NSImageScaleProportionallyDown),
+        @"axesIndependently"      : @(NSImageScaleAxesIndependently),
+        @"none"                   : @(NSImageScaleNone),
+        @"proportionallyUpOrDown" : @(NSImageScaleProportionallyUpOrDown),
+    } ;
+}
 
 @interface HSASMGUITKElementImage : NSImageView
 @property int selfRefCount ;
@@ -374,6 +378,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_guitk_element_image(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

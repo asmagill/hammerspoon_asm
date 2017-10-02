@@ -11,3 +11,5 @@ toolbar support for top-level guitk
 tie in menubar rewrite to add menus in elements which support them (avplayer, others?)
 
 scrolling textview is probably the next major element to consider after documentation of current completed.
+
+add modal sheet support

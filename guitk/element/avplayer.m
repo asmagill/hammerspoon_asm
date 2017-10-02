@@ -21,15 +21,19 @@ static int refTable = LUA_NOREF;
 static const int32_t PREFERRED_TIMESCALE = 60000 ; // see https://warrenmoore.net/understanding-cmtime
 static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-value-observing/
 
-#define CONTROLS_STYLES @{ \
-    @"none"     : @(AVPlayerViewControlsStyleNone), \
-    @"inline"   : @(AVPlayerViewControlsStyleInline), \
-    @"floating" : @(AVPlayerViewControlsStyleFloating), \
-    @"minimal"  : @(AVPlayerViewControlsStyleMinimal), \
-    @"default"  : @(AVPlayerViewControlsStyleDefault), \
-}
+static NSDictionary *CONTROLS_STYLES ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+    CONTROLS_STYLES = @{
+        @"none"     : @(AVPlayerViewControlsStyleNone),
+        @"inline"   : @(AVPlayerViewControlsStyleInline),
+        @"floating" : @(AVPlayerViewControlsStyleFloating),
+        @"minimal"  : @(AVPlayerViewControlsStyleMinimal),
+        @"default"  : @(AVPlayerViewControlsStyleDefault),
+    } ;
+}
 
 @interface HSASMGUITKElementAVPlayer : AVPlayerView
 @property BOOL       pauseWhenHidden ;
@@ -188,9 +192,11 @@ static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-valu
                         case AVPlayerStatusReadyToPlay:
                             [args addObject:@"readyToPlay"] ;
                             break ;
-                        case AVPlayerStatusFailed:
-                            [args addObjectsFromArray:@[ @"failed", self.player.currentItem.error.localizedDescription ]] ;
-                            break ;
+                        case AVPlayerStatusFailed: {
+                            NSString *message = self.player.currentItem.error.localizedDescription ;
+                            if (!message) message = @"no reason given" ;
+                            [args addObjectsFromArray:@[ @"failed", message ]] ;
+                            } break ;
                         default:
                             [args addObjectsFromArray:@[ @"unrecognized status", @(self.player.currentItem.status) ]] ;
                             break ;
@@ -1380,6 +1386,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

@@ -6,13 +6,17 @@ static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
-#define DATEPICKER_STYLES @{                                          \
-    @"textFieldAndStepper" : @(NSTextFieldAndStepperDatePickerStyle), \
-    @"clockAndCalendar"    : @(NSClockAndCalendarDatePickerStyle),    \
-    @"textField"           : @(NSTextFieldDatePickerStyle),           \
-}
+static NSDictionary *DATEPICKER_STYLES ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+    DATEPICKER_STYLES = @{
+        @"textFieldAndStepper" : @(NSTextFieldAndStepperDatePickerStyle),
+        @"clockAndCalendar"    : @(NSClockAndCalendarDatePickerStyle),
+        @"textField"           : @(NSTextFieldDatePickerStyle),
+    } ;
+}
 
 @interface HSASMGUITKElementDatePicker : NSDatePicker <NSDatePickerCellDelegate>
 @property int selfRefCount ;
@@ -579,6 +583,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_guitk_element_datepicker(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

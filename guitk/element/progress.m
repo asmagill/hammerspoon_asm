@@ -12,20 +12,25 @@ static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
-#define PROGRESS_SIZE @{ \
-    @"regular" : @(NSControlSizeRegular), \
-    @"small"   : @(NSControlSizeSmall), \
-    @"mini"    : @(NSControlSizeMini), \
-}
-
-#define PROGRESS_TINT @{ \
-    @"default"  : @(NSDefaultControlTint), \
-    @"blue"     : @(NSBlueControlTint), \
-    @"graphite" : @(NSGraphiteControlTint), \
-    @"clear"    : @(NSClearControlTint), \
-}
+static NSDictionary *PROGRESS_SIZE ;
+static NSDictionary *PROGRESS_TINT ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+    PROGRESS_SIZE = @{
+        @"regular" : @(NSControlSizeRegular),
+        @"small"   : @(NSControlSizeSmall),
+        @"mini"    : @(NSControlSizeMini),
+    } ;
+
+    PROGRESS_TINT = @{
+        @"default"  : @(NSDefaultControlTint),
+        @"blue"     : @(NSBlueControlTint),
+        @"graphite" : @(NSGraphiteControlTint),
+        @"clear"    : @(NSClearControlTint),
+    } ;
+}
 
 @interface HSASMGUITKElementProgress : NSProgressIndicator
 @property            int     selfRefCount ;
@@ -626,6 +631,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

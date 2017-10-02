@@ -12,28 +12,34 @@
 
 static const char * const USERDATA_TAG = "hs._asm.guitk.element._controller" ;
 
-#define CONTROL_SIZE @{ \
-    @"regular" : @(NSControlSizeRegular), \
-    @"small"   : @(NSControlSizeSmall), \
-    @"mini"    : @(NSControlSizeMini), \
-}
-
-#define CONTROL_TINT @{ \
-    @"default"  : @(NSDefaultControlTint), \
-    @"blue"     : @(NSBlueControlTint), \
-    @"graphite" : @(NSGraphiteControlTint), \
-    @"clear"    : @(NSClearControlTint), \
-}
-
-#define TEXT_ALIGNMENT @{                       \
-    @"left"      : @(NSTextAlignmentLeft),      \
-    @"center"    : @(NSTextAlignmentCenter),    \
-    @"right"     : @(NSTextAlignmentRight),     \
-    @"justified" : @(NSTextAlignmentJustified), \
-    @"natural"   : @(NSTextAlignmentNatural),   \
-}
+static NSDictionary *CONTROL_SIZE ;
+static NSDictionary *CONTROL_TINT ;
+static NSDictionary *TEXT_ALIGNMENT ;
 
 #pragma mark - Common NSController Methods
+
+static void defineInternalDictionaryies() {
+    CONTROL_SIZE = @{
+        @"regular" : @(NSControlSizeRegular),
+        @"small"   : @(NSControlSizeSmall),
+        @"mini"    : @(NSControlSizeMini),
+    } ;
+
+    CONTROL_TINT = @{
+        @"default"  : @(NSDefaultControlTint),
+        @"blue"     : @(NSBlueControlTint),
+        @"graphite" : @(NSGraphiteControlTint),
+        @"clear"    : @(NSClearControlTint),
+    } ;
+
+    TEXT_ALIGNMENT = @{
+        @"left"      : @(NSTextAlignmentLeft),
+        @"center"    : @(NSTextAlignmentCenter),
+        @"right"     : @(NSTextAlignmentRight),
+        @"justified" : @(NSTextAlignmentJustified),
+        @"natural"   : @(NSTextAlignmentNatural),
+    } ;
+}
 
 static int control_textAlignment(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
@@ -210,6 +216,8 @@ static luaL_Reg moduleLib[] = {
 };
 
 int luaopen_hs__asm_guitk_element__controller(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 

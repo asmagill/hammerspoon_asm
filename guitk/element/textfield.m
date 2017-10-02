@@ -4,6 +4,8 @@
 //   figure out specifics of 10.12 constructors so we can wrap them for < 10.12 (like in button)
 //   ?
 
+// #define TEST_FALLBACKS
+
 @import Cocoa ;
 @import Carbon ;
 @import LuaSkin ;
@@ -13,22 +15,26 @@ static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
-#define BEZEL_STYLES @{ \
-    @"square"  : @(NSTextFieldSquareBezel), \
-    @"rounded" : @(NSTextFieldRoundedBezel), \
-}
-
-
-#define TEXT_LINEBREAK @{                                 \
-    @"wordWrap"       : @(NSLineBreakByWordWrapping),     \
-    @"charWrap"       : @(NSLineBreakByCharWrapping),     \
-    @"clip"           : @(NSLineBreakByClipping),         \
-    @"truncateHead"   : @(NSLineBreakByTruncatingHead),   \
-    @"truncateTail"   : @(NSLineBreakByTruncatingTail),   \
-    @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle), \
-}
+static NSDictionary *BEZEL_STYLES ;
+static NSDictionary *TEXT_LINEBREAK ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+    BEZEL_STYLES  = @{
+        @"square"  : @(NSTextFieldSquareBezel),
+        @"rounded" : @(NSTextFieldRoundedBezel),
+    } ;
+
+    TEXT_LINEBREAK = @{
+        @"wordWrap"       : @(NSLineBreakByWordWrapping),
+        @"charWrap"       : @(NSLineBreakByCharWrapping),
+        @"clip"           : @(NSLineBreakByClipping),
+        @"truncateHead"   : @(NSLineBreakByTruncatingHead),
+        @"truncateTail"   : @(NSLineBreakByTruncatingTail),
+        @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle),
+    } ;
+}
 
 @interface HSASMGUITKElementTextField : NSTextField <NSTextFieldDelegate>
 @property int callbackRef ;
@@ -222,11 +228,57 @@ static int textfield_newLabel(lua_State *L) {
     HSASMGUITKElementTextField *textfield ;
     if (lua_type(L, 1) == LUA_TUSERDATA) {
         [skin checkArgs:LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
-        textfield = [HSASMGUITKElementTextField labelWithAttributedString:[skin toNSObjectAtIndex:1]] ;
+        NSAttributedString *labelValue = [skin toNSObjectAtIndex:1] ;
+#ifndef TEST_FALLBACKS
+        if ([NSTextField respondsToSelector:NSSelectorFromString(@"labelWithAttributedString:")]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+            textfield = [HSASMGUITKElementTextField labelWithAttributedString:labelValue] ;
+#pragma clang diagnostic pop
+        } else {
+#endif
+            NSDictionary     *attributes = [labelValue attributesAtIndex:0 effectiveRange:NULL] ;
+            NSParagraphStyle *style      = attributes[NSParagraphStyleAttributeName] ;
+            if (!style) style = [NSParagraphStyle defaultParagraphStyle] ;
+
+            textfield = [[HSASMGUITKElementTextField alloc] initWithFrame:NSZeroRect] ;
+            textfield.attributedStringValue = labelValue ;
+            textfield.bezeled               = NO ;
+            textfield.drawsBackground       = NO ;
+            textfield.editable              = NO ;
+            textfield.lineBreakMode         = style.lineBreakMode ;
+            textfield.selectable            = NO ;
+            textfield.alignment             = NSTextAlignmentNatural ;
+            textfield.font                  = [NSFont systemFontOfSize:0] ;
+            textfield.textColor             = [NSColor labelColor] ;
+#ifndef TEST_FALLBACKS
+    }
+#endif
     } else {
         [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-        textfield = [HSASMGUITKElementTextField labelWithString:[skin toNSObjectAtIndex:1]] ;
+        NSString *labelValue = [skin toNSObjectAtIndex:1] ;
+#ifndef TEST_FALLBACKS
+        if ([NSTextField respondsToSelector:NSSelectorFromString(@"labelWithString:")]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+            textfield = [HSASMGUITKElementTextField labelWithString:labelValue] ;
+#pragma clang diagnostic pop
+        } else {
+#endif
+            textfield = [[HSASMGUITKElementTextField alloc] initWithFrame:NSZeroRect] ;
+            textfield.stringValue     = labelValue ;
+            textfield.bezeled         = NO ;
+            textfield.drawsBackground = NO ;
+            textfield.editable        = NO ;
+            textfield.lineBreakMode   = NSLineBreakByClipping ;
+            textfield.selectable      = NO ;
+            textfield.alignment       = NSTextAlignmentNatural ;
+            textfield.font            = [NSFont systemFontOfSize:0] ;
+            textfield.textColor       = [NSColor labelColor] ;
+        }
+#ifndef TEST_FALLBACKS
     }
+#endif
     if (textfield) {
         [skin pushNSObject:textfield] ;
     } else {
@@ -244,7 +296,29 @@ static int textfield_newTextField(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 
-    HSASMGUITKElementTextField *textfield = [HSASMGUITKElementTextField textFieldWithString:[skin toNSObjectAtIndex:1]] ;
+    HSASMGUITKElementTextField *textfield ;
+    NSString *fieldValue = [skin toNSObjectAtIndex:1] ;
+#ifndef TEST_FALLBACKS
+    if ([NSTextField respondsToSelector:NSSelectorFromString(@"textFieldWithString:")]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+        textfield = [HSASMGUITKElementTextField textFieldWithString:fieldValue] ;
+#pragma clang diagnostic pop
+    } else {
+#endif
+        textfield = [[HSASMGUITKElementTextField alloc] initWithFrame:NSZeroRect] ;
+        textfield.stringValue     = fieldValue ;
+        textfield.bezeled         = YES ;
+        textfield.drawsBackground = YES ;
+        textfield.editable        = YES ;
+        textfield.lineBreakMode   = NSLineBreakByClipping ;
+        textfield.selectable      = YES ;
+        textfield.alignment       = NSTextAlignmentNatural ;
+        textfield.font            = [NSFont systemFontOfSize:0] ;
+        textfield.textColor       = [NSColor textColor] ;
+#ifndef TEST_FALLBACKS
+    }
+#endif
     if (textfield) {
         [skin pushNSObject:textfield] ;
     } else {
@@ -262,7 +336,29 @@ static int textfield_newWrappingLabel(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 
-    HSASMGUITKElementTextField *textfield = [HSASMGUITKElementTextField wrappingLabelWithString:[skin toNSObjectAtIndex:1]] ;
+    HSASMGUITKElementTextField *textfield ;
+    NSString *labelValue = [skin toNSObjectAtIndex:1] ;
+#ifndef TEST_FALLBACKS
+    if ([NSTextField respondsToSelector:NSSelectorFromString(@"wrappingLabelWithString:")]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+        textfield = [HSASMGUITKElementTextField wrappingLabelWithString:labelValue] ;
+#pragma clang diagnostic pop
+    } else {
+#endif
+        textfield = [[HSASMGUITKElementTextField alloc] initWithFrame:NSZeroRect] ;
+        textfield.stringValue     = labelValue ;
+        textfield.bezeled         = NO ;
+        textfield.drawsBackground = NO ;
+        textfield.editable        = NO ;
+        textfield.lineBreakMode   = NSLineBreakByWordWrapping ;
+        textfield.selectable      = YES ;
+        textfield.alignment       = NSTextAlignmentNatural ;
+        textfield.font            = [NSFont systemFontOfSize:0] ;
+        textfield.textColor       = [NSColor labelColor] ;
+#ifndef TEST_FALLBACKS
+    }
+#endif
     if (textfield) {
         [skin pushNSObject:textfield] ;
     } else {
@@ -833,6 +929,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

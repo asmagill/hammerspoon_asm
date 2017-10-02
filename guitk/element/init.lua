@@ -1,6 +1,8 @@
 --- === hs._asm.guitk.element ===
 ---
---- Elements which can be used with `hs._asm.guitk.manager` objects for display `hs._asm.guitk` windows.
+--- THis submodule provides common methods and metamethods linking a variety of visual elements that can be used with `hs._asm.guitk` to build your own visual displays and input  interfaces within Hammerspoon.
+---
+--- This module by itself provides no elements, but serves as the glue between it's submodules and the guitk window and manager objects.
 
 local USERDATA_TAG = "hs._asm.guitk.element"
 local module       = {}

@@ -1,6 +1,10 @@
 // TODO:
 // *  Can we mimic the 10.12 constructors so that macOS version doesn't matter?
-//    metatable methods to edit like tables
+//    Look closer at NSButtonCell, specifically backgroundColor, highlightsBy, showsStateBy
+//    keyEquivalent?
+
+
+// #define TEST_FALLBACKS
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -12,54 +16,79 @@ static int refTable = LUA_NOREF;
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
-#define BUTTON_STYLES @{ \
-    @"momentaryLight"        : @(NSButtonTypeMomentaryLight), \
-    @"pushOnPushOff"         : @(NSButtonTypePushOnPushOff), \
-    @"toggle"                : @(NSButtonTypeToggle), \
-    @"switch"                : @(NSButtonTypeSwitch), \
-    @"radio"                 : @(NSButtonTypeRadio), \
-    @"momentaryChange"       : @(NSButtonTypeMomentaryChange), \
-    @"onOff"                 : @(NSButtonTypeOnOff), \
-    @"momentaryPushIn"       : @(NSButtonTypeMomentaryPushIn), \
-    @"accelerator"           : @(NSButtonTypeAccelerator), \
-    @"multiLevelAccelerator" : @(NSButtonTypeMultiLevelAccelerator), \
-}
-
-#define BEZEL_STYLES @{ \
-    @"rounded"           : @(NSBezelStyleRounded), \
-    @"regularSquare"     : @(NSBezelStyleRegularSquare), \
-    @"disclosure"        : @(NSBezelStyleDisclosure), \
-    @"shadowlessSquare"  : @(NSBezelStyleShadowlessSquare), \
-    @"circular"          : @(NSBezelStyleCircular), \
-    @"texturedSquare"    : @(NSBezelStyleTexturedSquare), \
-    @"helpButton"        : @(NSBezelStyleHelpButton), \
-    @"smallSquare"       : @(NSBezelStyleSmallSquare), \
-    @"texturedRounded"   : @(NSBezelStyleTexturedRounded), \
-    @"roundRect"         : @(NSBezelStyleRoundRect), \
-    @"recessed"          : @(NSBezelStyleRecessed), \
-    @"roundedDisclosure" : @(NSBezelStyleRoundedDisclosure), \
-    @"inline"            : @(NSBezelStyleInline), \
-}
-
-#define IMAGE_POSITIONS @{ \
-    @"none"     : @(NSNoImage), \
-    @"only"     : @(NSImageOnly), \
-    @"left"     : @(NSImageLeft), \
-    @"right"    : @(NSImageRight), \
-    @"below"    : @(NSImageBelow), \
-    @"above"    : @(NSImageAbove), \
-    @"overlaps" : @(NSImageOverlaps), \
-    @"leading"  : @(NSImageLeading), \
-    @"trailing" : @(NSImageTrailing), \
-}
-
-#define BUTTON_STATES @{ \
-    @"on"    : @(NSOnState), \
-    @"off"   : @(NSOffState), \
-    @"mixed" : @(NSMixedState), \
-}
+static NSDictionary *BUTTON_STYLES ;
+static NSDictionary *BEZEL_STYLES ;
+static NSDictionary *IMAGE_POSITIONS ;
+static NSDictionary *BUTTON_STATES ;
+static NSDictionary *IMAGE_SCALING_TYPES ;
 
 #pragma mark - Support Functions and Classes
+
+static void defineInternalDictionaryies() {
+// These use enums, so they get expanded during compile time, and we compile on the latest OS, but since
+// they are considered partial, the compiler whines a lot.
+
+    BUTTON_STYLES = @{
+        @"momentaryLight"        : @(NSButtonTypeMomentaryLight),
+        @"pushOnPushOff"         : @(NSButtonTypePushOnPushOff),
+        @"toggle"                : @(NSButtonTypeToggle),
+        @"switch"                : @(NSButtonTypeSwitch),
+        @"radio"                 : @(NSButtonTypeRadio),
+        @"momentaryChange"       : @(NSButtonTypeMomentaryChange),
+        @"onOff"                 : @(NSButtonTypeOnOff),
+        @"momentaryPushIn"       : @(NSButtonTypeMomentaryPushIn),
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+        @"accelerator"           : @(NSButtonTypeAccelerator),
+        @"multiLevelAccelerator" : @(NSButtonTypeMultiLevelAccelerator),
+#pragma clang diagnostic pop
+    } ;
+
+
+    BEZEL_STYLES = @{
+        @"rounded"           : @(NSBezelStyleRounded),
+        @"regularSquare"     : @(NSBezelStyleRegularSquare),
+        @"disclosure"        : @(NSBezelStyleDisclosure),
+        @"shadowlessSquare"  : @(NSBezelStyleShadowlessSquare),
+        @"circular"          : @(NSBezelStyleCircular),
+        @"texturedSquare"    : @(NSBezelStyleTexturedSquare),
+        @"helpButton"        : @(NSBezelStyleHelpButton),
+        @"smallSquare"       : @(NSBezelStyleSmallSquare),
+        @"texturedRounded"   : @(NSBezelStyleTexturedRounded),
+        @"roundRect"         : @(NSBezelStyleRoundRect),
+        @"recessed"          : @(NSBezelStyleRecessed),
+        @"roundedDisclosure" : @(NSBezelStyleRoundedDisclosure),
+        @"inline"            : @(NSBezelStyleInline),
+    } ;
+
+    IMAGE_SCALING_TYPES = @{
+        @"proportionallyDown"     : @(NSImageScaleProportionallyDown),
+        @"axesIndependently"      : @(NSImageScaleAxesIndependently),
+        @"none"                   : @(NSImageScaleNone),
+        @"proportionallyUpOrDown" : @(NSImageScaleProportionallyUpOrDown),
+    } ;
+
+    IMAGE_POSITIONS = @{
+        @"none"     : @(NSNoImage),
+        @"only"     : @(NSImageOnly),
+        @"left"     : @(NSImageLeft),
+        @"right"    : @(NSImageRight),
+        @"below"    : @(NSImageBelow),
+        @"above"    : @(NSImageAbove),
+        @"overlaps" : @(NSImageOverlaps),
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+        @"leading"  : @(NSImageLeading),
+        @"trailing" : @(NSImageTrailing),
+#pragma clang diagnostic pop
+    } ;
+
+    BUTTON_STATES = @{
+        @"on"    : @(NSOnState),
+        @"off"   : @(NSOffState),
+        @"mixed" : @(NSMixedState),
+    } ;
+}
 
 @interface HSASMGUITKElementButton : NSButton
 @property int callbackRef ;
@@ -149,6 +178,7 @@ static int button_newButtonWithTitle(lua_State *L) {
     NSString *title = [skin toNSObjectAtIndex:1] ;
 
     HSASMGUITKElementButton *button ;
+#ifndef TEST_FALLBACKS
     if ([NSButton respondsToSelector:NSSelectorFromString(@"buttonWithTitle:target:action:")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
@@ -157,16 +187,20 @@ static int button_newButtonWithTitle(lua_State *L) {
                                                    action:@selector(performCallback:)] ;
 #pragma clang diagnostic pop
     } else {
+#endif
         button = [[HSASMGUITKElementButton alloc] initWithFrame:NSZeroRect] ;
         if (button) {
             [button setButtonType:NSButtonTypeMomentaryPushIn] ;
             button.title         = title ;
+            button.font          = [NSFont systemFontOfSize:0] ;
             button.action        = @selector(performCallback:) ;
             button.bezelStyle    = NSBezelStyleRounded ;
             button.imagePosition = NSNoImage ;
             [button setFrameSize:[button fittingSize]] ;
         }
+#ifndef TEST_FALLBACKS
     }
+#endif
 
     if (button) {
         button.target = button ;
@@ -184,6 +218,7 @@ static int button_newButtonWithTitleAndImage(lua_State *L) {
     NSImage  *image = [skin toNSObjectAtIndex:2] ;
 
     HSASMGUITKElementButton *button ;
+#ifndef TEST_FALLBACKS
     if ([NSButton respondsToSelector:NSSelectorFromString(@"buttonWithTitle:image:target:action:")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
@@ -193,17 +228,22 @@ static int button_newButtonWithTitleAndImage(lua_State *L) {
                                                    action:@selector(performCallback:)] ;
 #pragma clang diagnostic pop
     } else {
+#endif
         button = [[HSASMGUITKElementButton alloc] initWithFrame:NSZeroRect] ;
         if (button) {
             [button setButtonType:NSButtonTypeMomentaryPushIn] ;
             button.title         = title ;
+            button.font          = [NSFont systemFontOfSize:0] ;
             button.image         = image ;
             button.action        = @selector(performCallback:) ;
             button.bezelStyle    = NSBezelStyleRounded ;
             button.imagePosition = NSImageLeft ;
+            ((NSButtonCell *)button.cell).imageScaling = NSImageScaleProportionallyDown ;
             [button setFrameSize:[button fittingSize]] ;
         }
+#ifndef TEST_FALLBACKS
     }
+#endif
 
     if (button) {
         button.target = button ;
@@ -220,6 +260,7 @@ static int button_newButtonWithImage(lua_State *L) {
     NSImage  *image = [skin toNSObjectAtIndex:1] ;
 
     HSASMGUITKElementButton *button ;
+#ifndef TEST_FALLBACKS
     if ([NSButton respondsToSelector:NSSelectorFromString(@"buttonWithImage:target:action:")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
@@ -228,17 +269,22 @@ static int button_newButtonWithImage(lua_State *L) {
                                                     action:@selector(performCallback:)] ;
 #pragma clang diagnostic pop
     } else {
+#endif
         button = [[HSASMGUITKElementButton alloc] initWithFrame:NSZeroRect] ;
         if (button) {
             [button setButtonType:NSButtonTypeMomentaryPushIn] ;
             button.title         = @"Button" ;
+            button.font          = [NSFont systemFontOfSize:0] ;
             button.image         = image ;
             button.action        = @selector(performCallback:) ;
             button.bezelStyle    = NSBezelStyleRounded ;
             button.imagePosition = NSImageOnly ;
+            ((NSButtonCell *)button.cell).imageScaling = NSImageScaleProportionallyDown ;
             [button setFrameSize:[button fittingSize]] ;
         }
+#ifndef TEST_FALLBACKS
     }
+#endif
 
     if (button) {
         button.target = button ;
@@ -255,6 +301,7 @@ static int button_newButtonWithCheckbox(lua_State *L) {
     NSString *title = [skin toNSObjectAtIndex:1] ;
 
     HSASMGUITKElementButton *button ;
+#ifndef TEST_FALLBACKS
     if ([NSButton respondsToSelector:NSSelectorFromString(@"checkboxWithTitle:target:action:")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
@@ -263,16 +310,20 @@ static int button_newButtonWithCheckbox(lua_State *L) {
                                                      action:@selector(performCallback:)] ;
 #pragma clang diagnostic pop
     } else {
+#endif
         button = [[HSASMGUITKElementButton alloc] initWithFrame:NSZeroRect] ;
         if (button) {
             [button setButtonType:NSButtonTypeSwitch] ;
             button.title         = title ;
+            button.font          = [NSFont systemFontOfSize:0] ;
             button.action        = @selector(performCallback:) ;
             button.bezelStyle    = NSBezelStyleRegularSquare ;
             button.imagePosition = NSImageLeft ;
             [button setFrameSize:[button fittingSize]] ;
         }
+#ifndef TEST_FALLBACKS
     }
+#endif
 
     if (button) {
         button.target = button ;
@@ -289,6 +340,7 @@ static int button_newButtonWithRadiobutton(lua_State *L) {
     NSString *title = [skin toNSObjectAtIndex:1] ;
 
     HSASMGUITKElementButton *button ;
+#ifndef TEST_FALLBACKS
     if ([NSButton respondsToSelector:NSSelectorFromString(@"radioButtonWithTitle:target:action:")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
@@ -297,16 +349,20 @@ static int button_newButtonWithRadiobutton(lua_State *L) {
                                                          action:@selector(performCallback:)] ;
 #pragma clang diagnostic pop
     } else {
+#endif
         button = [[HSASMGUITKElementButton alloc] initWithFrame:NSZeroRect] ;
         if (button) {
             [button setButtonType:NSButtonTypeRadio] ;
             button.title         = title ;
+            button.font          = [NSFont systemFontOfSize:0] ;
             button.action        = @selector(performCallback:) ;
             button.bezelStyle    = NSBezelStyleRegularSquare ;
             button.imagePosition = NSImageLeft ;
             [button setFrameSize:[button fittingSize]] ;
         }
+#ifndef TEST_FALLBACKS
     }
+#endif
 
     if (button) {
         button.target = button ;
@@ -492,6 +548,34 @@ static int button_imagePosition(lua_State *L) {
             lua_pushvalue(L, 1) ;
         } else {
             return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[IMAGE_POSITIONS allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
+        }
+    }
+    return 1 ;
+}
+
+static int button_imageScaling(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        NSNumber *imageScaling = @(((NSButtonCell *)button.cell).imageScaling) ;
+        NSArray *temp = [IMAGE_SCALING_TYPES allKeysForObject:imageScaling];
+        NSString *answer = [temp firstObject] ;
+        if (answer) {
+            [skin pushNSObject:answer] ;
+        } else {
+            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized image scaling %@ -- notify developers", USERDATA_TAG, imageScaling]] ;
+            lua_pushnil(L) ;
+        }
+    } else {
+        NSString *key = [skin toNSObjectAtIndex:2] ;
+        NSNumber *imageScaling = IMAGE_SCALING_TYPES[key] ;
+        if (imageScaling) {
+            ((NSButtonCell *)button.cell).imageScaling = [imageScaling unsignedIntegerValue] ;
+            lua_pushvalue(L, 1) ;
+        } else {
+            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[IMAGE_SCALING_TYPES allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
         }
     }
     return 1 ;
@@ -767,6 +851,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"image",               button_image},
     {"alternateImage",      button_alternateImage},
     {"imagePosition",       button_imagePosition},
+    {"imageScaling",        button_imageScaling},
     {"state",               button_state},
     {"highlight",           button_highlight},
     {"sound",               button_sound},
@@ -799,6 +884,8 @@ static luaL_Reg moduleLib[] = {
 
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_guitk_element_button(lua_State* L) {
+    defineInternalDictionaryies() ;
+
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -820,6 +907,7 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         @"allowsMixedState",
         @"bezelStyle",
         @"imagePosition",
+        @"imageScaling",
         @"image",
         @"sound",
         @"alternateImage",
