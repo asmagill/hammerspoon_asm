@@ -10,6 +10,18 @@
 //       If an element file already defines a method that is named here, the existing method will be used for
 //       that element -- it will not be replaced by the common method.
 
+/// === hs._asm.guitk.element._controller ===
+///
+/// Common methods inherited by elements which act as controls. Generally these are elements which are manipulated directly by the user to supply information or trigger a desired action.
+///
+/// Elements which inherit these methods are:
+///  * hs._asm.guitk.element.button
+///  * hs._asm.guitk.element.colorwell
+///  * hs._asm.guitk.element.datepicker
+///  * hs._asm.guitk.element.image
+///  * hs._asm.guitk.element.textfield
+///
+/// macOS Developer Note: Understanding this is not required for use of the methods provided by this submodule, but for those interested, some of the elements provided under `hs._asm.guitk.element` are subclasses of the macOS NSControl class; macOS methods which belong to NSControl and are not overridden or superseded by more specific or appropriate element specific methods are defined here so that they can be used by all elements which share this common ancestor.
 static const char * const USERDATA_TAG = "hs._asm.guitk.element._controller" ;
 
 static NSDictionary *CONTROL_SIZE ;
@@ -41,6 +53,20 @@ static void defineInternalDictionaryies() {
     } ;
 }
 
+/// hs._asm.guitk.element._controller:textAlignment([alignment]) -> elementObject | current value
+/// Method
+/// Get or set the alignment of text which is displayed by the element, often as a label or description.
+///
+/// Parameters:
+///  * `alignment` - an optional string specifying the alignment of the text being displayed by the element. Valid strings are as follows:
+///    * "left"      - Align text along the left edge
+///    * "center"    - Align text equally along both sides of the center line
+///    * "right"     - Align text along the right edge
+///    * "justified" - Fully justify the text so that the last line in a paragraph is natural aligned
+///    * "natural"   - Use the default alignment associated with the current locale. The default alignment for left-to-right scripts is "left", and the default alignment for right-to-left scripts is "right".
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
 static int control_textAlignment(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -72,6 +98,22 @@ static int control_textAlignment(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk.element._controller:controlTint([tint]) -> elementObject | current value
+/// Method
+/// Get or set the tint for the element
+///
+/// Parameters:
+///  * `tint` - an optional string specifying the tint of the element's visual components.  Valid strings are as follows:
+///    * "default"
+///    * "blue"
+///    * "graphite"
+///    * "clear"
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
+///
+/// Notes:
+///  * This method of providing differentiation between elements was more prominent in earlier versions of macOS and may have little or no effect on most visual elements in the current os.
 static int control_controlTint(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -103,6 +145,21 @@ static int control_controlTint(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk.element._controller:controlSize([size]) -> elementObject | current value
+/// Method
+/// Get or set the level of details in terms of the expected size of the element
+///
+/// Parameters:
+///  * `size` - an optional string specifying the size, in a general way, necessary to properly display the element.  Valid strings are as follows:
+///    * "regular" - present the element in its normal default size
+///    * "small"   - present the element in a more compact form; for example when a windows toolbar offers the "Use small size" option.
+///    * "mini"    - present the element in an even smaller form
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
+///
+/// Notes:
+///  * The exact effect this has on each element is type specific and may change the look of the element in other ways as well, such as reducing or removing borders for buttons -- the intent is provide a differing level of detail appropriate to the chosen element size; it is still incumbent upon you to select an appropriate sized font or frame size to take advantage of the level of detail provided.
 static int control_controlSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;

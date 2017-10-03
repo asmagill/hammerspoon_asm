@@ -2,7 +2,9 @@
 ---
 --- THis submodule provides common methods and metamethods linking a variety of visual elements that can be used with `hs._asm.guitk` to build your own visual displays and input  interfaces within Hammerspoon.
 ---
---- This module by itself provides no elements, but serves as the glue between it's submodules and the guitk window and manager objects.
+--- This module by itself provides no elements, but serves as the glue between it's submodules and the guitk window and manager objects.  Elements are defined as submodules to this and may inherit methods defined in `hs._asm.guitk.element._controller` and `hs._asm.guitk.element._view`.  The documentation for each specific element will indicate if it inherits methods from one of these helper submodules.
+---
+--- Methods invoked on element userdata objects which are not recognized by the element itself are passed up the responder chain (`hs._asm.guitk.manager` and `hs._asm.guitk`) as well, allowing you to work from the userdata which is most relevant without having to track the userdata for its supporting infrastructure separately. This will become more clear in the examples provided at a location to be determined (currently in the [../Examples](../Examples) directory of this repository folder).
 
 local USERDATA_TAG = "hs._asm.guitk.element"
 local module       = {}

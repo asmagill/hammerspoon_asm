@@ -2,7 +2,7 @@
 // *  Can we mimic the 10.12 constructors so that macOS version doesn't matter?
 //    Look closer at NSButtonCell, specifically backgroundColor, highlightsBy, showsStateBy
 //    keyEquivalent?
-
+//    check accelerator buttons and image leading/trailing in 10.10 VM
 
 // #define TEST_FALLBACKS
 
@@ -13,8 +13,6 @@ static const char * const USERDATA_TAG = "hs._asm.guitk.element.button" ;
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 static NSDictionary *BUTTON_STYLES ;
 static NSDictionary *BEZEL_STYLES ;
@@ -27,7 +25,7 @@ static NSDictionary *IMAGE_SCALING_TYPES ;
 static void defineInternalDictionaryies() {
 // These use enums, so they get expanded during compile time, and we compile on the latest OS, but since
 // they are considered partial, the compiler whines a lot.
-
+// still, use of them may crash in 10.10... should check that in VM
     BUTTON_STYLES = @{
         @"momentaryLight"        : @(NSButtonTypeMomentaryLight),
         @"pushOnPushOff"         : @(NSButtonTypePushOnPushOff),
