@@ -3,8 +3,8 @@
 ///
 /// Provides an image holder element `hs._asm.guitk`. The image can be static, specified by you, or it can be an editable element, allowing the user to change the image through drag-and-drop or cut-and-paste.
 ///
-/// This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
-/// This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
+/// * This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
+/// * This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -107,13 +107,15 @@ static void defineInternalDictionaryies() {
 /// Creates a new image holder element for `hs._asm.guitk`.
 ///
 /// Parameters:
-///  * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.
+///  * `frame` - an optional frame table specifying the position and size of the frame for element.
 ///
 /// Returns:
 ///  * the imageObject
 ///
 /// Notes:
 ///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
+///
+///  * If you do not assign an image to the element with [hs._asm.guitk.element.image:image](#image) after creating a new image element, the element will not have a default height or width; when assigning the element to an `hs._asm.guitk.manager`, be sure to specify them in the frame details or the element may not be visible.
 static int image_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -137,7 +139,7 @@ static int image_new(lua_State *L) {
 /// Get or set whether or not the image holder element allows the user to cut, copy, and paste an image to or from the element.
 ///
 /// Parameters:
-///  * `state` - an optional boolean indicating whether or not the user can cut, copy, and paste images to or from the element.
+///  * `state` - an optional boolean, default true, indicating whether or not the user can cut, copy, and paste images to or from the element.
 ///
 /// Returns:
 ///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
@@ -181,7 +183,7 @@ static int image_animates(lua_State *L) {
 /// Get or set whether or not the image holder element allows the user to drag an image or image file onto the element.
 ///
 /// Parameters:
-///  * `state` - an optional boolean indicating whether or not the user can drag an image or image file onto the element.
+///  * `state` - an optional boolean, default false, indicating whether or not the user can drag an image or image file onto the element.
 ///
 /// Returns:
 ///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
@@ -198,6 +200,24 @@ static int image_editable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.image:imageAlignment([alignment]) -> imageObject | string
+/// Method
+/// Get or set the alignment of the image within the image element.
+///
+/// Parameters:
+///  * `alignment` - an optional string, default "center", specifying the images alignment within the element frame. Valid strings are as follows:
+///    * "topLeft"     - the image's top left corner will match the element frame's top left corner
+///    * "top"         - the image's top match the element frame's top and will be centered horizontally
+///    * "topRight"    - the image's top right corner will match the element frame's top right corner
+///    * "left"        - the image's left side will match the element frame's left side and will be centered vertically
+///    * "center"      - the image will be centered vertically and horizontally within the element frame
+///    * "right"       - the image's right side will match the element frame's right side and will be centered vertically
+///    * "bottomLeft"  - the image's bottom left corner will match the element frame's bottom left corner
+///    * "bottom"      - the image's bottom match the element frame's bottom and will be centered horizontally
+///    * "bottomRight" - the image's bottom right corner will match the element frame's bottom right corner
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
 static int image_imageAlignment(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -226,6 +246,23 @@ static int image_imageAlignment(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.image:imageFrameStyle([style]) -> imageObject | string
+/// Method
+/// Get or set the visual frame drawn around the image element area.
+///
+/// Parameters:
+///  * `style` - an optional string, default "none", specifying the frame to draw around the image element area. Valid strings are as follows:
+///    * "none"   - no frame is drawing around the image element frame
+///    * "photo"  - a thin black outline with a white background and a dropped shadow.
+///    * "bezel"  - a gray, concave bezel with no background that makes the image look sunken
+///    * "groove" - a thin groove with a gray background that looks etched around the image
+///    * "button" - a convex bezel with a gray background that makes the image stand out in relief, like a butto
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Apple considers the photo, groove, and button style frames "stylistically obsolete" and if a frame is required, recommend that you use the bezel style or draw your own to more closely match the OS look and feel.
 static int image_imageFrameStyle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -254,6 +291,19 @@ static int image_imageFrameStyle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.image:imageScaling([scale]) -> imageObject | string
+/// Method
+/// Get or set the scaling applied to the image if it doesn't fit the image element area exactly
+///
+/// Parameters:
+///  * `scale` - an optional string, default "proportionallyDown", specifying how to scale the image when it doesn't fit the element area exactly. Valid strings are as follows:
+///    * "proportionallyDown"     - shrink the image, preserving the aspect ratio, to fit the element frame if the image is larger than the element frame
+///    * "axesIndependently"      - shrink or expand the image to fully fill the element frame. This does not preserve the aspect ratio
+///    * "none"                   - perform no scaling or resizing of the image
+///    * "proportionallyUpOrDown" - shrink or expand the image to fully fill the element frame, preserving the aspect ration
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
 static int image_imageScaling(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -282,6 +332,18 @@ static int image_imageScaling(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.image:image([image]) -> imageObject | hs.image | nil
+/// Method
+/// Get or set the image currently being displayed in the image element.
+///
+/// Parameters:
+///  * `image` - an optional `hs.image` object, or explicit nil to remove, representing the image currently being displayed by the image element.
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * If the element is editable or supports cut-and-paste, any change made by the user to the image will be available to Hammerspoon through this method.
 static int image_image(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -301,6 +363,19 @@ static int image_image(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.image:callback([fn | nil]) -> imageObject | fn | nil
+/// Method
+/// Get or set the callback function which will be invoked whenever the user changes the image of the element by dragging or pasting an image into it.
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the image inside the element is changed by the user.
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The image callback will receive one argument and should return none. The argument will be the imageObject userdata.
+///    * Use [hs._asm.guitk.element.image:image](#image) on the argument to get the new image.
 static int image_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;

@@ -22,9 +22,9 @@ element = require("hs._asm.guitk").element
 * [hs._asm.guitk.element._view](README._view.md)
 * [hs._asm.guitk.element.avplayer](README.avplayer.md)
 * [hs._asm.guitk.element.button](README.button.md) -- *documentation currently incomplete*
-* [hs._asm.guitk.element.colorwell](README.colorwell.md) -- *documentation currently incomplete*
+* [hs._asm.guitk.element.colorwell](README.colorwell.md)
 * [hs._asm.guitk.element.datepicker](README.datepicker.md) -- *documentation currently incomplete*
-* [hs._asm.guitk.element.image](README.image.md) -- *documentation currently incomplete*
+* [hs._asm.guitk.element.image](README.image.md)
 * [hs._asm.guitk.element.progress](README.progress.md)
 * [hs._asm.guitk.element.textfield](README.textfield.md) -- *documentation currently incomplete*
 
