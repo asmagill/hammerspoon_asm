@@ -668,7 +668,7 @@ static int button_state(lua_State *L) {
     return 1 ;
 }
 
-static int button_highlight(lua_State *L) {
+static int button_highlighted(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
@@ -851,7 +851,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"imagePosition",       button_imagePosition},
     {"imageScaling",        button_imageScaling},
     {"state",               button_state},
-    {"highlight",           button_highlight},
+    {"highlighted",         button_highlighted},
     {"sound",               button_sound},
     {"value",               button_value},
     {"maxAcceleratorLevel", button_maxAcceleratorLevel},
@@ -911,7 +911,7 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         @"alternateImage",
         @"state",
         @"periodicDelay",
-        @"highlight",
+        @"highlighted",
         @"callback",
     ]] ;
     if ([NSButton instancesRespondToSelector:NSSelectorFromString(@"maxAcceleratorLevel")]) {
@@ -919,8 +919,8 @@ int luaopen_hs__asm_guitk_element_button(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritControl") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

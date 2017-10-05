@@ -6,7 +6,11 @@
 ///
 /// Provides an AudioVisual player element for `hs._asm.guitk`.
 ///
-/// Playback of remote or streaming content has not been thoroughly tested; it's not something I do very often.  However, it has been tested against http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8, which is a sample URL provided in the Apple documentation at https://developer.apple.com/library/prerelease/content/documentation/AudioVideo/Conceptual/AVFoundationPG/Articles/02_Playback.html#//apple_ref/doc/uid/TP40010188-CH3-SW4
+/// If you wish to include other elements within the window containing the avplayer object, you will need to use an `hs._asm.guitk.manager` object.  However, since this element is fully self contained and provides its own controls for video playback, it may be easier to attach this element directly to a `hs._asm.guitk` window object when you don't require other elements in the visual display.
+///
+/// Playback of remote or streaming content has been tested against http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8, which is a sample URL provided in the Apple documentation at https://developer.apple.com/library/prerelease/content/documentation/AudioVideo/Conceptual/AVFoundationPG/Articles/02_Playback.html#//apple_ref/doc/uid/TP40010188-CH3-SW4
+///
+/// This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -285,6 +289,9 @@ static void defineInternalDictionaryies() {
 ///
 /// Returns:
 ///  * the avplayerObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
 static int avplayer_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -304,7 +311,7 @@ static int avplayer_new(lua_State *L) {
 
 #pragma mark - Module Methods - ASMAVPlayerView methods
 
-/// hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:controlsStyle([style]) -> avplayerObject | string
 /// Method
 /// Get or set the style of controls displayed in the avplayerObject for controlling media playback.
 ///
@@ -347,7 +354,7 @@ static int avplayer_controlsStyle(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:frameSteppingButtons([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether frame stepping or scrubbing controls are included in the media controls.
 ///
@@ -365,29 +372,6 @@ static int avplayer_showsFrameSteppingButtons(lua_State *L) {
         lua_pushboolean(L, playerView.showsFrameSteppingButtons) ;
     } else {
         playerView.showsFrameSteppingButtons = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-/// hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | current value
-/// Method
-/// Get or set whether or not the sharing services button is included in the media controls.
-///
-/// Parameters:
-///  * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.
-///
-/// Returns:
-///  * if an argument is provided, the avplayerObject; otherwise the current value.
-static int avplayer_showsSharingServiceButton(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, playerView.showsSharingServiceButton) ;
-    } else {
-        playerView.showsSharingServiceButton = (BOOL)lua_toboolean(L, 2) ;
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -421,7 +405,7 @@ static int avplayer_flashChapterAndTitle(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:pauseWhenHidden([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether or not playback of media should be paused when the avplayer object is hidden.
 ///
@@ -430,6 +414,9 @@ static int avplayer_flashChapterAndTitle(lua_State *L) {
 ///
 /// Returns:
 ///  * if an argument is provided, the avplayerObject; otherwise the current value.
+///
+/// Note:
+///  * this method currently does not work; fixing this is in the TODO list.
 static int avplayer_pauseWhenHidden(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -444,28 +431,31 @@ static int avplayer_pauseWhenHidden(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:setCallback(fn) -> avplayerObject
+/// hs._asm.guitk.element.avplayer:callback(fn) -> avplayerObject | fn | nil
 /// Method
-/// Set the callback function for the avplayerObject.
+/// Get or Set the callback function for the avplayerObject.
 ///
 /// Parameters:
 ///  * `fn` - a function, or explicit `nil`, specifying the callback function which is used by this avplayerObject.  If `nil` is specified, the currently active callback function is removed.
 ///
 /// Returns:
-///  * the avplayerObject
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
 ///
 /// Notes:
 ///  * The callback function should expect 2 or more arguments.  The first two arguments will always be:
 ///    * `avplayObject` - the avplayerObject userdata
 ///    * `message`      - a string specifying the reason for the callback.
-///  * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:
-///    * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)
-///    * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)
-///    * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)
-///    * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)
-///    * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)
-///    * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)
-///    * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)
+///    * Additional arguments depend upon the message.  See the following methods for details concerning the arguments for each message:
+///      * `finished`   - [hs._asm.guitk.element.avplayer:trackCompleted](#trackCompleted)
+///      * `pause`      - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)
+///      * `play`       - [hs._asm.guitk.element.avplayer:trackRate](#trackRate)
+///      * `progress`   - [hs._asm.guitk.element.avplayer:trackProgress](#trackProgress)
+///      * `seek`       - [hs._asm.guitk.element.avplayer:seek](#seek)
+///      * `status`     - [hs._asm.guitk.element.avplayer:trackStatus](#trackStatus)
+
+// currently not enabled, waiting for hs.menubar rewrite
+// ///    * `actionMenu` - [hs._asm.guitk.element.avplayer:actionMenu](#actionMenu)
+
 static int avplayer_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -609,7 +599,7 @@ static int avplayer_load(lua_State *L) {
 ///  * the avplayerObject
 ///
 /// Notes:
-///  * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate(1.0)](#rate)`)
+///  * this is equivalent to setting the rate to 1.0 (see [hs._asm.guitk.element.avplayer:rate](#rate)`)
 static int avplayer_play(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -635,7 +625,7 @@ static int avplayer_play(lua_State *L) {
 ///  * the avplayerObject
 ///
 /// Notes:
-///  * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate(0.0)](#rate)`)
+///  * this is equivalent to setting the rate to 0.0 (see [hs._asm.guitk.element.avplayer:rate](#rate)`)
 static int avplayer_pause(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -647,7 +637,7 @@ static int avplayer_pause(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:rate([rate]) -> avplayerObject | number
 /// Method
 /// Get or set the rate of playback for the audiovisual content of the avplayer object.
 ///
@@ -683,7 +673,7 @@ static int avplayer_rate(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:mute([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether or not audio output is muted for the audovisual media item.
 ///
@@ -707,7 +697,7 @@ static int avplayer_mute(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:volume([volume]) -> avplayerObject | number
 /// Method
 /// Get or set the avplayer object's volume on a linear scale from 0.0 (silent) to 1.0 (full volume, relative to the current OS volume).
 ///
@@ -732,7 +722,7 @@ static int avplayer_volume(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:ccEnabled([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether or not the player can use close captioning, if it is included in the audiovisual content.
 ///
@@ -756,7 +746,7 @@ static int avplayer_closedCaptionDisplayEnabled(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:trackProgress([number | nil]) -> avplayerObject | number | nil
 /// Method
 /// Enable or disable a periodic callback at the interval specified.
 ///
@@ -826,7 +816,7 @@ static int avplayer_trackProgress(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:trackRate([state]) -> avplayerObject | boolean
 /// Method
 /// Enable or disable a callback whenever the rate of playback changes.
 ///
@@ -957,7 +947,7 @@ static int avplayer_status(lua_State *L) {
 }
 
 
-/// hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:trackCompleted([state]) -> avplayerObject | boolean
 /// Method
 /// Enable or disable a callback whenever playback of the current media content is completed (reaches the end).
 ///
@@ -999,7 +989,7 @@ static int avplayer_trackCompleted(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:trackStatus([state]) -> avplayerObject | boolean
 /// Method
 /// Enable or disable a callback whenever the status of loading a media item changes.
 ///
@@ -1041,7 +1031,7 @@ static int avplayer_trackStatus(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:time() -> number | nil
+/// hs._asm.guitk.element.avplayer:currentTime() -> number | nil
 /// Method
 /// Returns the current position in seconds within the audiovisual media content.
 ///
@@ -1153,7 +1143,33 @@ static int avplayer_seekToTime(lua_State *L) {
 
 #pragma mark - Module Methods - experimental
 
-/// hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:sharingServiceButton([state]) -> avplayerObject | boolean
+/// Method
+/// Get or set whether or not the sharing services button is included in the media controls.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not the sharing services button is included in the media controls.
+///
+/// Returns:
+///  * if an argument is provided, the avplayerObject; otherwise the current value.
+///
+/// Notes:
+///  * This method is considered experimental and may or may not function as intended; use with caution and please report any reproducible errors or crashes that you encounter.
+static int avplayer_showsSharingServiceButton(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementAVPlayer *playerView = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, playerView.showsSharingServiceButton) ;
+    } else {
+        playerView.showsSharingServiceButton = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+/// hs._asm.guitk.element.avplayer:fullScreenButton([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether or not the full screen toggle button should be included in the media controls.
 ///
@@ -1162,6 +1178,9 @@ static int avplayer_seekToTime(lua_State *L) {
 ///
 /// Returns:
 ///  * if an argument is provided, the avplayerObject; otherwise the current value.
+///
+/// Notes:
+///  * This method is considered experimental and may or may not function as intended; use with caution and please report any reproducible errors or crashes that you encounter.
 static int avplayer_showsFullScreenToggleButton(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -1176,7 +1195,7 @@ static int avplayer_showsFullScreenToggleButton(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | current value
+/// hs._asm.guitk.element.avplayer:allowExternalPlayback([state]) -> avplayerObject | boolean
 /// Method
 /// Get or set whether or not external playback via AirPlay is allowed for this item.
 ///
@@ -1187,6 +1206,8 @@ static int avplayer_showsFullScreenToggleButton(lua_State *L) {
 ///  * if an argument is provided, the avplayerObject; otherwise the current value.
 ///
 /// Notes:
+///  * This method is considered experimental and may or may not function as intended; use with caution and please report any reproducible errors or crashes that you encounter.
+///
 ///  * External playback via AirPlay is only available in macOS 10.11 and newer.
 static int avplayer_allowsExternalPlayback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -1227,7 +1248,10 @@ static int avplayer_allowsExternalPlayback(lua_State *L) {
 /// Returns:
 ///  * true, if AirPlay is currently being used to play the audiovisual content, or false if it is not.
 ///
+///
 /// Notes:
+///  * This method is considered experimental and may or may not function as intended; use with caution and please report any reproducible errors or crashes that you encounter.
+///
 ///  * External playback via AirPlay is only available in macOS 10.11 and newer.
 static int avplayer_externalPlaybackActive(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -1363,6 +1387,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"currentTime",            avplayer_currentTime},
     {"duration",               avplayer_duration},
     {"seekToTime",             avplayer_seekToTime},
+
+// experimental
     {"fullScreenButton",       avplayer_showsFullScreenToggleButton},
     {"allowsExternalPlayback", avplayer_allowsExternalPlayback},
     {"externalPlaybackActive", avplayer_externalPlaybackActive},
@@ -1403,7 +1429,6 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
     [skin pushNSObject:@[
         @"controlsStyle",
         @"frameSteppingButtons",
-        @"sharingServiceButton",
         @"pauseWhenHidden",
         @"rate",
         @"mute",
@@ -1413,7 +1438,6 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
         @"trackRate",
         @"trackCompleted",
         @"trackStatus",
-        @"fullScreenButton",
         @"callback",
     ]] ;
     if ([AVPlayer instancesRespondToSelector:NSSelectorFromString(@"allowExternalPlayback")]) {
@@ -1421,7 +1445,7 @@ int luaopen_hs__asm_guitk_element_avplayer(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

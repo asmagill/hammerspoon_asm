@@ -980,8 +980,8 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritControl") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

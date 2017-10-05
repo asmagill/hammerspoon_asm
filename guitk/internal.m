@@ -442,7 +442,7 @@ static int window_alphaValue(lua_State *L) {
 /// Get or set the color for the background of guitk window.
 ///
 /// Parameters:
-/// * color - an optional table containing color keys as described in `hs.drawing.color`
+/// * `color` - an optional table containing color keys as described in `hs.drawing.color`
 ///
 /// Returns:
 ///  * If an argument is provided, the guitk object; otherwise the current value.
@@ -584,7 +584,7 @@ static int window_titlebarAppearsTransparent(lua_State *L) {
 /// Get or set whether or not the title is displayed in the guitk window titlebar.
 ///
 /// Parameters:
-///  * state - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
+///  * `state` - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
 ///
 /// Returns:
 ///  * If an argument is provided, the guitk object; otherwise the current value.
@@ -1012,7 +1012,7 @@ static int guitk_accessibilitySubrole(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk:notificationCallback([fn | nil]) -> guitkObject | fn
+/// hs._asm.guitk:notificationCallback([fn | nil]) -> guitkObject | fn | nil
 /// Method
 /// Get or set the notification callback for the guitk window.
 ///
@@ -1249,7 +1249,7 @@ static int window_contentView(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk:passthroughCallback([fn | nil]) -> guitkObject | fn/nil
+/// hs._asm.guitk:passthroughCallback([fn | nil]) -> guitkObject | fn | nil
 /// Method
 /// Get or set the pass through callback for the guitk window.
 ///

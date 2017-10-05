@@ -41,9 +41,7 @@ You can remove an existing element by setting its value to nil, e.g. `manager[1]
 
 ### Installation
 
-This module is still undergoing structural and documentation changes, so no precompiled version is presently available; it is hoped that this will change soon.
-
-This module manages content only and requires its parent [hs._asm.guitk](..) for proper use. See the instructions for compiling the parent module for current installation instructions.
+This module manages content only and requires its parent [hs._asm.guitk](..) for proper use. See the instructions for installing the parent module for current installation instructions.
 
 ### Usage
 ~~~lua
@@ -57,7 +55,7 @@ manager = require("hs._asm.guitk").manager
 * <a href="#new">manager.new([frame]) -> managerObject | nil</a>
 
 ##### Module Methods
-* <a href="#_debugFrames">manager:_debugFrames([color]) -> managerObject | table/nil</a>
+* <a href="#_debugFrames">manager:_debugFrames([color]) -> managerObject | table | nil</a>
 * <a href="#_nextResponder">manager:_nextResponder() -> userdata</a>
 * <a href="#autoPosition">manager:autoPosition() -> managerObject</a>
 * <a href="#element">manager:element([id]) -> elementUserdata | nil</a>
@@ -73,7 +71,7 @@ manager = require("hs._asm.guitk").manager
 * <a href="#elementRemoveFromManager">manager:elementRemoveFromManager(element) -> managerObject</a>
 * <a href="#elements">manager:elements() -> table</a>
 * <a href="#insertElement">manager:insertElement(element, [pos]) -> managerObject</a>
-* <a href="#passthroughCallback">manager:passthroughCallback([fn | nil]) -> managerObject | fn/nil</a>
+* <a href="#passthroughCallback">manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil</a>
 * <a href="#removeElement">manager:removeElement([pos]) -> managerObject</a>
 * <a href="#sizeToFit">manager:sizeToFit([hPad], [vPad]) -> managerObject</a>
 * <a href="#tooltip">manager:tooltip([tooltip]) -> managerObject | string</a>
@@ -101,7 +99,7 @@ Notes:
 
 <a name="_debugFrames"></a>
 ~~~lua
-manager:_debugFrames([color]) -> managerObject | table/nil
+manager:_debugFrames([color]) -> managerObject | table | nil
 ~~~
 Enable or disable visual rectangles around element frames in the content manager which can aid in identifying frame or positioning bugs.
 
@@ -428,22 +426,26 @@ Returns:
 
 <a name="insertElement"></a>
 ~~~lua
-manager:insertElement(element, [pos]) -> managerObject
+manager:insertElement(element, [frameDetails], [pos]) -> managerObject
 ~~~
 Inserts a new element for the manager to manage.
 
 Parameters:
- * `element` - the element userdata to insert into the manager
- * `pos`     - the index position in the list of elements specifying where to insert the element.  Defaults to `#hs._asm.guitk.manager:elements() + 1`, which will insert the element at the end.
+ * `element`      - the element userdata to insert into the manager
+ * `frameDetails` - an optional table containing frame details for the element as described for the [hs._asm.guitk.manager:elementFrameDetails](#elementFrameDetails) method.
+ * `pos`          - the index position in the list of elements specifying where to insert the element.  Defaults to `#hs._asm.guitk.manager:elements() + 1`, which will insert the element at the end.
 
 Returns:
  * the manager object
+
+Notes:
+ * If the frameDetails table is not provided, the elements position will default to the lower left corner of the last element added to the manager, and its size will default to the elements fitting size as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize).
 
 - - -
 
 <a name="passthroughCallback"></a>
 ~~~lua
-manager:passthroughCallback([fn | nil]) -> managerObject | fn/nil
+manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil
 ~~~
 Get or set the pass through callback for the manager.
 

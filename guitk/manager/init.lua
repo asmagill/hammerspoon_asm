@@ -41,6 +41,8 @@ local USERDATA_TAG = "hs._asm.guitk.manager"
 local module       = require(USERDATA_TAG .. ".internal")
 local managerMT    = hs.getObjectMetatable(USERDATA_TAG)
 
+local commonViewMethods = require(USERDATA_TAG:gsub("manager", "element") .. "._view")
+
 local fnutils = require("hs.fnutils")
 local inspect = require("hs.inspect")
 
@@ -131,6 +133,22 @@ wrappedElementMT.__tostring = function(self)
 end
 
 wrappedElementMT.__len = function(self) return 0 end
+
+    -- if requested, merge in common view methods and update properties table
+--     if managerMT._inheritView then
+    local propertieslist = managerMT._propertyList or {}
+    for k,v in pairs(commonViewMethods) do
+        if not managerMT[k] then
+            if type(v) == "function" then
+                if fnutils.contains(commonViewMethods._propertyList, k) then
+                    table.insert(propertieslist, k)
+                end
+            end
+        end
+    end
+    managerMT._propertyList = propertieslist
+-- --         managerMT._inheritView  = nil -- can't clear because this is checked in __index since these methods only "exist" if the manager is an element of another manager
+--     end
 
 -- Public interface ------------------------------------------------------
 
@@ -232,9 +250,18 @@ managerMT.__index = function(self, key)
             return wrappedElementWithMT(self, element)
         end
 
+        local parentObj = self:_nextResponder()
+-- check to see if we are an element of another manager
+--         if managerMT._inheritView then
+            if getmetatable(parentObj) == managerMT then
+                local fn = commonViewMethods[key]
+                if fn then return fn end
+            end
+--         end
+
 -- pass through method requests that aren't defined for the manager to the guitk object itself
         if type(key) == "string" then
-            local parentObj = self:_nextResponder()
+--             local parentObj = self:_nextResponder()
             if parentObj then
                 local parentFN = parentObj[key]
                 if parentFN then

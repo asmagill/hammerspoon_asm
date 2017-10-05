@@ -1,3 +1,11 @@
+
+/// === hs._asm.guitk.element.image ===
+///
+/// Provides an image holder element `hs._asm.guitk`. The image can be static, specified by you, or it can be an editable element, allowing the user to change the image through drag-and-drop or cut-and-paste.
+///
+/// This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
+/// This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -94,6 +102,18 @@ static void defineInternalDictionaryies() {
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.element.image.new([frame]) -> imageObject
+/// Constructor
+/// Creates a new image holder element for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `frame` - an optional frame table specifying the position and size of the frame for the progress indicator object.
+///
+/// Returns:
+///  * the imageObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
 static int image_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -112,6 +132,15 @@ static int image_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.guitk.element:allowsCutCopyPaste([state]) -> imageObject | boolean
+/// Method
+/// Get or set whether or not the image holder element allows the user to cut, copy, and paste an image to or from the element.
+///
+/// Parameters:
+///  * `state` - an optional boolean indicating whether or not the user can cut, copy, and paste images to or from the element.
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
 static int image_allowsCutCopyPaste(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -125,6 +154,15 @@ static int image_allowsCutCopyPaste(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element:animates([state]) -> imageObject | boolean
+/// Method
+/// Get or set whether or not an animated GIF that is assigned to the imageObject should be animated or static.
+///
+/// Parameters:
+///  * `state` - an optional boolean indicating whether or not animated GIF images can be animated.
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
 static int image_animates(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -138,6 +176,15 @@ static int image_animates(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element:editable([state]) -> imageObject | boolean
+/// Method
+/// Get or set whether or not the image holder element allows the user to drag an image or image file onto the element.
+///
+/// Parameters:
+///  * `state` - an optional boolean indicating whether or not the user can drag an image or image file onto the element.
+///
+/// Returns:
+///  * if a value is provided, returns the imageObject ; otherwise returns the current value.
 static int image_editable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -402,8 +449,8 @@ int luaopen_hs__asm_guitk_element_image(lua_State* L) {
         @"callback",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritController") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritControl") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

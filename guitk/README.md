@@ -67,7 +67,7 @@ guitk = require("hs._asm.guitk")
 * <a href="#opaque">guitk:opaque([state]) -> guitkObject | boolean</a>
 * <a href="#orderAbove">guitk:orderAbove([guitk2]) -> guitkObject</a>
 * <a href="#orderBelow">guitk:orderBelow([guitk2]) -> guitkObject</a>
-* <a href="#passthroughCallback">guitk:passthroughCallback([fn | nil]) -> guitkObject | fn/nil</a>
+* <a href="#passthroughCallback">guitk:passthroughCallback([fn | nil]) -> guitkObject | fn | nil</a>
 * <a href="#sendToBack">guitk:sendToBack() -> guitkObject</a>
 * <a href="#show">guitk:show([fadeIn]) -> guitkObject</a>
 * <a href="#simplifiedWindowCallback">guitk:simplifiedWindowCallback([fn]) -> guitkObject</a>
@@ -244,7 +244,7 @@ guitk:backgroundColor([color]) -> guitkObject | color table
 Get or set the color for the background of guitk window.
 
 Parameters:
-* color - an optional table containing color keys as described in `hs.drawing.color`
+* `color` - an optional table containing color keys as described in `hs.drawing.color`
 
 Returns:
  * If an argument is provided, the guitk object; otherwise the current value.
@@ -292,8 +292,7 @@ guitk:collectionBehavior([behaviorMask]) -> guitkObject | integer
 Get or set the guitk window collection behavior with respect to Spaces and Exposé.
 
 Parameters:
- * behaviorTable - an optional table of strings and/or numbers specifying the desired window behavior for the webview object.
- * behaviorMask - if present, this mask should be a combination of values found in [hs._asm.guitk.behaviors](#behaviors) describing the collection behavior.  The mask should be provided as one of the following:
+ * `behaviorMask` - if present, this mask should be a combination of values found in [hs._asm.guitk.behaviors](#behaviors) describing the collection behavior.  The mask should be provided as one of the following:
    * integer - a number representing the desired behavior which can be created by combining values found in [hs._asm.guitk.behaviors](#behaviors) with the logical or operator (e.g. `value1 | value2 | ... | valueN`).
    * string  - a single key from [hs._asm.guitk.behaviors](#behaviors) which will be toggled in the current collection behavior.
    * table   - a list of keys from [hs._asm.guitk.behaviors](#behaviors) which will be combined to make the final collection behavior by combining their values with the logical or operator.
@@ -573,7 +572,7 @@ Notes:
 
 <a name="passthroughCallback"></a>
 ~~~lua
-guitk:passthroughCallback([fn | nil]) -> guitkObject | fn/nil
+guitk:passthroughCallback([fn | nil]) -> guitkObject | fn | nil
 ~~~
 Get or set the pass through callback for the guitk window.
 
@@ -691,7 +690,7 @@ guitk:styleMask([mask]) -> guitkObject | integer
 Get or set the window display style
 
 Parameters:
- * mask - if present, this mask should be a combination of values found in [hs._asm.guitk.masks](#masks) describing the window style.  The mask should be provided as one of the following:
+ * `mask` - if present, this mask should be a combination of values found in [hs._asm.guitk.masks](#masks) describing the window style.  The mask should be provided as one of the following:
    * integer - a number representing the style which can be created by combining values found in [hs._asm.guitk.masks](#masks) with the logical or operator (e.g. `value1 | value2 | ... | valueN`).
    * string  - a single key from [hs._asm.guitk.masks](#masks) which will be toggled in the current window style.
    * table   - a list of keys from [hs._asm.guitk.masks](#masks) which will be combined to make the final style by combining their values with the logical or operator.
@@ -736,7 +735,7 @@ guitk:titleVisibility([state]) -> guitkObject | currentValue
 Get or set whether or not the title is displayed in the guitk window titlebar.
 
 Parameters:
- * state - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
+ * `state` - an optional string containing the text "visible" or "hidden", specifying whether or not the guitk window's title text appears.
 
 Returns:
  * If an argument is provided, the guitk object; otherwise the current value.

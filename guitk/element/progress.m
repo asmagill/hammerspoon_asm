@@ -1,7 +1,10 @@
+// TODO: bar uses a system color for it's color which is why customColor doesn't work as well when indeterminate... can we determine what that color is and adjust the filter accordingly?
 
 /// === hs._asm.guitk.element.progress ===
 ///
-/// Provides a progress indicator element for use with `hs._asm.guitk`.
+/// Provides spinning and bar progress indicator elements for use with `hs._asm.guitk`.
+///
+/// This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -103,6 +106,11 @@ static void defineInternalDictionaryies() {
 ///
 /// Returns:
 ///  * the progressIndicatorObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
+///
+///  * The bar progress indicator type does not have a default width; if you are assigning the progress element to an `hs._asm.guitk.manager`, be sure to specify a width in the frame details or the element may not be visible.
 static int progress_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -163,19 +171,19 @@ static int progress_stop(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:threaded([flag]) -> progressObject | boolean
 /// Method
 /// Get or set whether or not the animation for an indicator occurs in a separate process thread.
 ///
 /// Parameters:
-///  * flag - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.
+///  * `flag` - an optional boolean indicating whether or not the animation for the indicator should occur in a separate thread.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
 ///
 /// Notes:
 ///  * The default setting for this is true.
-///  * If this flag is set to false, the indicator animation speed will fluctuate as Hammerspoon performs other activities, though not consistently enough to provide a reliable "activity level" feedback indicator.
+///  * If this flag is set to false, the indicator animation speed may fluctuate as Hammerspoon performs other activities, though not reliably enough to provide an "activity level" feedback indicator.
 static int progress_threaded(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -189,12 +197,12 @@ static int progress_threaded(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:indeterminate([flag]) -> progressObject | boolean
 /// Method
 /// Get or set whether or not the progress indicator is indeterminate.  A determinate indicator displays how much of the task has been completed. An indeterminate indicator shows simply that the application is busy.
 ///
 /// Parameters:
-///  * flag - an optional boolean indicating whether or not the indicator is indeterminate.
+///  * `flag` - an optional boolean indicating whether or not the indicator is indeterminate.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -215,19 +223,19 @@ static int progress_indeterminate(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:bezeled([flag]) -> progressObject | boolean
 /// Method
 /// Get or set whether or not the progress indicator’s frame has a three-dimensional bezel.
 ///
 /// Parameters:
-///  * flag - an optional boolean indicating whether or not the indicator's frame is bezeled.
+///  * `flag` - an optional boolean indicating whether or not the indicator's frame is bezeled.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
 ///
 /// Notes:
 ///  * The default setting for this is true.
-///  * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had an effect in previous versions).
+///  * In my testing, this setting does not seem to have much, if any, effect on the visual aspect of the indicator and is provided in this module in case this changes in a future OS X update (there are some indications that it may have had a greater effect in previous versions).
 static int progress_bezeled(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -241,12 +249,12 @@ static int progress_bezeled(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:visibleWhenStopped([flag]) -> progressObject | boolean
 /// Method
 /// Get or set whether or not the progress indicator is visible when animation has been stopped.
 ///
 /// Parameters:
-///  * flag - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.
+///  * `flag` - an optional boolean indicating whether or not the progress indicator is visible when animation has stopped.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -266,12 +274,12 @@ static int progress_displayedWhenStopped(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:circular([flag]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:circular([flag]) -> progressObject | boolean
 /// Method
 /// Get or set whether or not the progress indicator is circular or a in the form of a progress bar.
 ///
 /// Parameters:
-///  * flag - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)
+///  * `flag` - an optional boolean indicating whether or not the indicator is circular (true) or a progress bar (false)
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -296,12 +304,12 @@ static int progress_circular(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:value([value]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:value([value]) -> progressObject | number
 /// Method
 /// Get or set the current value of the progress indicator's completion status.
 ///
 /// Parameters:
-///  * value - an optional number indicating the current extent of the progress.
+///  * `value` - an optional number indicating the current extent of the progress.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -309,7 +317,7 @@ static int progress_circular(lua_State *L) {
 /// Notes:
 ///  * The default value for this is 0.0
 ///  * This value has no effect on the display of an indeterminate progress indicator.
-///  * For a determinate indicator, this will affect how "filled" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be reset to that value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be reset to that value.
+///  * For a determinate indicator, this will affect how "filled" the bar or circle is.  If the value is lower than [hs._asm.guitk.element.progress:min](#min), then it will be set to the current minimum value.  If the value is greater than [hs._asm.guitk.element.progress:max](#max), then it will be set to the current maximum value.
 static int progress_value(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -323,12 +331,12 @@ static int progress_value(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:min([value]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:min([value]) -> progressObject | number
 /// Method
 /// Get or set the minimum value (the value at which the progress indicator should display as empty) for the progress indicator.
 ///
 /// Parameters:
-///  * value - an optional number indicating the minimum value.
+///  * `value` - an optional number indicating the minimum value.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -350,12 +358,12 @@ static int progress_min(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:max([value]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:max([value]) -> progressObject | number
 /// Method
 /// Get or set the maximum value (the value at which the progress indicator should display as full) for the progress indicator.
 ///
 /// Parameters:
-///  * value - an optional number indicating the maximum value.
+///  * `value` - an optional number indicating the maximum value.
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -377,12 +385,12 @@ static int progress_max(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:increment(value) -> progressObject | current value
+/// hs._asm.guitk.element.progress:increment(value) -> progressObject
 /// Method
 /// Increment the current value of a progress indicator's progress by the amount specified.
 ///
 /// Parameters:
-///  * value - the value by which to increment the progress indicator's current value.
+///  * `value` - the value by which to increment the progress indicator's current value.
 ///
 /// Returns:
 ///  * the progress indicator object
@@ -398,12 +406,12 @@ static int progress_increment(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:tint([tint]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:tint([tint]) -> progressObject | string
 /// Method
 /// Get or set the indicator's tint.
 ///
 /// Parameters:
-///  * tint - an optional string specifying the tint of the progress indicator.  May be one of "default", "blue", "graphite", or "clear".
+///  * `tint` - an optional string specifying the tint of the progress indicator.  May be one of "default", "blue", "graphite", or "clear".
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -439,12 +447,12 @@ static int progress_controlTint(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | current value
+/// hs._asm.guitk.element.progress:indicatorSize([size]) -> progressObject | string
 /// Method
 /// Get or set the indicator's size.
 ///
 /// Parameters:
-///  * size - an optional string specifying the size of the progress indicator object.  May be one of "regular", "small", or "mini".
+///  * `size` - an optional string specifying the size of the progress indicator object.  May be one of "regular", "small", or "mini".
 ///
 /// Returns:
 ///  * if a value is provided, returns the progress indicator object ; otherwise returns the current value.
@@ -482,12 +490,12 @@ static int progress_controlSize(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element.progress:color(color) -> progressObject
+/// hs._asm.guitk.element.progress:color(color) -> progressObject | table | nil
 /// Method
 /// Get or set the fill color for a progress indicator.
 ///
 /// Parameters:
-///  * color - an optional table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator, or an explicit nil to reset the behavior to macOS default.
+///  * `color` - an optional table specifying a color as defined in `hs.drawing.color` indicating the color to use for the progress indicator, or an explicit nil to reset the behavior to macOS default.
 ///
 /// Returns:
 ///  * the progress indicator object
@@ -508,7 +516,7 @@ static int progress_customColor(lua_State *L) {
         } else {
             NSColor *theColor = [[skin luaObjectAtIndex:2 toClass:"NSColor"] colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
             if (theColor) {
-                [progress setCustomColor:theColor] ;
+                progress.customColor = theColor ;
             } else {
                 return luaL_error(L, "color must be expressible in the RGB color space") ;
             }
@@ -658,7 +666,7 @@ int luaopen_hs__asm_guitk_element_progress(lua_State* L) {
         @"color",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
-    lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
     lua_pop(L, 1) ;
 
     return 1;

@@ -79,6 +79,15 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     }
 }
 
+- (void)resetFrameSizeDetailsFor:(NSView *)view {
+    NSMutableDictionary *details = [_subviewDetails objectForKey:view] ;
+    if (details) {
+        NSSize updatedSize = view.frame.size ;
+        details[@"h"] = @(updatedSize.height) ;
+        details[@"w"] = @(updatedSize.width) ;
+    }
+}
+
 - (void) updateFrameFor:(NSView *)view {
     NSMutableDictionary *details = [_subviewDetails objectForKey:view] ;
     NSRect frame = view.frame ;
@@ -399,7 +408,7 @@ static int manager_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
-/// hs._asm.guitk.manager:_debugFrames([color]) -> managerObject | table/nil
+/// hs._asm.guitk.manager:_debugFrames([color]) -> managerObject | table | nil
 /// Method
 /// Enable or disable visual rectangles around element frames in the content manager which can aid in identifying frame or positioning bugs.
 ///
@@ -496,16 +505,20 @@ static int manager_elementAutoPosition(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.manager:insertElement(element, [pos]) -> managerObject
+/// hs._asm.guitk.manager:insertElement(element, [frameDetails], [pos]) -> managerObject
 /// Method
 /// Inserts a new element for the manager to manage.
 ///
 /// Parameters:
-///  * `element` - the element userdata to insert into the manager
-///  * `pos`     - the index position in the list of elements specifying where to insert the element.  Defaults to `#hs._asm.guitk.manager:elements() + 1`, which will insert the element at the end.
+///  * `element`      - the element userdata to insert into the manager
+///  * `frameDetails` - an optional table containing frame details for the element as described for the [hs._asm.guitk.manager:elementFrameDetails](#elementFrameDetails) method.
+///  * `pos`          - the index position in the list of elements specifying where to insert the element.  Defaults to `#hs._asm.guitk.manager:elements() + 1`, which will insert the element at the end.
 ///
 /// Returns:
 ///  * the manager object
+///
+/// Notes:
+///  * If the frameDetails table is not provided, the elements position will default to the lower left corner of the last element added to the manager, and its size will default to the elements fitting size as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize).
 static int manager_insertElement(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TTABLE | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -943,7 +956,7 @@ static int manager_elements(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.manager:passthroughCallback([fn | nil]) -> managerObject | fn/nil
+/// hs._asm.guitk.manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil
 /// Method
 /// Get or set the pass through callback for the manager.
 ///
@@ -996,7 +1009,7 @@ static int manager_passthroughCallback(lua_State *L) {
 ///
 /// Notes:
 ///  * This method can be used to access the parent object of the manager. Usually this will be a `hs._asm.guitk` window object, but since a manager may also be an element of another manager, this method may return a `hs._asm.guitk.manager` object in these cases.
-///  * The metamethods for this module are designed so that you usually shouldn't need to access this method directly.
+///  * The metamethods for this module are designed so that you usually shouldn't need to access this method directly very often.
 ///  * The name "nextResponder" comes from the macOS user interface internal organization and refers to the object which is further up the responder chain when determining the target for user activity.
 static int manager__nextResponder(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -1246,7 +1259,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_guitk_manager_internal(lua_State* __unused L) {
+int luaopen_hs__asm_guitk_manager_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
@@ -1256,6 +1269,17 @@ int luaopen_hs__asm_guitk_manager_internal(lua_State* __unused L) {
     [skin registerPushNSHelper:pushHSASMGUITKManager         forClass:"HSASMGUITKManager"];
     [skin registerLuaObjectHelper:toHSASMGUITKManagerFromLua forClass:"HSASMGUITKManager"
                                                   withUserdataMapping:USERDATA_TAG];
+
+    // allow hs._asm.guitk.manager:elementProperties to get/set these
+    luaL_getmetatable(L, USERDATA_TAG) ;
+    [skin pushNSObject:@[
+        @"tooltip",
+        @"elements",
+        @"passthroughCallback",
+    ]] ;
+    lua_setfield(L, -2, "_propertyList") ;
+//     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;
+    lua_pop(L, 1) ;
 
     return 1;
 }

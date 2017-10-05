@@ -3,18 +3,18 @@
 
 // NOTE: Should only contain methods which can be applied to all NSControll based elements
 //
-//       These will be made available to any element which sets _inheritController in its luaopen_* function,
+//       These will be made available to any element which sets _inheritControl in its luaopen_* function,
 //       so enything which should be kept to a subset of such elements should be coded in the relevant element
 //       files and not here.
 //
 //       If an element file already defines a method that is named here, the existing method will be used for
 //       that element -- it will not be replaced by the common method.
 
-/// === hs._asm.guitk.element._controller ===
+/// === hs._asm.guitk.element._control ===
 ///
 /// Common methods inherited by elements which act as controls. Generally these are elements which are manipulated directly by the user to supply information or trigger a desired action.
 ///
-/// Elements which inherit these methods are:
+/// Currently, the elements which inherit these methods are:
 ///  * hs._asm.guitk.element.button
 ///  * hs._asm.guitk.element.colorwell
 ///  * hs._asm.guitk.element.datepicker
@@ -22,13 +22,13 @@
 ///  * hs._asm.guitk.element.textfield
 ///
 /// macOS Developer Note: Understanding this is not required for use of the methods provided by this submodule, but for those interested, some of the elements provided under `hs._asm.guitk.element` are subclasses of the macOS NSControl class; macOS methods which belong to NSControl and are not overridden or superseded by more specific or appropriate element specific methods are defined here so that they can be used by all elements which share this common ancestor.
-static const char * const USERDATA_TAG = "hs._asm.guitk.element._controller" ;
+static const char * const USERDATA_TAG = "hs._asm.guitk.element._control" ;
 
 static NSDictionary *CONTROL_SIZE ;
 static NSDictionary *CONTROL_TINT ;
 static NSDictionary *TEXT_ALIGNMENT ;
 
-#pragma mark - Common NSController Methods
+#pragma mark - Common NSControl Methods
 
 static void defineInternalDictionaryies() {
     CONTROL_SIZE = @{
@@ -53,7 +53,7 @@ static void defineInternalDictionaryies() {
     } ;
 }
 
-/// hs._asm.guitk.element._controller:textAlignment([alignment]) -> elementObject | current value
+/// hs._asm.guitk.element._control:textAlignment([alignment]) -> elementObject | current value
 /// Method
 /// Get or set the alignment of text which is displayed by the element, often as a label or description.
 ///
@@ -70,10 +70,10 @@ static void defineInternalDictionaryies() {
 static int control_textAlignment(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 2) {
         NSString *key = [skin toNSObjectAtIndex:2] ;
@@ -98,7 +98,7 @@ static int control_textAlignment(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element._controller:controlTint([tint]) -> elementObject | current value
+/// hs._asm.guitk.element._control:controlTint([tint]) -> elementObject | current value
 /// Method
 /// Get or set the tint for the element
 ///
@@ -117,10 +117,10 @@ static int control_textAlignment(lua_State *L) {
 static int control_controlTint(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 2) {
         NSString *key = [skin toNSObjectAtIndex:2] ;
@@ -145,7 +145,7 @@ static int control_controlTint(lua_State *L) {
     return 1;
 }
 
-/// hs._asm.guitk.element._controller:controlSize([size]) -> elementObject | current value
+/// hs._asm.guitk.element._control:controlSize([size]) -> elementObject | current value
 /// Method
 /// Get or set the level of details in terms of the expected size of the element
 ///
@@ -163,10 +163,10 @@ static int control_controlTint(lua_State *L) {
 static int control_controlSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 2) {
         NSString *key = [skin toNSObjectAtIndex:2] ;
@@ -192,13 +192,25 @@ static int control_controlSize(lua_State *L) {
     return 1;
 }
 
+/// hs._asm.guitk.element._control:highlighted([state]) -> elementObject | current value
+/// Method
+/// Get or set whether or not the element has a highlighted appearance.
+///
+/// Parameters:
+///  * `state` - an optional boolean indicating whether or not the element has a highlighted appearance.
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
+///
+/// Notes:
+///  * Not all elements have a highlighted appearance and this method will have no effect in such cases.
 static int control_highlighted(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, control.highlighted) ;
     } else {
@@ -208,13 +220,22 @@ static int control_highlighted(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element._control:enabled([state]) -> elementObject | current value
+/// Method
+/// Get or set whether or not the element is currently enabled.
+///
+/// Parameters:
+///  * `state` - an optional boolean indicating whether or not the element is enabled.
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
 static int control_enabled(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, control.enabled) ;
     } else {
@@ -224,13 +245,25 @@ static int control_enabled(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element._control:font([font]) -> elementObject | current value
+/// Method
+/// Get or set the font used for displaying text for the element.
+///
+/// Paramaters:
+///  * `font` - an optional table specifying a font as defined in `hs.styledtext`.
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
+///
+/// Notes:
+///  * a font table is defined as having two key-value pairs: `name` specifying the name of the font as a string and `size` specifying the font size as a number.
 static int control_font(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TANY, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:control.font] ;
@@ -241,13 +274,25 @@ static int control_font(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element._control:continuous([state]) -> elementObject | current value
+/// Method
+/// Get or set whether or not the element triggers continuous callbacks when the user interacts with it.
+///
+/// Paramaters:
+///  * `state` - an optional boolean indicating whether or not continuous callbacks are generated for the element when the user interacts with it.
+///
+/// Returns:
+///  * if an argument is provided, returns the elementObject userdata; otherwise returns the current value
+///
+/// Notes:
+///  * The exact effect of this method depends upon the type of element; for example with the color well setting this to true will cause a callback as the user drags the mouse around in the color wheel; for a textfield this determines whether a callback occurs after each character is entered or deleted or just when the user enters or exits the textfield.
 static int control_continuous(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    if (lua_type(L, 1) != LUA_TUSERDATA) {
-        return luaL_error(L, "ERROR: incorrect type '%s' for argument 1 (expected userdata)", lua_typename(L, lua_type(L, 1))) ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
-    NSControl *control = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, control.continuous) ;
     } else {
@@ -257,13 +302,12 @@ static int control_continuous(lua_State *L) {
     return 1 ;
 }
 
-
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"font",          control_font},
-    {"highlight",     control_highlighted},
+    {"highlighted",   control_highlighted},
     {"enabled",       control_enabled},
     {"controlSize",   control_controlSize},
     {"controlTint",   control_controlTint},
@@ -272,7 +316,7 @@ static luaL_Reg moduleLib[] = {
     {NULL,            NULL}
 };
 
-int luaopen_hs__asm_guitk_element__controller(lua_State* L) {
+int luaopen_hs__asm_guitk_element__control(lua_State* L) {
     defineInternalDictionaryies() ;
 
     LuaSkin *skin = [LuaSkin shared] ;
@@ -280,7 +324,7 @@ int luaopen_hs__asm_guitk_element__controller(lua_State* L) {
 
     [skin pushNSObject:@[
         @"font",
-        @"highlight",
+        @"highlighted",
         @"enabled",
         @"controlTint",
         @"controlSize",

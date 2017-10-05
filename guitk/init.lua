@@ -47,7 +47,7 @@ local simplifiedNotificationMap = {
 --- Get or set the window display style
 ---
 --- Parameters:
----  * mask - if present, this mask should be a combination of values found in [hs._asm.guitk.masks](#masks) describing the window style.  The mask should be provided as one of the following:
+---  * `mask` - if present, this mask should be a combination of values found in [hs._asm.guitk.masks](#masks) describing the window style.  The mask should be provided as one of the following:
 ---    * integer - a number representing the style which can be created by combining values found in [hs._asm.guitk.masks](#masks) with the logical or operator (e.g. `value1 | value2 | ... | valueN`).
 ---    * string  - a single key from [hs._asm.guitk.masks](#masks) which will be toggled in the current window style.
 ---    * table   - a list of keys from [hs._asm.guitk.masks](#masks) which will be combined to make the final style by combining their values with the logical or operator.
@@ -91,8 +91,7 @@ end
 --- Get or set the guitk window collection behavior with respect to Spaces and Exposé.
 ---
 --- Parameters:
----  * behaviorTable - an optional table of strings and/or numbers specifying the desired window behavior for the webview object.
----  * behaviorMask - if present, this mask should be a combination of values found in [hs._asm.guitk.behaviors](#behaviors) describing the collection behavior.  The mask should be provided as one of the following:
+---  * `behaviorMask` - if present, this mask should be a combination of values found in [hs._asm.guitk.behaviors](#behaviors) describing the collection behavior.  The mask should be provided as one of the following:
 ---    * integer - a number representing the desired behavior which can be created by combining values found in [hs._asm.guitk.behaviors](#behaviors) with the logical or operator (e.g. `value1 | value2 | ... | valueN`).
 ---    * string  - a single key from [hs._asm.guitk.behaviors](#behaviors) which will be toggled in the current collection behavior.
 ---    * table   - a list of keys from [hs._asm.guitk.behaviors](#behaviors) which will be combined to make the final collection behavior by combining their values with the logical or operator.
