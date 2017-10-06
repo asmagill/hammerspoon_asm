@@ -64,27 +64,15 @@ static void defineInternalDictionaryies() {
     return self ;
 }
 
-- (void)performCallback:(id)message {
-    NSArray *arguments = @[] ;
-    if (message) {
-        if ([message isKindOfClass:[NSArray class]]) {
-            arguments = message ;
-        } else {
-            arguments = @[ message ] ;
-        }
-    }
-
+- (void)callbackHamster:(NSArray *)messageParts { // does the "heavy lifting"
     if (_callbackRef != LUA_NOREF) {
         LuaSkin *skin = [LuaSkin shared] ;
         [skin pushLuaRef:refTable ref:_callbackRef] ;
-        [skin pushNSObject:self] ;
-        int argumentCount = 1 ;
-        for (id object in arguments) [skin pushNSObject:object] ;
-        argumentCount += arguments.count ;
-        if (![skin protectedCallAndTraceback:argumentCount nresults:0]) {
+        for (id part in messageParts) [skin pushNSObject:part] ;
+        if (![skin protectedCallAndTraceback:(int)messageParts.count nresults:0]) {
             NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
             lua_pop(skin.L, 1) ;
-            [skin logError:[NSString stringWithFormat:@"%s:callback(%@) error:%@", USERDATA_TAG, message, errorMessage]] ;
+            [skin logError:[NSString stringWithFormat:@"%s:callback error:%@", USERDATA_TAG, errorMessage]] ;
         }
     } else {
         // allow next responder a chance since we don't have a callback set
@@ -92,15 +80,23 @@ static void defineInternalDictionaryies() {
         if (nextInChain) {
             SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
             if ([nextInChain respondsToSelector:passthroughCallback]) {
-                NSMutableArray *passThroughArguments = [arguments mutableCopy] ;
-                [passThroughArguments insertObject:self atIndex:0] ;
                 [nextInChain performSelectorOnMainThread:passthroughCallback
-                                              withObject:passThroughArguments
+                                              withObject:messageParts
                                            waitUntilDone:YES] ;
             }
         }
     }
 }
+
+// - (BOOL)becomeFirstResponder {
+//     [self callbackHamster:@[ self, @"didBeginEditing" ]] ;
+//     return [super becomeFirstResponder] ;
+// }
+//
+// - (BOOL)resignFirstResponder {
+//     [self callbackHamster:@[ self, @"didEndEditing", self.stringValue ]] ;
+//     return [super resignFirstResponder] ;
+// }
 
 - (BOOL)performEditingCallback:(id)message withDefault:(BOOL)defaultResult {
     BOOL result = defaultResult ;
@@ -165,12 +161,12 @@ static void defineInternalDictionaryies() {
 
 - (void)controlTextDidBeginEditing:(__unused NSNotification *)aNotification {
 //     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidBeginEditing - %@", USERDATA_TAG, aNotification]] ;
-    [self performCallback:@"didBeginEditing"] ;
+    [self callbackHamster:@[ self, @"didBeginEditing"]] ;
 }
 
 - (void)controlTextDidChange:(__unused NSNotification *)aNotification {
 //     [LuaSkin logWarn:[NSString stringWithFormat:@"%s:controlTextDidChange - %@", USERDATA_TAG, aNotification]] ;
-    if (self.continuous) [self performCallback:@"textChanged"] ;
+    if (self.continuous) [self callbackHamster:@[ self, @"textDidChange", self.stringValue]] ;
 }
 
 - (void)controlTextDidEndEditing:(NSNotification *)aNotification {
@@ -188,7 +184,7 @@ static void defineInternalDictionaryies() {
     if (reasonCode == NSRightTextMovement)   reason = @"right" ;
     if (reasonCode == NSUpTextMovement)      reason = @"up" ;
     if (reasonCode == NSDownTextMovement)    reason = @"down" ;
-    [self performCallback:@[ @"didEndEditing", reason]] ;
+    [self callbackHamster:@[ self, @"didEndEditing", self.stringValue, reason]] ;
 }
 
 @end

@@ -1,3 +1,11 @@
+
+/// === hs._asm.guitk.element.datepicker ===
+///
+/// Provides a date picker element for use with `hs._asm.guitk`.
+///
+/// * This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
+/// * This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -69,7 +77,17 @@ static void defineInternalDictionaryies() {
 }
 
 - (void)performCallback:(__unused id)sender {
-    [self callbackHamster:@[ self ]] ;
+    if (self.continuous) [self callbackHamster:@[ self, @"dateDidChange", @(self.dateValue.timeIntervalSince1970) ]] ;
+}
+
+- (BOOL)becomeFirstResponder {
+    [self callbackHamster:@[ self, @"didBeginEditing" ]] ;
+    return [super becomeFirstResponder] ;
+}
+
+- (BOOL)resignFirstResponder {
+    [self callbackHamster:@[ self, @"didEndEditing", @(self.dateValue.timeIntervalSince1970) ]] ;
+    return [super resignFirstResponder] ;
 }
 
 // - (void)datePickerCell:(NSDatePickerCell *)datePickerCell validateProposedDateValue:(NSDate * _Nonnull *)proposedDateValue timeInterval:(NSTimeInterval *)proposedTimeInterval {
@@ -79,6 +97,18 @@ static void defineInternalDictionaryies() {
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.element.datepicker.new([frame]) -> datepickerObject
+/// Constructor
+/// Creates a new date picker element for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `frame` - an optional frame table specifying the position and size of the frame for element.
+///
+/// Returns:
+///  * the datepickerObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
 static int datepicker_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -97,6 +127,29 @@ static int datepicker_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.guitk.element.datepicker:callback([fn | nil]) -> colorwellObject | fn | nil
+/// Method
+/// Get or set the callback function which will be invoked when the user interacts with the datepicker element.
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the user interacts with the element.
+///
+/// Returns:
+///  * if a value is provided, returns the collorwellObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The callback function should expect arguments as described below and return none:
+///    * When the datepicker is becomes active the callback will receive the following arguments:
+///      * the datepicker userdata object
+///      * the message string "didBeginEditing" indicating that the datepicker element has become active
+///    * When the user leaves the datepicker element, the callback will receive the following arguments:
+///      * the datepicker userdata object
+///      * the message string "didEndEditing" indicating that the datepicker element is no longer active
+///      * a number representing the selected date as the number of seconds since the epoch -- see [hs._asm.guitk.element.datepicker:date](#date)
+///    * When the user selects or changes a color in the color picker, and `hs._asm.guitk.element._control:continuous` is true for the element, the callback will receive the following arguments:
+///      * the datepicker userdata object
+///      * the message string "dateDidChange" indicating that the user has modified the date or time in the datepicker element.
+///      * a number representing the selected date as the number of seconds since the epoch -- see [hs._asm.guitk.element.datepicker:date](#date)
 static int datepicker_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;

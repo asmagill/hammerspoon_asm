@@ -72,16 +72,16 @@ static int refTable = LUA_NOREF;
 
 - (void) deactivate {
     [super deactivate] ;
-    [self callbackHamster:@[ self, @(NO) ]] ;
+    [self callbackHamster:@[ self, @"didEndEditing", self.color ]] ;
 }
 
 - (void) activate:(BOOL)state {
     [super activate:state] ;
-    [self callbackHamster:@[ self, @(YES) ]] ;
+    [self callbackHamster:@[ self, @"didBeginEditing" ]] ;
 }
 
 - (void)performCallback:(__unused id)sender {
-    [self callbackHamster:@[ self, self.color ]] ;
+    if (self.continuous) [self callbackHamster:@[ self, @"colorDidChange", self.color ]] ;
 }
 
 @end
@@ -184,11 +184,16 @@ static int colorwell_pickerVisible(lua_State *L) {
 ///
 /// Notes:
 ///  * The callback function should expect arguments as described below and return none:
-///    * When the colorwell is activated or deactivated, the callback will receive the following arguments:
+///    * When the colorwell is activated the callback will receive the following arguments:
 ///      * the colorwell userdata object
-///      * a boolean indicating whether the color panel is being opened (true) or closed (false)
-///    * When the user selects or changes a color in the color picker, the callback will receive the following arguments:
+///      * the message string "didBeginEditing" indicating that the colorwell element has become active
+///    * When the colorwell is deactivated the callback will receive the following arguments:
 ///      * the colorwell userdata object
+///      * the message string "didEndEditing" indicating that the colorwell element is no longer active
+///      * a table describing the new color as defined by the `hs.drawing.color` module.
+///    * When the user selects or changes a color in the color picker, and `hs._asm.guitk.element._control:continuous` is true for the element, the callback will receive the following arguments:
+///      * the colorwell userdata object
+///      * the message string "colorDidChange" indicating that the user has selected or modified the color currently chosen in the color picker panel.
 ///      * a table describing the currently selected color as defined by the `hs.drawing.color` module.
 static int colorwell_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -249,14 +254,14 @@ static int colorwell_bordered(lua_State *L) {
 ///  * however, it won't be dismissed when you pass false; to achieve this, use [hs._asm.guitk.element.colorwell:callback](#callback) like this:
 ///
 ///  ~~~lua
-///  colorwell:callback(function(obj, data)
-///      if data == true then
+///  colorwell:callback(function(obj, msg, color)
+///      if msg == "didBeginEditing" then
 ///         -- do what you want when the color picker is opened
-///       elseif type(data) == "table" then
+///       elseif msg == "colorDidChange" then
 ///         -- do what you want with the color as it changes
-///       elseif data == false then
+///       elseif msg == "didEndEditing" then
 ///         hs._asm.guitk.element.colorwell.panelVisible(false)
-///         -- now do what you want with the chosen color by getting it with obj:color()
+///         -- now do what you want with the newly chosen color
 ///       end
 ///  end)
 ///  ~~~

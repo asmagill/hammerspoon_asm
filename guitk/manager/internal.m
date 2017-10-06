@@ -505,7 +505,7 @@ static int manager_elementAutoPosition(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.manager:insertElement(element, [frameDetails], [pos]) -> managerObject
+/// hs._asm.guitk.manager:insert(element, [frameDetails], [pos]) -> managerObject
 /// Method
 /// Inserts a new element for the manager to manage.
 ///
@@ -563,7 +563,7 @@ static int manager_insertElement(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.manager:removeElement([pos]) -> managerObject
+/// hs._asm.guitk.manager:remove([pos]) -> managerObject
 /// Method
 /// Remove an element from the manager as specified by its index position.
 ///

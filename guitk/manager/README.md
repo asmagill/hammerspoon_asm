@@ -70,9 +70,9 @@ manager = require("hs._asm.guitk").manager
 * <a href="#elementPropertyList">manager:elementPropertyList(element) -> managerObject</a>
 * <a href="#elementRemoveFromManager">manager:elementRemoveFromManager(element) -> managerObject</a>
 * <a href="#elements">manager:elements() -> table</a>
-* <a href="#insertElement">manager:insertElement(element, [pos]) -> managerObject</a>
+* <a href="#insert">manager:insert(element, [frameDetails], [pos]) -> managerObject</a>
 * <a href="#passthroughCallback">manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil</a>
-* <a href="#removeElement">manager:removeElement([pos]) -> managerObject</a>
+* <a href="#remove">manager:remove([pos]) -> managerObject</a>
 * <a href="#sizeToFit">manager:sizeToFit([hPad], [vPad]) -> managerObject</a>
 * <a href="#tooltip">manager:tooltip([tooltip]) -> managerObject | string</a>
 
@@ -406,7 +406,7 @@ Returns:
 Notes:
  * This method is wrapped so that elements which are assigned to a manager can access this method as `hs._asm.guitk.element:removeFromManager()`
 
- * See also [hs._asm.guitk.manager:removeElement](#removeElement)
+ * See also [hs._asm.guitk.manager:remove](#remove)
 
 - - -
 
@@ -424,9 +424,9 @@ Returns:
 
 - - -
 
-<a name="insertElement"></a>
+<a name="insert"></a>
 ~~~lua
-manager:insertElement(element, [frameDetails], [pos]) -> managerObject
+manager:insert(element, [frameDetails], [pos]) -> managerObject
 ~~~
 Inserts a new element for the manager to manage.
 
@@ -467,9 +467,9 @@ Notes:
 
 - - -
 
-<a name="removeElement"></a>
+<a name="remove"></a>
 ~~~lua
-manager:removeElement([pos]) -> managerObject
+manager:remove([pos]) -> managerObject
 ~~~
 Remove an element from the manager as specified by its index position.
 

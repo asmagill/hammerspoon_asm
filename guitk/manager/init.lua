@@ -114,13 +114,14 @@ end
 wrappedElementMT.__pairs = function(self)
     local obj = wrappedElementMT.__e[self]
     local manager, element = obj.manager, obj.element
-    local propertiesList = getmetatable(obj.element)["_propertyList"] or {}
+    local keys = {}
+    for i,v in ipairs(getmetatable(element)["_propertyList"] or {}) do table.insert(keys, v) end
     local builtin = { "_element", "_fittingSize", "frameDetails", "_type" }
-    table.move(builtin, 1, #builtin, #propertiesList + 1, propertiesList)
+    table.move(builtin, 1, #builtin, #keys + 1, keys)
 
     return function(_, k)
         local v = nil
-        k = table.remove(propertiesList)
+        k = table.remove(keys)
         if k then v = self[k] end
         return k, v
     end, self, nil
@@ -195,7 +196,7 @@ end
 --- Notes:
 ---  * This method is wrapped so that elements which are assigned to a manager can access this method as `hs._asm.guitk.element:removeFromManager()`
 ---
----  * See also [hs._asm.guitk.manager:removeElement](#removeElement)
+---  * See also [hs._asm.guitk.manager:remove](#remove)
 managerMT.elementRemoveFromManager = function(self, element, ...)
     local idx
     for i,v in ipairs(self:elements()) do

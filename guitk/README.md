@@ -12,7 +12,7 @@ See `hs._asm.guitk.manager` for more information on how to populate a guitkObjec
 
 ### Installation
 
-***The built in documentation is incomplete for some of the elements, but since the basic structure and organization of this module and its submodule isn't expected to see any additional significant changes, I am releasing a prebuilt version as an alpha release. Use with caution and know that while changes aren't expected, it is still a possibility.***
+***The built in documentation is incomplete for some of the elements, but since the basic structure and organization of this module and its submodules isn't expected to see any additional significant changes, I am releasing a prebuilt version as an alpha release. Use with caution and know that while changes aren't expected, it is still a possibility.***
 
 Please note that if you have been building this by hand from previous github revisions, the name of `hs._asm.guitk.element._controller` has been changed to `hs._asm.guitk.element._control` -- this means that installing this module over your existing installation will not clean out the (now unused) files for `hs._asm.guitk.element._controller`. You should probably remove the existing files by hand with `rm -fr ~/.hammerspoon/hs/_asm/guitk/element/_controller*` (adjust `~/.hammerspoon` if you've changed the installation prefix).
 
