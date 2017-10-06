@@ -12,20 +12,32 @@ See `hs._asm.guitk.manager` for more information on how to populate a guitkObjec
 
 ### Installation
 
-This module is still undergoing structural and documentation changes, so no precompiled version is presently available; it is hoped that this will change soon.
+***The built in documentation is incomplete for some of the elements, but since the basic structure and organization of this module and its submodule isn't expected to see any additional significant changes, I am releasing a prebuilt version as an alpha release. Use with caution and know that while changes aren't expected, it is still a possibility.***
 
-To compile this module by hand, download the lua and objective-c (files ending in `.m`) files and the Makefile from this directory into a folder named `guitk` and do the following:
+Please note that if you have been building this by hand from previous github revisions, the name of `hs._asm.guitk.element._controller` has been changed to `hs._asm.guitk.element._control` -- this means that installing this module over your existing installation will not clean out the (now unused) files for `hs._asm.guitk.element._controller`. You should probably remove the existing files by hand with `rm -fr ~/.hammerspoon/hs/_asm/guitk/element/_controller*` (adjust `~/.hammerspoon` if you've changed the installation prefix).
+
+A precompiled version of this module and its submodules can be found in this directory with a name along the lines of `guitk-v0.x.tar.gz`. This can be installed by downloading the file and then expanding it as follows:
 
 ~~~sh
-$ cd wherever-you-downloaded-the-files
+$ cd ~/.hammerspoon # or wherever your Hammerspoon init.lua file is located
+$ tar -xzf ~/Downloads/guitk-v0.x.tar.gz # or wherever your downloads are located
+~~~
+
+If you wish to build this module and its submodules yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything) is to do the following:
+
+~~~sh
+$ svn export https://github.com/asmagill/hammerspoon_asm/trunk/guitk
+$ cd guitk
+$ [HS_APPLICATION=/Applications] [PREFIX=~/.hammerspoon] make docs install
+$ cd manager
+$ [HS_APPLICATION=/Applications] [PREFIX=~/.hammerspoon] make docs install
+$ cd ../element
 $ [HS_APPLICATION=/Applications] [PREFIX=~/.hammerspoon] make docs install
 ~~~
 
-If your Hammerspoon application is located in `/Applications`, you can leave out the `HS_APPLICATION` environment variable, and if your Hammerspoon files are located in their default location, you can leave out the `PREFIX` environment variable.  For most people it will be sufficient to just type `make docs install`.
+If your Hammerspoon application is located in `/Applications`, you can leave out the `HS_APPLICATION` environment variable, and if your Hammerspoon files are located in their default location, you can leave out the `PREFIX` environment variable.  For most people it will be sufficient to just type `make docs install` in each of the directories specified above.
 
-You will need to do the same for the [manager](manager) and [element](element) subdirectories; make sure to put the relevant files into a subdirectory of the same name -- the Makefile uses the directory name to determine the exact path when installing the module.
-
-As always, if you are updating from an earlier version it is recommended to fully quit and restart Hammerspoon after installing this module to ensure that the latest version of the module is loaded into memory.
+As always, whichever method you chose, if you are updating from an earlier version it is recommended to fully quit and restart Hammerspoon after installing this module to ensure that the latest version of the module is loaded into memory.
 
 Examples of this module and some of the elements can be found in the [Examples](Examples) subdirectory.
 

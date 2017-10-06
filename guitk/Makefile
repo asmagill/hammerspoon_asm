@@ -44,10 +44,16 @@ LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 all: verify $(SOFILE)
 
 release: clean all
-	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=../tmp make -C element clean all install
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=../tmp make -C manager clean all install
+	pushd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; popd ; gzip $(MODULE)-v$(VERSION).tar
 
 releaseWithDocs: clean all docs
-	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=../tmp make -C element clean all docs install
+	HS_APPLICATION=$(HS_APPLICATION) PREFIX=../tmp make -C manager clean all docs install
+	pushd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; popd ; gzip $(MODULE)-v$(VERSION).tar
 
 # swap if all objective-c files should be compiled into one target
 .m.so: $(HEADERS) $(OBJCFILE)
