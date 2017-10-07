@@ -180,7 +180,7 @@ static int colorwell_pickerVisible(lua_State *L) {
 ///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the user uses the color picker to modify the colorwell element.
 ///
 /// Returns:
-///  * if a value is provided, returns the collorwellObject ; otherwise returns the current value.
+///  * if a value is provided, returns the colorwellObject ; otherwise returns the current value.
 ///
 /// Notes:
 ///  * The callback function should expect arguments as described below and return none:
@@ -225,7 +225,7 @@ static int colorwell_callback(lua_State *L) {
 ///  * `enabled` - an optional boolean, default true, specifying whether or not a border should be drawn around the colorwell element.
 ///
 /// Returns:
-///  * if a value is provided, returns the collorwellObject ; otherwise returns the current value.
+///  * if a value is provided, returns the colorwellObject ; otherwise returns the current value.
 static int colorwell_bordered(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -247,7 +247,7 @@ static int colorwell_bordered(lua_State *L) {
 ///  * `state` - an optional boolean, specifying whether the colorwell element should be activated (true) or deactivated (false).
 ///
 /// Returns:
-///  * if a value is provided, returns the collorwellObject ; otherwise returns the current value.
+///  * if a value is provided, returns the colorwellObject ; otherwise returns the current value.
 ///
 /// Notes:
 ///  * if you pass true to this method and the color picker panel is not currently visible, it will be made visible.
@@ -290,7 +290,7 @@ static int colorwell_active(lua_State *L) {
 ///  * an optional table defining a color as specified in the `hs.drawing.color` module to set the colorwell to.
 ///
 /// Returns:
-///  * if a value is provided, returns the collorwellObject ; otherwise returns the current value.
+///  * if a value is provided, returns the colorwellObject ; otherwise returns the current value.
 ///
 /// Notes:
 ///  * if assigning a new color and [hs._asm.guitk.element.colorwell.ignoresAlpha](#ignoresAlpha) is currently true, the alpha channel of the color will be ignored and internally changed to 1.0.

@@ -45,7 +45,9 @@ end
 
 -- Public interface ------------------------------------------------------
 
-module.datepicker.calendarIdentifiers = ls.makeConstantsTable(module.datepicker.calendarIdentifiers)
+module.datepicker.calendarIdentifiers   = ls.makeConstantsTable(module.datepicker.calendarIdentifiers)
+module.datepicker.timezoneAbbreviations = ls.makeConstantsTable(module.datepicker.timezoneAbbreviations)
+module.datepicker.timezoneNames         = ls.makeConstantsTable(module.datepicker.timezoneNames)
 
 for k,v in pairs(metatables) do
 
