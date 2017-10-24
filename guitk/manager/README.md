@@ -71,10 +71,12 @@ manager = require("hs._asm.guitk").manager
 * <a href="#elementRemoveFromManager">manager:elementRemoveFromManager(element) -> managerObject</a>
 * <a href="#elements">manager:elements() -> table</a>
 * <a href="#insert">manager:insert(element, [frameDetails], [pos]) -> managerObject</a>
+* <a href="#mouseCallback">manager:mouseCallback([fn | nil]) -> managerObject | fn | nil</a>
 * <a href="#passthroughCallback">manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil</a>
 * <a href="#remove">manager:remove([pos]) -> managerObject</a>
 * <a href="#sizeToFit">manager:sizeToFit([hPad], [vPad]) -> managerObject</a>
 * <a href="#tooltip">manager:tooltip([tooltip]) -> managerObject | string</a>
+* <a href="#trackMouseMove">manager:trackMouseMove([state]) -> managerObject | boolean</a>
 
 - - -
 
@@ -443,6 +445,29 @@ Notes:
 
 - - -
 
+<a name="mouseCallback"></a>
+~~~lua
+manager:mouseCallback([fn | nil]) -> managerObject | fn | nil
+~~~
+Get or set the mouse tracking callback for the manager.
+
+Parameters:
+ * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent objects passthrough callback, if defined, instead.
+
+Returns:
+ * If an argument is provided, the manager object; otherwise the current value.
+
+Notes:
+ * The mouse tracking callback should expect 3 arguments and return none.
+ * The arguments are as follows:
+   * the manager object userdata
+   * a string specifying the type of the callback. Possible values are "enter", "exit", or "move"
+   * a point-table containing the coordinates within the manager of the mouse event. A point table is a table with `x` and `y` keys specifying the mouse coordinates.
+
+ * By default, only mouse enter and mouse exit events will invoke the callback to reduce overhead; if you need to track mouse movement within the manager as well, see [hs._asm.guitk.manager:trackMouseMove](#trackMouseMove).
+
+- - -
+
 <a name="passthroughCallback"></a>
 ~~~lua
 manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil
@@ -517,6 +542,23 @@ Returns:
 
 Notes:
  * Tooltips are displayed when the window is active and the mouse pointer hovers over the content manager and no other element at the current mouse position has a defined tooltip.
+
+- - -
+
+<a name="trackMouseMove"></a>
+~~~lua
+manager:trackMouseMove([state]) -> managerObject | boolean
+~~~
+Get or set whether mouse tracking callbacks should include movement within the managers visible area.
+
+Parameters:
+ * `state` - an optional boolean, default false, specifying whether mouse movement within the manager also triggers a callback.
+
+Returns:
+ * If an argument is provided, the manager object; otherwise the current value.
+
+Notes:
+ * [hs._asm.guitk.manager:mouseCallback](#mouseCallback) must bet set to a callback function or true for this attribute to have any effect.
 
 - - -
 

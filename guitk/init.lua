@@ -295,6 +295,43 @@ module.levels        = ls.makeConstantsTable(module.levels)
 module.masks         = ls.makeConstantsTable(module.masks)
 module.notifications = ls.makeConstantsTable(module.notifications)
 
+--- hs._asm.guitk.newCanvas([rect]) -> guitkObject
+--- Constructor
+--- Creates a new empty guitk window that is transparent and has no decorations.
+---
+--- Parameters:
+---  * `rect` - an optional rect-table specifying the initial location and size of the guitk window.
+---
+--- Returns:
+---  * the guitk object, or nil if there was an error creating the window.
+---
+--- Notes:
+---  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+---
+---  * this constructor creates an "invisible" container which is intended to display visual information only and does not accept user interaction by default, similar to an empty canvas created with `hs.canvas.new`. This is a shortcut for the following:
+--- ~~~lua
+--- hs._asm.guitk.new(rect, hs._asm.guitk.masks.borderless):backgroundColor{ alpha = 0 }
+---                                                        :opaque(false)
+---                                                        :hasShadow(false)
+---                                                        :ignoresMouseEvents(true)
+---                                                        :allowTextEntry(false)
+---                                                        :animationBehavior("none")
+---                                                        :level(hs._asm.guitk.levels.screenSaver)
+--- ~~~
+---  * If you do not specify `rect`, then the window will have no height or width and will not be able to display its contents; make sure to adjust this with [hs._asm.guitk:frame](#frame) or [hs._asm.guitk:size](#size) once content has been assigned to the window.
+module.newCanvas = function(...)
+    local args = table.pack(...)
+    if type(args[1]) == "nil" then args[1] = {} end
+    table.insert(args, 2, module.masks.borderless)
+    return module.new(table.unpack(args)):backgroundColor{ alpha = 0 }
+                                         :opaque(false)
+                                         :hasShadow(false)
+                                         :ignoresMouseEvents(true)
+                                         :allowTextEntry(false)
+                                         :animationBehavior("none")
+                                         :level(module.levels.screenSaver)
+end
+
 -- Return Module Object --------------------------------------------------
 
 return module

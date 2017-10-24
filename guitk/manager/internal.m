@@ -33,6 +33,9 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 
 @interface HSASMGUITKManager : NSView
 @property int        selfRefCount ;
+@property int        mouseCallback ;
+@property BOOL       trackMouseEvents ;
+@property BOOL       trackMouseMove ;
 @property int        passthroughCallbackRef ;
 @property NSMapTable *subviewDetails ;
 @property NSColor    *frameDebugColor ;
@@ -40,7 +43,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 
 @implementation HSASMGUITKManager
 
-- (instancetype)initWithFrame:(NSRect)frameRect {
+- (instancetype) initWithFrame:(NSRect)frameRect {
 
     @try {
         self = [super initWithFrame:frameRect] ;
@@ -52,6 +55,9 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 
     if (self) {
         _selfRefCount           = 0 ;
+        _mouseCallback          = LUA_NOREF ;
+        _trackMouseEvents       = NO ;
+        _trackMouseMove         = NO ;
         _passthroughCallbackRef = LUA_NOREF ;
         _subviewDetails         = [NSMapTable strongToStrongObjectsMapTable] ;
         _frameDebugColor        = nil ;
@@ -61,11 +67,18 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
                                                      name:NSViewFrameDidChangeNotification
                                                    object:nil] ;
 
+        [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:frameRect
+                                                           options:NSTrackingMouseMoved |
+                                                                   NSTrackingMouseEnteredAndExited |
+                                                                   NSTrackingActiveAlways |
+                                                                   NSTrackingInVisibleRect
+                                                             owner:self
+                                                          userInfo:nil]] ;
     }
     return self ;
 }
 
-- (void)dealloc {
+- (void) dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self
                                                     name:NSViewFrameDidChangeNotification
                                                   object:nil] ;
@@ -251,6 +264,49 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     LuaSkin *skin = [LuaSkin shared] ;
 //     [skin logInfo:[NSString stringWithFormat:@"%s:willRemoveSubview - removed %@", USERDATA_TAG, subview]] ;
     [skin luaRelease:refTable forNSObject:subview] ;
+}
+
+- (void) invokeMouseTrackingCallback:(NSString *)message forEvent:(NSEvent *)theEvent {
+    if (_trackMouseEvents) {
+        NSPoint point     = [self convertPoint:theEvent.locationInWindow fromView:nil];
+        NSValue *location = [NSValue valueWithPoint:point] ;
+
+        if (_mouseCallback != LUA_NOREF) {
+            LuaSkin *skin = [LuaSkin shared] ;
+            [skin pushLuaRef:refTable ref:_mouseCallback] ;
+            [skin pushNSObject:self] ;
+            [skin pushNSObject:message] ;
+            [skin pushNSObject:location] ;
+            if (![skin protectedCallAndTraceback:3 nresults:0]) {
+                NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+                lua_pop(skin.L, 1) ;
+                [skin logError:[NSString stringWithFormat:@"%s:mouseCallback error:%@", USERDATA_TAG, errorMessage]] ;
+            }
+        } else {
+            // allow next responder a chance since we don't have a callback set
+            id nextInChain = [self nextResponder] ;
+            if (nextInChain) {
+                SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
+                if ([nextInChain respondsToSelector:passthroughCallback]) {
+                    [nextInChain performSelectorOnMainThread:passthroughCallback
+                                                  withObject:@[ self, message, location ]
+                                               waitUntilDone:YES] ;
+                }
+            }
+        }
+    }
+}
+
+- (void) mouseMoved:(NSEvent *)theEvent {
+    if (_trackMouseMove) [self invokeMouseTrackingCallback:@"move" forEvent:theEvent] ;
+}
+
+- (void) mouseEntered:(NSEvent *)theEvent {
+    [self invokeMouseTrackingCallback:@"enter" forEvent:theEvent] ;
+}
+
+- (void) mouseExited:(NSEvent *)theEvent {
+    [self invokeMouseTrackingCallback:@"exit" forEvent:theEvent] ;
 }
 
 @end
@@ -997,6 +1053,77 @@ static int manager_passthroughCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.manager:mouseCallback([fn | true | nil]) -> managerObject | fn | boolean
+/// Method
+/// Get or set the mouse tracking callback for the manager.
+///
+/// Parameters:
+///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent objects passthrough callback, if defined, instead.
+///
+/// Returns:
+///  * If an argument is provided, the manager object; otherwise the current value.
+///
+/// Notes:
+///  * The mouse tracking callback should expect 3 arguments and return none.
+///  * The arguments are as follows:
+///    * the manager object userdata
+///    * a string specifying the type of the callback. Possible values are "enter", "exit", or "move"
+///    * a point-table containing the coordinates within the manager of the mouse event. A point table is a table with `x` and `y` keys specifying the mouse coordinates.
+///
+///  * By default, only mouse enter and mouse exit events will invoke the callback to reduce overhead; if you need to track mouse movement within the manager as well, see [hs._asm.guitk.manager:trackMouseMove](#trackMouseMove).
+static int manager_mouseCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        manager.mouseCallback    = [skin luaUnref:refTable ref:manager.mouseCallback] ;
+        manager.trackMouseEvents = NO ;
+        if (lua_type(L, 2) == LUA_TBOOLEAN) {
+            manager.trackMouseEvents = (BOOL)lua_toboolean(L, 2) ;
+        } else if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            manager.mouseCallback    = [skin luaRef:refTable] ;
+            manager.trackMouseEvents = YES ;
+        }
+        lua_pushvalue(L, 1) ;
+    } else {
+        if (manager.mouseCallback != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:manager.mouseCallback] ;
+        } else {
+            lua_pushboolean(L, manager.trackMouseEvents) ;
+        }
+    }
+    return 1 ;
+}
+
+/// hs._asm.guitk.manager:trackMouseMove([state]) -> managerObject | boolean
+/// Method
+/// Get or set whether mouse tracking callbacks should include movement within the managers visible area.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether mouse movement within the manager also triggers a callback.
+///
+/// Returns:
+///  * If an argument is provided, the manager object; otherwise the current value.
+///
+/// Notes:
+///  * [hs._asm.guitk.manager:mouseCallback](#mouseCallback) must bet set to a callback function or true for this attribute to have any effect.
+static int manager_trackMouseMove(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, manager.trackMouseMove) ;
+    } else {
+        manager.trackMouseMove = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+
 /// hs._asm.guitk.manager:_nextResponder() -> userdata
 /// Method
 /// Returns the parent object of the manager as a userdata object.
@@ -1197,6 +1324,7 @@ static int userdata_gc(lua_State* L) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
+            obj.mouseCallback  = [skin luaUnref:refTable ref:obj.mouseCallback] ;
             obj.passthroughCallbackRef = [skin luaUnref:refTable ref:obj.passthroughCallbackRef] ;
             [obj.subviews enumerateObjectsUsingBlock:^(NSView *subview, __unused NSUInteger idx, __unused BOOL *stop) {
                 [skin luaRelease:refTable forNSObject:subview] ;
@@ -1225,6 +1353,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"element",             manager_element},
 
     {"passthroughCallback", manager_passthroughCallback},
+    {"mouseCallback",       manager_mouseCallback},
+    {"trackMouseMove",      manager_trackMouseMove},
     {"sizeToFit",           manager_sizeToFit},
     {"autoPosition",        manager_autoPosition},
     {"tooltip",             manager_toolTip},
@@ -1276,6 +1406,8 @@ int luaopen_hs__asm_guitk_manager_internal(lua_State* L) {
         @"tooltip",
         @"elements",
         @"passthroughCallback",
+        @"mouseCallback",
+        @"trackMouseMove",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
 //     lua_pushboolean(L, YES) ; lua_setfield(L, -2, "_inheritView") ;

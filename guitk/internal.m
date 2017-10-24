@@ -506,6 +506,33 @@ static int window_opaque(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk:ignoresMouseEvents([state]) -> guitkObject | boolean
+/// Method
+/// Get or set whether the guitk window ignores mouse events.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not the window receives mouse events.
+///
+/// Returns:
+///  * If an argument is provided, the guitk object; otherwise the current value.
+///
+/// Notes:
+///  * Setting this to true will prevent elements in the window from receiving mouse button events or mouse movement events which affect the focus of the window or its elements. For elements which accept keyboard entry, this *may* also prevent the user from focusing the element for keyboard input unless the element is focused programmatically with [hs._asm.guitk:activeElement](#activeElement).
+///  * Mouse tracking events (see `hs._asm.guitk.manager:mouseCallback`) will still occur, even if this is true; however if two windows at the same level (see [hs._asm.guitk:level](#level)) both occupy the current mouse location and one or both of the windows have this attribute set to false, spurious and unpredictable mouse callbacks may occur as the "frontmost" window changes based on which is acting on the event at that instant in time.
+static int window_ignoresMouseEvents(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGuiWindow *window = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, window.ignoresMouseEvents) ;
+    } else {
+        window.ignoresMouseEvents = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 static int window_styleMask(lua_State *L) {
 // NOTE:  This method is wrapped in init.lua
     LuaSkin *skin = [LuaSkin shared] ;
@@ -1674,6 +1701,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"backgroundColor",            window_backgroundColor},
     {"hasShadow",                  window_hasShadow},
     {"opaque",                     window_opaque},
+    {"ignoresMouseEvents",         window_ignoresMouseEvents},
     {"styleMask",                  window_styleMask},
     {"title",                      window_title},
     {"titlebarAppearsTransparent", window_titlebarAppearsTransparent},

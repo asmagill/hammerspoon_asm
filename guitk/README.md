@@ -48,9 +48,9 @@ guitk = require("hs._asm.guitk")
 
 ### Contents
 
-
 ##### Module Constructors
 * <a href="#new">guitk.new(rect, [styleMask]) -> guitkObject</a>
+* <a href="#newCanvas">guitk.newCanvas([rect]) -> guitkObject</a>
 
 ##### Module Methods
 * <a href="#accessibilitySubrole">guitk:accessibilitySubrole([label | nil]) -> guitkObject | string | nil</a>
@@ -70,6 +70,7 @@ guitk = require("hs._asm.guitk")
 * <a href="#frame">guitk:frame([rect], [animated]) -> guitkObject | rect-table</a>
 * <a href="#hasShadow">guitk:hasShadow([state]) -> guitkObject | boolean</a>
 * <a href="#hide">guitk:hide([fadeOut]) -> guitkObject</a>
+* <a href="#ignoresMouseEvents">guitk:ignoresMouseEvents([state]) -> guitkObject | boolean</a>
 * <a href="#isOccluded">guitk:isOccluded() -> boolean</a>
 * <a href="#isShowing">guitk:isShowing() -> boolean</a>
 * <a href="#isVisible">guitk:isVisible() -> boolean</a>
@@ -115,6 +116,35 @@ Returns:
 
 Notes:
  * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+
+- - -
+
+<a name="newCanvas"></a>
+~~~lua
+guitk.newCanvas([rect]) -> guitkObject
+~~~
+Creates a new empty guitk window that is transparent and has no decorations.
+
+Parameters:
+ * `rect` - an optional rect-table specifying the initial location and size of the guitk window.
+
+Returns:
+ * the guitk object, or nil if there was an error creating the window.
+
+Notes:
+ * a rect-table is a table with key-value pairs specifying the top-left coordinate on the screen of the guitk window (keys `x`  and `y`) and the size (keys `h` and `w`). The table may be crafted by any method which includes these keys, including the use of an `hs.geometry` object.
+
+ * this constructor creates an "invisible" container which is intended to display visual information only and does not accept user interaction by default, similar to an empty canvas created with `hs.canvas.new`. This is a shortcut for the following:
+~~~lua
+hs._asm.guitk.new(rect, hs._asm.guitk.masks.borderless):backgroundColor{ alpha = 0 }
+                                                       :opaque(false)
+                                                       :hasShadow(false)
+                                                       :ignoresMouseEvents(true)
+                                                       :allowTextEntry(false)
+                                                       :animationBehavior("none")
+                                                       :level(hs._asm.guitk.levels.screenSaver)
+~~~
+ * If you do not specify `rect`, then the window will have no height or width and will not be able to display its contents; make sure to adjust this with [hs._asm.guitk:frame](#frame) or [hs._asm.guitk:size](#size) once content has been assigned to the window.
 
 ### Module Methods
 
@@ -419,6 +449,24 @@ Parameters:
 
 Returns:
  * The guitk object
+
+- - -
+
+<a name="ignoresMouseEvents"></a>
+~~~lua
+guitk:ignoresMouseEvents([state]) -> guitkObject | boolean
+~~~
+Get or set whether the guitk window ignores mouse events.
+
+Parameters:
+ * `state` - an optional boolean, default false, specifying whether or not the window receives mouse events.
+
+Returns:
+ * If an argument is provided, the guitk object; otherwise the current value.
+
+Notes:
+ * Setting this to true will prevent elements in the window from receiving mouse button events or mouse movement events which affect the focus of the window or its elements. For elements which accept keyboard entry, this *may* also prevent the user from focusing the element for keyboard input unless the element is focused programmatically with [hs._asm.guitk:activeElement](#activeElement).
+ * Mouse tracking events (see `hs._asm.guitk.manager:mouseCallback`) will still occur, even if this is true; however if two windows at the same level (see [hs._asm.guitk:level](#level)) both occupy the current mouse location and one or both of the windows have this attribute set to false, spurious and unpredictable mouse callbacks may occur as the "frontmost" window changes based on which is acting on the event at that instant in time.
 
 - - -
 

@@ -6,6 +6,14 @@
 
 // #define TEST_FALLBACKS
 
+
+/// === hs._asm.guitk.element.button ===
+///
+/// Provides button and checkbox elements for use with `hs._asm.guitk`.
+///
+/// * This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
+/// * This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
+
 @import Cocoa ;
 @import LuaSkin ;
 
