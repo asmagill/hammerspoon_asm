@@ -46,6 +46,9 @@ local commonViewMethods = require(USERDATA_TAG:gsub("manager", "element") .. "._
 local fnutils = require("hs.fnutils")
 local inspect = require("hs.inspect")
 
+require("hs.canvas")
+local canvasMT = hs.getObjectMetatable("hs.canvas")
+
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
     basePath = basePath:match("^(.+)/init.lua$")
@@ -152,6 +155,39 @@ wrappedElementMT.__len = function(self) return 0 end
 --     end
 
 -- Public interface ------------------------------------------------------
+
+-- wrap canvas so it's size related methods work with the manager
+local canvasSize = canvasMT.size
+local canvasTL   = canvasMT.topLeft
+canvasMT.size = function(self, ...)
+    local parent = commonViewMethods._nextResponder(self)
+    if parent and getmetatable(parent) == managerMT then
+        local args = table.pack(...)
+        if args.n == 0 then
+            local ans = parent:elementFrameDetails(self)
+            return { h = ans.h, w = ans.w }
+        else
+            return parent:elementFrameDetails(self, ...)
+        end
+    else
+        return canvasSize(self, ...)
+    end
+end
+
+canvasMT.topLeft = function(self, ...)
+    local parent = commonViewMethods._nextResponder(self)
+    if parent and getmetatable(parent) == managerMT then
+        local args = table.pack(...)
+        if args.n == 0 then
+            local ans = parent:elementFrameDetails(self)
+            return { x = ans.x, y = ans.y }
+        else
+            return parent:elementFrameDetails(self, ...)
+        end
+    else
+        return canvasTL(self, ...)
+    end
+end
 
 --- hs._asm.guitk.manager:elementPropertyList(element) -> managerObject
 --- Method
