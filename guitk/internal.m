@@ -1632,7 +1632,7 @@ static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSASMGuiWindow *obj = [skin luaObjectAtIndex:1 toClass:"HSASMGuiWindow"] ;
     NSString *title = obj.title ;
-    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ @%@ (%p)", USERDATA_TAG, title, NSStringFromRect(RectWithFlippedYCoordinate(obj.frame)), lua_topointer(L, 1)]] ;
     return 1 ;
 }
 

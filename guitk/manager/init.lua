@@ -282,36 +282,33 @@ managerMT.__index = function(self, key)
     if managerMT.__core[key] then
         return managerMT.__core[key]
     else
-        local element = self(key)
-        if element then
-            return wrappedElementWithMT(self, element)
+-- check common view methods since, hey, we are actually a view!
+        local parentObj = self:_nextResponder()
+        if getmetatable(parentObj) == managerMT then
+            local fn = commonViewMethods[key]
+            if fn then return fn end
         end
 
-        local parentObj = self:_nextResponder()
--- check to see if we are an element of another manager
---         if managerMT._inheritView then
-            if getmetatable(parentObj) == managerMT then
-                local fn = commonViewMethods[key]
-                if fn then return fn end
-            end
---         end
-
 -- pass through method requests that aren't defined for the manager to the guitk object itself
-        if type(key) == "string" then
---             local parentObj = self:_nextResponder()
-            if parentObj then
-                local parentFN = parentObj[key]
-                if parentFN then
-                    return function(self, ...)
-                        local answer = parentFN(parentObj, ...)
-                        if answer == parentObj then
-                            return self
-                        else
-                            return answer
-                        end
+        if parentObj then
+            local parentFN = parentObj[key]
+            if parentFN then
+                return function(self, ...)
+                    local answer = parentFN(parentObj, ...)
+                    if answer == parentObj then
+                        return self
+                    else
+                        return answer
                     end
                 end
             end
+        end
+
+-- finally check to see if its an index or key to an element of this manager; this is last because
+-- there are other was to get at the element and methods should take priority
+        local element = self(key)
+        if element then
+            return wrappedElementWithMT(self, element)
         end
     end
     return nil
@@ -360,6 +357,7 @@ end
 
 managerMT.__pairs = function(self)
     local keys = {}
+    -- id is optional and it would just be a second way to access the same object, so stick with indicies
     for i = #self, 1, -1 do table.insert(keys, i) end
 
     return function(_, k)
