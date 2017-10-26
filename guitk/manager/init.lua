@@ -159,8 +159,15 @@ wrappedElementMT.__len = function(self) return 0 end
 -- wrap canvas so it's size related methods work with the manager
 local canvasSize = canvasMT.size
 local canvasTL   = canvasMT.topLeft
+-- Calling _nextResponder on a canvas results in a lot of logging because the built in canvas window object has no converter. Waiting
+-- on adding one until I decide how best to integrate canvas with guitk; in the mean time, this check doesn't trigger the messages.
+local isCanvasViewSeparated = function(self)
+    local r, s = pcall(self.level, self)
+    return not r
+end
+
 canvasMT.size = function(self, ...)
-    local parent = commonViewMethods._nextResponder(self)
+    local parent = isCanvasViewSeparated(self) and commonViewMethods._nextResponder(self) or nil
     if parent and getmetatable(parent) == managerMT then
         local args = table.pack(...)
         if args.n == 0 then
@@ -175,7 +182,7 @@ canvasMT.size = function(self, ...)
 end
 
 canvasMT.topLeft = function(self, ...)
-    local parent = commonViewMethods._nextResponder(self)
+    local parent = isCanvasViewSeparated(self) and commonViewMethods._nextResponder(self) or nil
     if parent and getmetatable(parent) == managerMT then
         local args = table.pack(...)
         if args.n == 0 then
