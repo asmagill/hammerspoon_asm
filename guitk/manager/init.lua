@@ -289,6 +289,7 @@ managerMT.__index = function(self, key)
     if managerMT.__core[key] then
         return managerMT.__core[key]
     else
+
 -- check common view methods since, hey, we are actually a view!
         local parentObj = self:_nextResponder()
         if getmetatable(parentObj) == managerMT then
@@ -296,10 +297,16 @@ managerMT.__index = function(self, key)
             if fn then return fn end
         end
 
--- pass through method requests that aren't defined for the manager to the guitk object itself
+-- check to see if its an index or key to an element of this manager
+        local element = self(key)
+        if element then
+            return wrappedElementWithMT(self, element)
+        end
+
+-- finally pass through method requests that aren't defined for the manager to the guitk object itself
         if parentObj then
             local parentFN = parentObj[key]
-            if parentFN then
+            if parentFN and type(parentFN) == "function" then
                 return function(self, ...)
                     local answer = parentFN(parentObj, ...)
                     if answer == parentObj then
@@ -311,12 +318,6 @@ managerMT.__index = function(self, key)
             end
         end
 
--- finally check to see if its an index or key to an element of this manager; this is last because
--- there are other was to get at the element and methods should take priority
-        local element = self(key)
-        if element then
-            return wrappedElementWithMT(self, element)
-        end
     end
     return nil
 end
