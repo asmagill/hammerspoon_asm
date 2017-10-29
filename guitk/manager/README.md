@@ -23,6 +23,8 @@ The specific attributes of each element will depend upon the type of element (se
   * `w`  - The element's width. If this is set, it will be used instead of the default width as returned by the `_fittingSize` attribute. If the default width is 0, then this *must* be set or the element will be effectively invisible.
   * `id` - A string specifying an identifier which can be used to reference this element through the manager's metamethods without requiring knowledge of the element's index position.
 
+  * `honorCanvasMove` - A boolean, default nil (false), indicating whether or not the frame wrapper functions for `hs.canvas` objects should honor location changes when made with `hs.canvas:topLeft` or `hs.canvas:frame`. This is a (hopefully temporary) fix because canvas objects are not aware of the `hs._asm.guitk` frameDetails model for element placement.
+
   * Note that `x`, `rX`, `cX`, `y`, `bY`, `cY`, `h`, and `w` may be specified as numbers or as strings representing percentages of the element's parent width (for `x`, `rX`, `cX`, and `w`) or height (for `y`, `bY`, `cY`, and `h`). Percentages should specified in the string as defined for your locale or in the `en_US` locale (as a fallback) which is either a number followed by a % sign or a decimal number. A negative percentage indicates a value to be subtracted from 100% (e.g. -25% is the same as 75%). For position attributes, this has the effect of treating it as a percentage from the opposite side (i.e. from the right or bottom instead of left or top).
 
 * When assigning a new element to the manager through the metamethods, you can assign the userdata directly or by using the table format described above. For example:
@@ -235,6 +237,8 @@ Parameters:
    * `h`  - The element's height. If this is set, it will be used instead of the default height as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default height is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined height and return the the default behavior.
    * `w`  - The element's width. If this is set, it will be used instead of the default width as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default width is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined width and return the the default behavior.
    * `id` - A string specifying an identifier which can be used to reference this element with [hs._asm.guitk.manager:element](#element) without requiring knowledge of the element's index position. Specify the value as false to clear the identifier and set it to nil.
+
+   * `honorCanvasMove` - A boolean, default nil (false), indicating whether or not the frame wrapper functions for `hs.canvas` objects should honor location changes when made with `hs.canvas:topLeft` or `hs.canvas:frame`. This is a (hopefully temporary) fix because canvas objects are not aware of the `hs._asm.guitk` frameDetails model for element placement.
 
 Returns:
  * If an argument is provided, the manager object; otherwise the current value.

@@ -430,6 +430,13 @@ static void validateElementDetailsTable(lua_State *L, int idx, NSMutableDictiona
         }
         lua_pop(L, 1) ;
 
+        if (lua_getfield(L, idx, "honorCanvasMove") == LUA_TBOOLEAN) {
+            details[@"honorCanvasMove"] = lua_toboolean(L, -1) ? @(YES) : nil ;
+        } else if (lua_type(L, -1) != LUA_TNIL) {
+            [skin logWarn:[NSString stringWithFormat:@"%s expected boolean or nil for honorCanvasMove key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+        }
+        lua_pop(L, 1) ;
+
     } else {
         [skin logWarn:[NSString stringWithFormat:@"%s expected table for element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, idx))]] ;
     }
@@ -1245,6 +1252,8 @@ static int manager_element(lua_State *L) {
 ///    * `h`  - The element's height. If this is set, it will be used instead of the default height as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default height is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined height and return the the default behavior.
 ///    * `w`  - The element's width. If this is set, it will be used instead of the default width as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default width is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined width and return the the default behavior.
 ///    * `id` - A string specifying an identifier which can be used to reference this element with [hs._asm.guitk.manager:element](#element) without requiring knowledge of the element's index position. Specify the value as false to clear the identifier and set it to nil.
+///
+///    * `honorCanvasMove` - A boolean, default nil (false), indicating whether or not the frame wrapper functions for `hs.canvas` objects should honor location changes when made with `hs.canvas:topLeft` or `hs.canvas:frame`. This is a (hopefully temporary) fix because canvas objects are not aware of the `hs._asm.guitk` frameDetails model for element placement.
 ///
 /// Returns:
 ///  * If an argument is provided, the manager object; otherwise the current value.
