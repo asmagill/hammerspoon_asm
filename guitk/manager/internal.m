@@ -1,3 +1,10 @@
+// TODO:
+//        Need way to specify percentage from right or bottom for x and y (negative percentages allowed?)
+//        Need way to specify frame position in relation to upper right corner and both lower corners of element, not just upper left and center.
+
+// for our purposes this is 1/1000 of a screen point; small enough that it can't be seen so effectively 0
+#define FLOAT_EQUIVALENT_TO_ZERO 0.001
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -28,6 +35,8 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
             tmpValue = [formatter numberFromString:stringValue] ;
         }
     }
+    // negative percentages "come from the other side", so add them to 1.0 (i.e. -0.25 --> 0.75)
+    if (tmpValue && tmpValue.doubleValue < 0.0) tmpValue = @(1.0 + tmpValue.doubleValue) ;
     return tmpValue ;
 }
 
@@ -43,7 +52,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 
 @implementation HSASMGUITKManager
 
-- (instancetype) initWithFrame:(NSRect)frameRect {
+- (instancetype)initWithFrame:(NSRect)frameRect {
 
     @try {
         self = [super initWithFrame:frameRect] ;
@@ -63,7 +72,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         _frameDebugColor        = nil ;
 
         [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(managerFrameChanged:)
+                                                 selector:@selector(frameChangedNotification:)
                                                      name:NSViewFrameDidChangeNotification
                                                    object:nil] ;
 
@@ -78,17 +87,20 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     return self ;
 }
 
-- (void) dealloc {
+- (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self
                                                     name:NSViewFrameDidChangeNotification
                                                   object:nil] ;
 }
 
-- (void) managerFrameChanged:(NSNotification *)notification {
-    if ([notification.object isEqualTo:self]) {
-        [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
-            [self updateFrameFor:view] ;
-        }] ;
+- (void)frameChangedNotification:(NSNotification *)notification {
+    NSView *targetView = notification.object ;
+    if (targetView) {
+        if ([targetView isEqualTo:self]) {
+            for (NSView *view in self.subviews) [self updateFrameFor:view] ;
+        } else {
+            if ([self.subviews containsObject:targetView]) [self updateFrameFor:targetView] ;
+        }
     }
 }
 
@@ -141,6 +153,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         }
         frame.origin.y = value.doubleValue ;
     }
+
     if (details[@"cX"]) {
         NSNumber *value = details[@"cX"] ;
         if ([value isKindOfClass:[NSString class]]) {
@@ -157,6 +170,25 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         }
         frame.origin.y = value.doubleValue - (frame.size.height / 2) ;
     }
+
+    if (details[@"rX"]) {
+        NSNumber *value = details[@"rX"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.width * value.doubleValue) ;
+        }
+        frame.origin.x = value.doubleValue - frame.size.width ;
+    }
+    if (details[@"bY"]) {
+        NSNumber *value = details[@"bY"] ;
+        if ([value isKindOfClass:[NSString class]]) {
+            value = convertPercentageStringToNumber((NSString *)value) ;
+            value = @(self.frame.size.height * value.doubleValue) ;
+        }
+        frame.origin.y = value.doubleValue - frame.size.height ;
+    }
+
+
 //     [LuaSkin logInfo:[NSString stringWithFormat:@"newFrame: %@", NSStringFromRect(frame)]] ;
     view.frame = frame ;
 }
@@ -198,13 +230,13 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
             if ((frame.size.height < 0.5) || (frame.size.width < 0.5)) {
                 NSPoint topLeft = NSMakePoint(frame.origin.x, frame.origin.y) ;
                 NSPoint btRight = NSMakePoint(frame.origin.x + frame.size.width, frame.origin.y + frame.size.height) ;
-            // comparing floats is problematic, but for our purposes, if the difference is less than 1/2 point this component has no visible width
-                if (btRight.x - topLeft.x < 0.5) {
+            // comparing floats is problematic, but for our purposes, if the difference is less than this, it has no visible width
+                if (btRight.x - topLeft.x < FLOAT_EQUIVALENT_TO_ZERO) {
                     topLeft.x -= 5 ;
                     btRight.x += 5 ;
                 }
-            // comparing floats is problematic, but for our purposes, if the difference is less than 1/2 point this component has no visible height
-                if (btRight.y - topLeft.y < 0.5) {
+            // comparing floats is problematic, but for our purposes, if the difference is less than this, it has no visible height
+                if (btRight.y - topLeft.y < FLOAT_EQUIVALENT_TO_ZERO) {
                     topLeft.y -= 5 ;
                     btRight.y += 5 ;
                 }
@@ -324,69 +356,47 @@ static void validateElementDetailsTable(lua_State *L, int idx, NSMutableDictiona
         }
         lua_pop(L, 1) ;
 
-        if (lua_getfield(L, idx, "cX") == LUA_TSTRING) {
-            NSString *value = [skin toNSObjectAtIndex:-1] ;
-            if (convertPercentageStringToNumber(value)) {
-                details[@"cX"] = [skin toNSObjectAtIndex:-1] ;
-                details[@"x"]  = nil ;
-            } else {
-                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for cX key in element details", USERDATA_TAG, value]] ;
+        NSArray *xFields = @[ @"rX", @"cX", @"x" ] ;
+        for (NSString *key in xFields) {
+            if (lua_getfield(L, idx, key.UTF8String) != LUA_TNIL) {
+                id newVal = [skin toNSObjectAtIndex:-1] ;
+                if (lua_type(L, -1) == LUA_TSTRING) {
+                    if (!convertPercentageStringToNumber(newVal)) {
+                        [skin logWarn:[NSString stringWithFormat:@"%s:percentage string %@ invalid for %@ key in element details", USERDATA_TAG, newVal, key]] ;
+                        newVal = nil ;
+                    }
+                } else if (lua_type(L, -1) != LUA_TNUMBER) {
+                    [skin logWarn:[NSString stringWithFormat:@"%s:expected number or string for %@ key in element details, found %s", USERDATA_TAG, key, lua_typename(L, lua_type(L, -1))]] ;
+                    newVal = nil ;
+                }
+                if (newVal) {
+                    for (NSString *clearKey in xFields) details[clearKey] = nil ;
+                    details[key] = newVal ;
+                }
             }
-        } else if (lua_type(L, -1) == LUA_TNUMBER) {
-            details[@"cX"] = [skin toNSObjectAtIndex:-1] ;
-            details[@"x"]  = nil ;
-        } else if (lua_type(L, -1) != LUA_TNIL) {
-            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for cX key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+            lua_pop(L, 1) ;
         }
-        lua_pop(L, 1) ;
 
-        if (lua_getfield(L, idx, "cY") == LUA_TSTRING) {
-            NSString *value = [skin toNSObjectAtIndex:-1] ;
-            if (convertPercentageStringToNumber(value)) {
-                details[@"cY"] = [skin toNSObjectAtIndex:-1] ;
-                details[@"y"]  = nil ;
-            } else {
-                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for cY key in element details", USERDATA_TAG, value]] ;
+        NSArray *yFields = @[ @"bY", @"cY", @"y" ] ;
+        for (NSString *key in yFields) {
+            if (lua_getfield(L, idx, key.UTF8String) != LUA_TNIL) {
+                id newVal = [skin toNSObjectAtIndex:-1] ;
+                if (lua_type(L, -1) == LUA_TSTRING) {
+                    if (!convertPercentageStringToNumber(newVal)) {
+                        [skin logWarn:[NSString stringWithFormat:@"%s:percentage string %@ invalid for %@ key in element details", USERDATA_TAG, newVal, key]] ;
+                        newVal = nil ;
+                    }
+                } else if (lua_type(L, -1) != LUA_TNUMBER) {
+                    [skin logWarn:[NSString stringWithFormat:@"%s:expected number or string for %@ key in element details, found %s", USERDATA_TAG, key, lua_typename(L, lua_type(L, -1))]] ;
+                    newVal = nil ;
+                }
+                if (newVal) {
+                    for (NSString *clearKey in yFields) details[clearKey] = nil ;
+                    details[key] = newVal ;
+                }
             }
-        } else if (lua_type(L, -1) == LUA_TNUMBER) {
-            details[@"cY"] = [skin toNSObjectAtIndex:-1] ;
-            details[@"y"]  = nil ;
-        } else if (lua_type(L, -1) != LUA_TNIL) {
-            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for cY key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
+            lua_pop(L, 1) ;
         }
-        lua_pop(L, 1) ;
-
-        if (lua_getfield(L, idx, "x") == LUA_TSTRING) {
-            NSString *value = [skin toNSObjectAtIndex:-1] ;
-            if (convertPercentageStringToNumber(value)) {
-                details[@"x"] = [skin toNSObjectAtIndex:-1] ;
-                details[@"cX"]  = nil ;
-            } else {
-                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for x key in element details", USERDATA_TAG, value]] ;
-            }
-        } else if (lua_type(L, -1) == LUA_TNUMBER) {
-            details[@"x"] = [skin toNSObjectAtIndex:-1] ;
-            details[@"cX"]  = nil ;
-        } else if (lua_type(L, -1) != LUA_TNIL) {
-            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for x key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
-        }
-        lua_pop(L, 1) ;
-
-        if (lua_getfield(L, idx, "y") == LUA_TSTRING) {
-            NSString *value = [skin toNSObjectAtIndex:-1] ;
-            if (convertPercentageStringToNumber(value)) {
-                details[@"y"] = [skin toNSObjectAtIndex:-1] ;
-                details[@"cY"]  = nil ;
-            } else {
-                [skin logWarn:[NSString stringWithFormat:@"%s percentage string %@ invalid for y key in element details", USERDATA_TAG, value]] ;
-            }
-        } else if (lua_type(L, -1) == LUA_TNUMBER) {
-            details[@"y"] = [skin toNSObjectAtIndex:-1] ;
-            details[@"cY"]  = nil ;
-        } else if (lua_type(L, -1) != LUA_TNIL) {
-            [skin logWarn:[NSString stringWithFormat:@"%s expected number or string for y key in element details, found %s", USERDATA_TAG, lua_typename(L, lua_type(L, -1))]] ;
-        }
-        lua_pop(L, 1) ;
 
         if (lua_getfield(L, idx, "h") == LUA_TSTRING) {
             NSString *value = [skin toNSObjectAtIndex:-1] ;
@@ -525,7 +535,7 @@ static int manager_autoPosition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
-    [manager managerFrameChanged:[NSNotification notificationWithName:NSViewFrameDidChangeNotification object:manager]] ;
+    [manager frameChangedNotification:[NSNotification notificationWithName:NSViewFrameDidChangeNotification object:manager]] ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -556,7 +566,7 @@ static int manager_elementAutoPosition(lua_State *L) {
     if (![manager.subviews containsObject:item]) {
         return luaL_argerror(L, 2, "element not managed by this content manager") ;
     }
-    [manager updateFrameFor:item] ;
+    [manager frameChangedNotification:[NSNotification notificationWithName:NSViewFrameDidChangeNotification object:item]] ;
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -607,10 +617,10 @@ static int manager_insertElement(lua_State *L) {
     adjustElementDetailsTable(L, manager, item, details) ;
 
     // Comparing floats is problematic; but if the item is effectively invisible, warn if not set on purpose
-    if ((item.fittingSize.height < 0.1) && !details[@"h"]) {
+    if ((item.fittingSize.height < FLOAT_EQUIVALENT_TO_ZERO) && !details[@"h"]) {
         [skin logWarn:[NSString stringWithFormat:@"%s:insert - height not specified and default height for element is 0", USERDATA_TAG]] ;
     }
-    if ((item.fittingSize.width < 0.1)  && !details[@"w"]) {
+    if ((item.fittingSize.width < FLOAT_EQUIVALENT_TO_ZERO) && !details[@"w"]) {
         [skin logWarn:[NSString stringWithFormat:@"%s:insert - width not specified and default width for element is 0", USERDATA_TAG]] ;
     }
 
@@ -1226,10 +1236,12 @@ static int manager_element(lua_State *L) {
 /// Parameters:
 ///  * `element` - the element to get or set the frame details for
 ///  * `details` - an optional table specifying the details to change or set for this element. The valid key-value pairs for the table are as follows:
-///    * `x`  - The horizontal position of the elements top-left corner. Only one of `x` and `cX` can be set; setting one will clear the other.
-///    * `y`  - The vertical position of the elements top-left corner. Only one of `y` and `cY` can be set; setting one will clear the other.
-///    * `cX` - The horizontal position of the elements center point. Only one of `x` and `cX` can be set; setting one will clear the other.
-///    * `cY` - The vertical position of the elements center point. Only one of `y` and `cY` can be set; setting one will clear the other.
+///    * `x`  - The horizontal position of the elements left side. Only one of `x`, `rX`, or`cX` can be set; setting one will clear the others.
+///    * `rX`  - The horizontal position of the elements right side. Only one of `x`, `rX`, or`cX` can be set; setting one will clear the others.
+///    * `cX` - The horizontal position of the elements center point. Only one of `x`, `rX`, or`cX` can be set; setting one will clear the others.
+///    * `y`  - The vertical position of the elements top. Only one of `y`, `bY`, or `cY` can be set; setting one will clear the others.
+///    * `bY`  - The vertical position of the elements bottom. Only one of `y`, `bY`, or `cY` can be set; setting one will clear the others.
+///    * `cY` - The vertical position of the elements center point. Only one of `y`, `bY`, or `cY` can be set; setting one will clear the others.
 ///    * `h`  - The element's height. If this is set, it will be used instead of the default height as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default height is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined height and return the the default behavior.
 ///    * `w`  - The element's width. If this is set, it will be used instead of the default width as returned by [hs._asm.guitk.manager:elementFittingSize](#elementFittingSize). If the default width is 0, then this *must* be set or the element will be effectively invisible. Set to false to clear a defined width and return the the default behavior.
 ///    * `id` - A string specifying an identifier which can be used to reference this element with [hs._asm.guitk.manager:element](#element) without requiring knowledge of the element's index position. Specify the value as false to clear the identifier and set it to nil.
@@ -1238,7 +1250,8 @@ static int manager_element(lua_State *L) {
 ///  * If an argument is provided, the manager object; otherwise the current value.
 ///
 /// Notes:
-///  * When setting the frame details, only those fields provided will be adjusted; other fields will remain unaffected (except as noted above). The values for keys `x`, `cX`, `y`, `cY`, `h`, and `w` may be specified as numbers or as strings representing percentages of the element's parent width (for `x`, `cX`, and `w`) or height (for `y`, `cY`, and `h`). Percentages should specified in the string as defined for your locale or in the `en_US` locale (as a fallback) which is either a number followed by a % sign or a decimal number.
+///  * When setting the frame details, only those fields provided will be adjusted; other fields will remain unaffected (except as noted above).
+///  * The values for keys `x`, `rX`, `cX`, `y`, `bY`, `cY`, `h`, and `w` may be specified as numbers or as strings representing percentages of the element's parent width (for `x`, `rX`, `cX`, and `w`) or height (for `y`, `bY`, `cY`, and `h`). Percentages should specified in the string as defined for your locale or in the `en_US` locale (as a fallback) which is either a number followed by a % sign or a decimal number. A negative percentage indicates a value to be subtracted from 100% (e.g. -25% is the same as 75%). For position attributes, this has the effect of treating it as a percentage from the opposite side (i.e. from the right or bottom instead of left or top).
 ///
 ///  * When returning the current frame details table, an additional key-value pair is included: `_effective` will be a table specifying the elements actual frame-table (a table specifying the elements position as key-value pairs specifying the top-left position with `x` and `y`, and the element size with `h` and `w`).  This is provided for reference only: if this key-value pair is included when setting the frame details with this method, it will be ignored.
 ///
@@ -1292,6 +1305,16 @@ id toHSASMGUITKManagerFromLua(lua_State *L, int idx) {
                                                    lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
+}
+
+// TODO: Move to hs.canvas once we decide how it's going to change to work with guitk
+//  * Prevents canvas wrappers for size and topLeft from spewing LuaSkin log entries because the _nextResponder
+//    isn't a known type... here we make it "known" and it's known Hammerspoon equivalent is nil.
+//  * Long term, this will probably be moot because the canvas view is all we really need if guitk is used as
+//    it's window rather than HSCanvasWindow, but this requires guitk to be in core first.
+static int pushHSCanvasWindow(lua_State *L, __unused id obj) {
+    lua_pushnil(L) ;
+    return 1;
 }
 
 #pragma mark - Hammerspoon/Lua Infrastructure
@@ -1399,6 +1422,9 @@ int luaopen_hs__asm_guitk_manager_internal(lua_State* L) {
     [skin registerPushNSHelper:pushHSASMGUITKManager         forClass:"HSASMGUITKManager"];
     [skin registerLuaObjectHelper:toHSASMGUITKManagerFromLua forClass:"HSASMGUITKManager"
                                                   withUserdataMapping:USERDATA_TAG];
+
+    // stop-gap until guitk goes into core and replaces the "window" portion of the canvas module
+    [skin registerPushNSHelper:pushHSCanvasWindow forClass:"HSCanvasWindow"];
 
     // allow hs._asm.guitk.manager:elementProperties to get/set these
     luaL_getmetatable(L, USERDATA_TAG) ;
