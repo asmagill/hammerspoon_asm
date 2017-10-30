@@ -60,7 +60,7 @@ static int refTable = LUA_NOREF;
         // allow next responder a chance since we don't have a callback set
         id nextInChain = [self nextResponder] ;
         if (nextInChain) {
-            SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
+            SEL passthroughCallback = NSSelectorFromString(@"performPassthroughCallback:") ;
             if ([nextInChain respondsToSelector:passthroughCallback]) {
                 [nextInChain performSelectorOnMainThread:passthroughCallback
                                               withObject:messageParts

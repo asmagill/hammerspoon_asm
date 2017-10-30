@@ -177,7 +177,7 @@ canvasMT.size = function(self, ...)
     if parent and getmetatable(parent) == managerMT then
         local args = table.pack(...)
         if args.n == 0 then
-            local ans = parent:elementFrameDetails(self)
+            local ans = parent:elementFrameDetails(self)._effective
             return { h = ans.h, w = ans.w }
         else
             return parent:elementFrameDetails(self, { h = args[1].h, w = args[1].w })
@@ -193,7 +193,7 @@ canvasMT.topLeft = function(self, ...)
     if parent and getmetatable(parent) == managerMT then
         local args = table.pack(...)
         if args.n == 0 then
-            local ans = parent:elementFrameDetails(self)
+            local ans = parent:elementFrameDetails(self)._effective
             return { x = ans.x, y = ans.y }
         else
             local frameDetails = parent:elementFrameDetails(self)
@@ -319,11 +319,30 @@ managerMT.__index = function(self, key)
         return managerMT.__core[key]
     else
 
--- check common view methods since, hey, we are actually a view!
+-- check common view methods if we're not the contentManager of a window since, hey, we are actually a view!
         local parentObj = self:_nextResponder()
         if not parentObj or getmetatable(parentObj) == managerMT then
             local fn = commonViewMethods[key]
-            if fn then return fn end
+            if fn then
+                return fn
+            elseif parentObj and type(key) == "string" then
+-- check our own "element[A-Z]\w+" methods since we're acting as an element
+                parentFN = parentObj["element" .. key:sub(1,1):upper() .. key:sub(2)]
+                if parentFN then
+                    if type(parentFN) == "function" or (getmetatable(parentFN) or {}).__call then
+                        return function(self, ...)
+                            local answer = parentFN(parentObj, self, ...)
+                            if answer == parentObj then
+                                return self
+                            else
+                                return answer
+                            end
+                        end
+                    else
+                        return parentFN
+                    end
+                end
+            end
         end
 
 -- check to see if its an index or key to an element of this manager

@@ -153,7 +153,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
 }
 
 // perform callback for subviews which don't have a callback defined; see manager/internal.m for how to allow this chaining
-- (void)preformPassthroughCallback:(NSArray *)arguments {
+- (void)performPassthroughCallback:(NSArray *)arguments {
     if (_passthroughCallbackRef != LUA_NOREF) {
         LuaSkin *skin    = [LuaSkin shared] ;
         int     argCount = 1 ;

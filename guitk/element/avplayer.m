@@ -94,6 +94,19 @@ static void defineInternalDictionaryies() {
     return self;
 }
 
+- (void)passCallbackUpWith:(NSArray *)arguments {
+    // allow next responder a chance since we don't have a callback set
+    id nextInChain = [self nextResponder] ;
+    if (nextInChain) {
+        SEL passthroughCallback = NSSelectorFromString(@"performPassthroughCallback:") ;
+        if ([nextInChain respondsToSelector:passthroughCallback]) {
+            [nextInChain performSelectorOnMainThread:passthroughCallback
+                                          withObject:arguments
+                                       waitUntilDone:YES] ;
+        }
+    }
+}
+
 - (void)didFinishPlaying:(__unused NSNotification *)notification {
     if (_trackCompleted) {
         if (_callbackRef != LUA_NOREF) {
@@ -108,29 +121,20 @@ static void defineInternalDictionaryies() {
                 [skin logError:[NSString stringWithFormat:@"%s:trackCompleted callback error:%@", USERDATA_TAG, errorMessage]] ;
             }
         } else {
-            // allow next responder a chance since we don't have a callback set
-            id nextInChain = [self nextResponder] ;
-            if (nextInChain) {
-                SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-                if ([nextInChain respondsToSelector:passthroughCallback]) {
-                    [nextInChain performSelectorOnMainThread:passthroughCallback
-                                                  withObject:@[ self, @"finished" ]
-                                               waitUntilDone:YES] ;
-                }
-            }
+            [self passCallbackUpWith:@[ self, @"finished" ]] ;
         }
     }
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
     if (_trackRate && context == myKVOContext && [keyPath isEqualToString:@"rate"]) {
+        NSString *message = (self.player.rate == 0.0f) ? @"pause" : @"play" ;
         if (_callbackRef != LUA_NOREF) {
-            BOOL isPause = (self.player.rate == 0.0f) ;
             LuaSkin *skin = [LuaSkin shared] ;
             lua_State *L  = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
             [skin pushNSObject:self] ;
-            [skin pushNSObject:(isPause ? @"pause" : @"play")] ;
+            [skin pushNSObject:message] ;
             lua_pushnumber(L, (lua_Number)self.player.rate) ;
             if (![skin protectedCallAndTraceback:3 nresults:0]) {
                 NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
@@ -138,78 +142,40 @@ static void defineInternalDictionaryies() {
                 [skin logError:[NSString stringWithFormat:@"%s:trackRate callback error:%@", USERDATA_TAG, errorMessage]] ;
             }
         } else {
-            // allow next responder a chance since we don't have a callback set
-            id nextInChain = [self nextResponder] ;
-            if (nextInChain) {
-                SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-                if ([nextInChain respondsToSelector:passthroughCallback]) {
-                    NSString *message = (self.player.rate == 0.0f) ? @"pause" : @"play" ;
-                    [nextInChain performSelectorOnMainThread:passthroughCallback
-                                                  withObject:@[ self, message, @(self.player.rate) ]
-                                               waitUntilDone:YES] ;
-                }
-            }
+            [self passCallbackUpWith:@[ self, message, @(self.player.rate) ]] ;
         }
     } else if (_trackStatus && context == myKVOContext && [keyPath isEqualToString:@"status"]) {
+        NSMutableArray *args = [[NSMutableArray alloc] init] ;
+        [args addObjectsFromArray:@[ self, @"status" ]] ;
+        switch(self.player.currentItem.status) {
+            case AVPlayerStatusUnknown:
+                [args addObject:@"unknown"] ;
+                break ;
+            case AVPlayerStatusReadyToPlay:
+                [args addObject:@"readyToPlay"] ;
+                break ;
+            case AVPlayerStatusFailed: {
+                NSString *message = self.player.currentItem.error.localizedDescription ;
+                if (!message) message = @"no reason given" ;
+                [args addObjectsFromArray:@[ @"failed", message ]] ;
+                } break ;
+            default:
+                [args addObjectsFromArray:@[ @"unrecognized status", @(self.player.currentItem.status) ]] ;
+                break ;
+        }
+
         if (_callbackRef != LUA_NOREF) {
-            int argCount = 3 ;
             LuaSkin *skin = [LuaSkin shared] ;
             lua_State *L  = [skin L] ;
             [skin pushLuaRef:refTable ref:_callbackRef] ;
-            [skin pushNSObject:self] ;
-            [skin pushNSObject:@"status"] ;
-            switch(self.player.currentItem.status) {
-                case AVPlayerStatusUnknown:
-                    [skin pushNSObject:@"unknown"] ;
-                    break ;
-                case AVPlayerStatusReadyToPlay:
-                    [skin pushNSObject:@"readyToPlay"] ;
-                    break ;
-                case AVPlayerStatusFailed:
-                    [skin pushNSObject:@"failed"] ;
-                    [skin pushNSObject:[self.player.currentItem.error localizedDescription]] ;
-                    argCount++ ;
-                    break ;
-                default:
-                    [skin pushNSObject:@"unrecognized status"] ;
-                    lua_pushinteger(L, self.player.currentItem.status) ;
-                    argCount++ ;
-                    break ;
-            }
-            if (![skin protectedCallAndTraceback:argCount nresults:0]) {
+            for (id item in args) [skin pushNSObject:item] ;
+            if (![skin protectedCallAndTraceback:(int)args.count nresults:0]) {
                 NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
                 lua_pop(L, 1) ;
                 [skin logError:[NSString stringWithFormat:@"%s:trackStatus callback error:%@", USERDATA_TAG, errorMessage]] ;
             }
         } else {
-            // allow next responder a chance since we don't have a callback set
-            id nextInChain = [self nextResponder] ;
-            if (nextInChain) {
-                SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-                if ([nextInChain respondsToSelector:passthroughCallback]) {
-                    NSMutableArray *args = [[NSMutableArray alloc] init] ;
-                    [args addObjectsFromArray:@[ self, @"status" ]] ;
-                    switch(self.player.currentItem.status) {
-                        case AVPlayerStatusUnknown:
-                            [args addObject:@"unknown"] ;
-                            break ;
-                        case AVPlayerStatusReadyToPlay:
-                            [args addObject:@"readyToPlay"] ;
-                            break ;
-                        case AVPlayerStatusFailed: {
-                            NSString *message = self.player.currentItem.error.localizedDescription ;
-                            if (!message) message = @"no reason given" ;
-                            [args addObjectsFromArray:@[ @"failed", message ]] ;
-                            } break ;
-                        default:
-                            [args addObjectsFromArray:@[ @"unrecognized status", @(self.player.currentItem.status) ]] ;
-                            break ;
-                    }
-                    [nextInChain performSelectorOnMainThread:passthroughCallback
-                                                  withObject:args
-                                               waitUntilDone:YES] ;
-                }
-            }
+            [self passCallbackUpWith:args] ;
         }
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context] ;
@@ -217,48 +183,32 @@ static void defineInternalDictionaryies() {
 }
 
 - (void) menuSelectionCallback:(NSMenuItem *)sender {
+    NSString *title = [sender.title isEqualToString:@""] ? sender.attributedTitle.string : sender.title ;
+    NSEventModifierFlags theFlags = [NSEvent modifierFlags] ;
+    NSDictionary *flags = @{
+        @"cmd"   : @((theFlags & NSEventModifierFlagCommand) != 0),
+        @"shift" : @((theFlags & NSEventModifierFlagShift) != 0),
+        @"alt"   : @((theFlags & NSEventModifierFlagOption) != 0),
+        @"ctrl"  : @((theFlags & NSEventModifierFlagControl) != 0),
+        @"fn"    : @((theFlags & NSEventModifierFlagFunction) != 0),
+        @"_raw"  : @(theFlags),
+    } ;
+
     if (_callbackRef != LUA_NOREF) {
-        NSEventModifierFlags theFlags = [NSEvent modifierFlags] ;
         LuaSkin *skin = [LuaSkin shared] ;
         lua_State *L  = [skin L] ;
-        NSString *title = sender.title ;
         [skin pushLuaRef:refTable ref:self->_callbackRef] ;
         [skin pushNSObject:self] ;
         [skin pushNSObject:@"actionMenu"] ;
-        [skin pushNSObject:(([title isEqualToString:@""]) ? [sender.attributedTitle string] : title)] ;
-        lua_newtable(L) ;
-        lua_pushboolean(L, (theFlags & NSEventModifierFlagCommand) != 0) ;  lua_setfield(L, -2, "cmd") ;
-        lua_pushboolean(L, (theFlags & NSEventModifierFlagShift) != 0) ;    lua_setfield(L, -2, "shift") ;
-        lua_pushboolean(L, (theFlags & NSEventModifierFlagOption) != 0) ;   lua_setfield(L, -2, "alt") ;
-        lua_pushboolean(L, (theFlags & NSEventModifierFlagControl) != 0) ;  lua_setfield(L, -2, "ctrl") ;
-        lua_pushboolean(L, (theFlags & NSEventModifierFlagFunction) != 0) ; lua_setfield(L, -2, "fn") ;
-        lua_pushinteger(L, theFlags) ; lua_setfield(L, -2, "_raw") ;
+        [skin pushNSObject:title] ;
+        [skin pushNSObject:flags] ;
         if (![skin protectedCallAndTraceback:4 nresults:0]) {
             NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
             lua_pop(L, 1) ;
             [skin logError:[NSString stringWithFormat:@"%s:actionMenu callback error:%@", USERDATA_TAG, errorMessage]] ;
         }
     } else {
-        // allow next responder a chance since we don't have a callback set
-        id nextInChain = [self nextResponder] ;
-        if (nextInChain) {
-            SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-            if ([nextInChain respondsToSelector:passthroughCallback]) {
-                NSString *title = [sender.title isEqualToString:@""] ? sender.attributedTitle.string : sender.title ;
-                NSEventModifierFlags theFlags = [NSEvent modifierFlags] ;
-                NSDictionary *flags = @{
-                    @"cmd"   : @((theFlags & NSEventModifierFlagCommand) != 0),
-                    @"shift" : @((theFlags & NSEventModifierFlagShift) != 0),
-                    @"alt"   : @((theFlags & NSEventModifierFlagOption) != 0),
-                    @"ctrl"  : @((theFlags & NSEventModifierFlagControl) != 0),
-                    @"fn"    : @((theFlags & NSEventModifierFlagFunction) != 0),
-                    @"_raw"  : @(theFlags),
-                } ;
-                [nextInChain performSelectorOnMainThread:passthroughCallback
-                                              withObject:@[ self, @"actionMenu", title, flags ]
-                                           waitUntilDone:YES] ;
-            }
-        }
+        [self passCallbackUpWith:@[ self, @"actionMenu", title, flags ]] ;
     }
 }
 
@@ -798,16 +748,7 @@ static int avplayer_trackProgress(lua_State *L) {
                         [skin logError:[NSString stringWithFormat:@"%s:trackProgress callback error:%@", USERDATA_TAG, errorMessage]] ;
                     }
                 } else {
-                    // allow next responder a chance since we don't have a callback set
-                    id nextInChain = [playerView nextResponder] ;
-                    if (nextInChain) {
-                        SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-                        if ([nextInChain respondsToSelector:passthroughCallback]) {
-                            [nextInChain performSelectorOnMainThread:passthroughCallback
-                                                          withObject:@[ playerView, @"progress", @(CMTimeGetSeconds(time)) ]
-                                                       waitUntilDone:YES] ;
-                        }
-                    }
+                    [playerView passCallbackUpWith:@[ playerView, @"progress", @(CMTimeGetSeconds(time)) ]] ;
                 }
             }] ;
         }

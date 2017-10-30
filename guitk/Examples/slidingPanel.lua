@@ -1,3 +1,9 @@
+-- See https://github.com/asmagill/hammerspoon-config/blob/master/_Spoons/SlidingPanels.spoon and
+--     https://github.com/asmagill/hammerspoon-config/blob/master/utils/_panels/infoPanel.lua
+--
+-- This file will go away eventually since the links above are so much further along
+
+
 --
 -- Creates panels which slide from the side of the screen when specific key modifiers are held and the mouse pointer is
 -- moved to the screen edge.  Each panel can have its own elements for display or user interaction.

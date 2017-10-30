@@ -41,13 +41,15 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 }
 
 @interface HSASMGUITKManager : NSView
-@property int        selfRefCount ;
-@property int        mouseCallback ;
-@property BOOL       trackMouseEvents ;
-@property BOOL       trackMouseMove ;
-@property int        passthroughCallbackRef ;
-@property NSMapTable *subviewDetails ;
-@property NSColor    *frameDebugColor ;
+@property int            selfRefCount ;
+@property BOOL           trackMouseEvents ;
+@property BOOL           trackMouseMove ;
+@property int            passthroughCallback ;
+@property int            mouseCallback ;
+@property int            frameChangeCallback ;
+@property NSMapTable     *subviewDetails ;
+@property NSColor        *frameDebugColor ;
+@property NSTrackingArea *trackingArea ;
 @end
 
 @implementation HSASMGUITKManager
@@ -63,26 +65,28 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     }
 
     if (self) {
-        _selfRefCount           = 0 ;
-        _mouseCallback          = LUA_NOREF ;
-        _trackMouseEvents       = NO ;
-        _trackMouseMove         = NO ;
-        _passthroughCallbackRef = LUA_NOREF ;
-        _subviewDetails         = [NSMapTable strongToStrongObjectsMapTable] ;
-        _frameDebugColor        = nil ;
+        _selfRefCount        = 0 ;
+        _trackMouseEvents    = NO ;
+        _trackMouseMove      = NO ;
+        _passthroughCallback = LUA_NOREF ;
+        _mouseCallback       = LUA_NOREF ;
+        _frameChangeCallback = LUA_NOREF ;
+        _subviewDetails      = [NSMapTable strongToStrongObjectsMapTable] ;
+        _frameDebugColor     = nil ;
 
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(frameChangedNotification:)
                                                      name:NSViewFrameDidChangeNotification
                                                    object:nil] ;
 
-        [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:frameRect
-                                                           options:NSTrackingMouseMoved |
-                                                                   NSTrackingMouseEnteredAndExited |
-                                                                   NSTrackingActiveAlways |
-                                                                   NSTrackingInVisibleRect
-                                                             owner:self
-                                                          userInfo:nil]] ;
+        _trackingArea = [[NSTrackingArea alloc] initWithRect:frameRect
+                                                     options:NSTrackingMouseMoved |
+                                                             NSTrackingMouseEnteredAndExited |
+                                                             NSTrackingActiveAlways |
+                                                             NSTrackingInVisibleRect
+                                                       owner:self
+                                                    userInfo:nil] ;
+        [self addTrackingArea:_trackingArea] ;
     }
     return self ;
 }
@@ -91,15 +95,50 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     [[NSNotificationCenter defaultCenter] removeObserver:self
                                                     name:NSViewFrameDidChangeNotification
                                                   object:nil] ;
+    [self removeTrackingArea:_trackingArea] ;
+    _trackingArea = nil ;
+}
+
+- (void)passCallbackUpWith:(NSArray *)arguments {
+    // allow next responder a chance since we don't have a callback set
+    id nextInChain = [self nextResponder] ;
+    if (nextInChain) {
+        SEL passthroughCallback = NSSelectorFromString(@"performPassthroughCallback:") ;
+        if ([nextInChain respondsToSelector:passthroughCallback]) {
+            [nextInChain performSelectorOnMainThread:passthroughCallback
+                                          withObject:arguments
+                                       waitUntilDone:YES] ;
+        }
+    }
+}
+
+- (void)doFrameChangeCallbackWith:(NSView *)targetView {
+    if (_frameChangeCallback != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        [skin pushLuaRef:refTable ref:_frameChangeCallback] ;
+        [skin pushNSObject:self] ;
+        [skin pushNSObject:targetView] ;
+        if (![skin protectedCallAndTraceback:2 nresults:0]) {
+            NSString *errorMessage = [skin toNSObjectAtIndex:-1] ;
+            lua_pop(skin.L, 1) ;
+            [skin logError:[NSString stringWithFormat:@"%s:frameChangeCallback error:%@", USERDATA_TAG, errorMessage]] ;
+        }
+    } else {
+        [self passCallbackUpWith:@[ self, targetView ]] ;
+    }
 }
 
 - (void)frameChangedNotification:(NSNotification *)notification {
     NSView *targetView = notification.object ;
     if (targetView) {
         if ([targetView isEqualTo:self]) {
+            [self doFrameChangeCallbackWith:targetView] ;
             for (NSView *view in self.subviews) [self updateFrameFor:view] ;
         } else {
-            if ([self.subviews containsObject:targetView]) [self updateFrameFor:targetView] ;
+            if ([self.subviews containsObject:targetView]) {
+                [self doFrameChangeCallbackWith:targetView] ;
+                [self updateFrameFor:targetView] ;
+            }
         }
     }
 }
@@ -253,12 +292,12 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 }
 
 // perform callback for subviews which don't have a callback defined; see button.m for how to allow this chaining
-- (void)preformPassthroughCallback:(NSArray *)arguments {
-    if (_passthroughCallbackRef != LUA_NOREF) {
+- (void)performPassthroughCallback:(NSArray *)arguments {
+    if (_passthroughCallback != LUA_NOREF) {
         LuaSkin *skin    = [LuaSkin shared] ;
         int     argCount = 1 ;
 
-        [skin pushLuaRef:refTable ref:_passthroughCallbackRef] ;
+        [skin pushLuaRef:refTable ref:_passthroughCallback] ;
         [skin pushNSObject:self] ;
         if (arguments) {
             [skin pushNSObject:arguments] ;
@@ -270,16 +309,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
             [skin logError:[NSString stringWithFormat:@"%s:passthroughCallback error:%@", USERDATA_TAG, errorMessage]] ;
         }
     } else {
-        // allow next responder a chance since we don't have a callback set
-        id nextInChain = [self nextResponder] ;
-        if (nextInChain) {
-            SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-            if ([nextInChain respondsToSelector:passthroughCallback]) {
-                [nextInChain performSelectorOnMainThread:passthroughCallback
-                                              withObject:@[ self, arguments ]
-                                           waitUntilDone:YES] ;
-            }
-        }
+        [self passCallbackUpWith:@[ self, arguments ]] ;
     }
 }
 
@@ -315,16 +345,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
                 [skin logError:[NSString stringWithFormat:@"%s:mouseCallback error:%@", USERDATA_TAG, errorMessage]] ;
             }
         } else {
-            // allow next responder a chance since we don't have a callback set
-            id nextInChain = [self nextResponder] ;
-            if (nextInChain) {
-                SEL passthroughCallback = NSSelectorFromString(@"preformPassthroughCallback:") ;
-                if ([nextInChain respondsToSelector:passthroughCallback]) {
-                    [nextInChain performSelectorOnMainThread:passthroughCallback
-                                                  withObject:@[ self, message, location ]
-                                               waitUntilDone:YES] ;
-                }
-            }
+            [self passCallbackUpWith:@[ self, message, location ]] ;
         }
     }
 }
@@ -1054,15 +1075,52 @@ static int manager_passthroughCallback(lua_State *L) {
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 2) {
-        manager.passthroughCallbackRef = [skin luaUnref:refTable ref:manager.passthroughCallbackRef] ;
+        manager.passthroughCallback = [skin luaUnref:refTable ref:manager.passthroughCallback] ;
         if (lua_type(L, 2) != LUA_TNIL) {
             lua_pushvalue(L, 2) ;
-            manager.passthroughCallbackRef = [skin luaRef:refTable] ;
+            manager.passthroughCallback = [skin luaRef:refTable] ;
             lua_pushvalue(L, 1) ;
         }
     } else {
-        if (manager.passthroughCallbackRef != LUA_NOREF) {
-            [skin pushLuaRef:refTable ref:manager.passthroughCallbackRef] ;
+        if (manager.passthroughCallback != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:manager.passthroughCallback] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
+
+/// hs._asm.guitk.manager:frameChangeCallback([fn | nil]) -> managerObject | fn | nil
+/// Method
+/// Get or set the frame change callback for the manager.
+///
+/// Parameters:
+///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the frame changes for the manager or one of its subviews. A frame change can be a change in location or a change in size or both.
+///
+/// Returns:
+///  * If an argument is provided, the manager object; otherwise the current value.
+///
+/// Notes:
+///  * The frame change callback should expect 2 arguments and return none.
+///  * The arguments are as follows:
+///    * the manager object userdata
+///    * the userdata object of the element whose frame has changed -- this may be equal to the manager object itself, if it is the managers frame that changed.
+static int manager_frameChangeCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        manager.frameChangeCallback = [skin luaUnref:refTable ref:manager.frameChangeCallback] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            manager.frameChangeCallback = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (manager.frameChangeCallback != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:manager.frameChangeCallback] ;
         } else {
             lua_pushnil(L) ;
         }
@@ -1075,7 +1133,7 @@ static int manager_passthroughCallback(lua_State *L) {
 /// Get or set the mouse tracking callback for the manager.
 ///
 /// Parameters:
-///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent objects passthrough callback, if defined, instead.
+///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent object passthrough callback, if defined, instead.
 ///
 /// Returns:
 ///  * If an argument is provided, the manager object; otherwise the current value.
@@ -1356,8 +1414,9 @@ static int userdata_gc(lua_State* L) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
-            obj.mouseCallback  = [skin luaUnref:refTable ref:obj.mouseCallback] ;
-            obj.passthroughCallbackRef = [skin luaUnref:refTable ref:obj.passthroughCallbackRef] ;
+            obj.mouseCallback       = [skin luaUnref:refTable ref:obj.mouseCallback] ;
+            obj.passthroughCallback = [skin luaUnref:refTable ref:obj.passthroughCallback] ;
+            obj.frameChangeCallback = [skin luaUnref:refTable ref:obj.frameChangeCallback] ;
             [obj.subviews enumerateObjectsUsingBlock:^(NSView *subview, __unused NSUInteger idx, __unused BOOL *stop) {
                 [skin luaRelease:refTable forNSObject:subview] ;
             }] ;
@@ -1385,6 +1444,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"element",             manager_element},
 
     {"passthroughCallback", manager_passthroughCallback},
+    {"frameChangeCallback", manager_frameChangeCallback},
     {"mouseCallback",       manager_mouseCallback},
     {"trackMouseMove",      manager_trackMouseMove},
     {"sizeToFit",           manager_sizeToFit},

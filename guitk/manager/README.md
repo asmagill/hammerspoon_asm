@@ -74,6 +74,7 @@ manager = require("hs._asm.guitk").manager
 * <a href="#elementPropertyList">manager:elementPropertyList(element) -> managerObject</a>
 * <a href="#elementRemoveFromManager">manager:elementRemoveFromManager(element) -> managerObject</a>
 * <a href="#elements">manager:elements() -> table</a>
+* <a href="#frameChangeCallback">manager:frameChangeCallback([fn | nil]) -> managerObject | fn | nil</a>
 * <a href="#insert">manager:insert(element, [frameDetails], [pos]) -> managerObject</a>
 * <a href="#mouseCallback">manager:mouseCallback([fn | nil]) -> managerObject | fn | nil</a>
 * <a href="#passthroughCallback">manager:passthroughCallback([fn | nil]) -> managerObject | fn | nil</a>
@@ -435,6 +436,26 @@ Returns:
 
 - - -
 
+<a name="frameChangeCallback"></a>
+~~~lua
+manager:frameChangeCallback([fn | nil]) -> managerObject | fn | nil
+~~~
+Get or set the frame change callback for the manager.
+
+Parameters:
+ * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the frame changes for the manager or one of its subviews. A frame change can be a change in location or a change in size or both.
+
+Returns:
+ * If an argument is provided, the manager object; otherwise the current value.
+
+Notes:
+ * The frame change callback should expect 2 arguments and return none.
+ * The arguments are as follows:
+   * the manager object userdata
+   * the userdata object of the element whose frame has changed -- this may be equal to the manager object itself, if it is the managers frame that changed.
+
+- - -
+
 <a name="insert"></a>
 ~~~lua
 manager:insert(element, [frameDetails], [pos]) -> managerObject
@@ -461,7 +482,7 @@ manager:mouseCallback([fn | nil]) -> managerObject | fn | nil
 Get or set the mouse tracking callback for the manager.
 
 Parameters:
- * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent objects passthrough callback, if defined, instead.
+ * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when the mouse enters, exits, or moves within the manager. Specify an explicit true if you wish for mouse tracking information to be passed to the parent object passthrough callback, if defined, instead.
 
 Returns:
  * If an argument is provided, the manager object; otherwise the current value.
