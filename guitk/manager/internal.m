@@ -1,6 +1,3 @@
-// TODO:
-//        Need way to specify percentage from right or bottom for x and y (negative percentages allowed?)
-//        Need way to specify frame position in relation to upper right corner and both lower corners of element, not just upper left and center.
 
 // for our purposes this is 1/1000 of a screen point; small enough that it can't be seen so effectively 0
 #define FLOAT_EQUIVALENT_TO_ZERO 0.001
@@ -35,8 +32,6 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
             tmpValue = [formatter numberFromString:stringValue] ;
         }
     }
-    // negative percentages "come from the other side", so add them to 1.0 (i.e. -0.25 --> 0.75)
-    if (tmpValue && tmpValue.doubleValue < 0.0) tmpValue = @(1.0 + tmpValue.doubleValue) ;
     return tmpValue ;
 }
 
@@ -1318,7 +1313,7 @@ static int manager_element(lua_State *L) {
 ///
 /// Notes:
 ///  * When setting the frame details, only those fields provided will be adjusted; other fields will remain unaffected (except as noted above).
-///  * The values for keys `x`, `rX`, `cX`, `y`, `bY`, `cY`, `h`, and `w` may be specified as numbers or as strings representing percentages of the element's parent width (for `x`, `rX`, `cX`, and `w`) or height (for `y`, `bY`, `cY`, and `h`). Percentages should specified in the string as defined for your locale or in the `en_US` locale (as a fallback) which is either a number followed by a % sign or a decimal number. A negative percentage indicates a value to be subtracted from 100% (e.g. -25% is the same as 75%). For position attributes, this has the effect of treating it as a percentage from the opposite side (i.e. from the right or bottom instead of left or top).
+///  * The values for keys `x`, `rX`, `cX`, `y`, `bY`, `cY`, `h`, and `w` may be specified as numbers or as strings representing percentages of the element's parent width (for `x`, `rX`, `cX`, and `w`) or height (for `y`, `bY`, `cY`, and `h`). Percentages should specified in the string as defined for your locale or in the `en_US` locale (as a fallback) which is either a number followed by a % sign or a decimal number.
 ///
 ///  * When returning the current frame details table, an additional key-value pair is included: `_effective` will be a table specifying the elements actual frame-table (a table specifying the elements position as key-value pairs specifying the top-left position with `x` and `y`, and the element size with `h` and `w`).  This is provided for reference only: if this key-value pair is included when setting the frame details with this method, it will be ignored.
 ///
