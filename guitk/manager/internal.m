@@ -237,10 +237,11 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         [self.subviews enumerateObjectsUsingBlock:^(NSView *view, __unused NSUInteger idx, __unused BOOL *stop) {
             NSRect frame             = view.frame ;
             NSPoint frameBottomRight = NSMakePoint(frame.origin.x + frame.size.width, frame.origin.y + frame.size.height) ;
-            NSSize viewFittingSize   = view.fittingSize ;
-            if (!CGSizeEqualToSize(viewFittingSize, NSZeroSize)) {
-                frameBottomRight = NSMakePoint(frame.origin.x + viewFittingSize.width, frame.origin.y + viewFittingSize.height) ;
-            }
+// unless we add a "shrinkToFit" (as opposed to sizeToFit) we only care about the subview sizes as currently expressed
+//             NSSize viewFittingSize   = view.fittingSize ;
+//             if (!CGSizeEqualToSize(viewFittingSize, NSZeroSize)) {
+//                 frameBottomRight = NSMakePoint(frame.origin.x + viewFittingSize.width, frame.origin.y + viewFittingSize.height) ;
+//             }
             if (frameBottomRight.x > bottomRight.x) bottomRight.x = frameBottomRight.x ;
             if (frameBottomRight.y > bottomRight.y) bottomRight.y = frameBottomRight.y ;
         }] ;
