@@ -10,7 +10,7 @@
         @interface NSRuleEditor       : NSControl
         @interface NSScroller         : NSControl
         @interface NSSegmentedControl : NSControl
-        @interface NSSlider           : NSControl
+    +   @interface NSSlider           : NSControl
         @interface NSStepper          : NSControl
         @interface NSTableView        : NSControl
     +   @interface NSTextField        : NSControl

@@ -14,7 +14,6 @@ require("hs.image")
 require("hs.styledtext")
 
 local fnutils = require("hs.fnutils")
-local inspect = require("hs.inspect")
 
 local commonControlMethods = require(USERDATA_TAG .. "._control")
 local commonViewMethods    = require(USERDATA_TAG .. "._view")

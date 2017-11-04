@@ -65,6 +65,24 @@ local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USER
 
 -- private variables and methods -----------------------------------------
 
+-- a simplified one line inspect used to stringify tables
+local finspect = function(...)
+    local args = table.pack(...)
+    if args.n == 1 and type(args[1]) == "table" then
+        args = args[1]
+    else
+        args.n = nil -- supress the count from table.pack
+    end
+
+    -- causes issues with recursive calls to __tostring in inspect
+    local mt = getmetatable(args)
+    if mt then setmetatable(args, nil) end
+    local answer = inspect(args, { newline = " ", indent = "" })
+    if mt then setmetatable(args, mt) end
+    return answer
+end
+
+
 local wrappedElementMT = {
     __e = setmetatable({}, { __mode = "k" })
 }
@@ -232,8 +250,19 @@ managerMT.elementPropertyList = function(self, element, ...)
         results.frameDetails = self:elementFrameDetails(element)
         results._fittingSize = self:elementFittingSize(element)
         results._type        = getmetatable(element).__type
-        return setmetatable(results, { __tostring = inspect })
-    else
+--         return setmetatable(results, { __tostring = inspect })
+        return setmetatable(results, { __tostring = function(self)
+            return (inspect(self, { process = function(item, path)
+                if path[#path] == inspect.KEY then return item end
+                if path[#path] == inspect.METATABLE then return nil end
+                if #path > 0 and type(item) == "table" then
+                    return finspect(item)
+                else
+                    return item
+                end
+            end
+            }):gsub("[\"']{", "{"):gsub("}[\"']", "}"))
+        end})    else
         error("unexpected arguments", 2)
     end
 end
