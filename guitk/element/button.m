@@ -153,6 +153,36 @@ static void defineInternalDictionaryies() {
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.element.button.buttonType(type, [frame]) -> buttonObject
+/// Constructor
+/// Creates a new button element of the specified type for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `button` - a string specifying the type of button to create. The string must be one of the following:
+///    * "momentaryLight"        - When the button is clicked (on state), it appears illuminated. If the button has borders, it may also appear recessed. When the button is released, it returns to its normal (off) state. This type of button is best for simply triggering actions because it doesn’t show its state; it always displays its normal image or title.
+///    * "pushOnPushOff"         - When the button is clicked (on state), it appears illuminated. If the button has borders, it may also appear recessed. A second click returns it to its normal (off) state.
+///    * "toggle"                - After the first click, the button displays its alternate image or title (on state); a second click returns the button to its normal (off) state.
+///    * "switch"                - This style is a variant of "toggle" that has no border and is typically used to represent a checkbox.
+///    * "radio"                 - This style is similar to "switch", but it is used to constrain a selection to a single element from several elements.
+///    * "momentaryChange"       - When the button is clicked, the alternate (on state) image and alternate title are displayed. Otherwise, the normal (off state) image and title are displayed.
+///    * "onOff"                 - The first click highlights the button; a second click returns it to the normal (unhighlighted) state.
+///    * "momentaryPushIn"       - When the user clicks the button (on state), the button appears illuminated. Most buttons in macOS, such as Cancel button in many dialogs, are momentary light buttons. If you click one, it highlights briefly, triggers an action, and returns to its original state.
+///    * "accelerator"           - On pressure-sensitive systems, such as systems with the Force Touch trackpad, an accelerator button sends repeating actions as pressure changes occur. It stops sending actions when the user releases pressure entirely. Only available in macOS 10.12 and newer.
+///    * "multiLevelAccelerator" - A multilevel accelerator button is a variation of a normal accelerator button that allows for a configurable number of stepped pressure levels. As each one is reached, the user receives light tactile feedback and an action is sent. Only available in macOS 10.12 and newer.
+///  * `frame` - an optional frame table specifying the position and size of the frame for the button.
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
+///
+///  * See also:
+///    * [hs._asm.guitk.element.button.buttonWithTitle](#buttonWithTitle)
+///    * [hs._asm.guitk.element.button.buttonWithTitleAndImage](#buttonWithTitleAndImage)
+///    * [hs._asm.guitk.element.button.buttonWithImage](#buttonWithImage)
+///    * [hs._asm.guitk.element.button.checkbox](#checkbox)
+///    * [hs._asm.guitk.element.button.radioButton](#radioButton)
 static int button_newButtonType(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -178,6 +208,26 @@ static int button_newButtonType(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button.buttonWithTitle(title) -> buttonObject
+/// Constructor
+/// Creates a new button element of the specified of type "momentaryPushIn" with the specified title for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `title` - the title which will be displayed in the button
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * This creates a standard macOS push button with the title centered within the button.
+///  * The default frame created will be the minimum size necessary to display the button with its title. If you need to adjust the button's size further, do so with the element frame details options available once the button element is attached to a guitk manager (see `hs._asm.guitk.manager`)
+///
+///  * This constructor uses an NSButton initializer introduced with macOS 10.12; for macOS versions prior to this, this module attempts to mimic the appearance and behavior of the button using the equivalent of [hs._asm.guitk.element.button.buttonType](#buttonType) and the other methods within this module. If you believe that something has been missed in the fallback initializer, please submit an issue to the Hammerspoon github site.
+///
+///  * See also:
+///    * [hs._asm.guitk.element.button.buttonType](#buttonType)
+///    * [hs._asm.guitk.element.button.buttonWithTitleAndImage](#buttonWithTitleAndImage)
+///    * [hs._asm.guitk.element.button.buttonWithImage](#buttonWithImage)
 static int button_newButtonWithTitle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -217,6 +267,27 @@ static int button_newButtonWithTitle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button.buttonWithTitleAndImage(title, image) -> buttonObject
+/// Constructor
+/// Creates a new button element of the specified of type "momentaryPushIn" with the specified title and image for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `title` - the title which will be displayed in the button
+///  * `image` - the `hs.image` object specifying the image to display preceding the button title.
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * This creates a standard macOS push button with an image at the left and the title centered within the button.
+///  * The default frame created will be the minimum size necessary to display the button with its image and title. If you need to adjust the button's size further, do so with the element frame details options available once the button element is attached to a guitk manager (see `hs._asm.guitk.manager`)
+///
+///  * This constructor uses an NSButton initializer introduced with macOS 10.12; for macOS versions prior to this, this module attempts to mimic the appearance and behavior of the button using the equivalent of [hs._asm.guitk.element.button.buttonType](#buttonType) and the other methods within this module. If you believe that something has been missed in the fallback initializer, please submit an issue to the Hammerspoon github site.
+///
+///  * See also:
+///    * [hs._asm.guitk.element.button.buttonType](#buttonType)
+///    * [hs._asm.guitk.element.button.buttonWithTitle](#buttonWithTitle)
+///    * [hs._asm.guitk.element.button.buttonWithImage](#buttonWithImage)
 static int button_newButtonWithTitleAndImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TUSERDATA, "hs.image", LS_TBREAK] ;
@@ -260,6 +331,26 @@ static int button_newButtonWithTitleAndImage(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button.buttonWithImage(image) -> buttonObject
+/// Constructor
+/// Creates a new button element of the specified of type "momentaryPushIn" with the specified title for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `image` - the `hs.image` object specifying the image to display in the button.
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * This creates a standard macOS push button with the image centered within the button.
+///  * The default frame created will be the minimum size necessary to display the button with the image. If you need to adjust the button's size further, do so with the element frame details options available once the button element is attached to a guitk manager (see `hs._asm.guitk.manager`)
+///
+///  * This constructor uses an NSButton initializer introduced with macOS 10.12; for macOS versions prior to this, this module attempts to mimic the appearance and behavior of the button using the equivalent of [hs._asm.guitk.element.button.buttonType](#buttonType) and the other methods within this module. If you believe that something has been missed in the fallback initializer, please submit an issue to the Hammerspoon github site.
+///
+///  * See also:
+///    * [hs._asm.guitk.element.button.buttonType](#buttonType)
+///    * [hs._asm.guitk.element.button.buttonWithTitle](#buttonWithTitle)
+///    * [hs._asm.guitk.element.button.buttonWithTitleAndImage](#buttonWithTitleAndImage)
 static int button_newButtonWithImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, "hs.image", LS_TBREAK] ;
@@ -301,6 +392,23 @@ static int button_newButtonWithImage(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button.checkbox(title) -> buttonObject
+/// Constructor
+/// Creates a new checkbox button element of the specified of type "switch" with the specified title for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `title` - the title which will be displayed next to the checkbox
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * This creates a standard macOS checkbox with the title next to it.
+///  * The default frame created will be the minimum size necessary to display the checkbox with its title. If you need to adjust the button's size further, do so with the element frame details options available once the button element is attached to a guitk manager (see `hs._asm.guitk.manager`)
+///
+///  * This constructor uses an NSButton initializer introduced with macOS 10.12; for macOS versions prior to this, this module attempts to mimic the appearance and behavior of the button using the equivalent of [hs._asm.guitk.element.button.buttonType](#buttonType) and the other methods within this module. If you believe that something has been missed in the fallback initializer, please submit an issue to the Hammerspoon github site.
+///
+///  * See also [hs._asm.guitk.element.button.buttonType](#buttonType)
 static int button_newButtonWithCheckbox(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -340,6 +448,28 @@ static int button_newButtonWithCheckbox(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button.radioButton(title) -> buttonObject
+/// Constructor
+/// Creates a new radio button element of the specified of type "radio" with the specified title for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `title` - the title which will be displayed next to the radio button
+///
+/// Returns:
+///  * a new buttonObject
+///
+/// Notes:
+///  * This creates a standard macOS radio button with the title next to it.
+///    * Only one radio button in the same manager can be active (selected) at one time; multiple radio buttons in the same manager are treated as a group or set.
+///    * To display multiple independent radio button sets in the same window or view (manager), each group must be in a separate `hs._asm.guitk.manager` object and these separate objects may then be assigned as elements to a "parent" manager which is assigned to the `hs._asm.guitk` window; alternatively use [hs._asm.guitk.element.button.radioButtonSet](#radioBUttonSet)
+///
+///  * The default frame created will be the minimum size necessary to display the checkbox with its title. If you need to adjust the button's size further, do so with the element frame details options available once the button element is attached to a guitk manager (see `hs._asm.guitk.manager`)
+///
+///  * This constructor uses an NSButton initializer introduced with macOS 10.12; for macOS versions prior to this, this module attempts to mimic the appearance and behavior of the button using the equivalent of [hs._asm.guitk.element.button.buttonType](#buttonType) and the other methods within this module. If you believe that something has been missed in the fallback initializer, please submit an issue to the Hammerspoon github site.
+///
+///  * See also:
+///    * [hs._asm.guitk.element.button.radioButtonSet](#radioBUttonSet)
+///    * [hs._asm.guitk.element.button.buttonType](#buttonType)
 static int button_newButtonWithRadiobutton(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -381,6 +511,18 @@ static int button_newButtonWithRadiobutton(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.guitk.element.button:callback([fn | nil]) -> buttonObject | fn | nil
+/// Method
+/// Get or set the callback function which will be invoked whenever the user clicks on the button element.
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the clicks on the button.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The button callback will receive two arguments and should return none. The arguments will be the buttonObject userdata and the new button state -- see [hs._asm.guitk.element.button:state](#state)
 static int button_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -403,6 +545,18 @@ static int button_callback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:title([title]) -> buttonObject | string | hs.styledtext object
+/// Method
+/// Get or set the title displayed for the button
+///
+/// Parameters:
+///  * `title` - an optional string or `hs.styledtext` object specifying the title to set for the button.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The button constructors which allow specifying a title require a string; if you wish to change to a styled text object, you'll need to invoke this method on the new object after it is constructed.
 static int button_title(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -425,6 +579,24 @@ static int button_title(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:alternateTitle([title]) -> buttonObject | string | hs.styledtext object
+/// Method
+/// Get or set the alternate title displayed by button types which support this
+///
+/// Parameters:
+///  * `title` - an optional string or `hs.styledtext` object specifying the alternate title for the button.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * For buttons which change their appearance based upon their state, this is the title which will be displayed when the button is in its "on" state.
+///  * Observation shows that the alternateTitle value is used by the following button types:
+///    * "toggle"          - the button will alternate between the title and the alternateTitle
+///    * "momentaryChange" - if the button is not bordered, the alternate title will be displayed while the user is clicking on the button and will revert back to the title once the user has released the mouse button.
+///    * "switch"          - when the checkbox is checked, it will display its alternateTitle, if one has been assigned
+///    * "radio"           - when the radio button is selected, it will display its alternateTitle, if one has been assigned
+///  * Other button types have not been observed to use this attribute; if you believe you have discovered something we have missed here, please submit an issue to the Hamemrspoon github web site.
 static int button_alternateTitle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -447,6 +619,18 @@ static int button_alternateTitle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:bordered([state]) -> buttonObject | boolean
+/// Method
+/// Get or set whether a border is displayed around the button.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the button should display a border around the button area or not.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * setting this to true for the "switch" or "radio" button types will prevent the alternate image, if defined, from being displayed.
 static int button_bordered(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -461,6 +645,15 @@ static int button_bordered(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:transparent([state]) -> buttonObject | boolean
+/// Method
+/// Get or set whether the button's background is transparent.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the button's background is transparent.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_transparent(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -475,6 +668,19 @@ static int button_transparent(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:borderOnHover([state]) -> buttonObject | boolean
+/// Method
+/// Get or set whether the button's border is toggled when the mouse hovers over the button
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the button's border is toggled when the mouse hovers over the button
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Has no effect on buttons of type "switch" or "radio"
+///  * Changing this value will not affect whether or not the border is currently being displayed until the cursor actually hovers over the button or the button is clicked by the user. To keep the visual display in sync, make sure to set this value before displaying the guitk (e.g. `hs._asm.guitk:show()`) or set the border manually to the initial state you wish with [hs._asm.guitk.element.button:bordered](#bordered).
 static int button_borderOnHover(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -625,6 +831,23 @@ static int button_sound(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:alternateImage([image]) -> buttonObject | hs.image object | nil
+/// Method
+/// Get or set the alternate image displayed by button types which support this
+///
+/// Parameters:
+///  * `image` - an optional hs.image object, or explicit nil to remove, specifying the alternate image for the button.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * For buttons which change their appearance based upon their state, this is the image which will be displayed when the button is in its "on" state.
+///  * Observation shows that the alternateTitle value is used by the following button types:
+///    * "toggle"          - the button will alternate between the image and the alternateImage
+///    * "momentaryChange" - if the button is not bordered, the alternate image will be displayed while the user is clicking on the button and will revert back to the image once the user has released the mouse button.///    * "switch"               - when the checkbox is checked, it will display its alternateImage as the checked box, if one has been assigned
+///    * "radio"           - when the radio button is selected, it will display its alternateImage as the filled in radio button, if one has been assigned
+///  * Other button types have not been observed to use this attribute; if you believe you have discovered something we have missed here, please submit an issue to the Hamemrspoon github web site.
 static int button_alternateImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
