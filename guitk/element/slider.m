@@ -1,3 +1,11 @@
+
+/// === hs._asm.guitk.element.slider ===
+///
+/// Provides a slider element for use with `hs._asm.guitk`. Sliders are horizontal or vertical bars representing a range of numeric values which can be selected by adjusting the position of the knob on the slider.
+///
+/// * This submodule inherits methods from `hs._asm.guitk.element._control` and you should consult its documentation for additional methods which may be used.
+/// * This submodule inherits methods from `hs._asm.guitk.element._view` and you should consult its documentation for additional methods which may be used.
+
 @import Cocoa ;
 @import LuaSkin ;
 

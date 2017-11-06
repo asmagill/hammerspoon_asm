@@ -1,11 +1,10 @@
 // TODO:
-// *  Can we mimic the 10.12 constructors so that macOS version doesn't matter?
 //    Look closer at NSButtonCell, specifically backgroundColor, highlightsBy, showsStateBy
-//    keyEquivalent?
+//    keyEquivalent? springLoaded? Do these require extra infrastructure?
 //    check accelerator buttons and image leading/trailing in 10.10 VM
 
+// Uncomment to force 10.10 equivalencies for constructors even if OS is new enough for new methods
 // #define TEST_FALLBACKS
-
 
 /// === hs._asm.guitk.element.button ===
 ///
@@ -197,6 +196,7 @@ static int button_newButtonType(lua_State *L) {
             button.action     = @selector(performCallback:) ;
             button.target     = button ;
             button.bezelStyle = NSBezelStyleRounded ;
+            ((NSButtonCell *)button.cell).imageScaling = NSImageScaleProportionallyDown ;
             if (lua_gettop(L) != 2) [button setFrameSize:[button fittingSize]] ;
             [skin pushNSObject:button] ;
         } else {
@@ -556,6 +556,8 @@ static int button_callback(lua_State *L) {
 ///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 ///
 /// Notes:
+///  * For buttons which change their appearance based upon their state, this is the title which will be displayed when the button is in its "off" state.
+///
 ///  * The button constructors which allow specifying a title require a string; if you wish to change to a styled text object, you'll need to invoke this method on the new object after it is constructed.
 static int button_title(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -591,6 +593,7 @@ static int button_title(lua_State *L) {
 ///
 /// Notes:
 ///  * For buttons which change their appearance based upon their state, this is the title which will be displayed when the button is in its "on" state.
+///
 ///  * Observation shows that the alternateTitle value is used by the following button types:
 ///    * "toggle"          - the button will alternate between the title and the alternateTitle
 ///    * "momentaryChange" - if the button is not bordered, the alternate title will be displayed while the user is clicking on the button and will revert back to the title once the user has released the mouse button.
@@ -695,6 +698,19 @@ static int button_borderOnHover(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:allowsMixedState([state]) -> buttonObject | boolean
+/// Method
+/// Get or set whether the button allows for a mixed state in addition to "on" and "off"
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the button allows for a mixed state
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Mixed state is typically useful only with buttons of type "switch" or "radio" and is primarily used to indicate that something is only applied partially, e.g. when part of a selection of text is bold but not all of it. When a checkbox or radio button is in the "mixed" state, it is displayed with a dash instead of an X or a filled in radio button.
+///  * See also [hs._asm.guitk.element.button:state](#state)
 static int button_allowsMixedState(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -709,6 +725,28 @@ static int button_allowsMixedState(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:bezelStyle([style]) -> buttonObject | string
+/// Method
+/// Get or set the bezel style for the button
+///
+/// Parameters:
+///  * `style` - an optional string specifying the bezel style for the button. Must be one of the following strings:
+///    * "rounded"           - A rounded rectangle button, designed for text.
+///    * "regularSquare"     - A rectangular button with a two-point border, designed for icons.
+///    * "disclosure"        - A bezel style for use with a disclosure triangle. Works best with a button of type "onOff".
+///    * "shadowlessSquare"  - Similar to "regularSquare", but has no shadow, so you can abut the buttons without overlapping shadows. This style would be used in a tool palette, for example.
+///    * "circular"          - A round button with room for a small icon or a single character.
+///    * "texturedSquare"    - A bezel style appropriate for use with textured (metal) windows.
+///    * "helpButton"        - A round button with a question mark providing the standard help button look.
+///    * "smallSquare"       - A simple square bezel style. Buttons using this style can be scaled to any size.
+///    * "texturedRounded"   - A textured (metal) bezel style similar in appearance to the Finder’s action (gear) button.
+///    * "roundRect"         - A bezel style that matches the search buttons in Finder and Mail.
+///    * "recessed"          - A bezel style that matches the recessed buttons in Mail, Finder and Safari.
+///    * "roundedDisclosure" - Similar to "disclosure", but appears as an up or down caret within a small rectangular button. Works best with a button of type "onOff".
+///    * "inline"            - The inline bezel style contains a solid round-rect border background. It can be used to create an "unread" indicator in an outline view, or another inline button in a tableview, such as a stop progress button in a download panel. Use text for an unread indicator, and a template image for other buttons.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_bezelStyle(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -737,6 +775,25 @@ static int button_bezelStyle(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:imagePosition([position]) -> buttonObject | string
+/// Method
+/// Get or set the position of the image relative to its title for the button
+///
+/// Parameters:
+///  * `position` - an optional string specifying the position of the image relative to its title for the button. Must be one of the following strings:
+///    * "none"     - The button doesn’t display an image.
+///    * "only"     - The button displays an image, but not a title.
+///    * "left"     - The image is to the left of the title.
+///    * "right"    - The image is to the right of the title.
+///    * "below"    - The image is below the title.
+///    * "above"    - The image is above the title.
+///    * "overlaps" - The image overlaps the title.
+///
+///    * "leading"  - The image leads the title as defined for the current language script direction. Available in macOS 10.12+.
+///    * "trailing" - The image trails the title as defined for the current language script direction. Available in macOS 10.12+.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_imagePosition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -765,6 +822,19 @@ static int button_imagePosition(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:imageScaling([scale]) -> buttonObject | string
+/// Method
+/// Get or set the scaling mode applied to the image for the button
+///
+/// Parameters:
+///  * `scale` - an optional string specifying the scaling mode applied to the image for the button. Must be one of the following strings:
+///    * "proportionallyDown"     - If it is too large for the destination, scale the image down while preserving the aspect ratio.
+///    * "axesIndependently"      - Scale each dimension to exactly fit destination.
+///    * "none"                   - Do not scale the image.
+///    * "proportionallyUpOrDown" - Scale the image to its maximum possible dimensions while both staying within the destination area and preserving its aspect ratio.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_imageScaling(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -793,6 +863,18 @@ static int button_imageScaling(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:image([image]) -> buttonObject | hs.image object | nil
+/// Method
+/// Get or set the image displayed for the button
+///
+/// Parameters:
+///  * `image` - an optional hs.image object, or explicit nil to remove, specifying the image for the button.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * For buttons which change their appearance based upon their state, this is the image which will be displayed when the button is in its "off" state.
 static int button_image(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -812,6 +894,15 @@ static int button_image(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:sound([sound]) -> buttonObject | hs.sound object | nil
+/// Method
+/// Get or set the sound played when the user clicks on the button
+///
+/// Parameters:
+///  * `sound` - an optional hs.sound object, or explicit nil to remove, specifying the sound played when the user clicks on the button
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_sound(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -843,7 +934,8 @@ static int button_sound(lua_State *L) {
 ///
 /// Notes:
 ///  * For buttons which change their appearance based upon their state, this is the image which will be displayed when the button is in its "on" state.
-///  * Observation shows that the alternateTitle value is used by the following button types:
+///
+///  * Observation shows that the alternateImage value is used by the following button types:
 ///    * "toggle"          - the button will alternate between the image and the alternateImage
 ///    * "momentaryChange" - if the button is not bordered, the alternate image will be displayed while the user is clicking on the button and will revert back to the image once the user has released the mouse button.///    * "switch"               - when the checkbox is checked, it will display its alternateImage as the checked box, if one has been assigned
 ///    * "radio"           - when the radio button is selected, it will display its alternateImage as the filled in radio button, if one has been assigned
@@ -867,6 +959,19 @@ static int button_alternateImage(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:state([state]) -> buttonObject | string
+/// Method
+/// Get or set the current state of the button.
+///
+/// Parameters:
+///  * `state` - an optional string used to set the current state of the button. Must be one of "on", "off", or "mixed".
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Setting the state to "mixed" is only valid when [hs._asm.guitk.element.button:allowsMixedState](#allowsMixedState) is set to true.
+///  * Mixed state is typically useful only with buttons of type "switch" or "radio" and is primarily used to indicate that something is only applied partially, e.g. when part of a selection of text is bold but not all of it. When a checkbox or radio button is in the "mixed" state, it is displayed with a dash instead of an X or a filled in radio button.
 static int button_state(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -899,6 +1004,18 @@ static int button_state(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:highlighted([state]) -> buttonObject | boolean
+/// Method
+/// Get or set whether the button is currently highlighted.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether or not the button is currently highlighted.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Highlighting makes the button appear recessed, displays its alternate title or image, or causes the button to appear illuminated.
 static int button_highlighted(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -911,7 +1028,23 @@ static int button_highlighted(lua_State *L) {
     }
     return 1 ;
 }
-
+/// hs._asm.guitk.element.button:value([float]) -> integer | double
+/// Method
+/// Get the current value represented by the button's state
+///
+/// Parameters:
+///  * `float` - an optional boolean specifying whether or not the value should be returned as a number (true) or as an integer (false). Defaults to false.
+///
+/// Returns:
+///  * The current value of the button as represented by its state.
+///
+/// Notes:
+///  * In general, this method will return 0 when the button's state is "off" and 1 when the button's state is "on" -- see [hs._asm.guitk.element.button:state](#state).
+///  * If [hs._asm.guitk.element.button:allowsMixedState](#allowsMixedState) has been set to true for this button, this method will return -1 when the button's state is "mixed".
+///
+///  * If the button is of the "accelerator" type and the user is using a Force Touch capable trackpad, you can pass `true` to this method to get a relative measure of the amount of pressure being applied; this method will return a number between 1.0 and 2.0 representing the amount of pressure being applied when `float` is set to true.  If `float` is false or left out, then an "accelerator" type button will just return 1 as long as any pressure is being applied to the button.
+///
+///  * If the button is of the "multiLevelAccelerator" type and the user is using a Force Touch capable trackpad, this method will return a number between 0 (not being pressed) up to the value set for [hs._asm.guitk.element.button:maxAcceleratorLevel](#maxAcceleratorLevel), depending upon how much pressure is being applied to the button.
 static int button_value(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -925,6 +1058,18 @@ static int button_value(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.button:maxAcceleratorLevel([level]) -> buttonObject | integer
+/// Method
+/// Get or set the number of discrete pressure levels recognized by a button of type "multiLevelAccelerator"
+///
+/// Parameters:
+///  * `level` - an optional integer specifying the number of discrete pressure levels recognized by a button of type "multiLevelAccelerator". Must be an integer between 1 and 5 inclusive.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * This method and the "multiLevelAccelerator" button type are only supported in macOS 10.12 and newer.
 static int button_maxAcceleratorLevel(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -962,6 +1107,23 @@ static float fclamp(float d, float min, float max) {
   return t > max ? max : t;
 }
 
+/// hs._asm.guitk.element.button:periodicDelay([table]) -> buttonObject | table
+/// Method
+/// Get or set the delay and interval periods for the callbacks of a continuous button.
+///
+/// Parameters:
+///  * `table` - an optional table specifying the delay and interval periods for the callbacks of a continuous button. The default is { 0.4, 0.075 }.
+///
+/// Returns:
+///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * To make a button continuous, see `hs._asm.guitk.element._control:continuous`. By default, buttons are *not* continuous.
+///
+///  * The table passed in as an argument or returned by this method should contain two numbers:
+///    * the delay in seconds before the callback will be first invoked for the continuous button
+///    * the interval in seconds between subsequent callbacks after the first one has been invoked.
+///  * Once the user releases the mouse button, a final callback will be invoked for the button and will reflect the new [hs._asm.guitk.element.button:state](#state) for the button.
 static int button_periodicDelay(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;

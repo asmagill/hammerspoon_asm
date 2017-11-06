@@ -12,6 +12,7 @@ local module       = {}
 require("hs.drawing.color")
 require("hs.image")
 require("hs.styledtext")
+require("hs.sound")
 
 local fnutils = require("hs.fnutils")
 
