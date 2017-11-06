@@ -118,8 +118,8 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
             lua_pop(skin.L, 1) ;
             [skin logError:[NSString stringWithFormat:@"%s:frameChangeCallback error:%@", USERDATA_TAG, errorMessage]] ;
         }
-    } else {
-        [self passCallbackUpWith:@[ self, targetView ]] ;
+//     } else {
+//         [self passCallbackUpWith:@[ self, targetView ]] ;
     }
 }
 
@@ -1102,6 +1102,8 @@ static int manager_passthroughCallback(lua_State *L) {
 ///  * The arguments are as follows:
 ///    * the manager object userdata
 ///    * the userdata object of the element whose frame has changed -- this may be equal to the manager object itself, if it is the managers frame that changed.
+///
+///  * Frame change callbacks are not passed to the parent passthrough callback; they must be handled by the manager in which the change occurs.
 static int manager_frameChangeCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;

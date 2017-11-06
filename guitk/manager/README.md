@@ -454,6 +454,8 @@ Notes:
    * the manager object userdata
    * the userdata object of the element whose frame has changed -- this may be equal to the manager object itself, if it is the managers frame that changed.
 
+ * Frame change callbacks are not passed to the parent passthrough callback; they must be handled by the manager in which the change occurs.
+
 - - -
 
 <a name="insert"></a>
