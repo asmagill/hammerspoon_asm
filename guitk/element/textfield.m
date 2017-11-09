@@ -198,6 +198,20 @@ static void defineInternalDictionaryies() {
 
 #pragma mark - Module Functions
 
+/// hs._asm.guitk.element.textfield.new([frame]) -> textfieldObject
+/// Constructor
+/// Creates a new textfield element for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `frame` - an optional frame table specifying the position and size of the frame for the element.
+///
+/// Returns:
+///  * the textfieldObject
+///
+/// Notes:
+///  * In most cases, setting the frame is not necessary and will be overridden when the element is assigned to a manager or to a `hs._asm.guitk` window.
+///
+///  * The textfield element does not have a default width unless you assign a value to it with [hs._asm.guitk.element.textfield:value](#value); if you are assigning an empty textfield element to an `hs._asm.guitk.manager`, be sure to specify a width in the frame details or the element may not be visible.
 static int textfield_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -213,17 +227,20 @@ static int textfield_new(lua_State *L) {
     return 1 ;
 }
 
-/*!
- Creates a non-editable, non-selectable text field that displays attributed text.
- The line break mode of this field is determined by the attributed string's NSParagraphStyle attribute.
- -param attributedStringValue The attributed string to display in the field.
- -return An initialized text field object.
- */
-/*!
- Creates a non-wrapping, non-editable, non-selectable text field that displays text in the default system font.
- -param stringValue The title text to display in the field.
- -return An initialized text field object.
- */
+/// hs._asm.guitk.element.textfield.newLabel(text) -> textfieldObject
+/// Constructor
+/// Creates a new textfield element usable as a label for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `text` - a string or `hs.styledtext` object specifying the text to assign to the label.
+///
+/// Returns:
+///  * the textfieldObject
+///
+/// Notes:
+///  * This constructor creates a non-editable, non-selectable text field, often used as a label for another element.
+///    * If you specify `text` as a string, the label is non-wrapping and appears in the default system font.
+///    * If you specify `text` as an `hs.styledtext` object, the line break mode and font are determined by the style attributes of the object.
 static int textfield_newLabel(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TANY, LS_TBREAK] ;
@@ -290,17 +307,24 @@ static int textfield_newLabel(lua_State *L) {
     return 1 ;
 }
 
-/*!
- Creates a non-wrapping editable text field.
- -param stringValue The initial contents of the text field, or nil for an initially empty text field.
- -return An initialized text field object.
- */
+/// hs._asm.guitk.element.textfield.newTextField([text]) -> textfieldObject
+/// Constructor
+/// Creates a new editable textfield element for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `text` - an optional string specifying the text to assign to the text field.
+///
+/// Returns:
+///  * the textfieldObject
+///
+/// Notes:
+///  * This constructor creates a non-wrapping, editable text field, suitable for accepting user input.
 static int textfield_newTextField(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
 
     HSASMGUITKElementTextField *textfield ;
-    NSString *fieldValue = [skin toNSObjectAtIndex:1] ;
+    NSString *fieldValue = (lua_gettop(L) == 1) ? [skin toNSObjectAtIndex:1] : nil ;
 #ifndef TEST_FALLBACKS
     if ([NSTextField respondsToSelector:NSSelectorFromString(@"textFieldWithString:")]) {
 #pragma clang diagnostic push
@@ -330,11 +354,18 @@ static int textfield_newTextField(lua_State *L) {
     return 1 ;
 }
 
-/*!
- Creates a wrapping, non-editable, selectable text field that displays text in the default system font.
- -param stringValue The title text to display in the field.
- -return An initialized text field object.
- */
+/// hs._asm.guitk.element.textfield.newWrappingLabel(text) -> textfieldObject
+/// Constructor
+/// Creates a new textfield element usable as a label for `hs._asm.guitk`.
+///
+/// Parameters:
+///  * `text` - a string specifying the text to assign to the label.
+///
+/// Returns:
+///  * the textfieldObject
+///
+/// Notes:
+///  * This constructor creates a wrapping, selectable, non-editable text field, that is suitable for use as a label or informative text. The text defaults to the system font.
 static int textfield_newWrappingLabel(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -372,6 +403,34 @@ static int textfield_newWrappingLabel(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.guitk.element.textfield:callback([fn | nil]) -> textfieldObject | fn | nil
+/// Method
+/// Get or set the callback function which will be invoked whenever the user interacts with the textfield element.
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the user interacts with the textfield
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The callback function should expect arguments as described below and return none:
+///    * When the user starts typing in the text field, the callback will receive the following arguments:
+///      * the textfield userdata object
+///      * the message string "didBeginEditing" indicating that the user has started editing the textfield element
+///    * When the focus leaves the text field element, the callback will receive the following arguments (note that it is possible to receive this callback without a corresponding "didBeginEditing" callback if the user makes no changes to the textfield):
+///      * the textfield userdata object
+///      * the message string "didEndEditing" indicating that the textfield element is no longer active
+///      * a string specifying why editing terminated:
+///        * "other"    - another element has taken focus or the user has clicked outside of the text field
+///        * "return"   - the user has hit the enter or return key. Note that this does not take focus away from the textfield by default so if the user types again, another "didBeginEditing" callback for the textfield will be generated.
+///        * "tab"      - the user used the tab key to move to the next textfield element
+///        * "shiftTab" - the user user the tab key with the shift modifier to move to the previous textfield element
+///        * the specification allows for other possible reasons for ending the editing of a textfield, but so far it is not known how to enable these and they may apply to other text based elements which have not yet been implemented.  These are "cancel", "left", "right", "up", and "down". If you do see one of these reasons in your use of the textfield element, please submit an issue with sample code so it can be determined how to properly document this.
+///    * If the `hs._asm.guitk.element._control:continuous` is set to true for the textfield element, a callback with the following arguments will occur each time the user presses a key:
+///      * the textfield userdata object
+///      * the string "textDidChange" indicating that the user has typed or deleted something in the textfield
+///      * the current string value of the textfield -- see [hs._asm.guitk.element.textfield:value](#value)
 static int textfield_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -394,6 +453,33 @@ static int textfield_callback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:editingCallback([fn | nil]) -> textfieldObject | fn | nil
+/// Method
+/// Get or set the callback function which will is invoked to make editing decisions about the textfield
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked to make editing decisions about the textfield
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The callback function should expect multiple arguments and return a boolean as described below (a return value of none or nil will use the default as specified for each callback below):
+///    * When the user attempts to edit the textfield, the callback will be invoked with the following arguments and the boolean return value should indicate whether editing is to be allowed:
+///      * the textfield userdata object
+///      * the string "shouldBeginEditing" indicating that the callback is asking permission to allow editing of the textfield at this time
+///      * the default return value as determined by the current state of the the textfield and its location in the window/view hierarchy (usually this will be true)
+///    * When the user attempts to finish editing the textfield, the callback will be invoked with the following arguments and the boolean return value should indicate whether focus is allowed to leave the textfield:
+///      * the textfield userdata object
+///      * the string "shouldEndEditing" indicating that the callback is asking permission to complete editing of the textfield at this time
+///      * the default return value as determined by the current state of the the textfield and its location in the window/view hierarchy (usually this will be true)
+///    * When the return (or enter) key or escape key are pressed, the callback will be invoked with the following arguments and the return value should indicate whether or not the keypress was handled by the callback or should be passed further up the window/view hierarchy:
+///      * the textfield userdata object
+///      * the string "keyPress"
+///      * the string "return" or "escape"
+///      * the default return value of false indicating that the callback is not interested in this keypress.
+///    * Note that the return value is currently ignored when the key pressed is "escape".
+///    * Note that the specification allows for the additional keys "left", "right", "up", and "down" to trigger this callback, but at present it is not known how to enable this for a textfield element. It is surmised that they may be applicable to text based elements that are not currently supported by `hs._asm.guitk`. If you do manage to receive a callback for one of these keys, please submit an issue with sample code so we can determine how to properly document them.
 static int textfield_editingCallback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -416,6 +502,18 @@ static int textfield_editingCallback(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:selectAll() -> textfieldObject
+/// Method
+/// Selects the text of a selectable or editable textfield and makes it the active element in the window.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the textfieldObject
+///
+/// Notes:
+///  * This method has no effect if the textfield is not editable or selectable.  Use `hs._asm.guitk:activeElement` if you wish to remove the focus from any textfield that is currently selected.
 static int textfield_selectText(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -426,6 +524,18 @@ static int textfield_selectText(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:styleEditable([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the style (font, color, etc.) of the text in an editable textfield can be changed by the user
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether or not the style of the text can be edited in the textfield
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * If the style of a textfield element can be edited, the user will be able to access the font and color panels by right-clicking in the text field and selecting the Font submenu from the menu that is shown.
 static int textfield_allowsEditingTextAttributes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -440,6 +550,15 @@ static int textfield_allowsEditingTextAttributes(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:styleEditable([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the background of the textfield is shown
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the background of the textfield is shown (true) or transparent (false). Defaults to `true` for editable textfields created with [hs._asm.guitk.element.textfield.newTextField](#newTextField), otherwise false.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
 static int textfield_drawsBackground(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -454,6 +573,18 @@ static int textfield_drawsBackground(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:importsGraphics([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether an editable textfield whose style is editable allows image files to be dragged into it
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether the textfield allows image files to be dragged into it
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * [hs._asm.guitk.element.textfield:styleEditable](#styleEditable) must also be true for this method to have any effect.
 static int textfield_importsGraphics(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -587,6 +718,18 @@ static int textfield_placeholderString(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:bezeled([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the textfield draws a bezeled border around its contents.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the textfield draws a bezeled border around its contents. Defaults to `true` for editable textfields created with [hs._asm.guitk.element.textfield.newTextField](#newTextField), otherwise false.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * If you set this to true, [hs._asm.guitk.element.textfield:bordered](#bordered) is set to false.
 static int textfield_bezeled(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -601,6 +744,18 @@ static int textfield_bezeled(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:bordered([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the textfield draws a black border around its contents.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether the textfield draws a black border around its contents.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * If you set this to true, [hs._asm.guitk.element.textfield:bezeled](#bezeled) is set to false.
 static int textfield_bordered(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -615,6 +770,18 @@ static int textfield_bordered(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:expandIntoTooltip([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the textfield contents will be expanded into a tooltip if the contents are longer than the textfield is wide and the mouse pointer hovers over the textfield.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether the textfield contents will be expanded into a tooltip if the contents are longer than the textfield is wide.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * If a tooltip is set with [hs._asm.guitk.element.textfield:tooltip](#tooltip) then this method has no effect.
 static int textfield_allowsExpansionToolTips(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -643,6 +810,18 @@ static int textfield_usesSingleLineMode(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:editable([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the textfield is editable.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the textfield contents are editable. Defaults to `true` for editable textfields created with [hs._asm.guitk.element.textfield.newTextField](#newTextField), otherwise false.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Setting this to true automatically sets [hs._asm.guitk.element.textfield:selectable](#selectable) to true.
 static int textfield_editable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -657,6 +836,18 @@ static int textfield_editable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:selectable([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the contents of the textfield is selectable.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the textfield contents are selectable. Defaults to `true` for textfields created with [hs._asm.guitk.element.textfield.newTextField](#newTextField) or [hs._asm.guitk.element.textfield.newWrappingLabel](#newWrappingLabel), otherwise false.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * Setting this to false automatically sets [hs._asm.guitk.element.textfield:editable](#editable) to false.
 static int textfield_selectable(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -677,12 +868,18 @@ static int textfield_stringValue(lua_State *L) {
     HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
 
     BOOL getAttributed = NO ;
+    BOOL booleanPresent = NO ;
     if (lua_type(L, -1) == LUA_TBOOLEAN) {
         getAttributed = (BOOL)lua_toboolean(L, -1) ;
+        booleanPresent = YES ;
         lua_pop(L, 1) ;
     }
     if (lua_gettop(L) == 1) {
-        [skin pushNSObject:getAttributed ? textfield.attributedStringValue : textfield.stringValue] ;
+        if (booleanPresent) {
+            [skin pushNSObject:getAttributed ? textfield.attributedStringValue : textfield.stringValue] ;
+        } else {
+            [skin pushNSObject:textfield.objectValue] ;
+        }
     } else {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
@@ -786,7 +983,7 @@ static int textfield_automaticTextCompletionEnabled(lua_State *L) {
     HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        if ([textfield respondsToSelector:NSSelectorFromString(@"automaticTextCompletionEnabled")]) {
+        if ([textfield respondsToSelector:NSSelectorFromString(@"isAutomaticTextCompletionEnabled")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
             lua_pushboolean(L, textfield.automaticTextCompletionEnabled) ;
@@ -978,7 +1175,7 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         lua_pushstring(L, "maximumNumberOfLines") ;
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
-    if ([NSTextField instancesRespondToSelector:NSSelectorFromString(@"automaticTextCompletionEnabled")]) {
+    if ([NSTextField instancesRespondToSelector:NSSelectorFromString(@"isAutomaticTextCompletionEnabled")]) {
         lua_pushstring(L, "automaticTextCompletion") ;
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
