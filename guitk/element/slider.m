@@ -105,6 +105,40 @@ static int slider_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.guitk.element.slider:callback([fn | nil]) -> sliderObject | fn | nil
+/// Method
+/// Get or set the callback function which will be invoked whenever the user clicks on the slider element.
+///
+/// Parameters:
+///  * `fn` - a lua function, or explicit nil to remove, which will be invoked when the user clicks on the slider.
+///
+/// Returns:
+///  * if a value is provided, returns the sliderObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * The slider callback will receive two arguments and should return none. The arguments will be the sliderObject userdata and the value represented by the sliders new position -- see [hs._asm.guitk.element.slider:value](#value)
+static int slider_callback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKElementSlider *slider = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        slider.callbackRef = [skin luaUnref:refTable ref:slider.callbackRef] ;
+        if (lua_type(L, 2) != LUA_TNIL) {
+            lua_pushvalue(L, 2) ;
+            slider.callbackRef = [skin luaRef:refTable] ;
+            lua_pushvalue(L, 1) ;
+        }
+    } else {
+        if (slider.callbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:slider.callbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+    return 1 ;
+}
+
 /// hs._asm.guitk.element.slider:tickMarksOnly([state]) -> sliderObject | boolean
 /// Method
 /// Get or set whether the slider limits values to those specified by tick marks or allows selecting a value between tick marks.
@@ -669,6 +703,7 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
+            obj.callbackRef = [[LuaSkin shared] luaUnref:refTable ref:obj.callbackRef] ;
             obj = nil ;
         }
     }
@@ -700,6 +735,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"closestTickMarkValue", slider_closestTickMarkValueToValue},
     {"rectOfTickMark",       slider_rectOfTickMarkAtIndex},
     {"indexOfTickMarkAt",    slider_indexOfTickMarkAtPoint},
+    {"callback",             slider_callback},
 
     {"__tostring",           userdata_tostring},
     {"__eq",                 userdata_eq},
@@ -743,6 +779,7 @@ int luaopen_hs__asm_guitk_element_slider(lua_State* L) {
         @"tickMarkLocation",
         @"vertical",
         @"value",
+        @"callback",
     ]] ;
     if ([NSSlider instancesRespondToSelector:NSSelectorFromString(@"trackFillColor")]) {
         lua_pushstring(L, "trackFillColor") ;

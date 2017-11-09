@@ -19,6 +19,7 @@ slider = require("hs._asm.guitk").element.slider
 
 ##### Module Methods
 * <a href="#altClickIncrement">slider:altClickIncrement([value]) -> sliderObject | number</a>
+* <a href="#callback">slider:callback([fn | nil]) -> sliderObject | fn | nil</a>
 * <a href="#closestTickMark">slider:closestTickMark(value) -> integer</a>
 * <a href="#closestTickMarkValue">slider:closestTickMarkValue(value) -> number</a>
 * <a href="#indexOfTickMarkAt">slider:indexOfTickMarkAt(point) -> integer | nil</a>
@@ -70,6 +71,23 @@ Returns:
 
 Notes:
  * If this value is 0, holding down the alt (option) key while clicking on the slider has the same effect that not holding down the modifier does: the slider jumps to the position where the click occurs.
+
+- - -
+
+<a name="callback"></a>
+~~~lua
+slider:callback([fn | nil]) -> sliderObject | fn | nil
+~~~
+Get or set the callback function which will be invoked whenever the user clicks on the slider element.
+
+Parameters:
+ * `fn` - a lua function, or explicit nil to remove, which will be invoked when the user clicks on the slider.
+
+Returns:
+ * if a value is provided, returns the sliderObject ; otherwise returns the current value.
+
+Notes:
+ * The slider callback will receive two arguments and should return none. The arguments will be the sliderObject userdata and the value represented by the sliders new position -- see [hs._asm.guitk.element.slider:value](#value)
 
 - - -
 
