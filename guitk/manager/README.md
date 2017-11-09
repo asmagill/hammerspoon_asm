@@ -62,6 +62,7 @@ manager = require("hs._asm.guitk").manager
 * <a href="#_debugFrames">manager:_debugFrames([color]) -> managerObject | table | nil</a>
 * <a href="#_nextResponder">manager:_nextResponder() -> userdata</a>
 * <a href="#autoPosition">manager:autoPosition() -> managerObject</a>
+* <a href="#draggingCallback">manager:draggingCallback(fn | nil) -> managerObject | fn | nil</a>
 * <a href="#element">manager:element([id]) -> elementUserdata | nil</a>
 * <a href="#elementAutoPosition">manager:elementAutoPosition(element) -> managerObject</a>
 * <a href="#elementFittingSize">manager:elementFittingSize(element) -> size-table</a>
@@ -161,6 +162,39 @@ Notes:
  * This method is invoked automatically anytime the managers parent (usually a `hs._asm.guitk` window) is resized and you shouldn't need to invoke it manually very often. If you find that you are needing to invoke it manually on a regular basis, try to determine what the specific circumstances are and submit an issue so that it can be evaluated to determine if the situation can be detected and trigger an update automatically.
 
 * See also [hs._asm.guitk.manager:elementAutoPosition](#elementAutoPosition).
+
+- - -
+
+<a name="draggingCallback"></a>
+~~~lua
+manager:draggingCallback(fn | nil) -> managerObject | fn | nil
+~~~
+Get or set the callback for accepting dragging and dropping items onto the manager.
+
+Parameters:
+ * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when an item is dragged onto the manager.  An explicit nil, the default, disables drag-and-drop for this element.
+
+Returns:
+ * If an argument is provided, the manager object; otherwise the current value.
+
+Notes:
+ * The callback function should expect 3 arguments and optionally return 1: the manager object itself, a message specifying the type of dragging event, and a table containing details about the item(s) being dragged.  The key-value pairs of the details table will be the following:
+   * `pasteboard` - the name of the pasteboard that contains the items being dragged
+   * `sequence`   - an integer that uniquely identifies the dragging session.
+   * `mouse`      - a point table containing the location of the mouse pointer within the manager corresponding to when the callback occurred.
+   * `operation`  - a table containing string descriptions of the type of dragging the source application supports. Potentially useful for determining if your callback function should accept the dragged item or not.
+
+* The possible messages the callback function may receive are as follows:
+   * "enter"   - the user has dragged an item into the manager.  When your callback receives this message, you can optionally return false to indicate that you do not wish to accept the item being dragged.
+   * "exit"    - the user has moved the item out of the manager; if the previous "enter" callback returned false, this message will also occur when the user finally releases the items being dragged.
+   * "receive" - indicates that the user has released the dragged object while it is still within the element frame.  When your callback receives this message, you can optionally return false to indicate to the sending application that you do not want to accept the dragged item -- this may affect the animations provided by the sending application.
+
+ * You can use the sequence number in the details table to match up an "enter" with an "exit" or "receive" message.
+
+ * You should capture the details you require from the drag-and-drop operation during the callback for "receive" by using the pasteboard field of the details table and the `hs.pasteboard` module.  Because of the nature of "promised items", it is not guaranteed that the items will still be on the pasteboard after your callback completes handling this message.
+
+ * A manager object can only accept drag-and-drop items when the `hs._asm.guitk` window the manager ultimately belongs to is at a level of `hs._asm.guitk.levels.dragging` or lower. Note that the manager receiving the drag-and-drop item does not have to be the content manager of the `hs._asm.guitk` window -- it can be an element of another manager acting as the window content manager.
+ * a manager object can only accept drag-and-drop items if it's `hs._asm.guitk` window object accepts mouse events, i.e. `hs._asm.guitk:ignoresMouseEvents` is set to false.
 
 - - -
 
