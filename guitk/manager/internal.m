@@ -35,13 +35,14 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
     return tmpValue ;
 }
 
-@interface HSASMGUITKManager : NSView
+@interface HSASMGUITKManager : NSView <NSDraggingDestination>
 @property int            selfRefCount ;
 @property BOOL           trackMouseEvents ;
 @property BOOL           trackMouseMove ;
 @property int            passthroughCallback ;
 @property int            mouseCallback ;
 @property int            frameChangeCallback ;
+@property int            draggingCallbackRef ;
 @property NSMapTable     *subviewDetails ;
 @property NSColor        *frameDebugColor ;
 @property NSTrackingArea *trackingArea ;
@@ -66,6 +67,7 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
         _passthroughCallback = LUA_NOREF ;
         _mouseCallback       = LUA_NOREF ;
         _frameChangeCallback = LUA_NOREF ;
+        _draggingCallbackRef = LUA_NOREF ;
         _subviewDetails      = [NSMapTable strongToStrongObjectsMapTable] ;
         _frameDebugColor     = nil ;
 
@@ -357,6 +359,87 @@ static NSNumber *convertPercentageStringToNumber(NSString *stringValue) {
 - (void) mouseExited:(NSEvent *)theEvent {
     [self invokeMouseTrackingCallback:@"exit" forEvent:theEvent] ;
 }
+
+#pragma mark - NSDraggingDestination protocol methods
+
+- (BOOL)draggingCallback:(NSString *)message with:(id<NSDraggingInfo>)sender {
+    BOOL isAllGood = NO ;
+    if (_draggingCallbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        lua_State *L = skin.L ;
+        int argCount = 2 ;
+        [skin pushLuaRef:refTable ref:_draggingCallbackRef] ;
+        [skin pushNSObject:self] ;
+        [skin pushNSObject:message] ;
+        if (sender) {
+            lua_newtable(L) ;
+            NSPasteboard *pasteboard = [sender draggingPasteboard] ;
+            if (pasteboard) {
+                [skin pushNSObject:pasteboard.name] ; lua_setfield(L, -2, "pasteboard") ;
+            }
+            lua_pushinteger(L, [sender draggingSequenceNumber]) ; lua_setfield(L, -2, "sequence") ;
+            [skin pushNSPoint:[sender draggingLocation]] ; lua_setfield(L, -2, "mouse") ;
+            NSDragOperation operation = [sender draggingSourceOperationMask] ;
+            lua_newtable(L) ;
+            if (operation == NSDragOperationNone) {
+                lua_pushstring(L, "none") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+            } else {
+                if ((operation & NSDragOperationCopy) == NSDragOperationCopy) {
+                    lua_pushstring(L, "copy") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationLink) == NSDragOperationLink) {
+                    lua_pushstring(L, "link") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationGeneric) == NSDragOperationGeneric) {
+                    lua_pushstring(L, "generic") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationPrivate) == NSDragOperationPrivate) {
+                    lua_pushstring(L, "private") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationMove) == NSDragOperationMove) {
+                    lua_pushstring(L, "move") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationDelete) == NSDragOperationDelete) {
+                    lua_pushstring(L, "delete") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+            }
+            lua_setfield(L, -2, "operation") ;
+            argCount += 1 ;
+        }
+        if ([skin protectedCallAndTraceback:argCount nresults:1]) {
+            isAllGood = lua_isnoneornil(L, -1) ? YES : (BOOL)lua_toboolean(skin.L, -1) ;
+        } else {
+            [skin logError:[NSString stringWithFormat:@"%s:draggingCallback error: %@", USERDATA_TAG, [skin toNSObjectAtIndex:-1]]] ;
+        }
+        lua_pop(L, 1) ;
+    }
+    return isAllGood ;
+}
+
+- (BOOL)wantsPeriodicDraggingUpdates {
+    return NO ;
+}
+
+- (BOOL)prepareForDragOperation:(__unused id<NSDraggingInfo>)sender {
+    return YES ;
+}
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender {
+    return [self draggingCallback:@"enter" with:sender] ? NSDragOperationGeneric : NSDragOperationNone ;
+}
+
+- (void)draggingExited:(id<NSDraggingInfo>)sender {
+    [self draggingCallback:@"exit" with:sender] ;
+}
+
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
+    return [self draggingCallback:@"receive" with:sender] ;
+}
+
+// - (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender ;
+// - (void)concludeDragOperation:(id<NSDraggingInfo>)sender ;
+// - (void)draggingEnded:(id<NSDraggingInfo>)sender ;
+// - (void)updateDraggingItemsForDrag:(id<NSDraggingInfo>)sender
 
 @end
 
@@ -1075,8 +1158,8 @@ static int manager_passthroughCallback(lua_State *L) {
         if (lua_type(L, 2) != LUA_TNIL) {
             lua_pushvalue(L, 2) ;
             manager.passthroughCallback = [skin luaRef:refTable] ;
-            lua_pushvalue(L, 1) ;
         }
+        lua_pushvalue(L, 1) ;
     } else {
         if (manager.passthroughCallback != LUA_NOREF) {
             [skin pushLuaRef:refTable ref:manager.passthroughCallback] ;
@@ -1114,8 +1197,8 @@ static int manager_frameChangeCallback(lua_State *L) {
         if (lua_type(L, 2) != LUA_TNIL) {
             lua_pushvalue(L, 2) ;
             manager.frameChangeCallback = [skin luaRef:refTable] ;
-            lua_pushvalue(L, 1) ;
         }
+        lua_pushvalue(L, 1) ;
     } else {
         if (manager.frameChangeCallback != LUA_NOREF) {
             [skin pushLuaRef:refTable ref:manager.frameChangeCallback] ;
@@ -1124,6 +1207,60 @@ static int manager_frameChangeCallback(lua_State *L) {
         }
     }
     return 1 ;
+}
+
+/// hs._asm.guitk.manager:draggingCallback(fn | nil) -> managerObject | fn | nil
+/// Method
+/// Get or set the callback for accepting dragging and dropping items onto the manager.
+///
+/// Parameters:
+///  * `fn` - a function, or an explicit nil to remove, specifying the callback to invoke when an item is dragged onto the manager.  An explicit nil, the default, disables drag-and-drop for this element.
+///
+/// Returns:
+///  * If an argument is provided, the manager object; otherwise the current value.
+///
+/// Notes:
+///  * The callback function should expect 3 arguments and optionally return 1: the manager object itself, a message specifying the type of dragging event, and a table containing details about the item(s) being dragged.  The key-value pairs of the details table will be the following:
+///    * `pasteboard` - the name of the pasteboard that contains the items being dragged
+///    * `sequence`   - an integer that uniquely identifies the dragging session.
+///    * `mouse`      - a point table containing the location of the mouse pointer within the manager corresponding to when the callback occurred.
+///    * `operation`  - a table containing string descriptions of the type of dragging the source application supports. Potentially useful for determining if your callback function should accept the dragged item or not.
+///
+/// * The possible messages the callback function may receive are as follows:
+///    * "enter"   - the user has dragged an item into the manager.  When your callback receives this message, you can optionally return false to indicate that you do not wish to accept the item being dragged.
+///    * "exit"    - the user has moved the item out of the manager; if the previous "enter" callback returned false, this message will also occur when the user finally releases the items being dragged.
+///    * "receive" - indicates that the user has released the dragged object while it is still within the element frame.  When your callback receives this message, you can optionally return false to indicate to the sending application that you do not want to accept the dragged item -- this may affect the animations provided by the sending application.
+///
+///  * You can use the sequence number in the details table to match up an "enter" with an "exit" or "receive" message.
+///
+///  * You should capture the details you require from the drag-and-drop operation during the callback for "receive" by using the pasteboard field of the details table and the `hs.pasteboard` module.  Because of the nature of "promised items", it is not guaranteed that the items will still be on the pasteboard after your callback completes handling this message.
+///
+///  * A manager object can only accept drag-and-drop items when the `hs._asm.guitk` window the manager ultimately belongs to is at a level of `hs._asm.guitk.levels.dragging` or lower. Note that the manager receiving the drag-and-drop item does not have to be the content manager of the `hs._asm.guitk` window -- it can be an element of another manager acting as the window content manager.
+///  * a manager object can only accept drag-and-drop items if it's `hs._asm.guitk` window object accepts mouse events, i.e. `hs._asm.guitk:ignoresMouseEvents` is set to false.
+static int manager_draggingCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        // We're either removing callback(s), or setting new one(s). Either way, remove existing.
+        manager.draggingCallbackRef = [skin luaUnref:refTable ref:manager.draggingCallbackRef];
+        [manager unregisterDraggedTypes] ;
+        if ([skin luaTypeAtIndex:2] != LUA_TNIL) {
+            lua_pushvalue(L, 2);
+            manager.draggingCallbackRef = [skin luaRef:refTable] ;
+            [manager registerForDraggedTypes:@[ (__bridge NSString *)kUTTypeItem ]] ;
+        }
+        lua_pushvalue(L, 1);
+    } else {
+        if (manager.draggingCallbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:manager.draggingCallbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+
+    return 1;
 }
 
 /// hs._asm.guitk.manager:mouseCallback([fn | true | nil]) -> managerObject | fn | boolean
@@ -1444,6 +1581,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"passthroughCallback", manager_passthroughCallback},
     {"frameChangeCallback", manager_frameChangeCallback},
     {"mouseCallback",       manager_mouseCallback},
+    {"draggingCallback",    manager_draggingCallback},
     {"trackMouseMove",      manager_trackMouseMove},
     {"sizeToFit",           manager_sizeToFit},
     {"autoPosition",        manager_autoPosition},
@@ -1500,6 +1638,8 @@ int luaopen_hs__asm_guitk_manager_internal(lua_State* L) {
         @"elements",
         @"passthroughCallback",
         @"mouseCallback",
+        @"draggingCallback",
+        @"frameChangeCallback",
         @"trackMouseMove",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
