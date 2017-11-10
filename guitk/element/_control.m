@@ -19,6 +19,7 @@
 ///  * hs._asm.guitk.element.colorwell
 ///  * hs._asm.guitk.element.datepicker
 ///  * hs._asm.guitk.element.image
+///  * hs._asm.guitk.element.slider
 ///  * hs._asm.guitk.element.textfield
 ///
 /// macOS Developer Note: Understanding this is not required for use of the methods provided by this submodule, but for those interested, some of the elements provided under `hs._asm.guitk.element` are subclasses of the macOS NSControl class; macOS methods which belong to NSControl and are not overridden or superseded by more specific or appropriate element specific methods are defined here so that they can be used by all elements which share this common ancestor.
@@ -27,6 +28,7 @@ static const char * const USERDATA_TAG = "hs._asm.guitk.element._control" ;
 static NSDictionary *CONTROL_SIZE ;
 static NSDictionary *CONTROL_TINT ;
 static NSDictionary *TEXT_ALIGNMENT ;
+static NSDictionary *TEXT_LINEBREAK ;
 
 #pragma mark - Common NSControl Methods
 
@@ -51,6 +53,16 @@ static void defineInternalDictionaryies() {
         @"justified" : @(NSTextAlignmentJustified),
         @"natural"   : @(NSTextAlignmentNatural),
     } ;
+
+    TEXT_LINEBREAK = @{
+        @"wordWrap"       : @(NSLineBreakByWordWrapping),
+        @"charWrap"       : @(NSLineBreakByCharWrapping),
+        @"clip"           : @(NSLineBreakByClipping),
+        @"truncateHead"   : @(NSLineBreakByTruncatingHead),
+        @"truncateTail"   : @(NSLineBreakByTruncatingTail),
+        @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle),
+    } ;
+
 }
 
 /// hs._asm.guitk.element._control:textAlignment([alignment]) -> elementObject | current value
@@ -274,6 +286,53 @@ static int control_font(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element._control:lineBreakMode([mode]) -> elementObject | string
+/// Method
+/// Get or set the linebreak mode used for displaying text for the element.
+///
+/// Parameters:
+///  * `mode` - an optional string specifying the line break mode for the element. Must be one of:
+///    * "wordWrap"       - Wrapping occurs at word boundaries, unless the word itself doesn’t fit on a single line.
+///    * "charWrap"       - Wrapping occurs before the first character that doesn’t fit.
+///    * "clip"           - Lines are simply not drawn past the edge of the text container.
+///    * "truncateHead"   - The line is displayed so that the end fits in the container and the missing text at the beginning of the line is indicated by an ellipsis glyph.
+///    * "truncateTail"   - The line is displayed so that the beginning fits in the container and the missing text at the end of the line is indicated by an ellipsis glyph.
+///    * "truncateMiddle" - The line is displayed so that the beginning and end fit in the container and the missing text in the middle is indicated by an ellipsis glyph.
+///
+/// Returns:
+///  * if a value is provided, returns the elementObject ; otherwise returns the current value.
+static int control_lineBreakMode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared]  ;
+    [skin checkArgs:LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+
+    if (lua_gettop(L) == 2) {
+        NSString *key = [skin toNSObjectAtIndex:2] ;
+        NSNumber *lineBreakMode = TEXT_LINEBREAK[key] ;
+        if (lineBreakMode) {
+            control.lineBreakMode = [lineBreakMode unsignedIntegerValue] ;
+        } else {
+            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[TEXT_LINEBREAK allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
+        }
+        lua_pushvalue(L, 1) ;
+    } else {
+        NSNumber *lineBreakMode = @(control.lineBreakMode) ;
+        NSArray *temp = [TEXT_LINEBREAK allKeysForObject:lineBreakMode];
+        NSString *answer = [temp firstObject] ;
+        if (answer) {
+            [skin pushNSObject:answer] ;
+        } else {
+            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized linebreak mode %@ -- notify developers", USERDATA_TAG, lineBreakMode]] ;
+            lua_pushnil(L) ;
+        }
+    }
+    return 1;
+}
+
+
 /// hs._asm.guitk.element._control:continuous([state]) -> elementObject | current value
 /// Method
 /// Get or set whether or not the element triggers continuous callbacks when the user interacts with it.
@@ -293,6 +352,7 @@ static int control_continuous(lua_State *L) {
     if (!control || ![control isKindOfClass:[NSControl class]]) {
         return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
     }
+
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, control.continuous) ;
     } else {
@@ -302,18 +362,49 @@ static int control_continuous(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element._control:singleLineMode([state]) -> elementObject | boolean
+/// Method
+/// Get or set whether the element restricts layout and rendering of text to a single line.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether the element restricts text to a single line.
+///
+/// Returns:
+///  * if a value is provided, returns the element ; otherwise returns the current value.
+///
+/// Notes:
+///  * When this is set to true, text layout and rendering is restricted to a single line. The element will interpret [hs._asm.guitk.element._control:lineBreakMode](#lineBreakMode) modes of "charWrap" and "wordWrap" as if they were "clip" and an editable textfield will ignore key binding commands that insert paragraph and line separators.
+static int control_usesSingleLineMode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+    if (!control || ![control isKindOfClass:[NSControl class]]) {
+        return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
+    }
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, control.usesSingleLineMode) ;
+    } else {
+        control.usesSingleLineMode = (BOOL)lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"font",          control_font},
-    {"highlighted",   control_highlighted},
-    {"enabled",       control_enabled},
-    {"controlSize",   control_controlSize},
-    {"controlTint",   control_controlTint},
-    {"textAlignment", control_textAlignment},
-    {"continuous",    control_continuous},
-    {NULL,            NULL}
+    {"font",           control_font},
+    {"highlighted",    control_highlighted},
+    {"enabled",        control_enabled},
+    {"controlSize",    control_controlSize},
+    {"controlTint",    control_controlTint},
+    {"textAlignment",  control_textAlignment},
+    {"continuous",     control_continuous},
+    {"lineBreakMode",  control_lineBreakMode},
+    {"singleLineMode", control_usesSingleLineMode},
+    {NULL,             NULL}
 };
 
 int luaopen_hs__asm_guitk_element__control(lua_State* L) {
@@ -330,6 +421,8 @@ int luaopen_hs__asm_guitk_element__control(lua_State* L) {
         @"controlSize",
         @"textAlignment",
         @"continuous",
+        @"lineBreakMode",
+        @"singleLineMode",
     ]] ;
     lua_setfield(L, -2, "_propertyList") ;
 

@@ -8,6 +8,7 @@ Currently, the elements which inherit these methods are:
  * hs._asm.guitk.element.colorwell
  * hs._asm.guitk.element.datepicker
  * hs._asm.guitk.element.image
+ * hs._asm.guitk.element.slider
  * hs._asm.guitk.element.textfield
 
 macOS Developer Note: Understanding this is not required for use of the methods provided by this submodule, but for those interested, some of the elements provided under `hs._asm.guitk.element` are subclasses of the macOS NSControl class; macOS methods which belong to NSControl and are not overridden or superseded by more specific or appropriate element specific methods are defined here so that they can be used by all elements which share this common ancestor.
@@ -25,6 +26,8 @@ This module should not be loaded directly; it is automatically added to elements
 * <a href="#enabled">element:enabled([state]) -> elementObject | current value</a>
 * <a href="#font">element:font([font]) -> elementObject | current value</a>
 * <a href="#highlighted">element:highlighted([state]) -> elementObject | current value</a>
+* <a href="#lineBreakMode">element:lineBreakMode([mode]) -> elementObject | string</a>
+* <a href="#singleLineMode">element:singleLineMode([state]) -> elementObject | boolean</a>
 * <a href="#textAlignment">element:textAlignment([alignment]) -> elementObject | current value</a>
 
 - - -
@@ -134,6 +137,43 @@ Returns:
 
 Notes:
  * Not all elements have a highlighted appearance and this method will have no effect in such cases.
+
+- - -
+
+<a name="lineBreakMode"></a>
+~~~lua
+element:lineBreakMode([mode]) -> elementObject | string
+~~~
+Get or set the linebreak mode used for displaying text for the element.
+
+Parameters:
+ * `mode` - an optional string specifying the line break mode for the element. Must be one of:
+   * "wordWrap"       - Wrapping occurs at word boundaries, unless the word itself doesn’t fit on a single line.
+   * "charWrap"       - Wrapping occurs before the first character that doesn’t fit.
+   * "clip"           - Lines are simply not drawn past the edge of the text container.
+   * "truncateHead"   - The line is displayed so that the end fits in the container and the missing text at the beginning of the line is indicated by an ellipsis glyph.
+   * "truncateTail"   - The line is displayed so that the beginning fits in the container and the missing text at the end of the line is indicated by an ellipsis glyph.
+   * "truncateMiddle" - The line is displayed so that the beginning and end fit in the container and the missing text in the middle is indicated by an ellipsis glyph.
+
+Returns:
+ * if a value is provided, returns the elementObject ; otherwise returns the current value.
+
+- - -
+
+<a name="singleLineMode"></a>
+~~~lua
+element:singleLineMode([state]) -> elementObject | boolean
+~~~
+Get or set whether the element restricts layout and rendering of text to a single line.
+
+Parameters:
+ * `state` - an optional boolean specifying whether the element restricts text to a single line.
+
+Returns:
+ * if a value is provided, returns the element ; otherwise returns the current value.
+
+Notes:
+ * When this is set to true, text layout and rendering is restricted to a single line. The element will interpret [hs._asm.guitk.element._control:lineBreakMode](#lineBreakMode) modes of "charWrap" and "wordWrap" as if they were "clip" and an editable textfield will ignore key binding commands that insert paragraph and line separators.
 
 - - -
 
