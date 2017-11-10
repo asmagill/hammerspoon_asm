@@ -23,7 +23,6 @@ static int refTable = LUA_NOREF;
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 static NSDictionary *BEZEL_STYLES ;
-static NSDictionary *TEXT_LINEBREAK ;
 
 #pragma mark - Support Functions and Classes
 
@@ -31,15 +30,6 @@ static void defineInternalDictionaryies() {
     BEZEL_STYLES  = @{
         @"square"  : @(NSTextFieldSquareBezel),
         @"rounded" : @(NSTextFieldRoundedBezel),
-    } ;
-
-    TEXT_LINEBREAK = @{
-        @"wordWrap"       : @(NSLineBreakByWordWrapping),
-        @"charWrap"       : @(NSLineBreakByCharWrapping),
-        @"clip"           : @(NSLineBreakByClipping),
-        @"truncateHead"   : @(NSLineBreakByTruncatingHead),
-        @"truncateTail"   : @(NSLineBreakByTruncatingTail),
-        @"truncateMiddle" : @(NSLineBreakByTruncatingMiddle),
     } ;
 }
 
@@ -599,6 +589,15 @@ static int textfield_importsGraphics(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:preferredMaxWidth([width]) -> textfieldObject | number
+/// Method
+/// Get or set the preferred layout width for the textfield
+///
+/// Parameters:
+///  * `width` - an optional number, default 0.0, specifying the preferred width of the textfield
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
 static int textfield_preferredMaxLayoutWidth(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -613,6 +612,18 @@ static int textfield_preferredMaxLayoutWidth(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:bezelStyle([style]) -> textfieldObject | string
+/// Method
+/// Get or set whether the corners of a bezeled textfield are rounded or square
+///
+/// Parameters:
+///  * `style` - an optional string, default "square", specifying whether the corners of a bezeled textfield are rounded or square. Must be one of "square" or "round".
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * only has an effect if [hs._asm.guitk.element.textfield:bezeled](#bezeled) is true.
 static int textfield_bezelStyle(lua_State *L) {    LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
@@ -640,34 +651,18 @@ static int textfield_bezelStyle(lua_State *L) {    LuaSkin *skin = [LuaSkin shar
     return 1 ;
 }
 
-static int textfield_lineBreakMode(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared]  ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 2) {
-        NSString *key = [skin toNSObjectAtIndex:2] ;
-        NSNumber *lineBreakMode = TEXT_LINEBREAK[key] ;
-        if (lineBreakMode) {
-            textfield.lineBreakMode = [lineBreakMode unsignedIntegerValue] ;
-        } else {
-            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"must be one of %@", [[TEXT_LINEBREAK allKeys] componentsJoinedByString:@", "]] UTF8String]) ;
-        }
-        lua_pushvalue(L, 1) ;
-    } else {
-        NSNumber *lineBreakMode = @(textfield.lineBreakMode) ;
-        NSArray *temp = [TEXT_LINEBREAK allKeysForObject:lineBreakMode];
-        NSString *answer = [temp firstObject] ;
-        if (answer) {
-            [skin pushNSObject:answer] ;
-        } else {
-            [skin logWarn:[NSString stringWithFormat:@"%s:unrecognized control tint %@ -- notify developers", USERDATA_TAG, lineBreakMode]] ;
-            lua_pushnil(L) ;
-        }
-    }
-    return 1;
-}
-
+/// hs._asm.guitk.element.textfield:backgroundColor([color]) -> textfieldObject | color table
+/// Method
+/// Get or set the color for the background of the textfield element.
+///
+/// Parameters:
+/// * `color` - an optional table containing color keys as described in `hs.drawing.color`
+///
+/// Returns:
+///  * If an argument is provided, the textfieldObject; otherwise the current value.
+///
+/// Notes:
+///  * The background color will only be drawn when [hs._asm.guitk.element.textfield:drawsBackground](#drawsBackground) is true.
 static int textfield_backgroundColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -682,6 +677,18 @@ static int textfield_backgroundColor(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:textColor([color]) -> textfieldObject | color table
+/// Method
+/// Get or set the color for the the text in a textfield element.
+///
+/// Parameters:
+/// * `color` - an optional table containing color keys as described in `hs.drawing.color`
+///
+/// Returns:
+///  * If an argument is provided, the textfieldObject; otherwise the current value.
+///
+/// Notes:
+///  * Has no effect on portions of an `hs.styledtext` value that specifies the text color for the object
 static int textfield_textColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared]  ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
@@ -696,6 +703,16 @@ static int textfield_textColor(lua_State *L) {
     return 1 ;
 }
 
+
+/// hs._asm.guitk.element.textfield:placeholderString([placeholder]) -> textfieldObject | string
+/// Method
+/// Get or set the placeholder string for the textfield.
+///
+/// Parameters:
+/// * `placeholder` - an optional string or `hs.styledtext` object, or an explicit nil to remove, specifying the placeholder string for a textfield. The place holder string is displayed in a light color when the contents of the textfield is empty (i.e. is set to nil or the empty string "")
+///
+/// Returns:
+///  * If an argument is provided, the textfieldObject; otherwise the current value.
 static int textfield_placeholderString(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -781,7 +798,7 @@ static int textfield_bordered(lua_State *L) {
 ///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
 ///
 /// Notes:
-///  * If a tooltip is set with [hs._asm.guitk.element.textfield:tooltip](#tooltip) then this method has no effect.
+///  * If a tooltip is set with `hs._asm.guitk.element._control:tooltip` then this method has no effect.
 static int textfield_allowsExpansionToolTips(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -791,20 +808,6 @@ static int textfield_allowsExpansionToolTips(lua_State *L) {
         lua_pushboolean(L, textfield.allowsExpansionToolTips) ;
     } else {
         textfield.allowsExpansionToolTips = (BOOL)lua_toboolean(L, 2) ;
-        lua_pushvalue(L, 1) ;
-    }
-    return 1 ;
-}
-
-static int textfield_usesSingleLineMode(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSASMGUITKElementTextField *textfield = [skin toNSObjectAtIndex:1] ;
-
-    if (lua_gettop(L) == 1) {
-        lua_pushboolean(L, textfield.usesSingleLineMode) ;
-    } else {
-        textfield.usesSingleLineMode = (BOOL)lua_toboolean(L, 2) ;
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -1098,9 +1101,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"selectAll",               textfield_selectText},
     {"callback",                textfield_callback},
     {"editingCallback",         textfield_editingCallback},
-    {"singleLineMode",          textfield_usesSingleLineMode},
     {"expandIntoTooltip",       textfield_allowsExpansionToolTips},
-    {"lineBreakMode",           textfield_lineBreakMode},
 
     {"allowsCharacterPicker",   textfield_allowsCharacterPickerTouchBarItem},
     {"tighteningForTruncation", textfield_allowsDefaultTighteningForTruncation},
@@ -1159,9 +1160,7 @@ int luaopen_hs__asm_guitk_element_textfield(lua_State* L) {
         @"value",
         @"callback",
         @"editingCallback",
-        @"singleLineMode",
         @"expandIntoTooltip",
-        @"lineBreakMode",
     ]] ;
     if ([NSTextField instancesRespondToSelector:NSSelectorFromString(@"allowsCharacterPickerTouchBarItem")]) {
         lua_pushstring(L, "allowsCharacterPicker") ;
