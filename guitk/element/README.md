@@ -27,7 +27,7 @@ element = require("hs._asm.guitk").element
 * [hs._asm.guitk.element.image](README.image.md)
 * [hs._asm.guitk.element.progress](README.progress.md)
 * [hs._asm.guitk.element.slider](README.slider.md)
-* [hs._asm.guitk.element.textfield](README.textfield.md) -- *documentation currently incomplete*
+* [hs._asm.guitk.element.textfield](README.textfield.md)
 
 - - -
 

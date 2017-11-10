@@ -13,7 +13,6 @@ slider = require("hs._asm.guitk").element.slider
 
 ### Contents
 
-
 ##### Module Constructors
 * <a href="#new">slider.new([frame]) -> sliderObject</a>
 

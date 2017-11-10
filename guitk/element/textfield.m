@@ -865,6 +865,21 @@ static int textfield_selectable(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:value([value] | [type]) -> textfieldObject | string | styledtextObject
+/// Method
+/// Get or set the contents of the textfield.
+///
+/// Parameters:
+///  * to set the textfield content:
+///    * `value` - an optional string or `hs.styledtext` object specifying the contents to display in the textfield
+///  * to get the current content of the textfield:
+///    * `type`  - an optional boolean specifying if the value retrieved should be as an `hs.styledtext` object (true) or a string (false). If no argument is provided, the value returned will be whatever type was last assigned to the textfield with this method or its constructor.
+///
+/// Returns:
+///  * If a string or `hs.styledtext` object is assigned with this method, returns the textfieldObject; otherwise returns the value in the type requested or most recently assigned.
+///
+/// Notes:
+///  * If no argument is provided and [hs._asm.guitk.element.textfield:styleEditable](#styleEditable) is true, if the style has been modified by the user an `hs.styledtext` object will be returned even if the most recent assignment was with a string value.
 static int textfield_stringValue(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
@@ -896,6 +911,18 @@ static int textfield_stringValue(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:allowsCharacterPicker([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the textfield allows the use of the touchbar character picker when the textfield is editable and is being edited.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether the textfield allows the use of the touchbar character picker when the textfield is editable and is being edited.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * This method is only available in macOS 10.12.1 and newer
 static int textfield_allowsCharacterPickerTouchBarItem(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -924,6 +951,18 @@ static int textfield_allowsCharacterPickerTouchBarItem(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:tighteningForTruncation([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether the system may tighten inter-character spacing in the text field before truncating text.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default false, specifying whether the system may tighten inter-character spacing in the text field before truncating text. Has no effect when the textfield is assigned an `hs.styledtext` object.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * This method is only available in macOS 10.11 and newer
 static int textfield_allowsDefaultTighteningForTruncation(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -952,6 +991,20 @@ static int textfield_allowsDefaultTighteningForTruncation(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:maximumNumberOfLines([lines]) -> textfieldObject | integer
+/// Method
+/// Get or set the maximum number of lines that can be displayed in the textfield.
+///
+/// Parameters:
+///  * `lines` - an optional integer, default 0, specifying the maximum number of lines that can be displayed in the textfield. A value of 0 indicates that there is no limit.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * This method is only available in macOS 10.11 and newer
+///  * If the text reaches the number of lines allowed, or the height of the container cannot accommodate the number of lines needed, the text will be clipped or truncated.
+///    * Affects the default fitting size when the textfield is assigned to an `hs._asm.guitk.manager` object if the textfield element's height and width are not specified when assigned.
 static int textfield_maximumNumberOfLines(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -980,6 +1033,18 @@ static int textfield_maximumNumberOfLines(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.guitk.element.textfield:automaticTextCompletion([state]) -> textfieldObject | boolean
+/// Method
+/// Get or set whether automatic text completion is enabled when the textfield is being edited.
+///
+/// Parameters:
+///  * `state` - an optional boolean, default true, specifying whether automatic text completion is enabled when the textfield is being edited.
+///
+/// Returns:
+///  * if a value is provided, returns the textfieldObject ; otherwise returns the current value.
+///
+/// Notes:
+///  * This method is only available in macOS 10.12.2 and newer
 static int textfield_automaticTextCompletionEnabled(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
