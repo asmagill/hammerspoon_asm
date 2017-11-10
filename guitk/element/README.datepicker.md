@@ -75,7 +75,7 @@ Returns:
  * If an argument is provided, the datepickerObject; otherwise the current value.
 
 Notes:
- * The background color will only be drawn when [hs._asm.guitk.element.datepicker:drawsBackground](#drawsBackground).
+ * The background color will only be drawn when [hs._asm.guitk.element.datepicker:drawsBackground](#drawsBackground) is true.
  * If [hs._asm.guitk.element.datepicker:pickerStyle](#pickerStyle) is "textField" or "textFieldAndStepper", this will set the background of the text field. If it is "clockAndColor", only the calendar's background color will be set.
 
 - - -
