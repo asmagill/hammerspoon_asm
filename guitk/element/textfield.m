@@ -540,7 +540,7 @@ static int textfield_allowsEditingTextAttributes(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.textfield:styleEditable([state]) -> textfieldObject | boolean
+/// hs._asm.guitk.element.textfield:drawsBackground([state]) -> textfieldObject | boolean
 /// Method
 /// Get or set whether the background of the textfield is shown
 ///
