@@ -545,12 +545,15 @@ static int button_callback(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.button:title([title]) -> buttonObject | string | hs.styledtext object
+/// hs._asm.guitk.element.button:title([title] | [type]) -> buttonObject | string | hs.styledtext object
 /// Method
 /// Get or set the title displayed for the button
 ///
 /// Parameters:
-///  * `title` - an optional string or `hs.styledtext` object specifying the title to set for the button.
+///  * to set the title:
+///    * `title` - an optional string or `hs.styledtext` object specifying the title to set for the button.
+///  * to get the current title:
+///    * `type`  - an optional boolean, default false, specifying if the value retrieved should be as an `hs.styledtext` object (true) or as a string (false).
 ///
 /// Returns:
 ///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
@@ -565,13 +568,15 @@ static int button_title(lua_State *L) {
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        NSString *title = button.title ;
-        [skin pushNSObject:([title isEqualToString:@""] ? button.attributedTitle : title)] ;
+        [skin pushNSObject:button.title] ;
+    } else if (lua_type(L, 1) == LUA_TBOOLEAN) {
+        [skin pushNSObject:(lua_toboolean(L, 1) ? button.attributedTitle : button.title)] ;
     } else {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
-            button.title = @"" ;
             button.attributedTitle = [skin toNSObjectAtIndex:2] ;
+        } else if (lua_type(L, 2) == LUA_TNIL) {
+                button.title = @"" ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
             button.title = [skin toNSObjectAtIndex:2] ;
@@ -581,12 +586,15 @@ static int button_title(lua_State *L) {
     return 1 ;
 }
 
-/// hs._asm.guitk.element.button:alternateTitle([title]) -> buttonObject | string | hs.styledtext object
+/// hs._asm.guitk.element.button:alternateTitle([title] | [type]) -> buttonObject | string | hs.styledtext object
 /// Method
 /// Get or set the alternate title displayed by button types which support this
 ///
 /// Parameters:
-///  * `title` - an optional string or `hs.styledtext` object specifying the alternate title for the button.
+///  * to set the alternate title:
+///    * `title` - an optional string or `hs.styledtext` object specifying the alternate title to set for the button.
+///  * to get the current alternate title:
+///    * `type`  - an optional boolean, default false, specifying if the value retrieved should be as an `hs.styledtext` object (true) or as a string (false).
 ///
 /// Returns:
 ///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
@@ -606,13 +614,15 @@ static int button_alternateTitle(lua_State *L) {
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        NSString *alternateTitle = button.alternateTitle ;
-        [skin pushNSObject:(([alternateTitle isEqualToString:@""]) ? [button.attributedAlternateTitle string] : alternateTitle)] ;
+        [skin pushNSObject:button.alternateTitle] ;
+    } else if (lua_type(L, 1) == LUA_TBOOLEAN) {
+        [skin pushNSObject:(lua_toboolean(L, 1) ? button.attributedAlternateTitle : button.alternateTitle)] ;
     } else {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
-            button.alternateTitle = @"" ;
             button.attributedAlternateTitle = [skin toNSObjectAtIndex:2] ;
+        } else if (lua_type(L, 2) == LUA_TNIL) {
+                button.alternateTitle = @"" ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
             button.alternateTitle = [skin toNSObjectAtIndex:2] ;
@@ -877,13 +887,13 @@ static int button_imageScaling(lua_State *L) {
 ///  * For buttons which change their appearance based upon their state, this is the image which will be displayed when the button is in its "off" state.
 static int button_image(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:button.image] ;
     } else {
-        if (lua_isnil(L, 2) && lua_gettop(L) == 2) {
+        if (lua_type(L, 2) == LUA_TNIL) {
             button.image = nil ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.image", LS_TBREAK] ;
@@ -905,13 +915,13 @@ static int button_image(lua_State *L) {
 ///  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
 static int button_sound(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:button.sound] ;
     } else {
-        if (lua_isnil(L, 2) && lua_gettop(L) == 2) {
+        if (lua_type(L, 2) == LUA_TNIL) {
             button.sound = nil ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.sound", LS_TBREAK] ;
@@ -942,13 +952,13 @@ static int button_sound(lua_State *L) {
 ///  * Other button types have not been observed to use this attribute; if you believe you have discovered something we have missed here, please submit an issue to the Hamemrspoon github web site.
 static int button_alternateImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKElementButton *button = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:button.alternateImage] ;
     } else {
-        if (lua_isnil(L, 2) && lua_gettop(L) == 2) {
+        if (lua_type(L, 2) == LUA_TNIL) {
             button.alternateImage = nil ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.image", LS_TBREAK] ;

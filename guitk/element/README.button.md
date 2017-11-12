@@ -277,12 +277,15 @@ Notes:
 
 <a name="alternateTitle"></a>
 ~~~lua
-button:alternateTitle([title]) -> buttonObject | string | hs.styledtext object
+button:alternateTitle([title] | [type]) -> buttonObject | string | hs.styledtext object
 ~~~
 Get or set the alternate title displayed by button types which support this
 
 Parameters:
- * `title` - an optional string or `hs.styledtext` object specifying the alternate title for the button.
+ * to set the alternate title:
+   * `title` - an optional string or `hs.styledtext` object specifying the alternate title to set for the button.
+ * to get the current alternate title:
+   * `type`  - an optional boolean, default false, specifying if the value retrieved should be as an `hs.styledtext` object (true) or as a string (false).
 
 Returns:
  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
@@ -527,12 +530,15 @@ Notes:
 
 <a name="title"></a>
 ~~~lua
-button:title([title]) -> buttonObject | string | hs.styledtext object
+button:title([title] | [type]) -> buttonObject | string | hs.styledtext object
 ~~~
 Get or set the title displayed for the button
 
 Parameters:
- * `title` - an optional string or `hs.styledtext` object specifying the title to set for the button.
+ * to set the title:
+   * `title` - an optional string or `hs.styledtext` object specifying the title to set for the button.
+ * to get the current title:
+   * `type`  - an optional boolean, default false, specifying if the value retrieved should be as an `hs.styledtext` object (true) or as a string (false).
 
 Returns:
  * if a value is provided, returns the buttonObject ; otherwise returns the current value.
