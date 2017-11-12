@@ -720,12 +720,14 @@ static int textfield_placeholderString(lua_State *L) {
 
     if (lua_gettop(L) == 1) {
         NSString *placeholderString = ((NSTextFieldCell *)textfield.cell).placeholderString ;
-        [skin pushNSObject:([placeholderString isEqualToString:@""] ? ((NSTextFieldCell *)textfield.cell).placeholderAttributedString : placeholderString)] ;
+        [skin pushNSObject:(placeholderString ? placeholderString : ((NSTextFieldCell *)textfield.cell).placeholderAttributedString)] ;
     } else {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
-            ((NSTextFieldCell *)textfield.cell).placeholderString = @"" ;
             ((NSTextFieldCell *)textfield.cell).placeholderAttributedString = [skin toNSObjectAtIndex:2] ;
+        } else if (lua_type(L, 2) == LUA_TNIL) {
+            ((NSTextFieldCell *)textfield.cell).placeholderAttributedString = nil ;
+            ((NSTextFieldCell *)textfield.cell).placeholderString = nil ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
             ((NSTextFieldCell *)textfield.cell).placeholderString = [skin toNSObjectAtIndex:2] ;
