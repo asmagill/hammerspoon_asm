@@ -188,11 +188,14 @@ static int objc_protocol_getMethodDescriptionList(lua_State* L) {
                                                                       &count) ;
     lua_newtable(L) ;
     for(UInt i = 0 ; i < count ; i++) {
-        lua_newtable(L) ;
-          lua_pushstring(L, results[i].types) ; lua_setfield(L, -2, "types") ;
-          push_selector(L, results[i].name)   ; lua_setfield(L, -2, "selector") ;
-//         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        lua_setfield(L, -2, sel_getName(results[i].name)) ;
+        SEL selectorName = results[i].name ;
+        if (selectorName) {
+            lua_newtable(L) ;
+              lua_pushstring(L, results[i].types) ; lua_setfield(L, -2, "types") ;
+              push_selector(L, selectorName)      ; lua_setfield(L, -2, "selector") ;
+    //         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            lua_setfield(L, -2, sel_getName(selectorName)) ;
+        }
     }
     if (results) free(results) ;
     return 1 ;
