@@ -252,7 +252,7 @@ static int menubar_title(lua_State *L) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
             button.attributedTitle = [skin toNSObjectAtIndex:2] ;
         } else if (lua_type(L, 2) == LUA_TNIL) {
-                button.title = @"" ;
+            button.title = @"" ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
             button.title = [skin toNSObjectAtIndex:2] ;
