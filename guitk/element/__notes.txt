@@ -58,6 +58,7 @@
     @interface IKImageBrowserView         : NSView
     @interface IKImageView                : NSView
     @interface IKScannerDeviceView        : NSView
+    @interface PDFView                    : PDFKitPlatformView
     @interface QCCompositionParameterView : NSView
     @interface QCCompositionPickerView    : NSView
     @interface QCView                     : NSView
