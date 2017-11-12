@@ -276,7 +276,7 @@ static inline NSRect RectWithFlippedYCoordinate(NSRect theRect) {
         lua_pushcfunction(L, userdata_gc) ;
         [skin pushNSObject:self] ;
         if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-            [skin logError:[NSString stringWithFormat:@"%s:error invoking _gc for deleteOnClose:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+            [skin logError:[NSString stringWithFormat:@"%s:error invoking __gc for deleteOnClose:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
             lua_pop(L, 1) ;
         }
     }
@@ -951,7 +951,7 @@ static int guitk_delete(lua_State *L) {
         lua_pushcfunction(L, userdata_gc) ;
         lua_pushvalue(L, 1) ;
         if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-            [skin logError:[NSString stringWithFormat:@"%s:error invoking _gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
+            [skin logError:[NSString stringWithFormat:@"%s:error invoking __gc for delete method:%s", USERDATA_TAG, lua_tostring(L, -1)]] ;
             lua_pop(L, 1) ;
             [window orderOut:nil] ; // the least we can do is hide the guitk if an error occurs with __gc
         }
