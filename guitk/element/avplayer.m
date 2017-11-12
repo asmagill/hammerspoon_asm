@@ -183,7 +183,7 @@ static void defineInternalDictionaryies() {
 }
 
 - (void) menuSelectionCallback:(NSMenuItem *)sender {
-    NSString *title = [sender.title isEqualToString:@""] ? sender.attributedTitle.string : sender.title ;
+    NSString *title = sender.title ;
     NSEventModifierFlags theFlags = [NSEvent modifierFlags] ;
     NSDictionary *flags = @{
         @"cmd"   : @((theFlags & NSEventModifierFlagCommand) != 0),
