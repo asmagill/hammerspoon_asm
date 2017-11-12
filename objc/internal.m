@@ -179,10 +179,11 @@ static int invocator(lua_State *L) {
 
 #if defined(DEBUG_msgSend)
     {
+        Class forLog = callSuper ? class_getSuperclass(cls) : cls ; // shuts up compiler
         [skin logDebug:[NSString stringWithFormat:@"%s = [%s%@%s %@] with %d arguments",
                                                     returnType,
                                                     (rcv ? "<" : ""),
-                                                    NSStringFromClass(callSuper ? class_getSuperclass(cls) : cls),
+                                                    NSStringFromClass(forLog),
                                                     (rcv ? ">" : ""),
                                                     selName,
                                                     argCount]] ;

@@ -289,12 +289,12 @@ objectMT.propertyList = function(self, includeNSObject)
             topProtocol = table.remove(protocolList, 1)
         end
 
-    -- search metaClass
-        for k,v in pairs(myClass:metaClass():propertyList()) do
-            if not properties[k] then
-                properties[k] = v
-            end
-        end
+--     -- search metaClass
+--         for k,v in pairs(myClass:metaClass():propertyList()) do
+--             if not properties[k] then
+--                 properties[k] = v
+--             end
+--         end
 
     -- loop and try superclass
         myClass = myClass:superclass()
