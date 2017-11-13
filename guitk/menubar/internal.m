@@ -223,11 +223,11 @@ static int menubar_menu(lua_State *L) {
         [skin pushNSObject:item.menu] ;
     } else {
         if (lua_type(L, 2) == LUA_TNIL) {
-            if (item.menu) [skin luaRelease:refTable forNSObject:item.menu] ;
+            if (item.menu && [skin canPushNSObject:item.menu]) [skin luaRelease:refTable forNSObject:item.menu] ;
             item.menu = nil ;
         } else {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs._asm.guitk.menubar.menu", LS_TBREAK] ;
-            if (item.menu) [skin luaRelease:refTable forNSObject:item.menu] ;
+            if (item.menu && [skin canPushNSObject:item.menu]) [skin luaRelease:refTable forNSObject:item.menu] ;
             item.menu = [skin toNSObjectAtIndex:2] ;
             [skin luaRetain:refTable forNSObject:item.menu] ;
         }
@@ -611,7 +611,7 @@ static int userdata_gc(lua_State* L) {
         NSStatusBar *myBar = obj.item.statusBar ;
         if (myBar) [myBar removeStatusItem:obj.item] ;
         if (obj.item.menu) {
-            [skin luaRelease:refTable forNSObject:obj.item.menu] ;
+            if ([skin canPushNSObject:obj.item.menu]) [skin luaRelease:refTable forNSObject:obj.item.menu] ;
             obj.item.menu = nil ;
         }
         obj.item      = nil ;
