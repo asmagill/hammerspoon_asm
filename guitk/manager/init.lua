@@ -411,7 +411,7 @@ managerMT.__newindex = function(self, key, value)
     else
         if math.type(key) == "integer" then
             if key < 1 or key > (#self + 1) then
-                error("replacement index out of bounds", 2)
+                error("index out of bounds", 2)
             end
             if type(value) == "userdata" then value = { _element = value } end
             if type(value) == "table" and pcall(self.elementFittingSize, self, value._element) then

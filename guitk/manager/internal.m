@@ -705,7 +705,7 @@ static int manager_insertElement(lua_State *L) {
     }
 
     NSInteger idx = (lua_type(L, -1) == LUA_TNUMBER) ? (lua_tointeger(L, -1) - 1) : (NSInteger)manager.subviews.count ;
-    if ((idx < 0) || (idx > (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "insert index out of bounds") ;
+    if ((idx < 0) || (idx > (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "index out of bounds") ;
 
     NSMutableDictionary *details = [[NSMutableDictionary alloc] init] ;
     if (manager.subviews.count > 0) {
@@ -753,7 +753,7 @@ static int manager_removeElement(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSASMGUITKManager *manager = [skin toNSObjectAtIndex:1] ;
     NSInteger idx = ((lua_type(L, 2) == LUA_TNUMBER) ? lua_tointeger(L, 2) : (NSInteger)manager.subviews.count) - 1 ;
-    if ((idx < 0) || (idx >= (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "remove index out of bounds") ;
+    if ((idx < 0) || (idx >= (NSInteger)manager.subviews.count)) return luaL_argerror(L, lua_gettop(L), "index out of bounds") ;
 
     NSMutableArray *subviewHolder = [manager.subviews mutableCopy] ;
     [subviewHolder removeObjectAtIndex:(NSUInteger)idx] ;
