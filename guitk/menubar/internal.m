@@ -608,12 +608,11 @@ static int userdata_gc(lua_State* L) {
         if (@available(macOS 10.12, *)) {
             [obj.item removeObserver:obj forKeyPath:@"visible" context:myKVOContext] ;
         }
-        NSStatusBar *myBar = obj.item.statusBar ;
-        if (myBar) [myBar removeStatusItem:obj.item] ;
         if (obj.item.menu) {
             if ([skin canPushNSObject:obj.item.menu]) [skin luaRelease:refTable forNSObject:obj.item.menu] ;
             obj.item.menu = nil ;
         }
+        [[NSStatusBar systemStatusBar] removeStatusItem:obj.item] ;
         obj.item      = nil ;
         obj           = nil ;
     }

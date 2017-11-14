@@ -5,16 +5,6 @@
 //          @property BOOL autoenablesItems; -- what needs to be added here and in menuItem?
 //              would need validateItem in menuItem and way to auto yes/no/callback
 //              more?
-//          Worth tracking?
-//              NSNotificationName NSMenuDidAddItemNotification;
-//              NSNotificationName NSMenuDidRemoveItemNotification;
-//          Already getting open and close, which should mostly (always?) mirror these...
-//              NSNotificationName NSMenuDidBeginTrackingNotification;
-//              NSNotificationName NSMenuDidEndTrackingNotification;
-//          Probably too expensive...
-//              NSNotificationName NSMenuWillSendActionNotification;
-//              NSNotificationName NSMenuDidSendActionNotification;
-//              NSNotificationName NSMenuDidChangeItemNotification;
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -26,9 +16,17 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
+static inline NSPoint PointWithFlippedYCoordinate(NSPoint thePoint) {
+    return NSMakePoint(thePoint.x, [[NSScreen screens][0] frame].size.height - thePoint.y) ;
+}
+
 @interface HSMenu : NSMenu <NSMenuDelegate>
-@property int callbackRef ;
-@property int selfRefCount ;
+@property int  callbackRef ;
+@property int  selfRefCount ;
+@property BOOL trackOpen ;
+@property BOOL trackClose ;
+@property BOOL trackUpdate ;
+@property BOOL trackHighlight ;
 @end
 
 @implementation HSMenu
@@ -36,8 +34,12 @@ static int refTable = LUA_NOREF;
 - (instancetype)initWithTitle:(NSString *)title {
     self = [super initWithTitle:title] ;
     if (self) {
-        _callbackRef  = LUA_NOREF ;
-        _selfRefCount = 0 ;
+        _callbackRef    = LUA_NOREF ;
+        _selfRefCount   = 0 ;
+        _trackOpen      = NO ;
+        _trackClose     = NO ;
+        _trackUpdate    = YES ;
+        _trackHighlight = NO ;
 
         self.autoenablesItems = NO ;
         self.delegate         = self ;
@@ -64,15 +66,26 @@ static int refTable = LUA_NOREF;
     }
 }
 
-- (void)menuWillOpen:(__unused NSMenu *)menu { [self performCallbackMessage:@"open" with:nil] ; }
-- (void)menuDidClose:(__unused NSMenu *)menu { [self performCallbackMessage:@"close" with:nil] ; }
-- (void)menu:(__unused NSMenu *)menu willHighlightItem:(NSMenuItem *)item { [self performCallbackMessage:@"highlight" with:item] ; }
+- (void)menuWillOpen:(__unused NSMenu *)menu {
+    if (_trackOpen) [self performCallbackMessage:@"open" with:nil] ;
+}
 
-// - (BOOL)menuHasKeyEquivalent:(NSMenu *)menu forEvent:(NSEvent *)event target:(id  _Nullable *)target action:(SEL  _Nullable *)action;
+- (void)menuDidClose:(__unused NSMenu *)menu {
+    if (_trackClose) [self performCallbackMessage:@"close" with:nil] ;
+}
+
+- (void) menuNeedsUpdate:(__unused NSMenu *)menu {
+    if (_trackUpdate) [self performCallbackMessage:@"update" with:nil] ;
+}
+
+- (void)menu:(__unused NSMenu *)menu willHighlightItem:(NSMenuItem *)item {
+    if (_trackHighlight) [self performCallbackMessage:@"highlight" with:item] ;
+}
+
+// - (BOOL)menuHasKeyEquivalent:(NSMenu *)menu forEvent:(NSEvent *)event target:(id *)target action:(SEL *)action;
 // - (BOOL)menu:(NSMenu *)menu updateItem:(NSMenuItem *)item atIndex:(NSInteger)index shouldCancel:(BOOL)shouldCancel;
 // - (NSRect)confinementRectForMenu:(NSMenu *)menu onScreen:(NSScreen *)screen;
 // - (NSInteger)numberOfItemsInMenu:(NSMenu *)menu;
-// - (void)menuNeedsUpdate:(NSMenu *)menu;
 
 @end
 
@@ -93,6 +106,35 @@ static int menu_new(lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+// make sure to document that for a dynamically generated menu, the menu structure should be rebuilt
+// during the update callback, not the open one (which is why update is the first flag)
+static int menu_callbackFlags(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+    HSMenu *menu = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, menu.trackUpdate) ;
+        lua_pushboolean(L, menu.trackOpen) ;
+        lua_pushboolean(L, menu.trackClose) ;
+        lua_pushboolean(L, menu.trackHighlight) ;
+        return 4 ;
+    } else {
+        // this works because an absent item will be LUA_TNONE
+        if (lua_type(L, 2) == LUA_TBOOLEAN) menu.trackUpdate    = (BOOL)lua_toboolean(L, 2) ;
+        if (lua_type(L, 3) == LUA_TBOOLEAN) menu.trackOpen      = (BOOL)lua_toboolean(L, 3) ;
+        if (lua_type(L, 4) == LUA_TBOOLEAN) menu.trackClose     = (BOOL)lua_toboolean(L, 4) ;
+        if (lua_type(L, 5) == LUA_TBOOLEAN) menu.trackHighlight = (BOOL)lua_toboolean(L, 5) ;
+        lua_pushvalue(L, 1) ;
+        return 1 ;
+    }
+}
 
 static int menu_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -154,12 +196,27 @@ static int menu_size(__unused lua_State *L) {
 
 static int menu_popupMenu(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TANY | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TBREAK | LS_TVARARG] ;
     HSMenu     *menu    = [skin toNSObjectAtIndex:1] ;
-    NSPoint    location = [skin tableToPointAtIndex:2] ;
+    NSPoint    location = PointWithFlippedYCoordinate([skin tableToPointAtIndex:2]) ;
     NSMenuItem *item    = nil ;
 
-    if (lua_gettop(L) == 3) {
+    BOOL darkMode = false ;
+    int itemIdx = 3 ;
+
+    if (lua_gettop(L) > 2) {
+        if ((lua_type(L, 3) == LUA_TBOOLEAN) || (lua_type(L, 3) == LUA_TNIL)) {
+            if (lua_type(L, 3) == LUA_TBOOLEAN) {
+                darkMode = (BOOL)lua_toboolean(L, 3) ;
+            } else {
+                NSString *ifStyle = [[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] ;
+                darkMode = (ifStyle && [ifStyle isEqualToString:@"Dark"]) ;
+            }
+            lua_remove(L, 3) ;
+            itemIdx++ ;
+        }
+    }
+    if (lua_gettop(L) > 2) {
         switch(lua_type(L, 3)) {
             case LUA_TUSERDATA:
                 [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TUSERDATA, "hs._asm.guitk.menubar.menu.item", LS_TBREAK] ;
@@ -169,19 +226,34 @@ static int menu_popupMenu(lua_State *L) {
                 [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
                 NSInteger idx = lua_tointeger(L, 3) ;
                 if ((idx < 1) || (idx > menu.numberOfItems)) {
-                    return luaL_argerror(L, 3, "index out of bounds") ;
+                    return luaL_argerror(L, itemIdx, "index out of bounds") ;
                 }
                 item = [menu itemAtIndex:(idx - 1)] ;
                 break ;
             default:
-                return luaL_argerror(L, 3, "expected integer index or hs._asm.guitk.menubar.menu.item userdata") ;
+                return luaL_argerror(L, itemIdx, "expected integer index or hs._asm.guitk.menubar.menu.item userdata") ;
         }
     }
-    if (item && ![menu isEqualTo:item.menu]) return luaL_argerror(L, 3, "specified item is not in this menu") ;
+    if (item && ![menu isEqualTo:item.menu]) return luaL_argerror(L, itemIdx, "specified item is not in this menu") ;
 
-// TODO: test put in background thread so no blocking?
-    // - (BOOL)popUpMenuPositioningItem:(NSMenuItem *)item atLocation:(NSPoint)location inView:(NSView *)view;
-    [menu popUpMenuPositioningItem:item atLocation:location inView:nil] ;
+// TODO: test put in background thread so no blocking? Actually only blocks things in default
+//       runloop mode -- console, timer, few other things... want to to move timers at least
+//       out of default and into common modes and see what breaks; should check other stuff as well.
+
+//     [menu popUpMenuPositioningItem:item atLocation:location inView:nil] ;
+
+    // support darkMode for popup menus
+    NSRect contentRect = NSMakeRect(location.x, location.y, 0, 0) ;
+    NSWindow *tmpWindow = [[NSWindow alloc] initWithContentRect:contentRect
+                                                      styleMask:0
+                                                        backing:NSBackingStoreBuffered
+                                                          defer:NO] ;
+    tmpWindow.releasedWhenClosed = NO ;
+    tmpWindow.appearance = [NSAppearance appearanceNamed:(darkMode ? NSAppearanceNameVibrantDark : NSAppearanceNameVibrantLight)] ;
+    [tmpWindow orderFront:nil] ;
+    [menu popUpMenuPositioningItem:item atLocation:NSMakePoint(0, 0) inView:tmpWindow.contentView] ;
+    [tmpWindow close] ;
+
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -312,6 +384,19 @@ static int menu_removeItemAtIndex(lua_State *L) {
     NSMenuItem *item = [menu itemAtIndex:idx] ;
     [skin luaRelease:refTable forNSObject:item] ;
     [menu removeItem:item] ;
+    lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int menu_removeAll(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSMenu     *menu = [skin toNSObjectAtIndex:1] ;
+
+    if (menu.itemArray) {
+        for (NSMenuItem *item in menu.itemArray) [skin luaRelease:refTable forNSObject:item] ;
+        [menu removeAllItems] ;
+    }
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
@@ -451,7 +536,7 @@ static int userdata_gc(lua_State* L) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
             LuaSkin *skin = [LuaSkin shared] ;
-            obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
+            obj.callbackRef    = [skin luaUnref:refTable ref:obj.callbackRef] ;
             obj.delegate = nil ;
             if (obj.itemArray) {
                 for (NSMenuItem *item in obj.itemArray) [skin luaRelease:refTable forNSObject:item] ;
@@ -486,11 +571,13 @@ static const luaL_Reg userdata_metaLib[] = {
     {"insert",              menu_insertItemAtIndex},
     {"itemIndex",           menu_itemAtIndex},
     {"remove",              menu_removeItemAtIndex},
+    {"removeAll",           menu_removeAll},
     {"indexOfItem",         menu_indexOfItem},
     {"indexWithAttachment", menu_indexOfItemWithRepresentedObject},
     {"indexWithSubmenu",    menu_indexOfItemWithSubmenu},
     {"indexWithTag",        menu_indexOfItemWithTag},
     {"indexWithTitle",      menu_indexOfItemWithTitle},
+    {"callbackFlags",       menu_callbackFlags},
 
     {"__tostring",          userdata_tostring},
     {"__eq",                userdata_eq},

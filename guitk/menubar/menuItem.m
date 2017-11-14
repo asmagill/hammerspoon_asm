@@ -34,6 +34,21 @@ static void defineInternalDictionaryies() {
 
 @implementation NSMenuItem (HammerspoonAdditions)
 
++ (instancetype)newWithTitle:(NSString *)title {
+    NSMenuItem *item = nil ;
+    if ([title isEqualToString:@"-"]) {
+        item = [NSMenuItem separatorItem] ;
+    } else {
+        item = [[NSMenuItem alloc] initWithTitle:title action:@selector(itemSelected:) keyEquivalent:@""] ;
+    }
+    if (item) {
+        item.callbackRef  = LUA_NOREF ;
+        item.selfRefCount = 0 ;
+        item.target       = item ;
+    }
+    return item ;
+}
+
 - (void)setCallbackRef:(int)value {
     NSNumber *valueWrapper = [NSNumber numberWithInt:value];
     objc_setAssociatedObject(self, CALLBACKREF_KEY, valueWrapper, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -96,21 +111,29 @@ static int menuitem_new(lua_State *L) {
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *title = [skin toNSObjectAtIndex:1] ;
 
-    NSMenuItem *item ;
-    if ([title isEqualToString:@"-"]) {
-        item = [NSMenuItem separatorItem] ;
-    } else {
-        item = [[NSMenuItem alloc] initWithTitle:title action:@selector(itemSelected:) keyEquivalent:@""] ;
-    }
-
+    NSMenuItem *item = [NSMenuItem newWithTitle:title] ;
     if (item) {
         [skin pushNSObject:item] ;
-        item.callbackRef  = LUA_NOREF ;
-        item.selfRefCount = 0 ;
-        item.target       = item ;
     } else {
         lua_pushnil(L) ;
     }
+//     NSMenuItem *item ;
+//     if ([title isEqualToString:@"-"]) {
+//         item = [NSMenuItem separatorItem] ;
+//     } else {
+//         item = [[NSMenuItem alloc] initWithTitle:title action:@selector(itemSelected:) keyEquivalent:@""] ;
+//     }
+//
+//     if (item) {
+// // do this here so that both separator items *and* regular menu items get a selfRefCount
+// // maybe do a class level alloc/initializer?
+//         item.callbackRef  = LUA_NOREF ;
+//         item.selfRefCount = 0 ;
+//         item.target       = item ;
+//         [skin pushNSObject:item] ;
+//     } else {
+//         lua_pushnil(L) ;
+//     }
     return 1 ;
 }
 
