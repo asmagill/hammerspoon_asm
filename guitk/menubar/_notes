@@ -11,9 +11,9 @@
 
     crap-ton-o-testing
 
-    wrapper with metatables for table like use
++   wrapper with metatables for table like use
 
-    wrapper to replace `hs.menubar`
+-   wrapper to replace `hs.menubar` -- in progress
 
     some special keys don't seem to be caught; need to see if we can fix that or make list of them and remove from table
 

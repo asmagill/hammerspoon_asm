@@ -569,7 +569,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"items",               menu_itemArray},
     {"itemCount",           menu_numberOfItems},
     {"insert",              menu_insertItemAtIndex},
-    {"itemIndex",           menu_itemAtIndex},
+    {"itemAtIndex",         menu_itemAtIndex},
     {"remove",              menu_removeItemAtIndex},
     {"removeAll",           menu_removeAll},
     {"indexOfItem",         menu_indexOfItem},

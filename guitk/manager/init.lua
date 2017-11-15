@@ -423,13 +423,12 @@ managerMT.__newindex = function(self, key, value)
                         if newElement[k] then
                             newElement[k](newElement, v)
                         else
-                            log.wf("%s:insert metamethod, unrecognized key %s", USERDATA_TAG, k)
+                            log.wf("insert metamethod, unrecognized key %s for %s", k, newElement.__type)
                         end
                     end
                 end
 
-                local oldElement = self:element(key)
-                if oldElement then self:remove(key) end
+                if self:element(key) then self:remove(key) end
                 self:insert(newElement, details, key)
             else
                 error("replacement value does not specify an element", 2)

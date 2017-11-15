@@ -937,6 +937,9 @@ int luaopen_hs__asm_guitk_menubar_menuItem(lua_State* L) {
     [skin registerLuaObjectHelper:toNSMenuItemFromLua forClass:"NSMenuItem"
                                              withUserdataMapping:USERDATA_TAG];
 
+    pushSpecialCharacters(L) ; lua_setfield(L, -2, "_characterMap") ;
+
+    luaL_getmetatable(L, USERDATA_TAG) ;
     [skin pushNSObject:@[
         @"state",
         @"indentationLevel",
@@ -961,8 +964,7 @@ int luaopen_hs__asm_guitk_menubar_menuItem(lua_State* L) {
         lua_pushstring(L, "keyWhenHidden") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     }
     lua_setfield(L, -2, "_propertyList") ;
-
-    pushSpecialCharacters(L) ; lua_setfield(L, -2, "_characterMap") ;
+    lua_pop(L, 1) ;
 
     return 1;
 }

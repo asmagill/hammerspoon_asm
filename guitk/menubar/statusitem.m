@@ -6,7 +6,7 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-static const char * const USERDATA_TAG = "hs._asm.guitk.menubar" ;
+static const char * const USERDATA_TAG = "hs._asm.guitk.menubar.statusitem" ;
 static int refTable = LUA_NOREF;
 static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-value-observing/
 
@@ -664,7 +664,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_guitk_menubar_internal(lua_State* __unused L) {
+int luaopen_hs__asm_guitk_menubar_statusitem(lua_State* __unused L) {
     defineInternalDictionaryies() ;
 
     LuaSkin *skin = [LuaSkin shared] ;
