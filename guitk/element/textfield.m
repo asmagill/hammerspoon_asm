@@ -411,6 +411,7 @@ static int textfield_newWrappingLabel(lua_State *L) {
 ///    * When the focus leaves the text field element, the callback will receive the following arguments (note that it is possible to receive this callback without a corresponding "didBeginEditing" callback if the user makes no changes to the textfield):
 ///      * the textfield userdata object
 ///      * the message string "didEndEditing" indicating that the textfield element is no longer active
+///      * the current string value of the textfield -- see [hs._asm.guitk.element.textfield:value](#value)
 ///      * a string specifying why editing terminated:
 ///        * "other"    - another element has taken focus or the user has clicked outside of the text field
 ///        * "return"   - the user has hit the enter or return key. Note that this does not take focus away from the textfield by default so if the user types again, another "didBeginEditing" callback for the textfield will be generated.
