@@ -376,7 +376,7 @@ static int control_continuous(lua_State *L) {
 ///  * When this is set to true, text layout and rendering is restricted to a single line. The element will interpret [hs._asm.guitk.element._control:lineBreakMode](#lineBreakMode) modes of "charWrap" and "wordWrap" as if they were "clip" and an editable textfield will ignore key binding commands that insert paragraph and line separators.
 static int control_usesSingleLineMode(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     NSControl *control = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
     if (!control || ![control isKindOfClass:[NSControl class]]) {
         return luaL_argerror(L, 1, "expected userdata representing a gui element (NSView subclass)") ;
