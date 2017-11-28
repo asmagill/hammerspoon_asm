@@ -108,11 +108,23 @@ static void defineInternalDictionaryies() {
 
 static int menuitem_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-    NSString *title = [skin toNSObjectAtIndex:1] ;
+    [skin checkArgs:LS_TANY, LS_TBREAK] ;
+
+    NSString           *title ;
+    NSAttributedString *attributedTitle ;
+
+    if (lua_type(L, 1) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
+        attributedTitle = [skin toNSObjectAtIndex:1] ;
+        title = attributedTitle.string ;
+    } else {
+        [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+        title = [skin toNSObjectAtIndex:1] ;
+    }
 
     NSMenuItem *item = [NSMenuItem newWithTitle:title] ;
     if (item) {
+        if (attributedTitle) item.attributedTitle = attributedTitle ;
         [skin pushNSObject:item] ;
     } else {
         lua_pushnil(L) ;
@@ -361,8 +373,8 @@ static int menuitem_title(lua_State *L) {
         if (lua_type(L, 2) == LUA_TUSERDATA) {
             [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, "hs.styledtext", LS_TBREAK] ;
             NSAttributedString *title = [skin toNSObjectAtIndex:2] ;
-            item.attributedTitle = title ;
             item.title = title.string ;
+            item.attributedTitle = title ;
         } else if (lua_type(L, 2) == LUA_TNIL) {
             item.attributedTitle = nil ;
             item.title = @"" ;

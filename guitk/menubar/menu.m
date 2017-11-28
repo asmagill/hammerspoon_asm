@@ -2,9 +2,6 @@
 //              can we provide them or use them easily? Early research was less then promising re
 //              providing them (too much required Info.plist set before application run) but as to
 //              using them, never really checked.
-//          @property BOOL autoenablesItems; -- what needs to be added here and in menuItem?
-//              would need validateItem in menuItem and way to auto yes/no/callback
-//              more?
 
 @import Cocoa ;
 @import LuaSkin ;

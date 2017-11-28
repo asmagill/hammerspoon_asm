@@ -1,7 +1,7 @@
 
-// TODO: document
-//       hs.menubar wrapper
-//       drag and drop for button itself? may have to add "springLoaded" to allow drag and drop to menu items
+// TODO:   document
+//       * hs.menubar wrapper
+//         drag and drop for button itself? may have to add "springLoaded" to allow drag and drop to menu items
 
 @import Cocoa ;
 @import LuaSkin ;
