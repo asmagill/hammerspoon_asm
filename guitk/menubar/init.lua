@@ -13,6 +13,9 @@
 --     using them, never really checked.
 --   Can popup menu be in background thread to prevent blocking?
 --
+-- For menuitem:
+--   some special keys don't seem to be caught; need to see if we can fix that or make list of them and remove from table
+--
 -- For statusitem:
 --  * hs.menubar wrapper
 --  * drag and drop for button itself?
