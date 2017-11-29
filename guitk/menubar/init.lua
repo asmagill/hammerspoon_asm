@@ -1,3 +1,26 @@
+
+-- TODO for MENUBAR
+--
+-- For all:
+--   Document
+--   Test
+--   Update timer to use more inclusive run loop modes
+--
+-- For menu:
+--   Checkout services...
+--     can we provide them or use them easily? Early research was less then promising re
+--     providing them (too much required Info.plist set before application run) but as to
+--     using them, never really checked.
+--   Can popup menu be in background thread to prevent blocking?
+--
+-- For statusitem:
+--  * hs.menubar wrapper
+--  * drag and drop for button itself?
+--      for items? may have to add "springLoaded" to allow drag and drop to menu items
+--
+-- For legacy:
+--    determine if stateImageSize is really needed or should remain a nop
+
 --- === hs._asm.guitk.menubar ===
 ---
 --- Stuff about the module

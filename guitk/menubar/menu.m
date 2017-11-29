@@ -1,8 +1,3 @@
-// TODO:    Checkout services...
-//              can we provide them or use them easily? Early research was less then promising re
-//              providing them (too much required Info.plist set before application run) but as to
-//              using them, never really checked.
-
 @import Cocoa ;
 @import LuaSkin ;
 
