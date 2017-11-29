@@ -1,8 +1,3 @@
-
-// TODO:   document
-//       * hs.menubar wrapper
-//         drag and drop for button itself? may have to add "springLoaded" to allow drag and drop to menu items
-
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -61,10 +56,11 @@ static NSRect statusItemFrame(NSStatusItem *item) {
     return RectWithFlippedYCoordinate(screenRect) ;
 }
 
-@interface HSStatusItemWrapper : NSObject
+@interface HSStatusItemWrapper : NSObject <NSDraggingDestination, NSWindowDelegate>
 @property NSStatusItem *item ;
 @property int          callbackRef ;
 @property int          selfRef ;
+@property int          draggingCallbackRef ;
 @property BOOL         trackingVisibility ;
 @property BOOL         lastVisibility ;
 @end
@@ -77,10 +73,15 @@ static NSRect statusItemFrame(NSStatusItem *item) {
         if (_item) {
             _callbackRef              = LUA_NOREF ;
             _selfRef                  = LUA_NOREF ;
+            _draggingCallbackRef      = LUA_NOREF ;
             _trackingVisibility       = NO ;
 
             _item.button.target       = self ;
             _item.button.action       = @selector(singleCallback:) ;
+
+            // For drag-and-drop
+            _item.button.window.delegate = self ;
+
             if (@available(macOS 10.12, *)) {
                 // clearing the autosaveName "resets" it to the automatically generated one and supposedly
                 // clears the default saved; however sometimes it slips through and a previously removed
@@ -138,6 +139,87 @@ static NSRect statusItemFrame(NSStatusItem *item) {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context] ;
     }
 }
+
+#pragma mark - NSDraggingDestination protocol methods
+
+- (BOOL)draggingCallback:(NSString *)message with:(id<NSDraggingInfo>)sender {
+    BOOL isAllGood = NO ;
+    if (_draggingCallbackRef != LUA_NOREF) {
+        LuaSkin *skin = [LuaSkin shared] ;
+        lua_State *L = skin.L ;
+        int argCount = 2 ;
+        [skin pushLuaRef:refTable ref:_draggingCallbackRef] ;
+        [skin pushNSObject:self] ;
+        [skin pushNSObject:message] ;
+        if (sender) {
+            lua_newtable(L) ;
+            NSPasteboard *pasteboard = [sender draggingPasteboard] ;
+            if (pasteboard) {
+                [skin pushNSObject:pasteboard.name] ; lua_setfield(L, -2, "pasteboard") ;
+            }
+            lua_pushinteger(L, [sender draggingSequenceNumber]) ; lua_setfield(L, -2, "sequence") ;
+            [skin pushNSPoint:[sender draggingLocation]] ; lua_setfield(L, -2, "mouse") ;
+            NSDragOperation operation = [sender draggingSourceOperationMask] ;
+            lua_newtable(L) ;
+            if (operation == NSDragOperationNone) {
+                lua_pushstring(L, "none") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+            } else {
+                if ((operation & NSDragOperationCopy) == NSDragOperationCopy) {
+                    lua_pushstring(L, "copy") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationLink) == NSDragOperationLink) {
+                    lua_pushstring(L, "link") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationGeneric) == NSDragOperationGeneric) {
+                    lua_pushstring(L, "generic") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationPrivate) == NSDragOperationPrivate) {
+                    lua_pushstring(L, "private") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationMove) == NSDragOperationMove) {
+                    lua_pushstring(L, "move") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+                if ((operation & NSDragOperationDelete) == NSDragOperationDelete) {
+                    lua_pushstring(L, "delete") ; lua_rawseti(L, -2, luaL_len(L, -2) + 1)  ;
+                }
+            }
+            lua_setfield(L, -2, "operation") ;
+            argCount += 1 ;
+        }
+        if ([skin protectedCallAndTraceback:argCount nresults:1]) {
+            isAllGood = lua_isnoneornil(L, -1) ? YES : (BOOL)lua_toboolean(skin.L, -1) ;
+        } else {
+            [skin logError:[NSString stringWithFormat:@"%s:draggingCallback error: %@", USERDATA_TAG, [skin toNSObjectAtIndex:-1]]] ;
+        }
+        lua_pop(L, 1) ;
+    }
+    return isAllGood ;
+}
+
+- (BOOL)wantsPeriodicDraggingUpdates {
+    return NO ;
+}
+
+- (BOOL)prepareForDragOperation:(__unused id<NSDraggingInfo>)sender {
+    return YES ;
+}
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender {
+    return [self draggingCallback:@"enter" with:sender] ? NSDragOperationGeneric : NSDragOperationNone ;
+}
+
+- (void)draggingExited:(id<NSDraggingInfo>)sender {
+    [self draggingCallback:@"exit" with:sender] ;
+}
+
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
+    return [self draggingCallback:@"receive" with:sender] ;
+}
+
+// - (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender ;
+// - (void)concludeDragOperation:(id<NSDraggingInfo>)sender ;
+// - (void)draggingEnded:(id<NSDraggingInfo>)sender ;
+// - (void)updateDraggingItemsForDrag:(id<NSDraggingInfo>)sender
 
 @end
 
@@ -538,6 +620,32 @@ static int menubar_callback(lua_State *L) {
     return 1 ;
 }
 
+static int menubar_draggingCallback(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    HSStatusItemWrapper *wrapper = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 2) {
+        // We're either removing callback(s), or setting new one(s). Either way, remove existing.
+        wrapper.draggingCallbackRef = [skin luaUnref:refTable ref:wrapper.draggingCallbackRef];
+        [wrapper.item.button.window unregisterDraggedTypes] ;
+        if ([skin luaTypeAtIndex:2] != LUA_TNIL) {
+            lua_pushvalue(L, 2);
+            wrapper.draggingCallbackRef = [skin luaRef:refTable] ;
+            [wrapper.item.button.window registerForDraggedTypes:@[ (__bridge NSString *)kUTTypeItem ]] ;
+        }
+        lua_pushvalue(L, 1);
+    } else {
+        if (wrapper.draggingCallbackRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:wrapper.draggingCallbackRef] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    }
+
+    return 1;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -628,28 +736,29 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"frame",           menubar_frame},
-    {"title",           menubar_title},
-    {"alternateTitle",  menubar_alternateTitle},
-    {"image",           menubar_image},
-    {"alternateImage",  menubar_alternateImage},
-    {"imagePosition",   menubar_imagePosition},
-    {"imageScaling",    menubar_imageScaling},
-    {"sound",           menubar_sound},
-    {"enabled",         menubar_enabled},
-    {"tooltip",         menubar_toolTip},
-    {"length",          menubar_length},
-    {"appearsDisabled", menubar_appearsDisabled},
-    {"visible",         menubar_visible},
-    {"allowsRemoval",   menubar_allowRemoval},
-    {"menu",            menubar_menu},
-    {"delete",          menubar_delete},
-    {"callback",        menubar_callback},
+    {"frame",            menubar_frame},
+    {"title",            menubar_title},
+    {"alternateTitle",   menubar_alternateTitle},
+    {"image",            menubar_image},
+    {"alternateImage",   menubar_alternateImage},
+    {"imagePosition",    menubar_imagePosition},
+    {"imageScaling",     menubar_imageScaling},
+    {"sound",            menubar_sound},
+    {"enabled",          menubar_enabled},
+    {"tooltip",          menubar_toolTip},
+    {"length",           menubar_length},
+    {"appearsDisabled",  menubar_appearsDisabled},
+    {"visible",          menubar_visible},
+    {"allowsRemoval",    menubar_allowRemoval},
+    {"menu",             menubar_menu},
+    {"delete",           menubar_delete},
+    {"callback",         menubar_callback},
+    {"draggingCallback", menubar_draggingCallback},
 
-    {"__tostring",      userdata_tostring},
-    {"__eq",            userdata_eq},
-    {"__gc",            userdata_gc},
-    {NULL,              NULL}
+    {"__tostring",       userdata_tostring},
+    {"__eq",             userdata_eq},
+    {"__gc",             userdata_gc},
+    {NULL,               NULL}
 };
 
 // Functions for returned object when module loads
