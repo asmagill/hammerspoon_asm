@@ -23,6 +23,7 @@
 --
 -- For legacy:
 --    determine if stateImageSize is really needed or should remain a nop
+--    image position wrong when both title and icon are set
 
 --- === hs._asm.guitk.menubar ===
 ---
