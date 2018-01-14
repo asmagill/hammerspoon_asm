@@ -1,20 +1,22 @@
-hs._asm.bonjour
-===============
+hs._asm.diskarbitration
+=======================
 
-Initial attempts at creating a bonjour module for Hammerspoon. Very experimental and prone to changes.
+Initial attempts at creating a diskarbitration module for Hammerspoon. Very experimental and prone to changes.
 
-See [Examples](Examples). I got tired of Safari's removal of the Bonjour browser for HTTP servers on the network.
+Provides a better interface to mounting/dismounting volumes then `hs.fs.volume`. I'm hoping it will eventually also allow intercepting the auto-mounting of newly inserted devices (SD Cards, etc.) that are intended for use within a virtual machine that isn't running yet (so capturing the device doesn't occur) and prevent the creation of the hidden files macOS uses for volume services.
+
+I'm a little disappointed that the current unmount/eject callbacks don't tell me *why* the operation failed (e.g. "Terminal is using the device"), but it's still asynchronous and non-blocking unlike `hs.fs.volume`, so that's a plus.
 
 ### TODO (in no particular order):
 1. Document
-2. Add list of common types; I think I came across a link in Apple's docs that listed common types used by Apple, so include that in a table in the main module.
-3. Examine dns-sd... it looks a whole crap-ton more complex, but would allow adding the ability to publish proxy records for other things on the network that don't directly support Bonjour/ZeroConf
-4. Test
-5. Re-examine `hs.doc.hsdocs`... the built in document browser shouldn't advertise via Bonjour if the interface is set to localhost only (the default). Are there other hidden weirdnesses?
+2. Add watchers for mount/unmount
+3. Add callbacks for mount/unmount approval?
+4. For watchers/callbacks figure out matching criteria and probably include either a list of common keys in a constants table or helper functions to build common scenarios (e.g. only SD cards, devices with a certain name, etc.)
+5. Test
 
 ### Installation
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `browser.m`, `service.m`, and `Makefile` (at present, nothing else is required) into a directory named `bonjour` and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `disk.m`, `internal.m`, `diskarbitration.h` and `Makefile` (at present, nothing else is required) into a directory named `diskarbitration` and then do the following:
 
 ~~~sh
 $ cd wherever-you-downloaded-the-files
