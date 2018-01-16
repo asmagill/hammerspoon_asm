@@ -176,7 +176,7 @@ legacyMT.__type  = USERDATA_TAG
 
 legacyMT.__tostring = function(self, ...)
     local obj = internalData[self]
-    return USERDATA_TAG .. ": " .. obj._title .. " " .. tostring(obj._menu):match("%(0x.*%)$")
+    return USERDATA_TAG .. ": " .. (obj._title or "") .. " " .. tostring(obj._menu):match("%(0x.*%)$")
 end
 
 legacyMT.setMenu = function(self, ...)
@@ -290,7 +290,7 @@ end
 
 legacyMT.title = function(self)
     local obj = internalData[self]
-    return obj._title
+    return obj._title or ""
 end
 
 legacyMT.frame = function(self)
