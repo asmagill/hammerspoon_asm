@@ -18,6 +18,12 @@ if basePath then
     end
 end
 
+local collectionPrevention = {}
+local task    = require("hs.task")
+local host    = require("hs.host")
+local fnutils = require("hs.fnutils")
+local timer   = require("hs.timer")
+
 -- local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
 -- private variables and methods -----------------------------------------
@@ -82,6 +88,58 @@ module.service.remote = function(...)
         end
     end
     return module.service._remote(...)
+end
+
+module.networkServices = function(callback, timeout)
+    assert(type(callback) == "function" or (getmetatable(callback) or {})._call, "function expected for argument 1")
+    if (timeout) then assert(type(timeout) == "number", "number expected for optional argument 2") end
+    timeout = timeout or 5
+
+    local uuid = host.uuid()
+    local job = module.browser.new()
+    collectionPrevention[uuid] = { job = job, results = {} }
+    job:findServices("_services._dns-sd._udp.", "local", function(b, msg, state, obj, more)
+        local internals = collectionPrevention[uuid]
+        if msg == "service" and state then
+            table.insert(internals.results, obj:name() .. "." .. obj:type():match("^(.+)local%.$"))
+            if internals.timer then
+                internals.timer:stop()
+                internals.timer = nil
+            end
+            if not more then
+                internals.timer = timer.doAfter(timeout, function()
+                    internals.job:stop()
+                    internals.job = nil
+                    internals.timer = nil
+                    collectionPrevention[uuid] = nil
+                    callback(internals.results)
+                end)
+            end
+        end
+    end)
+end
+
+-- note: online says that this doesn't work for all devices, but does seem to work for Apple devices
+-- and linux running avahi-daemon
+module.machineServices = function(target, callback)
+    assert(type(target) == "string", "string expected for argument 1")
+    assert(type(callback) == "function" or (getmetatable(callback) or {})._call, "function expected for argument 2")
+
+    local uuid = host.uuid()
+    local job = task.new("/usr/bin/dig", function(r, o, e)
+        local results
+        if r == 0 then
+            results = {}
+            for i, v in ipairs(fnutils.split(o, "[\r\n]+")) do
+                table.insert(results, v:match("^(.+)local%.$"))
+            end
+        else
+            results = (e == "" and o or e):match("^[^ ]+ (.+)$"):gsub("[\r\n]", "")
+        end
+        collectionPrevention[uuid] = nil
+        callback(results)
+    end, { "+short", "_services._dns-sd._udp.local", "ptr", "@" .. target, "-p", "5353" })
+    collectionPrevention[uuid] = job:start()
 end
 
 -- Return Module Object --------------------------------------------------
