@@ -14,10 +14,11 @@ See [Examples](Examples). I got tired of Safari's removal of the Bonjour browser
 
 ### Installation
 
-If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to download `init.lua`, `browser.m`, `service.m`, and `Makefile` (at present, nothing else is required) into a directory named `bonjour` and then do the following:
+If you wish to build this module yourself, and have XCode installed on your Mac, the best way (you are welcome to clone the entire repository if you like, but no promises on the current state of anything else) is to do the following:
 
 ~~~sh
-$ cd wherever-you-downloaded-the-files
+$ svn export https://github.com/asmagill/hammerspoon_asm/trunk/bonjour
+$ cd bonjour
 $ [HS_APPLICATION=/Applications] [PREFIX=~/.hammerspoon] make install
 ~~~
 
