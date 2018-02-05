@@ -40,8 +40,20 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
         NSArray *keys = [(__bridge NSDictionary *)theItem allKeys] ;
         NSArray *values = [(__bridge NSDictionary *)theItem allValues] ;
         for (unsigned long i = 0 ; i < [keys count] ; i++) {
-            pushCFTypeHamster(L, (__bridge CFTypeRef)[keys objectAtIndex:i], alreadySeen) ;
-            pushCFTypeHamster(L, (__bridge CFTypeRef)[values objectAtIndex:i], alreadySeen) ;
+// NOTE: If we make this universal, disk_description will need to be re-written to take this exception into account
+            CFTypeRef theKey = (__bridge CFTypeRef)[keys objectAtIndex:i] ;
+            CFTypeRef theValue = (__bridge CFTypeRef)[values objectAtIndex:i] ;
+            pushCFTypeHamster(L, theKey, alreadySeen) ;
+            if (CFGetTypeID(theKey) == CFStringGetTypeID() && CFGetTypeID(theValue) == CFDataGetTypeID() &&
+                  [(__bridge NSString *)theKey isEqualToString:(__bridge NSString *)kDADiskDescriptionDeviceGUIDKey]) {
+                [LuaSkin logWarn:[NSString stringWithFormat:@"GUID:%@ == %@", (__bridge id)theKey, (__bridge id)theValue]] ;
+                const CFUUIDBytes *asBytes = (const CFUUIDBytes *)CFDataGetBytePtr((CFDataRef)theValue) ;
+                CFUUIDRef uuidRepresentation = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *asBytes) ;
+                pushCFTypeHamster(L, uuidRepresentation, alreadySeen) ;
+                CFRelease(uuidRepresentation) ;
+            } else {
+                pushCFTypeHamster(L, theValue, alreadySeen) ;
+            }
             lua_settable(L, -3) ;
         }
     }

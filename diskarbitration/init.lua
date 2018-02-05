@@ -19,6 +19,8 @@ end
 
 -- Public interface ------------------------------------------------------
 
+module.keys = ls.makeConstantsTable(module.keys)
+
 -- Return Module Object --------------------------------------------------
 
 return module
