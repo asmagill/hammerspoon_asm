@@ -361,6 +361,23 @@ static int disk_eject(lua_State *L) {
     return 1 ;
 }
 
+static int disk_ioServiceID(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
+    io_service_t diskService = DADiskCopyIOMedia(diskObject) ;
+    uint64_t entryID ;
+    kern_return_t err = IORegistryEntryGetRegistryEntryID(diskService, &entryID) ;
+    if (err == KERN_SUCCESS) {
+        lua_pushinteger(L, (lua_Integer)entryID) ;
+        IOObjectRelease(diskService) ;
+    } else {
+        [LuaSkin logDebug:[NSString stringWithFormat:@"%s:ioServiceID -- unable to retrieve IOObject entryID (Kernel Error #%d)", USERDATA_TAG, err]] ;
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
 #pragma mark - CFObject->Lua Conversion Functions
@@ -427,6 +444,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"unmount",     disk_unmount},
     {"eject",       disk_eject},
     {"mount",       disk_mount},
+    {"ioServiceID", disk_ioServiceID},
 
     {"__tostring",  userdata_tostring},
     {"__eq",        userdata_eq},

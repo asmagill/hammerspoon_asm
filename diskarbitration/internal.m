@@ -672,7 +672,7 @@ int luaopen_hs__asm_diskarbitration_internal(lua_State* L) {
                                objectFunctions:userdata_metaLib];
 
     push_diskarbitrationKeys(L) ;             lua_setfield(L, -2, "keys") ;
-    [skin pushNSObject:diskarbitrationTypeLabels] ; lua_setfield(L, -2, "callbackTypes") ;
+//     [skin pushNSObject:diskarbitrationTypeLabels] ; lua_setfield(L, -2, "callbackTypes") ;
 
     luaopen_hs__asm_diskarbitration_disk(L) ; lua_setfield(L, -2, "disk") ;
 
