@@ -42,6 +42,7 @@ local menuItemMT   = hs.getObjectMetatable(USERDATA_TAG .. ".menu.item")
 
 local inspect = require("hs.inspect")
 
+-- load for data type conversion functions
 require("hs.drawing.color")
 require("hs.image")
 require("hs.styledtext")

@@ -186,17 +186,23 @@ legacyMT.setMenu = function(self, ...)
         local theMenu = args[1]
         if type(theMenu) == "function" or (type(theMenu) == "table" and (getmetatable(theMenu) or {}).__call) then
             obj._menuCallback = theMenu
-            obj._statusitem:menu(obj._menu)
+            if obj._statusitem then
+                obj._statusitem:menu(obj._menu)
+            end
             return self
         elseif type(theMenu) == "table" then
             obj._menu:removeAll()
             parseMenuTable(self, theMenu, obj._menu)
             obj._menuCallback = false
-            obj._statusitem:menu(obj._menu)
+            if obj._statusitem then
+                obj._statusitem:menu(obj._menu)
+            end
             return self
         elseif type(theMenu) == "nil" then
             obj._menuCallback = nil
-            obj._statusitem:menu(nil)
+            if obj._statusitem then
+                obj._statusitem:menu(nil)
+            end
             return self
         end
     end
