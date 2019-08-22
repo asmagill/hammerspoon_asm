@@ -1,7 +1,7 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-static const char * const USERDATA_TAG = "hs._asm.bonjour.browser" ;
+static const char * const USERDATA_TAG = "hs._asm.bonjour" ;
 static int refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
@@ -66,7 +66,8 @@ static NSString *netServiceErrorToString(NSDictionary *error) {
 
 - (void)stop {
     [super stop] ;
-    _callbackRef = [[LuaSkin shared] luaUnref:refTable ref:_callbackRef] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    _callbackRef = [skin luaUnref:refTable ref:_callbackRef] ;
 }
 
 - (void)performCallbackWith:(id)argument {
@@ -77,7 +78,7 @@ static NSString *netServiceErrorToString(NSDictionary *error) {
         [skin pushLuaRef:refTable ref:_callbackRef] ;
         [skin pushNSObject:self] ;
         if (argument) {
-            if ([argument isKindOfClass:[NSArray class]]) {
+            if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
                 NSArray *args = (NSArray *)argument ;
                 for (id obj in args) [skin pushNSObject:obj withOptions:LS_NSDescribeUnknownTypes] ;
                 argCount += args.count ;
@@ -134,6 +135,15 @@ static NSString *netServiceErrorToString(NSDictionary *error) {
 
 #pragma mark - Module Functions
 
+/// hs._asm.bonjour.new() -> browserObject
+/// Constructor
+/// Creates a new network service browser that finds published services on a network using multicast DNS.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a new browserObject or nil if an error occurs
 static int browser_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -148,6 +158,18 @@ static int browser_new(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs._asm.bonjour:includesPeerToPeer([value]) -> current value | browserObject
+/// Method
+/// Get or set whether to also browse over peer-to-peer Bluetooth and Wi-Fi, if available.
+///
+/// Parameters:
+///  * `value` - an optional boolean, default false, value specifying whether to also browse over peer-to-peer Bluetooth and Wi-Fi, if available.
+///
+/// Returns:
+///  * if `value` is provided, returns the browserObject; otherwise returns the current value for this property
+///
+/// Notes:
+///  * This property must be set before initiating a search to have an effect.
 static int browser_includesPeerToPeer(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -161,6 +183,32 @@ static int browser_includesPeerToPeer(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.bonjour:findBrowsableDomains(callback) -> browserObject
+/// Method
+/// Return a list of zero-conf and bonjour domains visibile to the users computer.
+///
+/// Parameters:
+///  * `callback` - a function which will be invoked as visible domains are discovered. The function should accept the following parameters and return none:
+///    * `browserObject`    - the userdata object for the browserObject which initiated the search
+///    * `type`             - a string which will be 'domain' or 'error'
+///      * if `type` == 'domain', the remaining arguments will be:
+///        * `added`        - a boolean value indicating whether this callback invocation represents a newly discovered or added domain (true) or that the domain has been removed from the network (false)
+///        * `domain`       - a string specifying the name of the domain discovered or removed
+///        * `moreExpected` - a boolean value indicating whether or not the browser expects to discover additional domains or not.
+///      * if `type` == 'error', the remaining arguments will be:
+///        * `errorString`  - a string specifying the error which has occurred
+///
+/// Returns:
+///  * the browserObject
+///
+/// Notes:
+///  * This method returns domains which are visible to your machine; however, your machine may or may not be able to access or publish records within the returned domains. See  [hs._asm.bonjour:findRegistrationDomains](#findRegistrationDomains)
+///
+///  * For most non-coporate network users, it is likely that the callback will only be invoked once for the `local` domain. This is normal. Corporate networks or networks including Linux machines using additional domains defined with Avahi may see additional domains as well, though most Avahi installations now use only 'local' by default unless specifically configured to do otherwise.
+///
+///  * When `moreExpected` becomes false, it is the macOS's best guess as to whether additional records are available.
+///    * Generally macOS is fairly accurate in this regard concerning domain searchs, so to reduce the impact on system resources, it is recommended that you use [hs._asm.bonjour:stop](#stop) when this parameter is false
+//     * If any of your network interfaces are particularly slow or if a host on the network is slow to respond and you are concerend that additional records *may* still be forthcoming, you can use this flag to initiate additional logic or timers to determine how long to remain searching for additional domains.
 static int browser_searchForBrowsableDomains(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION, LS_TBREAK] ;
@@ -173,6 +221,32 @@ static int browser_searchForBrowsableDomains(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.bonjour:findRegistrationDomains(callback) -> browserObject
+/// Method
+/// Return a list of zero-conf and bonjour domains this computer can register services in.
+///
+/// Parameters:
+///  * `callback` - a function which will be invoked as domains are discovered. The function should accept the following parameters and return none:
+///    * `browserObject`    - the userdata object for the browserObject which initiated the search
+///    * `type`             - a string which will be 'domain' or 'error'
+///      * if `type` == 'domain', the remaining arguments will be:
+///        * `added`        - a boolean value indicating whether this callback invocation represents a newly discovered or added domain (true) or that the domain has been removed from the network (false)
+///        * `domain`       - a string specifying the name of the domain discovered or removed
+///        * `moreExpected` - a boolean value indicating whether or not the browser expects to discover additional domains or not.
+///      * if `type` == 'error', the remaining arguments will be:
+///        * `errorString`  - a string specifying the error which has occurred
+///
+/// Returns:
+///  * the browserObject
+///
+/// Notes:
+///  * This is the preferred method for accessing domains as it guarantees that the host machine can connect to services in the returned domains. Access to domains outside this list may be more limited. See also [hs._asm.bonjour:findBrowsableDomains](#findBrowsableDomains)
+///
+///  * For most non-coporate network users, it is likely that the callback will only be invoked once for the `local` domain. This is normal. Corporate networks or networks including Linux machines using additional domains defined with Avahi may see additional domains as well, though most Avahi installations now use only 'local' by default unless specifically configured to do otherwise.
+///
+///  * When `moreExpected` becomes false, it is the macOS's best guess as to whether additional records are available.
+///    * Generally macOS is fairly accurate in this regard concerning domain searchs, so to reduce the impact on system resources, it is recommended that you use [hs._asm.bonjour:stop](#stop) when this parameter is false
+//     * If any of your network interfaces are particularly slow or if a host on the network is slow to respond and you are concerend that additional records *may* still be forthcoming, you can use this flag to initiate additional logic or timers to determine how long to remain searching for additional domains.
 static int browser_searchForRegistrationDomains(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION, LS_TBREAK] ;
@@ -185,6 +259,7 @@ static int browser_searchForRegistrationDomains(lua_State *L) {
     return 1 ;
 }
 
+// hs._asm.bonjour:findServices is documented with its wrapper in init.lua
 static int browser_searchForServices(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
@@ -214,6 +289,21 @@ static int browser_searchForServices(lua_State *L) {
     return 1 ;
 }
 
+/// hs._asm.bonjour:stop() -> browserObject
+/// Method
+/// Stops a currently running search or resolution for the browser object
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the browserObject
+///
+/// Notes:
+///  * This method should be invoked when you have identified the services or hosts you require to reduce the consumption of system resources.
+///  * Invoking this method on an already idle browser will do nothing
+///
+///  * In general, when your callback function for [hs._asm.bonjour:findBrowsableDomains](#findBrowsableDomains), [hs._asm.bonjour:findRegistrationDomains](#findRegistrationDomains), or [hs._asm.bonjour:findServices](#findServices) receives false for the `moreExpected` paramter, you should invoke this method on the browserObject unless there are specific reasons not to. Possible reasons you might want to extend the life of the browserObject are documented within each method.
 static int browser_stop(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -319,7 +409,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_bonjour_browser(lua_State* __unused L) {
+int luaopen_hs__asm_bonjour_internal(lua_State* __unused L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib

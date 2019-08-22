@@ -84,7 +84,7 @@ static NSString *netServiceErrorToString(NSDictionary *error) {
         [skin pushLuaRef:refTable ref:fnRef] ;
         [skin pushNSObject:self] ;
         if (argument) {
-            if ([argument isKindOfClass:[NSArray class]]) {
+            if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
                 NSArray *args = (NSArray *)argument ;
                 for (id obj in args) [skin pushNSObject:obj withOptions:LS_NSDescribeUnknownTypes] ;
                 argCount += args.count ;
@@ -157,6 +157,7 @@ static NSString *netServiceErrorToString(NSDictionary *error) {
 // - (instancetype)initWithDomain:(NSString *)domain type:(NSString *)type name:(NSString *)name;
 // - (instancetype)initWithDomain:(NSString *)domain type:(NSString *)type name:(NSString *)name port:(int)port;
 
+// hs._asm.bonjour.service.remote is documented with its wrapper in init.lua
 static int service_newForResolve(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -177,6 +178,7 @@ static int service_newForResolve(lua_State *L) {
     return 1 ;
 }
 
+// hs._asm.bonjour.service.new is documented with its wrapper in init.lua
 static int service_newForPublish(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TNUMBER | LS_TINTEGER, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -284,7 +286,7 @@ static int service_TXTRecordData(lua_State *L) {
                     id value = [dict objectForKey:key] ;
                     if (![key isKindOfClass:[NSString class]]) {
                         errMsg = [NSString stringWithFormat:@"table key %@ is not a string", key] ;
-                    } else if (!([value isKindOfClass:[NSString class]] || [value isKindOfClass:[NSData class]])) {
+                    } else if (!([(NSObject *)value isKindOfClass:[NSString class]] || [(NSObject *)value isKindOfClass:[NSData class]])) {
                         errMsg = [NSString stringWithFormat:@"value for key %@ must be a string", key] ;
                     }
                 }
@@ -462,7 +464,8 @@ id toASMNetServiceWrapperFromLua(lua_State *L, int idx) {
 static int pushNSNetService(lua_State *L, id obj) {
     ASMNetServiceWrapper *value = [[ASMNetServiceWrapper alloc] initWithService:obj] ;
     if (value) {
-        [[LuaSkin shared] pushNSObject:value] ;
+        LuaSkin *skin = [LuaSkin shared] ;
+        [skin pushNSObject:value] ;
     } else {
         lua_pushnil(L) ;
     }
@@ -520,13 +523,13 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"addresses",          service_addresses},
+    {"addresses",          service_addresses},          // will be empty table before resolve()
     {"domain",             service_domain},
     {"name",               service_name},
-    {"hostname",           service_hostName},
+    {"hostname",           service_hostName},           // will be nil before resolve()
     {"type",               service_type},
-    {"port",               service_port},
-    {"txtRecord",          service_TXTRecordData},
+    {"port",               service_port},               // will be -1 before resolve()
+    {"txtRecord",          service_TXTRecordData},      // will be nil before resolve()
     {"includesPeerToPeer", service_includesPeerToPeer},
     {"resolve",            service_resolveWithTimeout},
     {"monitor",            service_startMonitoring},

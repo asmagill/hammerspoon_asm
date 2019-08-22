@@ -81,7 +81,7 @@ local _browserCommonCallback = function(serverList, ui, b, message, state, servi
     end
 end
 
-local _browser = bonjour.browser.new():findServices("_http._tcp.", function(...)
+local _browser = bonjour.new():findServices("_http._tcp.", function(...)
     _browserCommonCallback(_servers, _chooser, ...)
 end)
 
@@ -99,7 +99,7 @@ if ENABLE_WIDE_AREA_DOMAIN then
     local _chooserWide = chooser.new(function(item) _chooserCommonCallback(item, _serversWide) end)
                             :choices(function() return _chooserCommonChoices(_serversWide) end)
 
-    local _browserWide = bonjour.browser.new():findServices("_http._tcp.", WIDE_AREA_DOMAIN, function(...)
+    local _browserWide = bonjour.new():findServices("_http._tcp.", WIDE_AREA_DOMAIN, function(...)
         _browserCommonCallback(_serversWide, _chooserWide, ...)
     end)
 
