@@ -13,6 +13,7 @@ From the Hammerspoon console:
       doc.hs.application
 
 Results in:
+
       Manipulate running applications
 
       [submodules]
