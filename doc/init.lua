@@ -29,10 +29,11 @@
 
 local USERDATA_TAG  = "hs.doc"
 local module        = require(USERDATA_TAG..".internal")
-module.spoonsupport = require("hs.doc.spoonsupport")
+local moduleMT      = getmetatable(module)
 
 local fnutils   = require("hs.fnutils")
 local watchable = require("hs.watchable")
+local fs        = require "hs.fs"
 
 -- local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
@@ -52,13 +53,13 @@ local triggerChangeCount = function()
 end
 
 -- so we can trigger this from the C side
-getmetatable(module)._registerTriggerFunction(triggerChangeCount)
+moduleMT._registerTriggerFunction(triggerChangeCount)
 
 -- forward declarations for hsdocs
 local _jsonForSpoons = nil
 local _jsonForModules = nil
 
-module._moduleListChanges = watchable.watch("hs.doc", "changeCount", function(w, p, k, o, n)
+module._changeCountWatcher = watchable.watch("hs.doc", "changeCount", function(w, p, k, o, n)
     _jsonForSpoons = nil
     _jsonForModules = nil
 end)
@@ -73,7 +74,7 @@ helperMT = {
         local parent = rawget(self, "_parent") or ""
         if parent ~= "" then parent = parent .. "." end
         parent = parent .. self._key
-        local children = module._children(parent)
+        local children = moduleMT._children(parent)
         if fnutils.contains(children, key) then
             return setmetatable({ _key = key, _parent = parent }, helperMT)
         end
@@ -89,7 +90,7 @@ helperMT = {
         if parent ~= "" then parent = parent .. "." end
         parent = parent .. self._key
         local children = {}
-        for i, v in ipairs(module._children(parent)) do children[v] = i end
+        for i, v in ipairs(moduleMT._children(parent)) do children[v] = i end
         return function(_, k)
                 local v
                 k, v = next(children, k)
@@ -100,7 +101,7 @@ helperMT = {
         local parent = rawget(self, "_parent") or ""
         if parent ~= "" then parent = parent .. "." end
         parent = parent .. self._key
-        return #module._children(parent)
+        return #moduleMT._children(parent)
     end,
 }
 
@@ -149,6 +150,8 @@ end
 --- Notes:
 ---  * This function is mainly for runtime API help while using Hammerspoon's Console
 ---
+---  * Documentation files registered with [hs.doc.registerJSONFile](#registerJSONFile) or [hs.doc.preloadSpoonDocs](#preloadSpoonDocs) that have not yet been actually loaded will be loaded when this command is invoked in any of the forms described below.
+---
 ---  * You can also access the results of this function by the following methods from the console:
 ---    * help("prefix.path") -- quotes are required, e.g. `help("hs.reload")`
 ---    * help.prefix.path -- no quotes are required, e.g. `help.hs.reload`
@@ -158,6 +161,7 @@ end
 ---        * `lua`   - provides documentation for the version of lua Hammerspoon is using, currently 5.3
 ---          * `lua._man` - provides the table of contents for the Lua 5.3 manual.  You can pull up a specific section of the lua manual by including the chapter (and subsection) like this: `lua._man._3_4_8`.
 ---          * `lua._C`   - provides documentation specifically about the Lua C API for use when developing modules which require external libraries.
+---      * `path` is one or more components, separated by a period specifying the module, submodule, function, or moethod you wish to view documentation for.
 module.help = function(...)
     local answer = _help(...)
     return setmetatable({}, {
@@ -167,7 +171,7 @@ end
 
 --- hs.doc.locateJSONFile(module) -> path | false, message
 --- Function
---- Locates the JSON file corresponding to the specified module by searching package.path and package.cpath.
+--- Locates the JSON file corresponding to the specified third-party module or Spoon by searching package.path and package.cpath.
 ---
 --- Parameters:
 ---  * module - the name of the module to locate a JSON file for
@@ -177,6 +181,8 @@ end
 ---
 --- Notes:
 ---  * The JSON should be named 'docs.json' and located in the same directory as the `lua` or `so` file which is used when the module is loaded via `require`.
+---
+---  * The documentation for core modules is stored in the JSON file specified by the `hs.docstrings_json_file` variable; this function is intended for use in locating the documentation file for third party modules and Spoons.
 module.locateJSONFile = function(moduleName)
     local asLua = package.searchpath(moduleName, package.path)
     local asC   = package.searchpath(moduleName, package.cpath)
@@ -208,18 +214,49 @@ module.locateJSONFile = function(moduleName)
     end
 end
 
+--- hs.doc.preloadSpoonDocs()
+--- Function
+--- Locates all installed Spoon documentation files and and marks them for loading the next time the [hs.doc.help](#help) function is invoked.
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * None
+module.preloadSpoonDocs = function()
+    local spoonPaths, installedSpoons = {}, {}
+    for path in package.path:gmatch("([^;]+Spoons/%?%.spoon/init%.lua)") do
+        table.insert(spoonPaths, path)
+    end
+    for _, v in ipairs(spoonPaths) do
+        local dirPath = v:match("^(.+)/%?%.spoon/init%.lua$")
+        if dirPath and fs.dir(dirPath) then
+            for file in fs.dir(dirPath) do
+                local name = file:match("^(.+)%.spoon$")
+                local spoonInit = name and package.searchpath(name, table.concat(spoonPaths, ";"))
+                if name and spoonInit then
+                    local path     = spoonInit:match("^(.+)/init%.lua$")
+                    local docPath  = path .. "/docs.json"
+                    local hasDocs  = fs.attributes(docPath) and true or false
+                    if hasDocs then
+                        module.registerJSONFile(docPath, true)
+                        table.insert(installedSpoons, docPath)
+                    end
+                end
+            end
+        end
+    end
+end
 
 -- Return Module Object --------------------------------------------------
 
 module.registerJSONFile(hs.docstrings_json_file)
 module.registerJSONFile((hs.docstrings_json_file:gsub("/docs.json$","/extensions/hs/doc/lua.json")))
 
-module.spoonsupport.updateDocsFiles()
-local _, details = module.spoonsupport.findSpoons()
-for _,v in pairs(details) do if v.hasDocs then module.registerJSONFile(v.docPath, true) end end
+-- we hide some debugging stuff in the metatable but we want to modify it here, and its considered bad style
+-- to do so while it's attached, so...
 
--- we hide some debugging stuff in the metatable but we want to modify it here, so...
-local _mt = getmetatable(module) or {} -- in case we delete the metatable later
+local _mt = getmetatable(module) or {} -- in our case, it's not empty, but I cut and paste a lot
 setmetatable(module, nil)
 _mt.__call = function(_, ...) return module.help(...) end
 _mt.__tostring = function() return _help() end
@@ -227,13 +264,16 @@ _mt.__index = function(self, key)
     if submodules[key] then
         self[key] = require(submodules[key])
     end
+
+    _mt._loadRegisteredFiles() -- we have to assume they're access this for help or hsdocs, so load files
+
     -- massage the result for hsdocs, which we should really rewrite at some point
     if key == "_jsonForSpoons" or key == "_jsonForModules" then
-        if not _jsonForSpoons  then _jsonForSpoons  = module._moduleJson("spoon") end
-        if not _jsonForModules then _jsonForModules = module._moduleJson("hs") end
+        if not _jsonForSpoons then  _jsonForSpoons  = _mt._moduleJson("spoon") ; print ("reloading spoon json for hsdocs") end
+        if not _jsonForModules then _jsonForModules = _mt._moduleJson("hs") ; print ("reloading module json for hsdocs") end
         return (key == "_jsonForModules") and _jsonForModules or _jsonForSpoons
     end
-    local children = module._children()
+    local children = _mt._children()
     if fnutils.contains(children, key) then
         return setmetatable({ _key = key }, helperMT)
     end

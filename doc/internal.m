@@ -59,58 +59,115 @@ NSInteger docSortFunction(NSString *a, NSString *b, __unused void *context) {
     return [a caseInsensitiveCompare:b] ;
 }
 
-static int internal_registerTriggerFunction(lua_State *L) {
+static BOOL processRegisteredFile(lua_State *L, NSString *path) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TFUNCTION, LS_TBREAK] ;
 
-    if (refTriggerFn != LUA_NOREF && refTriggerFn != LUA_REFNIL) {
-        refTriggerFn = [skin luaUnref:refTable ref:refTriggerFn] ;
-    }
-    lua_pushvalue(L, 1) ;
-    refTriggerFn = [skin luaRef:refTable] ;
-    return 0 ;
-}
-
-#pragma mark - Module Functions
-
-static int doc_arrayOfChildren(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    NSString *identifier = @"" ;
-    if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:1] ;
-
-    lua_newtable(L) ;
     NSError *error = nil ;
-    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
-                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
-                                                                              error:&error] ;
+    NSData *rawFile = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:&error] ;
+    if (!rawFile || error) {
+        [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - unable to open '%@' (%@)", USERDATA_TAG, path, error.localizedDescription]] ;
+        return NO ;
+    }
+
+    id obj = [NSJSONSerialization JSONObjectWithData:rawFile options:NSJSONReadingAllowFragments error:&error] ;
+    if (error) {
+        [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - error parsing JSON for %@: %@", USERDATA_TAG, path, error.localizedDescription]] ;
+        return NO ;
+    } else if (!obj) {
+        [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - error parsing JSON for %@: input resolved to nil", USERDATA_TAG, path]] ;
+        return NO ;
+    }
+
+    registeredFilesDictionary[path][@"json"]  = obj ;
+
+    BOOL isSpoon = [(NSNumber *)registeredFilesDictionary[path][@"spoon"] boolValue] ;
+    NSMutableDictionary *root = isSpoon ? documentationTree[@"spoon"] : documentationTree ;
+
+    if (![(NSObject *)obj isKindOfClass:[NSArray class]]) {
+        [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - malformed documentation file %@: proper format requires an array of entries", USERDATA_TAG, path]] ;
+        return NO ;
+    }
+
+    NSRegularExpression *parser = [NSRegularExpression
+                                      regularExpressionWithPattern:@"[\\w_]+"
+                                                           options:NSRegularExpressionUseUnicodeWordBoundaries
+                                                             error:&error
+                                  ] ;
     if (!error) {
-        __block NSMutableDictionary *pos = documentationTree ;
-        [parser enumerateMatchesInString:identifier
-                                 options:0
-                                   range:NSMakeRange(0, identifier.length)
-                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
-            NSString *part = [identifier substringWithRange:match.range] ;
-            if (pos[part]) {
-                pos = pos[part] ;
+        [(NSArray *)obj enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger idx, __unused BOOL *stop) {
+            __block NSMutableDictionary *pos = root ;
+
+            if (![entry isKindOfClass:[NSDictionary class]] || !entry[@"name"]) {
+                [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - malformed entry in %@ -- expected module dictionary with 'name' key at index %lu in %@; skipping", USERDATA_TAG, path, idx + 1, path]] ;
             } else {
-                pos = nil ;
-                *stop = YES ;
+                NSString *entryName = entry[@"name"] ;
+                [parser enumerateMatchesInString:entryName
+                                         options:0
+                                           range:NSMakeRange(0, entryName.length)
+                                      usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, __unused BOOL *stop2) {
+                    NSString *part = [entryName substringWithRange:match.range] ;
+                    if (!pos[part]) pos[part] = [@{ @"__type__" : @"placeholder" } mutableCopy] ;
+                    pos = pos[part] ;
+                }] ;
+
+                if (pos[@"__json__"]) {
+                    // FIXME: Duplicate Handling
+                    //    In theory additions or changes to the module could be defined elsewhere. Bad style, so log anyways, and we'll
+                    //    decide how to officially handle it if it becomes normal as opposed to an "in-development" shortcut. For now,
+                    //    assume since coredocs are loaded first, that this is an in-progress update that should overwrite the original.
+                    [skin logInfo:[NSString stringWithFormat:@"%s.processRegisteredFile - duplicate module entry in %@ for %@ (%@)", USERDATA_TAG, path, entryName, entry[@"desc"]]] ;
+                }
+                pos[@"__json__"] = entry ;
+                pos[@"__type__"] = @"module" ; // this is more than a placeholder now
+
+                if (entry[@"items"]) {
+                    NSArray *itemsAttached = entry[@"items"] ;
+                    if ([itemsAttached isKindOfClass:[NSArray class]]) {
+                        [(NSArray *)entry[@"items"] enumerateObjectsUsingBlock:^(NSDictionary *itemEntry, NSUInteger idx2, __unused BOOL *stop2) {
+
+                        if (![itemEntry isKindOfClass:[NSDictionary class]] || !itemEntry[@"name"]) {
+                            [skin logInfo:[NSString stringWithFormat:@"%s.processRegisteredFile - malformed entry in %@ -- expected item dictionary with 'name' key for %@ at index %lu; skipping", USERDATA_TAG, path, entryName, idx2 + 1]] ;
+                        } else {
+                            NSString *itemName = itemEntry[@"name"] ;
+                            NSTextCheckingResult *match = [parser firstMatchInString:itemName options:0 range:NSMakeRange(0, itemName.length)] ;
+                            if (match.range.location != NSNotFound) {
+                                NSString *part = [itemName substringWithRange:match.range] ;
+                                if (pos[part]) {
+                                    // FIXME: Duplicate Handling
+                                    //     See above for current behavior and reasoning
+                                    [skin logInfo:[NSString stringWithFormat:@"%s.processRegisteredFile - duplicate item in %@: %@ (%@) for %@", USERDATA_TAG, path, itemName, entry[@"def"], entryName]] ;
+                                }
+                                NSMutableDictionary *itemDict = [@{ @"__type__" : @"entry" } mutableCopy] ;
+                                itemDict[@"__json__"] = itemEntry ;
+                                pos[part] = itemDict ;
+                            } else {
+                                [skin logInfo:[NSString stringWithFormat:@"%s.processRegisteredFile - malformed entry in %@ -- item name (%@) invalid for %@ at index %lu; skipping", USERDATA_TAG, path, itemName, entryName, idx2 + 1]] ;
+                            }
+                        }
+                    }] ;
+                    } else {
+                        [skin logInfo:[NSString stringWithFormat:@"%s.processRegisteredFile - malformed entry in %@ -- expected array or nil in 'items' key for %@ at index %lu; skipping", USERDATA_TAG, path, entryName, idx + 1]] ;
+                    }
+                } // no items at all is ok, we only log when items isn't an array
             }
         }] ;
 
-        if (pos) {
-            for (NSString *entry in [(NSDictionary *)pos allKeys]) {
-                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
-                    [skin pushNSObject:entry] ;
-                    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-                }
-            }
-        }
+        // make sure knows that something has changed
+        [skin pushLuaRef:refTable ref:refTriggerFn] ;
+        lua_call(L, 0, 0) ;
     } else {
-        [skin logError:[NSString stringWithFormat:@"%s.help - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
+        [skin logError:[NSString stringWithFormat:@"%s.processRegisteredFile - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
     }
-    return 1 ;
+
+    return YES ;
+}
+
+static void findUnloadedDocumentationFiles(lua_State *L) {
+    NSArray *paths = [registeredFilesDictionary allKeys] ;
+    [paths enumerateObjectsUsingBlock:^(NSString *path, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSMutableDictionary *entry = registeredFilesDictionary[path] ;
+        if (!entry[@"json"]) processRegisteredFile(L, path) ;
+    }] ;
 }
 
 static NSMutableArray *arrayOf_hamster(NSMutableDictionary *root) {
@@ -128,19 +185,7 @@ static NSMutableArray *arrayOf_hamster(NSMutableDictionary *root) {
     return answers ;
 }
 
-static int doc_arrayOfModuleJsonSegments(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-    NSString *target = [skin toNSObjectAtIndex:1] ;
-
-    NSMutableDictionary *root = documentationTree[target] ;
-    if (root) {
-        [skin pushNSObject:arrayOf_hamster(root)] ;
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
+#pragma mark - Module Functions
 
 // documented in init.lua
 static int doc_help(lua_State *L) {
@@ -148,6 +193,8 @@ static int doc_help(lua_State *L) {
     [skin checkArgs:LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *identifier = @"" ;
     if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:1] ;
+
+    findUnloadedDocumentationFiles(L) ;
 
     NSMutableString *result = [[NSMutableString alloc] init] ;
 
@@ -226,11 +273,6 @@ static int doc_help(lua_State *L) {
 
     [skin pushNSObject:result] ;
     return 1 ;
-
-//     lua_getglobal(L, "print") ;
-//     [skin pushNSObject:result] ;
-//     lua_call(L, 1, 0) ;
-//     return 0 ;
 }
 
 /// hs.doc.registerJSONFile(jsonfile, [isSpoon]) -> status[, message]
@@ -243,11 +285,19 @@ static int doc_help(lua_State *L) {
 ///
 /// Returns:
 ///  * status - Boolean flag indicating if the file was registered or not.  If the file was not registered, then a message indicating the error is also returned.
+///
+/// Notes:
+///  * this function just registers the documentation file; it won't actually be loaded and parsed until [hs.doc.help](#help) is invoked.
 static int doc_registerJSONFile(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *path   = [skin toNSObjectAtIndex:1] ;
     BOOL     isSpoon = (lua_gettop(L) > 1) ? (BOOL)lua_toboolean(L, 2) : NO ;
+
+    // some tricks used to figure out if the docs.json file exists duplicate final "/" before "docs.json"
+    // so rather then track them all down, just adjust it here; otherwise we have two "different" paths
+    // containing the same data and get a lot of duplicate entry warnings
+    path = [path stringByStandardizingPath] ;
 
     if (registeredFilesDictionary[path]) {
         lua_pushboolean(L, NO) ;
@@ -255,108 +305,8 @@ static int doc_registerJSONFile(lua_State *L) {
         return 2 ;
     }
 
-    NSError *error = nil ;
-    NSData *rawFile = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:&error] ;
-    if (!rawFile || error) {
-        lua_pushboolean(L, NO) ;
-        [skin pushNSObject:[NSString stringWithFormat:@"Unable to open '%@' (%@)", path, error.localizedDescription]] ;
-        return 2 ;
-    }
-
-    id obj = [NSJSONSerialization JSONObjectWithData:rawFile options:NSJSONReadingAllowFragments error:&error] ;
-    if (error) {
-        lua_pushboolean(L, NO) ;
-        [skin pushNSObject:error.localizedDescription] ;
-        return 2 ;
-    } else if (!obj) {
-        lua_pushboolean(L, NO) ;
-        [skin pushNSObject:@"json input returned nil"] ;
-        return 2 ;
-    }
-
     registeredFilesDictionary[path] = [[NSMutableDictionary alloc] init] ;
-    registeredFilesDictionary[path][@"json"]  = obj ;
     registeredFilesDictionary[path][@"spoon"] = @(isSpoon) ;
-
-    if (isSpoon && !documentationTree[@"spoon"]) {
-        documentationTree[@"spoon"] = [@{ @"__type__" : @"spoons" } mutableCopy] ;
-    }
-
-    NSMutableDictionary *root = isSpoon ? documentationTree[@"spoon"] : documentationTree ;
-
-    if (![(NSObject *)obj isKindOfClass:[NSArray class]]) {
-        lua_pushboolean(L, NO) ;
-        [skin pushNSObject:@"malformed documentation file -- proper format requires an array of entries"] ;
-        return 2 ;
-    }
-
-    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[\\w_]+"
-                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
-                                                                              error:&error] ;
-    if (!error) {
-        [(NSArray *)obj enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger idx, __unused BOOL *stop) {
-            __block NSMutableDictionary *pos = root ;
-
-            if (![entry isKindOfClass:[NSDictionary class]] || !entry[@"name"]) {
-                [skin logError:[NSString stringWithFormat:@"%s.registerJSONFile - malformed entry -- expected module dictionary with 'name' key at index %lu in %@; skipping", USERDATA_TAG, idx + 1, path]] ;
-            } else {
-                NSString *entryName = entry[@"name"] ;
-                [parser enumerateMatchesInString:entryName
-                                         options:0
-                                           range:NSMakeRange(0, entryName.length)
-                                      usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, __unused BOOL *stop2) {
-                    NSString *part = [entryName substringWithRange:match.range] ;
-                    if (!pos[part]) pos[part] = [@{ @"__type__" : @"placeholder" } mutableCopy] ;
-                    pos = pos[part] ;
-                }] ;
-
-                if (pos[@"__json__"]) {
-                    // FIXME: Duplicate Handling
-                    //    In theory additions or changes to the module could be defined elsewhere. Bad style, so log anyways, and we'll
-                    //    decide how to officially handle it if it becomes normal as opposed to an "in-development" shortcut. For now,
-                    //    assume since coredocs are loaded first, that this is an in-progress update that should overwrite the original.
-                    [skin logWarn:[NSString stringWithFormat:@"%s.registerJSONFile - duplicate module entry for %@ (%@)", USERDATA_TAG, entryName, entry[@"desc"]]] ;
-                }
-                pos[@"__json__"] = entry ;
-                pos[@"__type__"] = @"module" ; // this is more than a placeholder now
-
-                if (entry[@"items"]) {
-                    NSArray *itemsAttached = entry[@"items"] ;
-                    if ([itemsAttached isKindOfClass:[NSArray class]]) {
-                        [(NSArray *)entry[@"items"] enumerateObjectsUsingBlock:^(NSDictionary *itemEntry, NSUInteger idx2, __unused BOOL *stop2) {
-
-                        if (![itemEntry isKindOfClass:[NSDictionary class]] || !itemEntry[@"name"]) {
-                            [skin logError:[NSString stringWithFormat:@"%s.registerJSONFile - malformed entry -- expected item dictionary with 'name' key for %@ at index %lu in %@; skipping", USERDATA_TAG, entryName, idx2 + 1, path]] ;
-                        } else {
-                            NSString *itemName = itemEntry[@"name"] ;
-                            NSTextCheckingResult *match = [parser firstMatchInString:itemName options:0 range:NSMakeRange(0, itemName.length)] ;
-                            if (match.range.location != NSNotFound) {
-                                NSString *part = [itemName substringWithRange:match.range] ;
-                                if (pos[part]) {
-                                    // FIXME: Duplicate Handling
-                                    //     See above for current behavior and reasoning
-                                    [skin logWarn:[NSString stringWithFormat:@"%s.registerJSONFile - duplicate item entry of %@ (%@) for %@", USERDATA_TAG, itemName, entry[@"def"], entryName]] ;
-                                }
-                                NSMutableDictionary *itemDict = [@{ @"__type__" : @"entry" } mutableCopy] ;
-                                itemDict[@"__json__"] = itemEntry ;
-                                pos[part] = itemDict ;
-                            } else {
-                                [skin logError:[NSString stringWithFormat:@"%s.registerJSONFile - malformed entry -- item name (%@) invalid for %@ at index %lu in %@; skipping", USERDATA_TAG, itemName, entryName, idx2 + 1, path]] ;
-                            }
-                        }
-                    }] ;
-                    } else {
-                        [skin logError:[NSString stringWithFormat:@"%s.registerJSONFile - malformed entry -- expected array or nil in 'items' key for %@ at index %lu in %@; skipping", USERDATA_TAG, entryName, idx + 1, path]] ;
-                    }
-                } // no items at all is ok, we only log when items isn't an array
-            }
-        }] ;
-    } else {
-        [skin logError:[NSString stringWithFormat:@"%s.registerJSONFile - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
-    }
-
-    [skin pushLuaRef:refTable ref:refTriggerFn] ;
-    lua_call(L, 0, 0) ;
 
     lua_pushboolean(L, YES) ;
     return 1 ;
@@ -439,6 +389,109 @@ static int doc_registeredFiles(__unused lua_State *L) {
 //     return 2 ;
 // }
 
+#pragma mark - Internal Use Functions
+
+// returns list of children in documentTree for __init and __pairs of helper table for `help`
+static int internal_arrayOfChildren(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+    NSString *identifier = @"" ;
+    if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:1] ;
+
+    lua_newtable(L) ;
+    NSError *error = nil ;
+    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
+                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
+                                                                              error:&error] ;
+    if (!error) {
+        __block NSMutableDictionary *pos = documentationTree ;
+        [parser enumerateMatchesInString:identifier
+                                 options:0
+                                   range:NSMakeRange(0, identifier.length)
+                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
+            NSString *part = [identifier substringWithRange:match.range] ;
+            if (pos[part]) {
+                pos = pos[part] ;
+            } else {
+                pos = nil ;
+                *stop = YES ;
+            }
+        }] ;
+
+        if (pos) {
+            for (NSString *entry in [(NSDictionary *)pos allKeys]) {
+                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
+                    [skin pushNSObject:entry] ;
+                    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                }
+            }
+        }
+    } else {
+        [skin logError:[NSString stringWithFormat:@"%s.doc_arrayOfChildren - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
+    }
+    return 1 ;
+}
+
+// returns __json__ from specified node and it's branches; used in __init for hsdocs
+static int internal_arrayOfModuleJsonSegments(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *target = [skin toNSObjectAtIndex:1] ;
+
+    NSError *error = nil ;
+    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
+                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
+                                                                              error:&error] ;
+    if (!error) {
+        __block NSMutableDictionary *pos = documentationTree ;
+        [parser enumerateMatchesInString:target
+                                 options:0
+                                   range:NSMakeRange(0, target.length)
+                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
+            NSString *part = [target substringWithRange:match.range] ;
+            if (pos[part]) {
+                pos = pos[part] ;
+            } else {
+                pos = nil ;
+                *stop = YES ;
+            }
+        }] ;
+
+        if (pos) {
+            [skin pushNSObject:arrayOf_hamster(pos)] ;
+        } else {
+            lua_pushnil(L) ;
+        }
+    } else {
+        [skin logError:[NSString stringWithFormat:@"%s.doc_arrayOfChildren - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
+        lua_pushnil(L) ;
+    }
+
+    return 1 ;
+}
+
+// used by doc_help and when json being rebuilt for hsdocs
+static int internal_loadRegisteredFiles(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    findUnloadedDocumentationFiles(L) ;
+    return 0 ;
+}
+
+// used to register lua function to trigger `hs.watchable` change counter so hsdocs knows when doc files have been updated
+static int internal_registerTriggerFunction(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TFUNCTION, LS_TBREAK] ;
+
+    if (refTriggerFn != LUA_NOREF && refTriggerFn != LUA_REFNIL) {
+        refTriggerFn = [skin luaUnref:refTable ref:refTriggerFn] ;
+    }
+    lua_pushvalue(L, 1) ;
+    refTriggerFn = [skin luaRef:refTable] ;
+    return 0 ;
+}
+
 #pragma mark - Debugging Tools
 
 // Shouldn't generally be necessary, so we hide them in the metatable to prevent accidental access
@@ -480,18 +533,22 @@ static luaL_Reg moduleLib[] = {
     {"registeredFiles",    doc_registeredFiles},
     {"unregisterJSONFile", doc_unregisterJSONFile},
 //     {"validateJSONFile",   doc_validateJSONFile},
-    {"_children",          doc_arrayOfChildren},
-    {"_moduleJson",        doc_arrayOfModuleJsonSegments},
 
     {NULL, NULL}
 };
 
 // Metatable for module, if needed
 static const luaL_Reg module_metaLib[] = {
+    {"_children",                  internal_arrayOfChildren},
+    {"_moduleJson",                internal_arrayOfModuleJsonSegments},
+    {"_loadRegisteredFiles",       internal_loadRegisteredFiles},
+    {"_registerTriggerFunction",   internal_registerTriggerFunction},
+
     {"_registeredFilesDictionary", debug_registeredFilesDictionary},
     {"_documentationTree",         debug_documentationTree},
-    {"_registerTriggerFunction",   internal_registerTriggerFunction},
+
     {"__gc",                       meta_gc},
+
     {NULL,   NULL}
 };
 
@@ -500,7 +557,10 @@ int luaopen_hs_doc_internal(lua_State* __unused L) {
     refTable = [skin registerLibrary:moduleLib metaFunctions:module_metaLib] ;
 
     registeredFilesDictionary = [[NSMutableDictionary alloc] init] ;
-    documentationTree         = [@{ @"__type__" : @"root" } mutableCopy] ;
+    documentationTree         = [@{
+        @"__type__" : @"root",
+        @"spoon"    : [@{ @"__type__" : @"spoons" } mutableCopy],
+    } mutableCopy] ;
 
 
     return 1;
