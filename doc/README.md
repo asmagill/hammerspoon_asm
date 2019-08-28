@@ -59,6 +59,7 @@ doc = require("hs.doc")
 ##### Module Functions
 * <a href="#help">doc.help(identifier)</a>
 * <a href="#locateJSONFile">doc.locateJSONFile(module) -> path | false, message</a>
+* <a href="#preloadSpoonDocs">doc.preloadSpoonDocs()</a>
 * <a href="#registerJSONFile">doc.registerJSONFile(jsonfile, [isSpoon]) -> status[, message]</a>
 * <a href="#registeredFiles">doc.registeredFiles() -> table</a>
 * <a href="#unregisterJSONFile">doc.unregisterJSONFile(jsonfile) -> status[, message]</a>
@@ -82,6 +83,8 @@ Returns:
 Notes:
  * This function is mainly for runtime API help while using Hammerspoon's Console
 
+ * Documentation files registered with [hs.doc.registerJSONFile](#registerJSONFile) or [hs.doc.preloadSpoonDocs](#preloadSpoonDocs) that have not yet been actually loaded will be loaded when this command is invoked in any of the forms described below.
+
  * You can also access the results of this function by the following methods from the console:
    * help("prefix.path") -- quotes are required, e.g. `help("hs.reload")`
    * help.prefix.path -- no quotes are required, e.g. `help.hs.reload`
@@ -91,6 +94,7 @@ Notes:
        * `lua`   - provides documentation for the version of lua Hammerspoon is using, currently 5.3
          * `lua._man` - provides the table of contents for the Lua 5.3 manual.  You can pull up a specific section of the lua manual by including the chapter (and subsection) like this: `lua._man._3_4_8`.
          * `lua._C`   - provides documentation specifically about the Lua C API for use when developing modules which require external libraries.
+     * `path` is one or more components, separated by a period specifying the module, submodule, function, or moethod you wish to view documentation for.
 
 - - -
 
@@ -98,7 +102,7 @@ Notes:
 ~~~lua
 doc.locateJSONFile(module) -> path | false, message
 ~~~
-Locates the JSON file corresponding to the specified module by searching package.path and package.cpath.
+Locates the JSON file corresponding to the specified third-party module or Spoon by searching package.path and package.cpath.
 
 Parameters:
  * module - the name of the module to locate a JSON file for
@@ -108,6 +112,22 @@ Returns:
 
 Notes:
  * The JSON should be named 'docs.json' and located in the same directory as the `lua` or `so` file which is used when the module is loaded via `require`.
+
+ * The documentation for core modules is stored in the JSON file specified by the `hs.docstrings_json_file` variable; this function is intended for use in locating the documentation file for third party modules and Spoons.
+
+- - -
+
+<a name="preloadSpoonDocs"></a>
+~~~lua
+doc.preloadSpoonDocs()
+~~~
+Locates all installed Spoon documentation files and and marks them for loading the next time the [hs.doc.help](#help) function is invoked.
+
+Parameters:
+ * None
+
+Returns:
+ * None
 
 - - -
 
@@ -123,6 +143,9 @@ Parameters:
 
 Returns:
  * status - Boolean flag indicating if the file was registered or not.  If the file was not registered, then a message indicating the error is also returned.
+
+Notes:
+ * this function just registers the documentation file; it won't actually be loaded and parsed until [hs.doc.help](#help) is invoked.
 
 - - -
 
@@ -160,6 +183,9 @@ Parameters:
 
 Returns:
  * status - Boolean flag indicating if the file was unregistered or not.  If the file was not unregistered, then a message indicating the error is also returned.
+
+Notes:
+ * This function requires the rebuilding of the entire documentation tree for all remaining registered files, so the next time help is queried with [hs.doc.help](#help), there may be a slight one-time delay.
 
 - - -
 

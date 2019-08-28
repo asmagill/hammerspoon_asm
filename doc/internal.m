@@ -152,7 +152,7 @@ static BOOL processRegisteredFile(lua_State *L, NSString *path) {
             }
         }] ;
 
-        // make sure knows that something has changed
+        // make sure watchers knows that something has changed
         [skin pushLuaRef:refTable ref:refTriggerFn] ;
         lua_call(L, 0, 0) ;
     } else {
@@ -185,6 +185,36 @@ static NSMutableArray *arrayOf_hamster(NSMutableDictionary *root) {
     return answers ;
 }
 
+NSMutableDictionary *getPosInTreeFor(NSString *target) {
+    LuaSkin *skin = [LuaSkin shared] ;
+
+    __block NSMutableDictionary *pos ;
+
+    NSError *error = nil ;
+    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
+                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
+                                                                              error:&error] ;
+    if (!error) {
+        pos = documentationTree ;
+        [parser enumerateMatchesInString:target
+                                 options:0
+                                   range:NSMakeRange(0, target.length)
+                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
+            NSString *part = [target substringWithRange:match.range] ;
+            if (pos[part]) {
+                pos = pos[part] ;
+            } else {
+                pos = nil ;
+                *stop = YES ;
+            }
+        }] ;
+    } else {
+        [skin logError:[NSString stringWithFormat:@"%s.getPosInTreeFor - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
+    }
+
+    return pos ;
+}
+
 #pragma mark - Module Functions
 
 // documented in init.lua
@@ -198,77 +228,57 @@ static int doc_help(lua_State *L) {
 
     NSMutableString *result = [[NSMutableString alloc] init] ;
 
-    NSError *error = nil ;
-    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
-                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
-                                                                              error:&error] ;
-    if (!error) {
-        __block NSMutableDictionary *pos = documentationTree ;
-        [parser enumerateMatchesInString:identifier
-                                 options:0
-                                   range:NSMakeRange(0, identifier.length)
-                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
-            NSString *part = [identifier substringWithRange:match.range] ;
-            if (pos[part]) {
-                pos = pos[part] ;
-            } else {
-                pos = nil ;
-                *stop = YES ;
-            }
-        }] ;
+    NSMutableDictionary *pos = getPosInTreeFor(identifier) ;
 
-        if (pos) {
-            result = [[NSMutableString alloc] init] ;
+    if (pos) {
+        result = [[NSMutableString alloc] init] ;
 
-            if ([(NSString *)pos[@"__type__"] isEqualToString:@"root"]) {
-                [result appendString:@"[modules]\n"] ;
-                NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
-                [children sortUsingSelector:@selector(caseInsensitiveCompare:)] ;
-                for (NSString *entry in children) {
-                    if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
-                        [result appendFormat:@"%@\n", entry] ;
-                    }
+        if ([(NSString *)pos[@"__type__"] isEqualToString:@"root"]) {
+            [result appendString:@"[modules]\n"] ;
+            NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
+            [children sortUsingSelector:@selector(caseInsensitiveCompare:)] ;
+            for (NSString *entry in children) {
+                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
+                    [result appendFormat:@"%@\n", entry] ;
                 }
-            } else if ([(NSString *)pos[@"__type__"] isEqualToString:@"spoons"]) {
-                [result appendString:@"[spoons]\n"] ;
-                NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
-                [children sortUsingSelector:@selector(caseInsensitiveCompare:)] ;
-                for (NSString *entry in children) {
-                    if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
-                        [result appendFormat:@"%@\n", entry] ;
-                    }
-                }
-            } else if (pos[@"__json__"] && !pos[@"__json__"][@"items"]) {
-                [result appendFormat:@"%@: %@\n\n%@\n",
-                    pos[@"__json__"][@"type"],
-                    (pos[@"__json__"][@"signature"] ? pos[@"__json__"][@"signature"] : pos[@"__json__"][@"def"]),
-                    pos[@"__json__"][@"doc"]
-                ] ;
-            } else {
-                if (pos[@"__json__"]) {
-                    [result appendFormat:@"%@", pos[@"__json__"][@"doc"]] ;
-                } else {
-                    [result appendString:@"** DOCUMENTATION MISSING **"] ;
-                }
-                NSMutableString *submodules = [[NSMutableString alloc] init] ;
-                NSMutableString *items      = [[NSMutableString alloc] init] ;
-                NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
-                [children sortUsingFunction:docSortFunction context:NULL] ;
-                [children enumerateObjectsUsingBlock:^(NSString *entry, __unused NSUInteger idx, __unused BOOL *stop) {
-                    if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
-                        if (!pos[entry][@"__json__"] || !pos[entry][@"__json__"][@"type"] || [(NSString *)pos[entry][@"__json__"][@"type"] isEqualToString:@"Module"]) {
-                            [submodules appendFormat:@"%@\n", entry] ;
-                        } else {
-                            NSString *itemSignature = pos[entry][@"__json__"][@"signature"] ? pos[entry][@"__json__"][@"signature"] : pos[entry][@"__json__"][@"def"] ;
-                            [items appendFormat:@"%@\n", itemSignature] ;
-                        }
-                    }
-                }] ;
-                [result appendFormat:@"\n\n[submodules]\n%@\n[items]\n%@\n", submodules, items] ;
             }
+        } else if ([(NSString *)pos[@"__type__"] isEqualToString:@"spoons"]) {
+            [result appendString:@"[spoons]\n"] ;
+            NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
+            [children sortUsingSelector:@selector(caseInsensitiveCompare:)] ;
+            for (NSString *entry in children) {
+                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
+                    [result appendFormat:@"%@\n", entry] ;
+                }
+            }
+        } else if (pos[@"__json__"] && !pos[@"__json__"][@"items"]) {
+            [result appendFormat:@"%@: %@\n\n%@\n",
+                pos[@"__json__"][@"type"],
+                (pos[@"__json__"][@"signature"] ? pos[@"__json__"][@"signature"] : pos[@"__json__"][@"def"]),
+                pos[@"__json__"][@"doc"]
+            ] ;
+        } else {
+            if (pos[@"__json__"]) {
+                [result appendFormat:@"%@", pos[@"__json__"][@"doc"]] ;
+            } else {
+                [result appendString:@"** DOCUMENTATION MISSING **"] ;
+            }
+            NSMutableString *submodules = [[NSMutableString alloc] init] ;
+            NSMutableString *items      = [[NSMutableString alloc] init] ;
+            NSMutableArray *children = [[(NSDictionary *)pos allKeys] mutableCopy] ;
+            [children sortUsingFunction:docSortFunction context:NULL] ;
+            [children enumerateObjectsUsingBlock:^(NSString *entry, __unused NSUInteger idx, __unused BOOL *stop) {
+                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
+                    if (!pos[entry][@"__json__"] || !pos[entry][@"__json__"][@"type"] || [(NSString *)pos[entry][@"__json__"][@"type"] isEqualToString:@"Module"]) {
+                        [submodules appendFormat:@"%@\n", entry] ;
+                    } else {
+                        NSString *itemSignature = pos[entry][@"__json__"][@"signature"] ? pos[entry][@"__json__"][@"signature"] : pos[entry][@"__json__"][@"def"] ;
+                        [items appendFormat:@"%@\n", itemSignature] ;
+                    }
+                }
+            }] ;
+            [result appendFormat:@"\n\n[submodules]\n%@\n[items]\n%@\n", submodules, items] ;
         }
-    } else {
-        [skin logError:[NSString stringWithFormat:@"%s.help - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
     }
 
     [skin pushNSObject:result] ;
@@ -308,6 +318,8 @@ static int doc_registerJSONFile(lua_State *L) {
     registeredFilesDictionary[path] = [[NSMutableDictionary alloc] init] ;
     registeredFilesDictionary[path][@"spoon"] = @(isSpoon) ;
 
+    // changecount function will be triggered when json bult in findUnloadedDocumentationFiles for new path
+
     lua_pushboolean(L, YES) ;
     return 1 ;
 }
@@ -321,6 +333,9 @@ static int doc_registerJSONFile(lua_State *L) {
 ///
 /// Returns:
 ///  * status - Boolean flag indicating if the file was unregistered or not.  If the file was not unregistered, then a message indicating the error is also returned.
+///
+/// Notes:
+///  * This function requires the rebuilding of the entire documentation tree for all remaining registered files, so the next time help is queried with [hs.doc.help](#help), there may be a slight one-time delay.
 static int doc_unregisterJSONFile(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
@@ -332,9 +347,21 @@ static int doc_unregisterJSONFile(lua_State *L) {
         return 2 ;
     }
 
-    // TODO: magic happens here
-
     registeredFilesDictionary[path] = nil ;
+    [documentationTree removeAllObjects] ;
+    documentationTree         = [@{
+        @"__type__" : @"root",
+        @"spoon"    : [@{ @"__type__" : @"spoons" } mutableCopy],
+    } mutableCopy] ;
+
+    NSArray *paths = [registeredFilesDictionary allKeys] ;
+    [paths enumerateObjectsUsingBlock:^(NSString *path2, __unused NSUInteger idx, __unused BOOL *stop) {
+        NSMutableDictionary *entry = registeredFilesDictionary[path2] ;
+        if (entry[@"json"]) entry[@"json"] = nil ;
+    }] ;
+
+    // changecount function will be triggered when json rebuilt in findUnloadedDocumentationFiles for remaining paths
+
     lua_pushboolean(L, YES) ;
     return 1 ;
 }
@@ -349,8 +376,9 @@ static int doc_registeredFiles(__unused lua_State *L) {
     return 1 ;
 }
 
-// // Not actually used by anything outside of this module, but if we find out otherwise, it can easily
-// // be re-added by uncommenting this and the entry in moduleLib below
+// // Wasn't actually used by anything outside of this module, and now it's not necessary at all,
+// // but if we find out somone misses it, we can easily re-add it by uncommenting this and
+// /// the entry in moduleLib below
 // //
 // /// hs.doc.validateJSONFile(jsonfile) -> status, message|table
 // /// Function
@@ -399,35 +427,16 @@ static int internal_arrayOfChildren(lua_State *L) {
     if (lua_gettop(L) == 1 && lua_type(L, 1) == LUA_TSTRING) identifier = [skin toNSObjectAtIndex:1] ;
 
     lua_newtable(L) ;
-    NSError *error = nil ;
-    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
-                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
-                                                                              error:&error] ;
-    if (!error) {
-        __block NSMutableDictionary *pos = documentationTree ;
-        [parser enumerateMatchesInString:identifier
-                                 options:0
-                                   range:NSMakeRange(0, identifier.length)
-                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
-            NSString *part = [identifier substringWithRange:match.range] ;
-            if (pos[part]) {
-                pos = pos[part] ;
-            } else {
-                pos = nil ;
-                *stop = YES ;
-            }
-        }] ;
 
-        if (pos) {
-            for (NSString *entry in [(NSDictionary *)pos allKeys]) {
-                if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
-                    [skin pushNSObject:entry] ;
-                    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-                }
+    NSMutableDictionary *pos = getPosInTreeFor(identifier) ;
+
+    if (pos) {
+        for (NSString *entry in [(NSDictionary *)pos allKeys]) {
+            if (!([entry hasPrefix:@"__"] && [entry hasSuffix:@"__"])) {
+                [skin pushNSObject:entry] ;
+                lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             }
         }
-    } else {
-        [skin logError:[NSString stringWithFormat:@"%s.doc_arrayOfChildren - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
     }
     return 1 ;
 }
@@ -438,32 +447,11 @@ static int internal_arrayOfModuleJsonSegments(lua_State *L) {
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *target = [skin toNSObjectAtIndex:1] ;
 
-    NSError *error = nil ;
-    NSRegularExpression *parser = [NSRegularExpression regularExpressionWithPattern:@"[^.]+"
-                                                                            options:NSRegularExpressionUseUnicodeWordBoundaries
-                                                                              error:&error] ;
-    if (!error) {
-        __block NSMutableDictionary *pos = documentationTree ;
-        [parser enumerateMatchesInString:target
-                                 options:0
-                                   range:NSMakeRange(0, target.length)
-                              usingBlock:^(NSTextCheckingResult *match, NSMatchingFlags __unused flags, BOOL *stop) {
-            NSString *part = [target substringWithRange:match.range] ;
-            if (pos[part]) {
-                pos = pos[part] ;
-            } else {
-                pos = nil ;
-                *stop = YES ;
-            }
-        }] ;
+    NSMutableDictionary *pos = getPosInTreeFor(target) ;
 
-        if (pos) {
-            [skin pushNSObject:arrayOf_hamster(pos)] ;
-        } else {
-            lua_pushnil(L) ;
-        }
+    if (pos) {
+        [skin pushNSObject:arrayOf_hamster(pos)] ;
     } else {
-        [skin logError:[NSString stringWithFormat:@"%s.doc_arrayOfChildren - error initializing regex: %@", USERDATA_TAG, error.localizedDescription]] ;
         lua_pushnil(L) ;
     }
 
@@ -557,6 +545,7 @@ int luaopen_hs_doc_internal(lua_State* __unused L) {
     refTable = [skin registerLibrary:moduleLib metaFunctions:module_metaLib] ;
 
     registeredFilesDictionary = [[NSMutableDictionary alloc] init] ;
+    // if you change this, also change it in doc_unregisterJSONFile
     documentationTree         = [@{
         @"__type__" : @"root",
         @"spoon"    : [@{ @"__type__" : @"spoons" } mutableCopy],
