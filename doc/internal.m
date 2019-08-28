@@ -8,15 +8,8 @@ static int refTriggerFn = LUA_NOREF ;
 static NSMutableDictionary *registeredFilesDictionary ;
 static NSMutableDictionary *documentationTree ;
 
-// #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-// #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
-// #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
-
 #pragma mark - Support Functions and Classes
 
-// NSOrderedAscending
-// NSOrderedDescending
-// NSOrderedSame
 NSInteger docSortFunction(NSString *a, NSString *b, __unused void *context) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSError *error = nil ;
