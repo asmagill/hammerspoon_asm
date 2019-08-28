@@ -1,7 +1,8 @@
 hs.doc
 ======
 
-HS.DOC, The Rewrite: Bigger, bolder, and coming to a thater near you... IN 3D!!!!!
+HS.DOC, The Rewrite: Bigger, bolder, and coming to a theater near you... In Smell-O-Vision!!!!!
+
 
 Create documentation objects for interactive help within Hammerspoon
 

@@ -1,7 +1,7 @@
 
 --- === hs.doc ===
 ---
---- HS.DOC, The Rewrite: Bigger, bolder, and coming to a thater near you... IN 3D!!!!!
+--- HS.DOC, The Rewrite: Bigger, bolder, and coming to a theater near you... In Smell-O-Vision!!!!!
 ---
 --- Create documentation objects for interactive help within Hammerspoon
 ---
@@ -265,7 +265,7 @@ _mt.__index = function(self, key)
         self[key] = require(submodules[key])
     end
 
-    _mt._loadRegisteredFiles() -- we have to assume they're access this for help or hsdocs, so load files
+    _mt._loadRegisteredFiles() -- we have to assume they're accessing this for help or hsdocs, so load files
 
     -- massage the result for hsdocs, which we should really rewrite at some point
     if key == "_jsonForSpoons" or key == "_jsonForModules" then
