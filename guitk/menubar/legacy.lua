@@ -1,7 +1,3 @@
---- === hs._asm.module ===
----
---- Stuff about the module
-
 local USERDATA_TAG = "hs._asm.guitk.menubar"
 local module = {}
 
