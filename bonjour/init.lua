@@ -1,3 +1,4 @@
+
 --- === hs._asm.bonjour ===
 ---
 --- Find and publish network services advertised by multicast DNS (Bonjour) with Hammerspoon.
@@ -67,6 +68,38 @@ end
 
 -- Public interface ------------------------------------------------------
 
+--- hs._asm.bonjour:findServices(type, [domain], [callback]) -> browserObject
+--- Method
+--- Find advertised services of the type specified.
+---
+--- Parameters:
+---  * `type`     - a string specifying the type of service to discover on your network. This string should be specified in the format of '_service._protocol.' where _protocol is one of '_tcp' or '_udp'. Examples of common service types can be found in [hs._asm.bonjour.serviceTypes](#serviceTypes).
+---  * `domain`   - an optional string specifying the domain to look for advertised services in. The domain should end with a period. If you omit this parameter, the default registration domain will be used, usually "local."
+---  * `callback` - a callback function which will be invoked as service advertisements meeting the specified criteria are discovered. The callback function should expect 2-5 arguments as follows:
+---    * if a service is discovered or advertising for the service is terminated, the arguments will be:
+---      * the browserObject
+---      * the string "domain"
+---      * a boolean indicating whether the service is being advertised (true) or should be removed because advertisments for the service are being terminated (false)
+---      * the serviceObject for the specific advertisement (see `hs._asm.bonjour.service`)
+---      * a boolean indicating if more advertisements are expected (true) or if the macOS believes that there are no more advertisements to be discovered (false).
+---    * if an error occurs, the callback arguments will be:
+---      * the browserObject
+---      * the string "error"
+---      * a string specifying the specific error that occurred
+---
+--- Returns:
+---  * the browserObject
+---
+--- Notes:
+---  * macOS will indicate when it believes there are no more advertisements of the type specified by `type` in `domain` by marking the last argument to your callback function as false. This is a best guess and may not always be accurate if your network is slow or some servers on your network are particularly slow to respond.
+---  * In addition, if you leave the browser running this method, you will get future updates when services are removed because of server shutdowns or added because of new servers being booted up.
+---  * Leaving the browser running does consume some system resources though, so you will have to determine, based upon your specific requirements, if this is a concern for your specific task or not. To terminate the browser when you have rtrieved all of the infomration you reuqire, you can use the [hs._asm.bonjour:stop](#stop) method.
+---
+---  * The special type "_services._dns-sd._udp." can be used to discover the types of services being advertised on your network. The `hs._asm.bonjour.service` objects returned to the callback function cannot actually be resolved, but you can use the `hs._asm.bonjour.service:name` method to create a list of services that are currently present and being advertised.
+---    * this special type is used by the shortcut function [hs._asm.bonjour.networkServices](#networkServices) for this specific purpose.
+---
+---  * The special domain "dns-sd.org." can be specified to find services advertised through Wide-Area Service Discovery as described at http://www.dns-sd.org. This can be used to discover a limited number of globally available sites on the internet, especially with a service type of `_http._tcp.`.
+---    * In theory, with additional software, you may be able to publish services on your machine for Wide-Area Service discovery using this domain with `hs._asm.bonjour.service.new` but the local dns server requirements and security implications of doing so are beyond the scope of this documentation. You should refer to http://www.dns-sd.org and your local DNS Server administrator or provider for more details.
 browserMT._browserFindServices = browserMT.findServices
 browserMT.findServices = function(self, ...)
     local args = table.pack(...)
@@ -78,12 +111,12 @@ browserMT.findServices = function(self, ...)
     return self:_browserFindServices(...)
 end
 
---- hs._asm.bonjour.service.new(host, service, port, [domain]) -> serviceObject
+--- hs._asm.bonjour.service.new(name, service, port, [domain]) -> serviceObject
 --- Constructor
 --- Returns a new serviceObject for advertising a service provided by your computer.
 ---
 --- Parameters:
----  * `name`    - The name of the service being advertised. This does not have to be the hostname of the machine. If you specify an empty string, the computers hostname will be used, however.
+---  * `name`    - The name of the service being advertised. This does not have to be the hostname of the machine. However, if you specify an empty string, the computers hostname will be used.
 ---  * `service` - a string specifying the service being advertised. This string should be specified in the format of '_service._protocol.' where _protocol is one of '_tcp' or '_udp'. Examples of common service types can be found in `hs._asm.bonjour.serviceTypes`.
 ---  * `port`    - an integer specifying the tcp or udp port the service is provided at
 ---  * `domain`  - an optional string specifying the domain you wish to advertise this service in.
@@ -126,7 +159,7 @@ end
 ---
 ---  * Resolution of the service ip address, hostname, port, and current text records will not occur until [hs._asm.bonjour.service:publish](#publish) is invoked on the serviceObject returned.
 ---
----  * The macOS API specifies that an empty domain string (i.e. specifying the `domain` parameter as "" or leaving it off completely) should resolve in using the default domain for the computer; in my experience this results in an error when attempting to resolve the serviceObjects ip addresses if I don't specify "local" explicitely. In general this shouldn't be an issue if you limit your use of remote serviceObjects to those returned by `hs._asm.bonjour:findServices` as the domain of discovery will be included in the object for you automatically. If you do try to create these objects independantly yourself, be aware that attempting to use the "default domain" rather than specifying it explicitely will probably not work as expected.
+---  * The macOS API specifies that an empty domain string (i.e. specifying the `domain` parameter as "" or leaving it off completely) should result in using the default domain for the computer; in my experience this results in an error when attempting to resolve the serviceObject's ip addresses if I don't specify "local" explicitely. In general this shouldn't be an issue if you limit your use of remote serviceObjects to those returned by `hs._asm.bonjour:findServices` as the domain of discovery will be included in the object for you automatically. If you do try to create these objects independantly yourself, be aware that attempting to use the "default domain" rather than specifying it explicitely will probably not work as expected.
 module.service._remote = module.service.remote
 module.service.remote = function(...)
     local args = table.pack(...)
@@ -143,7 +176,7 @@ end
 --- Returns a list of service types being advertised on your local network.
 ---
 --- Parameters:
----  * `callback` - a callback function which should expect one
+---  * `callback` - a callback function which will be invoked when the services query has completed. The callback should expect one argument: an array of strings specifying the service types discovered on the local network.
 ---  * `timeout`  - an optional number, default 5, specifying the maximum number of seconds after the most recently received service type Hammerspoon should wait trying to identify advertised service types before finishing its query and invoking the callback.
 ---
 --- Returns:
@@ -228,78 +261,78 @@ end
 ---
 ---  * You can view the contents of this table in the Hammerspoon Console by entering `require("hs._asm.bonjour").serviceTypes` into the input field.
 module.serviceTypes = ls.makeConstantsTable({
-    ["_pulse-server._tcp."]      = "PulseAudio Sound Server",
-    ["_postgresql._tcp."]        = "PostgreSQL Server",
-    ["_adisk._tcp."]             = "Apple TimeMachine",
-    ["_webdav._tcp."]            = "WebDAV File Share",
-    ["_timbuktu._tcp."]          = "Timbuktu Remote Desktop Control",
-    ["_acrobatSRV._tcp."]        = "Adobe Acrobat",
-    ["_rfb._tcp."]               = "VNC Remote Access",
-    ["_workstation._tcp."]       = "Workstation",
-    ["_dpap._tcp."]              = "Digital Photo Sharing",
-    ["_mumble._tcp."]            = "Mumble Server",
-    ["_apt._tcp."]               = "APT Package Repository",
-    ["_libvirt._tcp."]           = "Virtual Machine Manager",
-    ["_ssh._tcp."]               = "SSH Remote Terminal",
-    ["_svn._tcp."]               = "Subversion Revision Control",
-    ["_telnet._tcp."]            = "Telnet Remote Terminal",
-    ["_imap._tcp."]              = "IMAP Mail Access",
-    ["_rtp._udp."]               = "RTP Realtime Streaming Server",
-    ["_webdavs._tcp."]           = "Secure WebDAV File Share",
-    ["_dacp._tcp."]              = "iTunes Remote Control",
-    ["_airport._tcp."]           = "Apple AirPort",
-    ["_printer._tcp."]           = "UNIX Printer",
-    ["_sftp-ssh._tcp."]          = "SFTP File Transfer",
-    ["_odisk._tcp."]             = "DVD or CD Sharing",
-    ["_udisks-ssh._tcp."]        = "Remote Disk Management",
-    ["_presence._tcp."]          = "iChat Presence",
-    ["_pop3._tcp."]              = "POP3 Mail Access",
-    ["_iax._udp."]               = "Asterisk Exchange",
-    ["_rss._tcp."]               = "Web Syndication RSS",
-    ["_xpra._tcp."]              = "Xpra Session Server",
-    ["_adobe-vc._tcp."]          = "Adobe Version Cue",
-    ["_shifter._tcp."]           = "Window Shifter",
-    ["_pdl-datastream._tcp."]    = "PDL Printer",
-    ["_home-sharing._tcp."]      = "Apple Home Sharing",
-    ["_domain._udp."]            = "DNS Server",
-    ["_smb._tcp."]               = "Microsoft Windows Network",
-    ["_vlc-http._tcp."]          = "VLC Streaming",
-    ["_omni-bookmark._tcp."]     = "OmniWeb Bookmark Sharing",
-    ["_daap._tcp."]              = "iTunes Audio Access",
-    ["_ksysguard._tcp."]         = "KDE System Guard",
-    ["_pgpkey-hkp._tcp."]        = "GnuPG/PGP HKP Key Server",
-    ["_distcc._tcp."]            = "Distributed Compiler",
-    ["_bzr._tcp."]               = "Bazaar",
-    ["_touch-able._tcp."]        = "iPod Touch Music Library",
-    ["_ipps._tcp."]              = "Secure Internet Printer",
-    ["_https._tcp."]             = "Secure Web Site",
-    ["_http._tcp."]              = "Web Site",
-    ["_tp-https._tcp."]          = "Thousand Parsec Server (Secure HTTP Tunnel)",
-    ["_ntp._udp."]               = "NTP Time Server",
-    ["_skype._tcp."]             = "Skype VoIP",
-    ["_raop._tcp."]              = "AirTunes Remote Audio",
-    ["_net-assistant._udp."]     = "Apple Net Assistant",
-    ["_pulse-sink._tcp."]        = "PulseAudio Sound Sink",
-    ["_nfs._tcp."]               = "Network File System",
-    ["_h323._tcp."]              = "H.323 Telephony",
-    ["_presence_olpc._tcp."]     = "OLPC Presence",
-    ["_tps._tcp."]               = "Thousand Parsec Server (Secure)",
-    ["_realplayfavs._tcp."]      = "RealPlayer Shared Favorites",
-    ["_rtsp._tcp."]              = "RTSP Realtime Streaming Server",
-    ["_pulse-source._tcp."]      = "PulseAudio Sound Source",
-    ["_afpovertcp._tcp."]        = "Apple File Sharing",
-    ["_remote-jukebox._tcp."]    = "Remote Jukebox",
-    ["_ipp._tcp."]               = "Internet Printer",
-    ["_tftp._udp."]              = "TFTP Trivial File Transfer",
-    ["_mpd._tcp."]               = "Music Player Daemon",
-    ["_lobby._tcp."]             = "Gobby Collaborative Editor Session",
-    ["_tp-http._tcp."]           = "Thousand Parsec Server (HTTP Tunnel)",
-    ["_sip._udp."]               = "SIP Telephony",
-    ["_ldap._tcp."]              = "LDAP Directory Server",
-    ["_MacOSXDupSuppress._tcp."] = "MacOS X Duplicate Machine Suppression",
-    ["_tp._tcp."]                = "Thousand Parsec Server",
-    ["_ftp._tcp."]               = "FTP File Transfer",
-    ["_see._tcp."]               = "SubEthaEdit Collaborative Text Editor",
+    ["PulseAudio Sound Server"]                     = "_pulse-server._tcp.",
+    ["PostgreSQL Server"]                           = "_postgresql._tcp.",
+    ["Apple TimeMachine"]                           = "_adisk._tcp.",
+    ["WebDAV File Share"]                           = "_webdav._tcp.",
+    ["Timbuktu Remote Desktop Control"]             = "_timbuktu._tcp.",
+    ["Adobe Acrobat"]                               = "_acrobatSRV._tcp.",
+    ["VNC Remote Access"]                           = "_rfb._tcp.",
+    ["Workstation"]                                 = "_workstation._tcp.",
+    ["Digital Photo Sharing"]                       = "_dpap._tcp.",
+    ["Mumble Server"]                               = "_mumble._tcp.",
+    ["APT Package Repository"]                      = "_apt._tcp.",
+    ["Virtual Machine Manager"]                     = "_libvirt._tcp.",
+    ["SSH Remote Terminal"]                         = "_ssh._tcp.",
+    ["Subversion Revision Control"]                 = "_svn._tcp.",
+    ["Telnet Remote Terminal"]                      = "_telnet._tcp.",
+    ["IMAP Mail Access"]                            = "_imap._tcp.",
+    ["RTP Realtime Streaming Server"]               = "_rtp._udp.",
+    ["Secure WebDAV File Share"]                    = "_webdavs._tcp.",
+    ["iTunes Remote Control"]                       = "_dacp._tcp.",
+    ["Apple AirPort"]                               = "_airport._tcp.",
+    ["UNIX Printer"]                                = "_printer._tcp.",
+    ["SFTP File Transfer"]                          = "_sftp-ssh._tcp.",
+    ["DVD or CD Sharing"]                           = "_odisk._tcp.",
+    ["Remote Disk Management"]                      = "_udisks-ssh._tcp.",
+    ["iChat Presence"]                              = "_presence._tcp.",
+    ["POP3 Mail Access"]                            = "_pop3._tcp.",
+    ["Asterisk Exchange"]                           = "_iax._udp.",
+    ["Web Syndication RSS"]                         = "_rss._tcp.",
+    ["Xpra Session Server"]                         = "_xpra._tcp.",
+    ["Adobe Version Cue"]                           = "_adobe-vc._tcp.",
+    ["Window Shifter"]                              = "_shifter._tcp.",
+    ["PDL Printer"]                                 = "_pdl-datastream._tcp.",
+    ["Apple Home Sharing"]                          = "_home-sharing._tcp.",
+    ["DNS Server"]                                  = "_domain._udp.",
+    ["Microsoft Windows Network"]                   = "_smb._tcp.",
+    ["VLC Streaming"]                               = "_vlc-http._tcp.",
+    ["OmniWeb Bookmark Sharing"]                    = "_omni-bookmark._tcp.",
+    ["iTunes Audio Access"]                         = "_daap._tcp.",
+    ["KDE System Guard"]                            = "_ksysguard._tcp.",
+    ["GnuPG/PGP HKP Key Server"]                    = "_pgpkey-hkp._tcp.",
+    ["Distributed Compiler"]                        = "_distcc._tcp.",
+    ["Bazaar"]                                      = "_bzr._tcp.",
+    ["iPod Touch Music Library"]                    = "_touch-able._tcp.",
+    ["Secure Internet Printer"]                     = "_ipps._tcp.",
+    ["Secure Web Site"]                             = "_https._tcp.",
+    ["Web Site"]                                    = "_http._tcp.",
+    ["Thousand Parsec Server (Secure HTTP Tunnel)"] = "_tp-https._tcp.",
+    ["NTP Time Server"]                             = "_ntp._udp.",
+    ["Skype VoIP"]                                  = "_skype._tcp.",
+    ["AirTunes Remote Audio"]                       = "_raop._tcp.",
+    ["Apple Net Assistant"]                         = "_net-assistant._udp.",
+    ["PulseAudio Sound Sink"]                       = "_pulse-sink._tcp.",
+    ["Network File System"]                         = "_nfs._tcp.",
+    ["H.323 Telephony"]                             = "_h323._tcp.",
+    ["OLPC Presence"]                               = "_presence_olpc._tcp.",
+    ["Thousand Parsec Server (Secure)"]             = "_tps._tcp.",
+    ["RealPlayer Shared Favorites"]                 = "_realplayfavs._tcp.",
+    ["RTSP Realtime Streaming Server"]              = "_rtsp._tcp.",
+    ["PulseAudio Sound Source"]                     = "_pulse-source._tcp.",
+    ["Apple File Sharing"]                          = "_afpovertcp._tcp.",
+    ["Remote Jukebox"]                              = "_remote-jukebox._tcp.",
+    ["Internet Printer"]                            = "_ipp._tcp.",
+    ["TFTP Trivial File Transfer"]                  = "_tftp._udp.",
+    ["Music Player Daemon"]                         = "_mpd._tcp.",
+    ["Gobby Collaborative Editor Session"]          = "_lobby._tcp.",
+    ["Thousand Parsec Server (HTTP Tunnel)"]        = "_tp-http._tcp.",
+    ["SIP Telephony"]                               = "_sip._udp.",
+    ["LDAP Directory Server"]                       = "_ldap._tcp.",
+    ["MacOS X Duplicate Machine Suppression"]       = "_MacOSXDupSuppress._tcp.",
+    ["Thousand Parsec Server"]                      = "_tp._tcp.",
+    ["FTP File Transfer"]                           = "_ftp._tcp.",
+    ["SubEthaEdit Collaborative Text Editor"]       = "_see._tcp.",
 })
 
 -- Return Module Object --------------------------------------------------
