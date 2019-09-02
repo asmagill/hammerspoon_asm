@@ -26,7 +26,7 @@ bonjour = require("hs._asm.bonjour")
 
 ### Submodule(s)
 
-* [hs._asm.bonjour.service](Service.md)
+* [hs._asm.bonjour.service](SERVICE.md)
 
 ### Contents
 
