@@ -144,7 +144,7 @@ static int invocator(lua_State *L) {
         if (allocFirst) rcv = [cls alloc] ;
     } else if(luaL_testudata(L, objIndex, ID_USERDATA_TAG) && !allocFirst) {
         rcv         = get_objectFromUserdata(__bridge id, L, objIndex, ID_USERDATA_TAG) ;
-        cls         = [rcv class] ;
+        cls         = [(NSObject *)rcv class] ;
     } else {
         return luaL_argerror(L, objIndex, "must be a class object or an id object") ;
     }

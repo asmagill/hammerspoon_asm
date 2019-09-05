@@ -129,7 +129,7 @@ static int object_userdata_tostring(lua_State* L) {
 static int object_userdata_eq(lua_State* L) {
     id obj1 = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     id obj2 = get_objectFromUserdata(__bridge id, L, 2, ID_USERDATA_TAG) ;
-    lua_pushboolean(L, [obj1 isEqual:obj2]) ;
+    lua_pushboolean(L, [(NSObject *)obj1 isEqual:(NSObject *)obj2]) ;
     return 1 ;
 }
 
