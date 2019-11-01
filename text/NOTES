@@ -67,7 +67,7 @@ should _len return the same thing as `len` below with no options? or not be impl
 }
 
 
-Still need to review `cp.text` and `utf16.utf16` to see what to migrate/modify into this module
+Still need to review `cp.text` and `cp.utf16` to see what to migrate/modify into this module
 
 Still need to review `NSString` docs for other functions we can easily add
 
