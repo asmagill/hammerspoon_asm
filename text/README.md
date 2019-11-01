@@ -7,6 +7,8 @@ Doesn't do much yet, other than allow you to convert byte strings into an object
 
 See above mentioned issue and `NOTES` file for an approximate roadmap and plan.
 
+Unlike other modules in my *Work-In-Progress* repository, this one will install itself as `hs.text` rather than `hs._asm.text`, as this is being developed specifically to be added to the core app as soon as it is reasonably functional.
+
 ### License
 
 > Released under MIT license.
