@@ -667,6 +667,13 @@ static int lua_meyersShortestEdit(lua_State *L) {
     }
 }
 
+static int extras_random(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    lua_pushinteger(L, (lua_Integer)arc4random_uniform(lua_tointeger(L, 1))) ;
+    return 1 ;
+}
+
 static const luaL_Reg extrasLib[] = {
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
@@ -708,6 +715,8 @@ static const luaL_Reg extrasLib[] = {
 
     {"levenshteinDistance",  lua_LevenshteinDistance},
     {"meyersShortestEdit",   lua_meyersShortestEdit},
+
+    {"random",               extras_random},
 
     {NULL,                   NULL}
 };
