@@ -10,13 +10,13 @@ should _len return the same thing as `len` below with no options? or not be impl
 // Done
   lower = <function 9>,
   upper = <function 17>
+  len = <function 8>,
+  sub = <function 15>,
 
 // Planned
   find = <function 4>,      // support for patterns uncertain
-  len = <function 8>,       // `hs.text:len` will likely combine this and `utf8.len` possibly with additional options
   match = <function 10>,    // support for patterns uncertain
   reverse = <function 14>,
-  sub = <function 15>,
 
 // Uncertain
   gmatch = <function 6>,
@@ -37,6 +37,10 @@ should _len return the same thing as `len` below with no options? or not be impl
 
 > inspect1(utf8)
 {
+// done
+  len = <function 4>,       // see string.len above; not implementing version with indices because the premise of this module
+                            // is that we work with *any* valid string type; use `hs.text:sub(...):len()` if you need this
+
 // Planned
   codepoint = <function 2>, // can this work with *all* encodings or just limited to unicode/ascii/simple?
   codes = <function 3>,     // can this work with *all* encodings or just limited to unicode/ascii/simple?
@@ -44,7 +48,6 @@ should _len return the same thing as `len` below with no options? or not be impl
 
 // Probably Not
   char = <function 1>,      // see `codepointToUTF8` below (a "safer" version of this that doesn't barf on invalid codepoints)
-  len = <function 4>,       // `hs.text:len` will likely combine this and `string.len` possibly with additional options
 
 // No
   charpattern = "....",     // used to iterate UTF8 in 8bit world; better to use module len and sub
