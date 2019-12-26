@@ -386,8 +386,51 @@ static int text_string_sub(lua_State *L) {
             if (objString) {
                 NSString *subString = [objString substringWithRange:range] ;
                 result = [subString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-            } // else we can't work with it, so return empty string
+            } // else we can't get a substring of what we can't represent as a string so leave result as empty data
         }
+    }
+
+    HSTextObject *newObject = [[HSTextObject alloc] init:result withEncoding:object.encoding] ;
+    [skin pushNSObject:newObject] ;
+    return 1 ;
+}
+
+// string.reverse (s)
+//
+// Returns a string that is the string s reversed.
+static int text_string_reverse(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+
+    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
+
+    NSData *result = [NSData data] ;
+
+    if (object.encoding == 0) {
+        NSUInteger rawLen = object.contents.length ;
+        if (rawLen > 0) {
+            const char *rawData = object.contents.bytes ;
+            char       *newData = malloc(sizeof(char) * rawLen) ;
+            NSUInteger index = rawLen - 1 ;
+            for (NSUInteger i = 0 ; i < rawLen ; i++) newData[index--] = rawData[i] ;
+            result = [NSData dataWithBytesNoCopy:newData length:rawLen freeWhenDone:YES] ;
+        }
+    } else {
+        NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
+        if (objString) {
+
+            // Courtesy of https://stackoverflow.com/a/6730329.
+            // Should handle surrogate pairs and composed charcter sequences but will need to test when I get
+            // to dealing with them and normalization stuffs
+            NSMutableString *reversedString = [NSMutableString stringWithCapacity:objString.length] ;
+            [objString enumerateSubstringsInRange:NSMakeRange(0, objString.length)
+                                          options:(NSStringEnumerationReverse | NSStringEnumerationByComposedCharacterSequences)
+                                       usingBlock:^(NSString *substring, __unused NSRange substringRange, __unused NSRange enclosingRange, __unused BOOL *stop) {
+                                          [reversedString appendString:substring] ;
+                                       }] ;
+
+            result = [reversedString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
+        } // else we can't reverse what we can't represent as a string so leave result as empty data
     }
 
     HSTextObject *newObject = [[HSTextObject alloc] init:result withEncoding:object.encoding] ;
@@ -562,6 +605,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"lower",            text_string_lower},
     {"len",              text_string_length},
     {"sub",              text_string_sub},
+    {"reverse",          text_string_reverse},
 
     {"__tostring",       userdata_tostring},
     {"__len",            text_string_length},

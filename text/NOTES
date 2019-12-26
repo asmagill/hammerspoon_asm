@@ -12,11 +12,11 @@ should _len return the same thing as `len` below with no options? or not be impl
   upper = <function 17>
   len = <function 8>,
   sub = <function 15>,
+  reverse = <function 14>,
 
 // Planned
   find = <function 4>,      // support for patterns uncertain
   match = <function 10>,    // support for patterns uncertain
-  reverse = <function 14>,
 
 // Uncertain
   gmatch = <function 6>,
