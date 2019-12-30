@@ -1,6 +1,5 @@
 Implementation Plans/Thoughts/Notes
 
-
 should integer key to __index return "char" at that position (e.g. `hs.text:sub(key,key)`?
 should _len return the same thing as `len` below with no options? or not be implemented?
     if __index above implemented, then this should too
@@ -8,25 +7,26 @@ should _len return the same thing as `len` below with no options? or not be impl
 > inspect1(string)
 {
 // Done
-  lower = <function 9>,
-  upper = <function 17>
-  len = <function 8>,
-  sub = <function 15>,
-  reverse = <function 14>,
-  byte = <function 1>,      // hs.text:rawData():byte([i],[j]) wrapped in lua
+  lower = <function 9>,     // in utf16 submodule
+  upper = <function 17>     // in utf16 submodule
+  sub = <function 15>,      // in utf16 submodule
+  reverse = <function 14>,  // in utf16 submodule
 
-// Planned
-  find = <function 4>,      // support for patterns uncertain
-  match = <function 10>,    // support for patterns uncertain
+  len = <function 8>,       // in both
+  byte = <function 1>,      // in main module: hs.text:rawData():byte([i],[j]) wrapped in lua
 
-// Uncertain
-  gmatch = <function 6>,
-  gsub = <function 7>,
-  rep = <function 13>,
+      // Planned
+        find = <function 4>,      // support for patterns uncertain
+        match = <function 10>,    // support for patterns uncertain
+
+      // Uncertain
+        gmatch = <function 6>,
+        gsub = <function 7>,
+        rep = <function 13>,
 
 // Probably Not
-  char = <function 2>,      // use `hs.text.new(string.char(...))`
-  format = <function 5>,    // use `hs.text.new(string.format(...))` to create formatted string in required encoding
+  char = <function 2>,      // use `hs.text.new(string.char(...))`; utf16 version mirrors utf8.char below
+  format = <function 5>,    // use `hs.text[.utf16].new(string.format(...)[, encoding])` to create formatted string in required encoding
 
 // No
   dump = <function 3>,      // binary representation of lua functions -- encoding would destroy
@@ -38,16 +38,17 @@ should _len return the same thing as `len` below with no options? or not be impl
 > inspect1(utf8)
 {
 // done
-  len = <function 4>,       // see string.len above; not implementing version with indices because the premise of this module
-                            // is that we work with *any* valid string type; use `hs.text:sub(...):len()` if you need this
+  codepoint = <function 2>, // in utf16 submodule
+  codes = <function 3>,     // in utf16 submodule
+  char = <function 1>,      // in utf16 submodule
 
-// Planned
-  codepoint = <function 2>, // can this work with *all* encodings or just limited to unicode/ascii/simple?
-  codes = <function 3>,     // can this work with *all* encodings or just limited to unicode/ascii/simple?
-  offset = <function 5>     // make more generic -- n'th char of encoding, return byte position in the rawData
+        // Uncertain
+          len = <function 4>,       // see string.len above; not implementing version with indices because the premise of this module
+                                    // is that we work with *any* valid string type; use `hs.text:sub(...):len()` if you need this
 
-// Probably Not
-  char = <function 1>,      // see `codepointToUTF8` below (a "safer" version of this that doesn't barf on invalid codepoints)
+        // Planned
+          offset = <function 5>     // make more generic -- n'th char of encoding, return byte position in the rawData
+
 
 // No
   charpattern = "....",     // used to iterate UTF8 in 8bit world; better to use module len and sub

@@ -91,6 +91,76 @@ static int utf16_new(lua_State *L) {
     return 1 ;
 }
 
+// utf8.char (···)
+//
+// Receives zero or more integers, converts each one to its corresponding UTF-8 byte sequence and returns a string with the concatenation of all these sequences.
+static int utf16_utf8_char(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    NSMutableString *newString = [NSMutableString stringWithCapacity:(NSUInteger)lua_gettop(L)] ;
+    for (int i = 1 ; i <= lua_gettop(L) ; i++) {
+        if (lua_type(L, i) != LUA_TNUMBER) return luaL_argerror(L, i, [[NSString stringWithFormat:@"number expected, got %s", luaL_typename(L, i)] UTF8String]) ;
+        if (!lua_isinteger(L, i)) return luaL_argerror(L, i, "number has no integer representation") ;
+        uint32_t codepoint = (uint32_t)lua_tointeger(L, i) ;
+        unichar surrogates[2] ;
+        if (CFStringGetSurrogatePairForLongCharacter(codepoint, surrogates)) {
+            [newString appendString:[NSString stringWithCharacters:surrogates length:2]] ;
+        } else {
+            unichar ch1 = (unichar)codepoint ;
+            [newString appendString:[NSString stringWithCharacters:&ch1 length:1]] ;
+        }
+    }
+
+    HSTextUTF16Object *object = [[HSTextUTF16Object alloc] initWithString:newString] ;
+
+    [skin pushNSObject:object] ;
+    return 1 ;
+}
+
+static int utf16_isHighSurrogate(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    unichar ch = (unichar)lua_tointeger(L, 1) ;
+    lua_pushboolean(L, CFStringIsSurrogateHighCharacter(ch)) ;
+    return 1 ;
+}
+
+static int utf16_isLowSurrogate(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    unichar ch = (unichar)lua_tointeger(L, 1) ;
+    lua_pushboolean(L, CFStringIsSurrogateLowCharacter(ch)) ;
+    return 1 ;
+}
+
+static int utf16_surrogatePairForCodepoint(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    uint32_t codepoint = (uint32_t)lua_tointeger(L, 1) ;
+    unichar surrogates[2] ;
+    if (CFStringGetSurrogatePairForLongCharacter(codepoint, surrogates)) {
+        lua_pushinteger(L, (lua_Integer)surrogates[0]) ;
+        lua_pushinteger(L, (lua_Integer)surrogates[1]) ;
+        return 2 ;
+    } else {
+        lua_pushnil(L) ;
+        return 1 ;
+    }
+}
+
+static int utf16_codepointForSurrogatePair(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    unichar ch1 = (unichar)lua_tointeger(L, 1) ;
+    unichar ch2 = (unichar)lua_tointeger(L, 2) ;
+    if (CFStringIsSurrogateHighCharacter(ch1) && CFStringIsSurrogateLowCharacter(ch2)) {
+        uint32_t codepoint = CFStringGetLongCharacterForSurrogatePair(ch1, ch2) ;
+        lua_pushinteger(L, (lua_Integer)codepoint) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Methods
 
 // need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
@@ -152,7 +222,7 @@ static int utf16_unicodeComposition(lua_State *L) {
     return 1 ;
 }
 
-static int utf16_character(lua_State *L) {
+static int utf16_unitCharacter(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
@@ -178,6 +248,39 @@ static int utf16_character(lua_State *L) {
         i++ ;
     }
     return count ;
+}
+
+static int utf16_composedCharacterRange(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+    lua_Integer       i            = (lua_gettop(L) > 1) ? lua_tointeger(L, 2) : 1 ;
+    lua_Integer       j            = (lua_gettop(L) > 2) ? lua_tointeger(L, 3) : i ;
+    lua_Integer       length       = (lua_Integer)objString.length ;
+
+    // adjust indicies per lua standards
+    if (i < 0) i = length + 1 + i ; // negative indicies are from string end
+    if (j < 0) j = length + 1 + j ; // negative indicies are from string end
+
+    // match behavior of utf8.codepoint -- it's a little more anal then string.sub about subscripts...
+    if ((i < 1) || (i > length)) return luaL_argerror(L, 2, "out of range") ;
+    if ((j < 1) || (j > length)) return luaL_argerror(L, 3, "out of range") ;
+
+    NSRange targetRange ;
+
+    if (i == j) {
+        targetRange = [objString rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)(i - 1)] ;
+    } else {
+        NSUInteger loc   = (NSUInteger)i - 1 ;
+        NSUInteger len   = (NSUInteger)j - loc ;
+        NSRange    range = NSMakeRange(loc, len) ;
+
+        targetRange = [objString rangeOfComposedCharacterSequencesForRange:range] ;
+    }
+    lua_pushinteger(L, (lua_Integer)(targetRange.location + 1)) ;
+    lua_pushinteger(L, (lua_Integer)(targetRange.location + targetRange.length)) ;
+    return 2 ;
 }
 
 #pragma mark * From lua string library *
@@ -286,8 +389,8 @@ static int utf16_string_sub(lua_State *L) {
 
     if (!((i > length) || (j < i))) { // i.e. indices are within range
         // now find Objective-C index and length
-        NSUInteger loc = (NSUInteger)i - 1 ;
-        NSUInteger len = (NSUInteger)j - loc ;
+        NSUInteger loc   = (NSUInteger)i - 1 ;
+        NSUInteger len   = (NSUInteger)j - loc ;
         NSRange    range = NSMakeRange(loc, len) ;
 
         subString = [objString substringWithRange:range] ;
@@ -330,7 +433,6 @@ static int utf16_string_reverse(__unused lua_State *L) {
 // utf8.codepoint (s [, i [, j]])
 //
 // Returns the codepoints (as integers) from all characters in s that start between byte position i and j (both included). The default for i is 1 and for j is i. It raises an error if it meets any invalid byte sequence.
-// see https://stackoverflow.com/a/16693106
 static int utf16_utf8_codepoint(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -350,27 +452,28 @@ static int utf16_utf8_codepoint(lua_State *L) {
 
     int count = 0 ;
 
-    uint32_t codepoint = [objString characterAtIndex:(NSUInteger)(i - 1)] ;
-    if ((codepoint & 0xfc00) == 0xdc00) {
-        // initial index is low surrogate of surrogate pair
+    if (CFStringIsSurrogateLowCharacter([objString characterAtIndex:(NSUInteger)(i - 1)])) {
+        // initial index is in the middle of a surrogate pair
         return luaL_error(L, "invalid UTF-16 code") ;
     }
 
     while(i <= j) {
-        codepoint = [objString characterAtIndex:(NSUInteger)(i - 1)] ;
-        if ((codepoint & 0xfc00) == 0xd800) {
+        unichar  ch1       = [objString characterAtIndex:(NSUInteger)(i - 1)] ;
+        uint32_t codepoint = ch1 ;
+        if (CFStringIsSurrogateHighCharacter(ch1)) {
             i++ ; // surrogate pair, so get second half
-            // shouldn't happen because then the NSString wouldn't be valid, but just in case, let's check to see
-            // if the string ends with an unbalanced high surrogate
-            if (i > length) return luaL_error(L, "invalid UTF-16 code") ;
-
+            if (i > length) {
+                // if we've exceded the string length, then string ends with a broken surrogate pair
+                return luaL_error(L, "invalid UTF-16 code") ;
+            }
             unichar ch2 = [objString characterAtIndex:(NSUInteger)(i - 1)] ;
-            codepoint = (((codepoint & 0x3ff) << 10) | (ch2 & 0x3ff)) + 0x10000 ;
+            codepoint = CFStringGetLongCharacterForSurrogatePair(ch1, ch2) ;
         }
         lua_pushinteger(L, (lua_Integer)codepoint) ;
         i++ ;
         count++ ;
     }
+
     return count ;
 }
 
@@ -433,6 +536,34 @@ id toHSTextUTF16ObjectFromLua(lua_State *L, int idx) {
 
 #pragma mark - Hammerspoon/Lua Infrastructure
 
+static int userdata_concat(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+// can't get here if at least one of us isn't our userdata type
+    HSTextUTF16Object *obj1 = luaL_testudata(L, 1, USERDATA_TAG) ? [skin luaObjectAtIndex:1 toClass:"HSTextUTF16Object"] : nil ;
+    if (!obj1) {
+        if (lua_type(L, 1) == LUA_TSTRING || lua_type(L, 1) == LUA_TNUMBER) {
+            const char *input = lua_tostring(L, 1) ;
+            obj1 = [[HSTextUTF16Object alloc] initWithString:[NSString stringWithCString:input encoding:NSUTF8StringEncoding]] ;
+        } else {
+            return luaL_error(L, "attempt to concatenate a %s value", lua_typename(L, 1)) ;
+        }
+    }
+    HSTextUTF16Object *obj2 = luaL_testudata(L, 2, USERDATA_TAG) ? [skin luaObjectAtIndex:2 toClass:"HSTextUTF16Object"] : nil ;
+    if (!obj2) {
+        if (lua_type(L, 2) == LUA_TSTRING || lua_type(L, 2) == LUA_TNUMBER) {
+            const char *input = lua_tostring(L, 2) ;
+            obj2 = [[HSTextUTF16Object alloc] initWithString:[NSString stringWithCString:input encoding:NSUTF8StringEncoding]] ;
+        } else {
+            return luaL_error(L, "attempt to concatenate a %s value", lua_typename(L, 2)) ;
+        }
+    }
+
+    NSString *newString = [NSString stringWithFormat:@"%@%@", obj1.utf16string, obj2.utf16string] ;
+    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:newString] ;
+    [skin pushNSObject:newObject] ;
+    return 1 ;
+}
+
 static int userdata_tostring(__unused lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSTextUTF16Object *obj  = [skin luaObjectAtIndex:1 toClass:"HSTextUTF16Object"] ;
@@ -443,7 +574,7 @@ static int userdata_tostring(__unused lua_State* L) {
 
 static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
-// so use luaL_testudata before the macro causes a lua error
+// so use luaL_testudata before the macro causes a lua error.
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
         LuaSkin *skin = [LuaSkin shared] ;
         HSTextUTF16Object *obj1 = [skin luaObjectAtIndex:1 toClass:"HSTextUTF16Object"] ;
@@ -479,31 +610,37 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"unicodeDecomposition", utf16_unicodeDecomposition},
-    {"unicodeComposition",   utf16_unicodeComposition},
-    {"transform",            utf16_transform},
-    {"character",            utf16_character},
+    {"unicodeDecomposition",   utf16_unicodeDecomposition},
+    {"unicodeComposition",     utf16_unicodeComposition},
+    {"transform",              utf16_transform},
+    {"unitCharacter",          utf16_unitCharacter},
+    {"composedCharacterRange", utf16_composedCharacterRange},
 
-    {"upper",                utf16_string_upper},
-    {"lower",                utf16_string_lower},
-    {"len",                  utf16_string_length},
-    {"sub",                  utf16_string_sub},
-    {"reverse",              utf16_string_reverse},
+    {"upper",                  utf16_string_upper},
+    {"lower",                  utf16_string_lower},
+    {"len",                    utf16_string_length},
+    {"sub",                    utf16_string_sub},
+    {"reverse",                utf16_string_reverse},
 
-    {"codepoint",            utf16_utf8_codepoint},
+    {"codepoint",              utf16_utf8_codepoint},
 
-//     {"__concat",             ...},
-    {"__tostring",           userdata_tostring},
-    {"__len",                utf16_string_length},
-    {"__eq",                 userdata_eq},
-    {"__gc",                 userdata_gc},
-    {NULL,                   NULL}
+    {"__concat",               userdata_concat},
+    {"__tostring",             userdata_tostring},
+    {"__len",                  utf16_string_length},
+    {"__eq",                   userdata_eq},
+    {"__gc",                   userdata_gc},
+    {NULL,                     NULL}
 };
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new", utf16_new},
-    {NULL,  NULL}
+    {"new",                       utf16_new},
+    {"char",                      utf16_utf8_char},
+    {"isHighSurrogate",           utf16_isHighSurrogate},
+    {"isLowSurrogate",            utf16_isLowSurrogate},
+    {"surrogatePairForCodepoint", utf16_surrogatePairForCodepoint},
+    {"codepointForSurrogatePair", utf16_codepointForSurrogatePair},
+    {NULL,                        NULL}
 };
 
 // // Metatable for module, if needed

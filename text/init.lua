@@ -39,7 +39,7 @@ end
 -- will iterate over all characters in string s, with p being the position (in bytes) and c the code point of each character. It raises an error if it meets any invalid byte sequence.
 utf16MT.codes = function(self)
     return function(state, index)
-        if index > 0 and self:codepoint(index) > 0xFFFF then
+        if index > 0 and module.utf16.isHighSurrogate(self:unitCharacter(index)) then
             index = index + 2
         else
             index = index + 1
@@ -48,6 +48,22 @@ utf16MT.codes = function(self)
             return nil
         else
             return index, self:codepoint(index)
+        end
+    end, self, 0
+end
+
+utf16MT.composedCharacters = function(self)
+    return function(state, index)
+        if index > 0 then
+            local i, j = self:composedCharacterRange(index)
+            index = j
+        end
+        index = index + 1
+        if index > #state then
+            return nil
+        else
+            local i, j = self:composedCharacterRange(index)
+            return index, j
         end
     end, self, 0
 end

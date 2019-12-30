@@ -34,17 +34,27 @@ static int refTable = LUA_NOREF;
 
 static int text_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TSTRING, LS_TBREAK | LS_TVARARG] ;
-    NSData *rawData = [skin toNSObjectAtIndex:1 withOptions:LS_NSLuaStringAsDataOnly] ;
+    NSData *rawData = nil ;
+
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        [skin checkArgs:LS_TSTRING, LS_TBREAK | LS_TVARARG] ;
+        rawData = [skin toNSObjectAtIndex:1 withOptions:LS_NSLuaStringAsDataOnly] ;
+    } else {
+        [skin checkArgs:LS_TUSERDATA, "hs.text.utf16", LS_TBREAK] ;
+        // treat userdata as NSObject so we don't have to link files together to get definition of HSTextUTF16Object class
+        NSObject *object      = [skin toNSObjectAtIndex:1] ;
+        NSString *utf16String = [object valueForKey:@"utf16string"] ;
+        rawData = [utf16String dataUsingEncoding:NSUnicodeStringEncoding] ;
+    }
 
     BOOL             hasEncoding = (lua_gettop(L) > 1 && lua_type(L, 2) == LUA_TNUMBER) ;
     NSStringEncoding encoding ;
 
     if (hasEncoding) {
-        [skin checkArgs:LS_TSTRING, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+        [skin checkArgs:LS_TANY, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
         encoding = (NSStringEncoding)lua_tointeger(L, 2) ;
     } else {
-        [skin checkArgs:LS_TSTRING, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+        [skin checkArgs:LS_TANY, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
         BOOL     allowLossy     = (lua_gettop(L) > 1 && lua_type(L, 2) == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, 2) : NO ;
         BOOL     includeWindows = (lua_gettop(L) > 2 && lua_type(L, 3) == LUA_TBOOLEAN) ? (BOOL)lua_toboolean(L, 3) : NO ;
         NSString *string        = nil ;
@@ -232,8 +242,10 @@ static int text_encodingLossless(lua_State *L) {
 
 static int text_length(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
+    // when used as the metmethod __len, we may get "self" provided twice, so let's just check the first arg
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+
+    HSTextObject *object = [skin toNSObjectAtIndex:1] ;
 
     if (object.encoding == 0) {
         lua_pushinteger(L, (lua_Integer)object.contents.length) ;
