@@ -52,9 +52,9 @@ static int text_new(lua_State *L) {
 
         encoding = [NSString stringEncodingForData:rawData
                                    encodingOptions:@{
-                                          NSStringEncodingDetectionAllowLossyKey  : @(allowLossy),
-                                          NSStringEncodingDetectionFromWindowsKey : @(includeWindows)
-                                      }
+                                       NSStringEncodingDetectionAllowLossyKey  : @(allowLossy),
+                                       NSStringEncodingDetectionFromWindowsKey : @(includeWindows)
+                                   }
                                    convertedString:&string
                                usedLossyConversion:&usedLossy] ;
         if (!string) encoding = 0 ; // it probably will be anyways, but lets be specific
@@ -92,14 +92,36 @@ static int text_guessEncoding(lua_State *L) {
 
     NSStringEncoding guess = [NSString stringEncodingForData:object.contents
                                              encodingOptions:@{
-                                                    NSStringEncodingDetectionAllowLossyKey  : @(allowLossy),
-                                                    NSStringEncodingDetectionFromWindowsKey : @(includeWindows)
-                                                }
+                                                 NSStringEncodingDetectionAllowLossyKey  : @(allowLossy),
+                                                 NSStringEncodingDetectionFromWindowsKey : @(includeWindows)
+                                             }
                                              convertedString:&string
                                          usedLossyConversion:&usedLossy] ;
     lua_pushinteger(L, (lua_Integer)guess) ;
     lua_pushboolean(L, usedLossy) ;
     return 2 ;
+}
+
+static int text_fastestEncoding(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSTextObject *object = [skin toNSObjectAtIndex:1] ;
+
+// do we need special check for when encoding = 0?
+    NSString *string = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
+    lua_pushinteger(L, (lua_Integer)string.fastestEncoding) ;
+    return 1 ;
+}
+
+static int text_smallestEncoding(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSTextObject *object = [skin toNSObjectAtIndex:1] ;
+
+// do we need special check for when encoding = 0?
+    NSString *string = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
+    lua_pushinteger(L, (lua_Integer)string.smallestEncoding) ;
+    return 1 ;
 }
 
 static int text_encoding(lua_State *L) {
@@ -131,7 +153,7 @@ static int text_validEncodings(lua_State *L) {
         NSString *string = [[NSString alloc] initWithData:object.contents encoding:*encoding] ;
         if (string) { // NSString initWithData: allows for lossy encodings, so lets check closer...
             NSData *asData = [string dataUsingEncoding:*encoding allowLossyConversion:NO] ;
-            if (allowLossy || asData) {
+            if (allowLossy || (asData && [asData isEqualTo:object.contents])) {
                 lua_pushinteger(L, (lua_Integer)*encoding) ;
                 lua_seti(L, -2, luaL_len(L, -2) + 1) ;
             }
@@ -165,7 +187,7 @@ static int text_asEncoding(lua_State *L) {
             }
         }
     } else {
-        newObject = [[HSTextObject alloc] init:object.contents withEncoding:0] ;
+        newObject = [[HSTextObject alloc] init:[object.contents copy] withEncoding:0] ;
     }
 
     [skin pushNSObject:newObject] ;
@@ -208,261 +230,21 @@ static int text_encodingLossless(lua_State *L) {
     return 1 ;
 }
 
-// need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
-// or helpers to make them
-static int text_transform(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
-    NSString     *transform = [skin toNSObjectAtIndex:2] ;
-    BOOL         reverse    = (lua_gettop(L) == 3) ? (BOOL)lua_toboolean(L, 3) : NO ;
-
-    NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-    if (objString) {
-        NSMutableString *resultString = [objString mutableCopy] ;
-        NSRange         range         = NSMakeRange(0, resultString.length) ;
-        NSRange         resultingRange ;
-
-        BOOL success = [resultString applyTransform:transform
-                                            reverse:reverse
-                                              range:range
-                                       updatedRange:&resultingRange] ;
-        if (success) {
-            NSData *asData = [resultString dataUsingEncoding:NSUnicodeStringEncoding allowLossyConversion:NO] ;
-            HSTextObject *newObject = [[HSTextObject alloc] init:asData withEncoding:NSUnicodeStringEncoding] ;
-            [skin pushNSObject:newObject] ;
-        } else {
-            lua_pushnil(L) ;
-        }
-    } else {
-        lua_pushnil(L) ;
-    }
-    return 1 ;
-}
-
-#pragma mark * From lua string library *
-
-// string.upper (s)
-//
-// Receives a string and returns a copy of this string with all lowercase letters changed to uppercase. All other characters are left unchanged. The definition of what a lowercase letter is depends on the current locale.
-static int text_string_upper(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
-    BOOL         useLocale  = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
-    HSTextObject *newObject = nil ;
-
-    NSString     *locale    = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
-
-    NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-    if (objString) {
-        NSData *newData ;
-        if (useLocale) {
-            if (locale) {
-                NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
-                if (specifiedLocale) {
-                    newData = [[objString uppercaseStringWithLocale:specifiedLocale] dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-                } else {
-                    return luaL_argerror(L, 2, "unrecognized locale specified") ;
-                }
-            } else {
-                newData = [objString.localizedUppercaseString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-            }
-        } else {
-            newData = [objString.uppercaseString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-        }
-        newObject = [[HSTextObject alloc] init:newData withEncoding:object.encoding] ;
-    } else {
-        // make a copy of an untranslatable data stream -- upper does nothing in this case
-        newObject = [[HSTextObject alloc] init:object.contents withEncoding:object.encoding] ;
-    }
-
-    [skin pushNSObject:newObject] ;
-    return 1 ;
-}
-
-// string.lower (s)
-//
-// Receives a string and returns a copy of this string with all uppercase letters changed to lowercase. All other characters are left unchanged. The definition of what an uppercase letter is depends on the current locale.
-static int text_string_lower(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
-    BOOL         useLocale  = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
-    HSTextObject *newObject = nil ;
-
-    NSString     *locale    = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
-
-    NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-    if (objString) {
-        NSData *newData ;
-        if (useLocale) {
-            if (locale) {
-                NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
-                if (specifiedLocale) {
-                    newData = [[objString lowercaseStringWithLocale:specifiedLocale] dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-                } else {
-                    return luaL_argerror(L, 2, "unrecognized locale specified") ;
-                }
-            } else {
-                newData = [objString.localizedLowercaseString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-            }
-        } else {
-            newData = [objString.lowercaseString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-        }
-        newObject = [[HSTextObject alloc] init:newData withEncoding:object.encoding] ;
-    } else {
-        // make a copy of an untranslatable data stream -- lower does nothing in this case
-        newObject = [[HSTextObject alloc] init:object.contents withEncoding:object.encoding] ;
-    }
-
-    [skin pushNSObject:newObject] ;
-    return 1 ;
-}
-
-// string.len (s)
-//
-// Receives a string and returns its length. The empty string "" has length 0. Embedded zeros are counted, so "a\000bc\000" has length 5.
-static int text_string_length(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    // when used as the metmethod __len, we may get "self" provided twice, so...
-    if (lua_gettop(L) == 1) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    } else {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    }
-
-    HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
-
-    if (object.encoding == 0) {
-        lua_pushinteger(L, (lua_Integer)(object.contents.length)) ;
-    } else {
-        NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-        if (objString) {
-            lua_pushinteger(L, (lua_Integer)(objString.length)) ;
-        } else {
-            lua_pushinteger(L, 0) ;
-        }
-    }
-    return 1 ;
-}
-
-// string.sub (s, i [, j])
-//
-// Returns the substring of s that starts at i and continues until j; i and j can be negative. If j is absent, then it is assumed to be equal to -1 (which is the same as the string length). In particular, the call string.sub(s,1,j) returns a prefix of s with length j, and string.sub(s, -i) (for a positive i) returns a suffix of s with length i.
-// If, after the translation of negative indices, i is less than 1, it is corrected to 1. If j is greater than the string length, it is corrected to that length. If, after these corrections, i is greater than j, the function returns the empty string.
-static int text_string_sub(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-    HSTextObject *object = [skin toNSObjectAtIndex:1] ;
-    lua_Integer  i       = lua_tointeger(L, 2) ;
-    lua_Integer  j       = (lua_gettop(L) == 3) ? lua_tointeger(L, 3) : -1 ;
-
-    // get length so we can properly adjust i and j
-    lua_pushcfunction(L, text_string_length) ;
-    lua_pushvalue(L, 1) ;
-    lua_call(L, 1, 1) ;
-    lua_Integer length = lua_tointeger(L, -1) ;
-    lua_pop(L, 1) ;
-
-    NSData *result = [NSData data] ;
-
-    // adjust indicies per lua standards
-    if (i < 0) i = length + 1 + i ; // negative indicies are from string end
-    if (j < 0) j = length + 1 + j ; // negative indicies are from string end
-    if (i < 1) i = 1 ;              // if i still less than 1, force to 1
-    if (j > length) j = length ;    // if j greater than length, force to length
-
-    if (!((i > length) || (j < i))) { // i.e. indices are within range
-        // now find Objective-C index and length
-        NSUInteger loc = (NSUInteger)i - 1 ;
-        NSUInteger len = (NSUInteger)j - loc ;
-        NSRange    range = NSMakeRange(loc, len) ;
-
-        if (object.encoding == 0) {
-            result = [object.contents subdataWithRange:range] ;
-        } else {
-            NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-            if (objString) {
-                NSString *subString = [objString substringWithRange:range] ;
-                result = [subString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-            } // else we can't get a substring of what we can't represent as a string so leave result as empty data
-        }
-    }
-
-    HSTextObject *newObject = [[HSTextObject alloc] init:result withEncoding:object.encoding] ;
-    [skin pushNSObject:newObject] ;
-    return 1 ;
-}
-
-// string.reverse (s)
-//
-// Returns a string that is the string s reversed.
-static int text_string_reverse(__unused lua_State *L) {
+static int text_length(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-
     HSTextObject *object    = [skin toNSObjectAtIndex:1] ;
 
-    NSData *result = [NSData data] ;
-
     if (object.encoding == 0) {
-        NSUInteger rawLen = object.contents.length ;
-        if (rawLen > 0) {
-            const char *rawData = object.contents.bytes ;
-            char       *newData = malloc(sizeof(char) * rawLen) ;
-            NSUInteger index = rawLen - 1 ;
-            for (NSUInteger i = 0 ; i < rawLen ; i++) newData[index--] = rawData[i] ;
-            result = [NSData dataWithBytesNoCopy:newData length:rawLen freeWhenDone:YES] ;
-        }
+        lua_pushinteger(L, (lua_Integer)object.contents.length) ;
     } else {
-        NSString     *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
-        if (objString) {
-
-            // Courtesy of https://stackoverflow.com/a/6730329.
-            // Should handle surrogate pairs and composed charcter sequences but will need to test when I get
-            // to dealing with them and normalization stuffs
-            NSMutableString *reversedString = [NSMutableString stringWithCapacity:objString.length] ;
-            [objString enumerateSubstringsInRange:NSMakeRange(0, objString.length)
-                                          options:(NSStringEnumerationReverse | NSStringEnumerationByComposedCharacterSequences)
-                                       usingBlock:^(NSString *substring, __unused NSRange substringRange, __unused NSRange enclosingRange, __unused BOOL *stop) {
-                                          [reversedString appendString:substring] ;
-                                       }] ;
-
-            result = [reversedString dataUsingEncoding:object.encoding allowLossyConversion:NO] ;
-        } // else we can't reverse what we can't represent as a string so leave result as empty data
+        NSString *objString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
+        lua_pushinteger(L, (lua_Integer)objString.length) ;
     }
-
-    HSTextObject *newObject = [[HSTextObject alloc] init:result withEncoding:object.encoding] ;
-    [skin pushNSObject:newObject] ;
     return 1 ;
 }
 
 #pragma mark - Module Constants
-
-// need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
-// or helpers to make them
-static int text_builtinTransforms(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    lua_newtable(L) ;
-    [skin pushNSObject:NSStringTransformLatinToKatakana] ;      lua_setfield(L, -2, "latinToKatakana") ;
-    [skin pushNSObject:NSStringTransformLatinToHiragana] ;      lua_setfield(L, -2, "latinToHiragana") ;
-    [skin pushNSObject:NSStringTransformLatinToHangul] ;        lua_setfield(L, -2, "latinToHangul") ;
-    [skin pushNSObject:NSStringTransformLatinToArabic] ;        lua_setfield(L, -2, "latinToArabic") ;
-    [skin pushNSObject:NSStringTransformLatinToHebrew] ;        lua_setfield(L, -2, "latinToHebrew") ;
-    [skin pushNSObject:NSStringTransformLatinToThai] ;          lua_setfield(L, -2, "latinToThai") ;
-    [skin pushNSObject:NSStringTransformLatinToCyrillic] ;      lua_setfield(L, -2, "latinToCyrillic") ;
-    [skin pushNSObject:NSStringTransformLatinToGreek] ;         lua_setfield(L, -2, "latinToGreek") ;
-    [skin pushNSObject:NSStringTransformToLatin] ;              lua_setfield(L, -2, "toLatin") ;
-    [skin pushNSObject:NSStringTransformMandarinToLatin] ;      lua_setfield(L, -2, "mandarinToLatin") ;
-    [skin pushNSObject:NSStringTransformHiraganaToKatakana] ;   lua_setfield(L, -2, "hiraganaToKatakana") ;
-    [skin pushNSObject:NSStringTransformFullwidthToHalfwidth] ; lua_setfield(L, -2, "fullwidthToHalfwidth") ;
-    [skin pushNSObject:NSStringTransformToXMLHex] ;             lua_setfield(L, -2, "toXMLHex") ;
-    [skin pushNSObject:NSStringTransformToUnicodeName] ;        lua_setfield(L, -2, "toUnicodeName") ;
-    [skin pushNSObject:NSStringTransformStripCombiningMarks] ;  lua_setfield(L, -2, "stripCombiningMarks") ;
-    [skin pushNSObject:NSStringTransformStripDiacritics] ;      lua_setfield(L, -2, "stripDiacritics") ;
-    return 1 ;
-}
 
 static int text_encodingTypes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
@@ -539,18 +321,8 @@ id toHSTextObjectFromLua(lua_State *L, int idx) {
 
 static int userdata_tostring(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    HSTextObject *obj = [skin luaObjectAtIndex:1 toClass:"HSTextObject"] ;
-    if (obj.encoding != 0) {
-        NSString *stringValue = [[NSString alloc] initWithData:obj.contents encoding:obj.encoding] ;
-        if (stringValue) {
-            [skin pushNSObject:stringValue] ;
-        } else {
-            [skin logDebug:[NSString stringWithFormat:@"%s:__tostring -- encoding type %lu for %@ returned nil", USERDATA_TAG, obj.encoding, obj.contents]] ;
-            lua_pushstring(L, "") ;
-        }
-    } else {
-        [skin pushNSObject:obj.contents] ;
-    }
+//     HSTextObject *obj = [skin luaObjectAtIndex:1 toClass:"HSTextObject"] ;
+    [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
 }
 
@@ -592,26 +364,22 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"rawData",          text_raw},
-    {"asEncoding",       text_asEncoding},
-    {"validEncodings",   text_validEncodings},
-    {"encoding",         text_encoding},
-    {"guessEncoding",    text_guessEncoding},
-    {"encodingValid",    text_encodingValid},
-    {"encodingLossless", text_encodingLossless},
-    {"transform",        text_transform},
+    {"rawData",              text_raw},
+    {"asEncoding",           text_asEncoding},
+    {"validEncodings",       text_validEncodings},
+    {"encoding",             text_encoding},
+    {"guessEncoding",        text_guessEncoding},
+    {"encodingValid",        text_encodingValid},
+    {"encodingLossless",     text_encodingLossless},
+    {"smallestEncoding",     text_smallestEncoding},
+    {"fastestEncoding",      text_fastestEncoding},
+    {"len",                  text_length},
 
-    {"upper",            text_string_upper},
-    {"lower",            text_string_lower},
-    {"len",              text_string_length},
-    {"sub",              text_string_sub},
-    {"reverse",          text_string_reverse},
-
-    {"__tostring",       userdata_tostring},
-    {"__len",            text_string_length},
-    {"__eq",             userdata_eq},
-    {"__gc",             userdata_gc},
-    {NULL,               NULL}
+    {"__tostring",           userdata_tostring},
+    {"__len",                text_length},
+    {"__eq",                 userdata_eq},
+    {"__gc",                 userdata_gc},
+    {NULL,                   NULL}
 };
 
 // Functions for returned object when module loads
@@ -634,8 +402,7 @@ int luaopen_hs_text_internal(lua_State* L) {
                                  metaFunctions:nil    // or module_metaLib
                                objectFunctions:userdata_metaLib];
 
-    text_encodingTypes(L) ;     lua_setfield(L, -2, "encodingTypes") ;
-    text_builtinTransforms(L) ; lua_setfield(L, -2, "transforms") ;
+    text_encodingTypes(L) ; lua_setfield(L, -2, "encodingTypes") ;
 
     [skin registerPushNSHelper:pushHSTextObject         forClass:"HSTextObject"];
     [skin registerLuaObjectHelper:toHSTextObjectFromLua forClass:"HSTextObject"
