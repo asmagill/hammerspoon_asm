@@ -1,9 +1,5 @@
 Implementation Plans/Thoughts/Notes
 
-should integer key to __index return "char" at that position (e.g. `hs.text:sub(key,key)`?
-should _len return the same thing as `len` below with no options? or not be implemented?
-    if __index above implemented, then this should too
-
 > inspect1(string)
 {
 // Done
@@ -41,37 +37,16 @@ should _len return the same thing as `len` below with no options? or not be impl
   codepoint = <function 2>, // in utf16 submodule
   codes = <function 3>,     // in utf16 submodule
   char = <function 1>,      // in utf16 submodule
+  offset = <function 5>     // make more generic -- n'th char of encoding, return byte position in the rawData
 
         // Uncertain
           len = <function 4>,       // see string.len above; not implementing version with indices because the premise of this module
                                     // is that we work with *any* valid string type; use `hs.text:sub(...):len()` if you need this
-
-        // Planned
-          offset = <function 5>     // make more generic -- n'th char of encoding, return byte position in the rawData
 
 
 // No
   charpattern = "....",     // used to iterate UTF8 in 8bit world; better to use module len and sub
 }
 
-> inspect1(hs.utf8)
-{
-// Uncertain
-  codepointToUTF8 = <function 2>,   // use `hs.text.new(hs.utf8.codepointToUTF8(...))`; maybe replicate as `hs.text` constructor?
-                                    // need to research what surrogate region used for and if current implementation covers all
-                                    // possibilities in all unicode variants (8, 16, 32, be, le) before making generic constructor.
-
-// No
-  asciiOnly = <function 1>,         // use `hs.utf8.asciiOnly(tostring(hs.text object))` or `hs.utf8.asciiOnly(hs.text:rawData())`
-  fixUTF8 = <function 3>,           // use `hs.text:asEncoding(#, true)`
-  hexDump = <function 4>,           // use `hs.utf8.hexDump(tostring(hs.text object))` or `hs.utf8.hexDump(hs.text:rawData())`
-  registerCodepoint = <function 5>, // n/a
-  registeredKeys = {...},           // n/a
-  registeredLabels = {...}          // n/a
-}
-
-Still need to review `cp.text` and `cp.utf16` to see what to migrate/modify into this module
-
-Still need to review `NSString` docs for other functions we can easily add
-
 Still need to review Unicode Normalization wiki and compare to NSString normalization methods to see if sufficient or if something more required.
+

@@ -28,6 +28,19 @@ static int refTable = LUA_NOREF;
 
 @end
 
+BOOL isNotStartOfSingle(NSString *string, NSUInteger idx, BOOL charactersComposed) {
+    if (idx == string.length) {
+        return NO ;
+    } else {
+        BOOL answer = (BOOL)CFStringIsSurrogateLowCharacter([string characterAtIndex:idx]) ;
+        if (!answer && charactersComposed) {
+            NSRange range = [string rangeOfComposedCharacterSequenceAtIndex:idx] ;
+            answer = (idx != range.location) ;
+        }
+        return answer ;
+    }
+}
+
 #pragma mark - Module Functions
 
 static int utf16_new(lua_State *L) {
@@ -283,6 +296,36 @@ static int utf16_composedCharacterRange(lua_State *L) {
     return 2 ;
 }
 
+static int utf16_capitalize(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+    BOOL              useLocale    = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
+    NSString          *locale      = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
+
+    NSString          *newString   = nil ;
+
+    if (useLocale) {
+        if (locale) {
+            NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
+            if (specifiedLocale) {
+                newString = [objString capitalizedStringWithLocale:specifiedLocale] ;
+            } else {
+                return luaL_argerror(L, 2, "unrecognized locale specified") ;
+            }
+        } else {
+            newString = objString.localizedCapitalizedString ;
+        }
+    } else {
+        newString = objString.capitalizedString ;
+    }
+
+    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:newString] ;
+    [skin pushNSObject:newObject] ;
+    return 1 ;
+}
+
 #pragma mark * From lua string library *
 
 // string.upper (s)
@@ -411,9 +454,6 @@ static int utf16_string_reverse(__unused lua_State *L) {
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
-    // Courtesy of https://stackoverflow.com/a/6730329.
-    // Should handle surrogate pairs and composed charcter sequences but will need to test when I get
-    // to dealing with them and normalization stuffs
     NSMutableString *reversedString = [NSMutableString stringWithCapacity:objString.length] ;
     [objString enumerateSubstringsInRange:NSMakeRange(0, objString.length)
                                   options:(NSStringEnumerationReverse | NSStringEnumerationByComposedCharacterSequences)
@@ -475,6 +515,65 @@ static int utf16_utf8_codepoint(lua_State *L) {
     }
 
     return count ;
+}
+
+// utf8.len (s [, i [, j]])
+//
+// Returns the number of UTF-8 characters in string s that start between positions i and j (both inclusive). The default for i is 1 and for j is -1. If it finds any invalid byte sequence, returns a false value plus the position of the first invalid byte.
+
+// utf8.offset (s, n [, i])
+//
+// Returns the position (in bytes) where the encoding of the n-th character of s (counting from position i) starts. A negative n gets characters before position i. The default for i is 1 when n is non-negative and #s + 1 otherwise, so that utf8.offset(s, -n) gets the offset of the n-th character from the end of the string. If the specified character is neither in the subject nor right after its end, the function returns nil.
+// As a special case, when n is 0 the function returns the start of the encoding of the character that contains the i-th byte of s.
+//
+// This function assumes that s is a valid UTF-8 string.
+static int utf16_utf8_offset(lua_State *L) {
+    LuaSkin *skin              = [LuaSkin shared] ;
+    int     nIdx               = 2 ;
+    BOOL    charactersComposed = NO ;
+    if (lua_type(L, 2) == LUA_TBOOLEAN) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN, LS_TNUMBER | LS_TINTEGER,  LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+        nIdx++ ;
+        charactersComposed = (BOOL)lua_toboolean(L, 2) ;
+    } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER,  LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    }
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+    lua_Integer       n            = lua_tointeger(L, nIdx) ;
+    lua_Integer       length       = (lua_Integer)objString.length ;
+    lua_Integer       i            = (lua_gettop(L) > nIdx) ? lua_tointeger(L, nIdx + 1) : ((n > -1) ? 1 : (length + 1)) ;
+    if (i < 0) i = (length + i < 0) ? 0 : (length + i + 1) ;
+    luaL_argcheck(L, 1 <= i && --i <= length, nIdx + 1, "position out of range") ;
+
+    // horked from lutf8lib... I *think* I understand it...
+    if (n == 0) {
+        while (i > 0 && isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) i-- ;
+    } else {
+        if (isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) return luaL_error(L, "initial position is a continuation byte") ;
+        if (n < 0) {
+            while (n < 0 && i > 0) {  // move back
+                do {  // find beginning of previous character
+                    i-- ;
+                } while (i > 0 && isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) ;
+                n++ ;
+            }
+        } else {
+            n-- ;  // do not move for 1st character
+            while (n > 0 && i < length) {
+                do {  // find beginning of next character
+                    i++ ;
+                } while (isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) ;  // (cannot pass final '\0')
+                n-- ;
+            }
+        }
+    }
+    if (n == 0) { // did it find given character?
+        lua_pushinteger(L, i + 1) ;
+    } else  { // no such character
+        lua_pushnil(L) ;
+    }
+    return 1 ;
 }
 
 #pragma mark - Module Constants
@@ -558,7 +657,7 @@ static int userdata_concat(lua_State *L) {
         }
     }
 
-    NSString *newString = [NSString stringWithFormat:@"%@%@", obj1.utf16string, obj2.utf16string] ;
+    NSString *newString = [obj1.utf16string stringByAppendingString:obj2.utf16string] ;
     HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:newString] ;
     [skin pushNSObject:newObject] ;
     return 1 ;
@@ -615,6 +714,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"transform",              utf16_transform},
     {"unitCharacter",          utf16_unitCharacter},
     {"composedCharacterRange", utf16_composedCharacterRange},
+    {"capitalize",             utf16_capitalize},
 
     {"upper",                  utf16_string_upper},
     {"lower",                  utf16_string_lower},
@@ -623,6 +723,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"reverse",                utf16_string_reverse},
 
     {"codepoint",              utf16_utf8_codepoint},
+    {"offset",                 utf16_utf8_offset},
 
     {"__concat",               userdata_concat},
     {"__tostring",             userdata_tostring},

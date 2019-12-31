@@ -1,42 +1,46 @@
+Creating and Initializing a String from a File -- probably put in hs.text
+
+Creating and Initializing a String from an URL -- probably put in hs.text
+
+Writing to a File or URL -- probably put in hs.text
+
+- Working with Encodings -- in hs.text
+-     - (BOOL)canBeConvertedToEncoding:(NSStringEncoding)encoding;    ??
+
+
+
+# Getting Characters and Bytes
+
 Identifying and Comparing Strings
 
-Normalizing Strings (see http://www.unicode.org/reports/tr15/)
-#     @property(readonly, copy) NSString *decomposedStringWithCanonicalMapping;
-#         A string made by normalizing the string’s contents using the Unicode Normalization Form D.
-#
-#     @property(readonly, copy) NSString *decomposedStringWithCompatibilityMapping;
-#         A string made by normalizing the receiver’s contents using the Unicode Normalization Form KD.
-#
-#     @property(readonly, copy) NSString *precomposedStringWithCanonicalMapping;
-#         A string made by normalizing the string’s contents using the Unicode Normalization Form C.
-#
-#     @property(readonly, copy) NSString *precomposedStringWithCompatibilityMapping;
-#         A string made by normalizing the receiver’s contents using the Unicode Normalization Form KC.
+# Combining Strings
+
+# Changing Case
 
 Dividing Strings
     - (NSArray<NSString *> *)componentsSeparatedByString:(NSString *)separator;
     - (NSArray<NSString *> *)componentsSeparatedByCharactersInSet:(NSCharacterSet *)separator;
         Think separating into hs.text objects at newline
-
     - (NSString *)stringByTrimmingCharactersInSet:(NSCharacterSet *)set;
         Think trimming whitespace from begining and ending
+#     - (NSString *)substringWithRange:(NSRange)range;
+
+# Normalizing Strings (see http://www.unicode.org/reports/tr15/)
+
+- Transforming Strings
+-     - (NSString *)stringByApplyingTransform:(NSStringTransform)transform reverse:(BOOL)reverse;
+-         partially complete; need better understanding of http://userguide.icu-project.org/transforms/general
 
 Finding Characters and Substrings
-- (NSRange)rangeOfString:(NSString *)searchString options:(NSStringCompareOptions)mask range:(NSRange)rangeOfReceiverToSearch locale:(NSLocale *)locale;
-    Finds and returns the range of the first occurrence of a given string within a given range of the string, subject to given options, using the specified locale, if any.
-    - (void)enumerateSubstringsInRange:(NSRange)range options:(NSStringEnumerationOptions)opts usingBlock:(void (^)(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop))block;
-
-Transforming Strings
-    - (NSString *)stringByApplyingTransform:(NSStringTransform)transform reverse:(BOOL)reverse;
-        partially complete; need better understanding of http://userguide.icu-project.org/transforms/general
 
 Replacing Substrings
+
 Determining Line and Paragraph Ranges
-Determining Composed Character Sequences
-Writing to a File or URL
-    Read -- use NSData is encoding not specified?
 
+# Determining Composed Character Sequences
 
-Working With Paths                             -- part of this module or separate set of string extensions?
-Working With URL Strings                       -- part of this module or separate set of string extensions?
-Converting String Contents Into a PropertyList -- part of this module or separate set of string extensions?
+Future string related module or text submodule:
+    Performing Linguistic Analysis
+    Working With Paths
+    Working With URL Strings
+    Converting String Contents Into a PropertyList

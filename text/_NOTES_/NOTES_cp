@@ -1,23 +1,26 @@
 Module Functions
-  cp.utf16.char(bigEndian, ...) -> string
-  cp.utf16.codepoint(bigEndian, s [, i [, j]]) -> integer...
-  cp.utf16.codes(bigEndian, s) -> iterator
+#   cp.utf16.char(bigEndian, ...) -> string
+#   cp.utf16.codepoint(bigEndian, s [, i [, j]]) -> integer...
+#   cp.utf16.codes(bigEndian, s) -> iterator
   cp.utf16.len (bigEndian, s [, i [, j]]) -> number | boolean, number
-  cp.utf16.offset (bigEndian, s, n [, i]) -> number
+#   cp.utf16.offset (bigEndian, s, n [, i]) -> number
 
-Module Functions
-  cp.utf16.be.char(...) -> string
-  cp.utf16.be.codepoint(s [, i [, j]]) -> integer...
-  cp.utf16.be.codes(s) -> iterator
-  cp.utf16.be.len (s [, i [, j]]) -> number | boolean, number
-  cp.utf16.be.offset (s, n [, i]) -> number
-
-Module Functions
-  cp.utf16.le.char(...) -> string
-  cp.utf16.le.codepoint(s [, i [, j]]) -> integer...
-  cp.utf16.le.codes(s) -> iterator
-  cp.utf16.le.len (s [, i [, j]]) -> number | boolean, number
-  cp.utf16.le.offset (s, n [, i]) -> number
+# BE/LE handled by hs.text; hs.text.utf16 is based on system default, but can be converted
+# to<->from BE/LE with hs.text module
+#
+# Module Functions
+# #   cp.utf16.be.char(...) -> string
+# #   cp.utf16.be.codepoint(s [, i [, j]]) -> integer...
+# #   cp.utf16.be.codes(s) -> iterator
+#   cp.utf16.be.len (s [, i [, j]]) -> number | boolean, number
+# #   cp.utf16.be.offset (s, n [, i]) -> number
+#
+# Module Functions
+# #   cp.utf16.le.char(...) -> string
+# #   cp.utf16.le.codepoint(s [, i [, j]]) -> integer...
+# #   cp.utf16.le.codes(s) -> iterator
+#   cp.utf16.le.len (s [, i [, j]]) -> number | boolean, number
+# #   cp.utf16.le.offset (s, n [, i]) -> number
 
 
 
