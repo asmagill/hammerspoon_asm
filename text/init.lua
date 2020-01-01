@@ -38,31 +38,31 @@ end
 --      for p, c in utf8.codes(s) do body end
 -- will iterate over all characters in string s, with p being the position (in bytes) and c the code point of each character. It raises an error if it meets any invalid byte sequence.
 utf16MT.codes = function(self)
-    return function(state, index)
-        if index > 0 and module.utf16.isHighSurrogate(self:unitCharacter(index)) then
+    return function(iterSelf, index)
+        if index > 0 and module.utf16.isHighSurrogate(iterSelf:unitCharacter(index)) then
             index = index + 2
         else
             index = index + 1
         end
-        if index > #state then
+        if index > #iterSelf then
             return nil
         else
-            return index, self:codepoint(index)
+            return index, iterSelf:codepoint(index)
         end
     end, self, 0
 end
 
 utf16MT.composedCharacters = function(self)
-    return function(state, index)
+    return function(iterSelf, index)
         if index > 0 then
-            local i, j = self:composedCharacterRange(index)
+            local i, j = iterSelf:composedCharacterRange(index)
             index = j
         end
         index = index + 1
-        if index > #state then
+        if index > #iterSelf then
             return nil
         else
-            local i, j = self:composedCharacterRange(index)
+            local i, j = iterSelf:composedCharacterRange(index)
             return index, j
         end
     end, self, 0

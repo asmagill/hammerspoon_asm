@@ -1,8 +1,8 @@
-Module Functions
+# Module Functions
 #   cp.utf16.char(bigEndian, ...) -> string
 #   cp.utf16.codepoint(bigEndian, s [, i [, j]]) -> integer...
 #   cp.utf16.codes(bigEndian, s) -> iterator
-  cp.utf16.len (bigEndian, s [, i [, j]]) -> number | boolean, number
+#   cp.utf16.len (bigEndian, s [, i [, j]]) -> number | boolean, number
 #   cp.utf16.offset (bigEndian, s, n [, i]) -> number
 
 # BE/LE handled by hs.text; hs.text.utf16 is based on system default, but can be converted
@@ -12,37 +12,37 @@ Module Functions
 # #   cp.utf16.be.char(...) -> string
 # #   cp.utf16.be.codepoint(s [, i [, j]]) -> integer...
 # #   cp.utf16.be.codes(s) -> iterator
-#   cp.utf16.be.len (s [, i [, j]]) -> number | boolean, number
+# #   cp.utf16.be.len (s [, i [, j]]) -> number | boolean, number
 # #   cp.utf16.be.offset (s, n [, i]) -> number
 #
 # Module Functions
 # #   cp.utf16.le.char(...) -> string
 # #   cp.utf16.le.codepoint(s [, i [, j]]) -> integer...
 # #   cp.utf16.le.codes(s) -> iterator
-#   cp.utf16.le.len (s [, i [, j]]) -> number | boolean, number
+# #   cp.utf16.le.len (s [, i [, j]]) -> number | boolean, number
 # #   cp.utf16.le.offset (s, n [, i]) -> number
 
 
 
 Module Constructors
-  cp.text.char(...) -> text
-  cp.text.fromCodepoints(codepoints[, i[, j]]) -> text
-  cp.text.fromFile(path[, encoding]) -> text
-  cp.text.fromString(value[, encoding]) -> text
+#   cp.text.char(...) -> text                               # hs.text.utf16.char(...)
+  cp.text.fromCodepoints(codepoints[, i[, j]]) -> text    # local a2 = {} ; table.move(codepoints, i, j, 1, a2) ; hs.text.utf16.char(table.unpack(a2))
+  cp.text.fromFile(path[, encoding]) -> text              # not yet...
+#   cp.text.fromString(value[, encoding]) -> text           # hs.text.utf16.new
   cp.text.matcher(pattern[, plain]) -> cp.text.matcher
 
 Module Functions
-  cp.text.is(value) -> boolean
+  cp.text.is(value) -> boolean                            # getmetatable(obj) == hs.getObjectMetatable("hs.text.utf16")
 
 Module Methods
-  cp.text:encode([encoding]) -> string
+#   cp.text:encode([encoding]) -> string                    # hs.text module
   cp.text:find(pattern [, init [, plain]])
-  cp.text:len() -> number
+#   cp.text:len() -> number                                 # hs.text.utf16:characterCount()
   cp.text:match(pattern[, start]) -> ...
-  cp.text:sub(i [, j]) -> cp.text
+#   cp.text:sub(i [, j]) -> cp.text                         # hs.text.utf16:sub(i,j)
 
 Module Constants
-  cp.text.encoding
+#   cp.text.encoding                                        # hs.text.encodingTypes
 
 Module Methods
   cp.text.matcher:find(value[, start]) -> number, number, ...

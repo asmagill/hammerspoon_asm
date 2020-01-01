@@ -28,7 +28,7 @@ static int refTable = LUA_NOREF;
 
 @end
 
-BOOL isNotStartOfSingle(NSString *string, NSUInteger idx, BOOL charactersComposed) {
+BOOL inMiddleOfChar(NSString *string, NSUInteger idx, BOOL charactersComposed) {
     if (idx == string.length) {
         return NO ;
     } else {
@@ -454,6 +454,7 @@ static int utf16_string_reverse(__unused lua_State *L) {
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
+// Courtesy of https://stackoverflow.com/a/6730329
     NSMutableString *reversedString = [NSMutableString stringWithCapacity:objString.length] ;
     [objString enumerateSubstringsInRange:NSMakeRange(0, objString.length)
                                   options:(NSStringEnumerationReverse | NSStringEnumerationByComposedCharacterSequences)
@@ -520,6 +521,76 @@ static int utf16_utf8_codepoint(lua_State *L) {
 // utf8.len (s [, i [, j]])
 //
 // Returns the number of UTF-8 characters in string s that start between positions i and j (both inclusive). The default for i is 1 and for j is -1. If it finds any invalid byte sequence, returns a false value plus the position of the first invalid byte.
+static int utf16_utf8_len(lua_State *L) {
+    LuaSkin *skin              = [LuaSkin shared] ;
+    int     iIdx               = 2 ;
+    BOOL    charactersComposed = NO ;
+    if (lua_type(L, 2) == LUA_TBOOLEAN) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,  LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+        iIdx++ ;
+        charactersComposed = (BOOL)lua_toboolean(L, 2) ;
+    } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL,  LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    }
+
+   // horked from lutf8lib.c... I *think* I understand it...
+
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+    lua_Integer       i            = (lua_gettop(L) >= iIdx) ? lua_tointeger(L, iIdx)     :  1 ;
+    lua_Integer       j            = (lua_gettop(L) >  iIdx) ? lua_tointeger(L, iIdx + 1) : -1 ;
+    lua_Integer       length       = (lua_Integer)objString.length ;
+
+    if (i < 0) i = (length + i < 0) ? 0 : (length + i + 1) ;
+    if (j < 0) j = (length + j < 0) ? 0 : (length + j + 1) ;
+    luaL_argcheck(L, 1 <= i && --i <= length, iIdx, "initial position out of string") ;
+    luaL_argcheck(L, --j < length, iIdx + 1, "final position out of string") ;
+
+    lua_Integer n = 0 ;
+
+    while (i <= j) {
+        unichar ch1 = [objString characterAtIndex:(NSUInteger)i] ;
+        if (CFStringIsSurrogateHighCharacter(ch1)) {
+            if ((i < j) && CFStringIsSurrogateLowCharacter([objString characterAtIndex:(NSUInteger)(i + 1)])) {
+                i +=2 ; // valid surrogate pair in range
+            } else {
+                // not followed by low surrogate or low surrogate out of range
+                lua_pushnil(L) ;
+                lua_pushinteger(L, i + 1) ;
+                return 2 ;
+            }
+        } else if (!CFStringIsSurrogateLowCharacter(ch1)) {
+            if (charactersComposed) {
+                NSRange cc = [objString rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)i] ;
+// [skin logWarn:[NSString stringWithFormat:@"(i, j, cc.loc, cc.len) == (%lld, %lld, %lu, %lu)", i, j, cc.location, cc.length]] ;
+                if ((cc.location == (NSUInteger)i) && ((i + (lua_Integer)cc.length - 1) <= j)) {
+                    i += (lua_Integer)cc.length ; // valid composed character
+                } else {
+                    lua_pushnil(L) ;
+                    if (cc.location == (NSUInteger)i) {
+                        // composed character extends beyond range
+                        lua_pushinteger(L, j + 1) ;
+                    } else {
+                        // not at begining of composed character
+                        lua_pushinteger(L, i + 1) ;
+                    }
+                    return 2 ;
+                }
+            } else {
+                i++ ; // valid single unit
+            }
+        } else {
+            // char is lone low surrogate
+            lua_pushnil(L) ;
+            lua_pushinteger(L, i + 1) ;
+            return 2 ;
+        }
+        n++ ;
+    }
+
+    lua_pushinteger(L, n) ;
+    return 1 ;
+}
 
 // utf8.offset (s, n [, i])
 //
@@ -538,6 +609,9 @@ static int utf16_utf8_offset(lua_State *L) {
     } else {
         [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER,  LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     }
+
+    // horked from lutf8lib.c... I *think* I understand it...
+
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
     lua_Integer       n            = lua_tointeger(L, nIdx) ;
@@ -546,16 +620,15 @@ static int utf16_utf8_offset(lua_State *L) {
     if (i < 0) i = (length + i < 0) ? 0 : (length + i + 1) ;
     luaL_argcheck(L, 1 <= i && --i <= length, nIdx + 1, "position out of range") ;
 
-    // horked from lutf8lib... I *think* I understand it...
     if (n == 0) {
-        while (i > 0 && isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) i-- ;
+        while (i > 0 && inMiddleOfChar(objString, (NSUInteger)i, charactersComposed)) i-- ;
     } else {
-        if (isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) return luaL_error(L, "initial position is a continuation byte") ;
+        if (inMiddleOfChar(objString, (NSUInteger)i, charactersComposed)) return luaL_error(L, "initial position is a continuation byte") ;
         if (n < 0) {
             while (n < 0 && i > 0) {  // move back
                 do {  // find beginning of previous character
                     i-- ;
-                } while (i > 0 && isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) ;
+                } while (i > 0 && inMiddleOfChar(objString, (NSUInteger)i, charactersComposed)) ;
                 n++ ;
             }
         } else {
@@ -563,7 +636,7 @@ static int utf16_utf8_offset(lua_State *L) {
             while (n > 0 && i < length) {
                 do {  // find beginning of next character
                     i++ ;
-                } while (isNotStartOfSingle(objString, (NSUInteger)i, charactersComposed)) ;  // (cannot pass final '\0')
+                } while (inMiddleOfChar(objString, (NSUInteger)i, charactersComposed)) ;  // (cannot pass final '\0')
                 n-- ;
             }
         }
@@ -724,6 +797,7 @@ static const luaL_Reg userdata_metaLib[] = {
 
     {"codepoint",              utf16_utf8_codepoint},
     {"offset",                 utf16_utf8_offset},
+    {"characterCount",         utf16_utf8_len},
 
     {"__concat",               userdata_concat},
     {"__tostring",             userdata_tostring},
