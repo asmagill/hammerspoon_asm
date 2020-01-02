@@ -11,14 +11,15 @@ Implementation Plans/Thoughts/Notes
   len = <function 8>,       // in both; utf16 version returns unichar count
   byte = <function 1>,      // in main module: hs.text:rawData():byte([i],[j]) wrapped in lua
 
-      // Planned
-        find = <function 4>,      // support for patterns uncertain
-        match = <function 10>,    // support for patterns uncertain
+  find = <function 4>,      // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
+  match = <function 10>,    // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
 
-      // Uncertain
+      // Planned
         gmatch = <function 6>,
         gsub = <function 7>,
-        rep = <function 13>,
+
+      // Uncertain
+        rep = <function 13>,      //  easyish, but is it really useful?
 
 // Probably Not
   char = <function 2>,      // use `hs.text.new(string.char(...))`; utf16 version mirrors utf8.char below

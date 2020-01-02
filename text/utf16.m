@@ -41,6 +41,48 @@ BOOL inMiddleOfChar(NSString *string, NSUInteger idx, BOOL charactersComposed) {
     }
 }
 
+static int combinedFindAndMatch(lua_State *L, NSString *objString, NSString *pattern, lua_Integer idx, BOOL isFind) {
+    LuaSkin *skin = [LuaSkin shared] ;
+
+    NSRegularExpressionOptions options = 0 ;
+    if (isFind && (lua_gettop(L) == 4) && lua_toboolean(L, 4)) options = NSRegularExpressionIgnoreMetacharacters ;
+
+// NOTE: Do we want/need to convert lua style regular expression codes (e.g. %d instead of \d)? If so, do it here...
+
+    NSError             *error     = nil ;
+    NSRegularExpression *patternRE = [NSRegularExpression regularExpressionWithPattern:pattern
+                                                                               options:options
+                                                                                 error:&error] ;
+    if (error)  return luaL_argerror(L, 2, error.localizedDescription.UTF8String) ;
+
+    idx-- ;
+    NSRange searchRange = NSMakeRange((NSUInteger)idx, objString.length - (NSUInteger)idx) ;
+    NSTextCheckingResult *searchResults = [patternRE firstMatchInString:objString
+                                                                options:0
+                                                                  range:searchRange] ;
+    int returning = 0 ;
+    if (searchResults) {
+        if (isFind) {
+            lua_pushinteger(L, (lua_Integer)(searchResults.range.location + 1)) ;
+            lua_pushinteger(L, (lua_Integer)(searchResults.range.location + searchResults.range.length)) ;
+            returning = 2 ;
+        }
+        if (searchResults.numberOfRanges > 1) {
+            for (NSUInteger a = 1 ; a < searchResults.numberOfRanges ; a++) {
+                [skin pushNSObject:[objString substringWithRange:[searchResults rangeAtIndex:a]]] ;
+            }
+            returning = returning + (int)(searchResults.numberOfRanges - 1) ;
+        } else if (!isFind) {
+            [skin pushNSObject:[objString substringWithRange:searchResults.range]] ;
+            returning = 1 ;
+        }
+    } else {
+        lua_pushnil(L) ;
+        returning = 1 ;
+    }
+    return returning ;
+}
+
 #pragma mark - Module Functions
 
 static int utf16_new(lua_State *L) {
@@ -469,6 +511,122 @@ static int utf16_string_reverse(__unused lua_State *L) {
     return 1 ;
 }
 
+// string.match (s, pattern [, init])
+//
+// Looks for the first match of pattern (see §6.4.1) in the string s. If it finds one, then match returns the captures from the pattern; otherwise it returns nil. If pattern specifies no captures, then the whole match is returned. A third, optional numeric argument init specifies where to start the search; its default value is 1 and can be negative.
+static int utf16_string_match(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+
+    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    if (lua_type(L, 2) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
+        pattern = patternObject.utf16string ;
+    }
+
+    lua_Integer       i            = (lua_gettop(L) > 2) ? lua_tointeger(L, 3) : 1 ;
+    lua_Integer       length       = (lua_Integer)objString.length ;
+    // adjust indicies per lua standards
+    if (i < 0) i = length + 1 + i ; // negative indicies are from string end
+    if (i < 1) i = 1 ;              // if i still less than 1, force to 1
+
+    if (i > length) {
+        lua_pushnil(L) ;
+        return 1 ;
+    }
+
+    return combinedFindAndMatch(L, objString, pattern, i, NO) ;
+}
+
+// string.find (s, pattern [, init [, plain]])
+//
+// Looks for the first match of pattern (see §6.4.1) in the string s. If it finds a match, then find returns the indices of s where this occurrence starts and ends; otherwise, it returns nil. A third, optional numeric argument init specifies where to start the search; its default value is 1 and can be negative. A value of true as a fourth, optional argument plain turns off the pattern matching facilities, so the function does a plain "find substring" operation, with no characters in pattern being considered magic. Note that if plain is given, then init must be given as well.
+//
+// If the pattern has captures, then in a successful match the captured values are also returned, after the two indices.
+static int utf16_string_find(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+
+    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    if (lua_type(L, 2) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
+        pattern = patternObject.utf16string ;
+    }
+
+    lua_Integer       i            = (lua_gettop(L) > 2) ? lua_tointeger(L, 3) : 1 ;
+    lua_Integer       length       = (lua_Integer)objString.length ;
+    // adjust indicies per lua standards
+    if (i < 0) i = length + 1 + i ; // negative indicies are from string end
+    if (i < 1) i = 1 ;              // if i still less than 1, force to 1
+
+    if (i > length) {
+        lua_pushnil(L) ;
+        return 1 ;
+    }
+
+    return combinedFindAndMatch(L, objString, pattern, i, YES) ;
+}
+
+// string.gmatch (s, pattern)
+//
+// Returns an iterator function that, each time it is called, returns the next captures from pattern (see §6.4.1) over the string s. If pattern specifies no captures, then the whole match is produced in each call.
+// As an example, the following loop will iterate over all the words from string s, printing one per line:
+//
+//      s = "hello world from Lua"
+//      for w in string.gmatch(s, "%a+") do
+//        print(w)
+//      end
+// The next example collects all pairs key=value from the given string into a table:
+//
+//      t = {}
+//      s = "from=world, to=Lua"
+//      for k, v in string.gmatch(s, "(%w+)=(%w+)") do
+//        t[k] = v
+//      end
+// For this function, a caret '^' at the start of a pattern does not work as an anchor, as this would prevent the iteration.
+
+// string.gsub (s, pattern, repl [, n])
+//
+// Returns a copy of s in which all (or the first n, if given) occurrences of the pattern (see §6.4.1) have been replaced by a replacement string specified by repl, which can be a string, a table, or a function. gsub also returns, as its second value, the total number of matches that occurred. The name gsub comes from Global SUBstitution.
+// If repl is a string, then its value is used for replacement. The character % works as an escape character: any sequence in repl of the form %d, with d between 1 and 9, stands for the value of the d-th captured substring. The sequence %0 stands for the whole match. The sequence %% stands for a single %.
+//
+// If repl is a table, then the table is queried for every match, using the first capture as the key.
+//
+// If repl is a function, then this function is called every time a match occurs, with all captured substrings passed as arguments, in order.
+//
+// In any case, if the pattern specifies no captures, then it behaves as if the whole pattern was inside a capture.
+//
+// If the value returned by the table query or by the function call is a string or a number, then it is used as the replacement string; otherwise, if it is false or nil, then there is no replacement (that is, the original match is kept in the string).
+//
+// Here are some examples:
+//
+//      x = string.gsub("hello world", "(%w+)", "%1 %1")
+//      --> x="hello hello world world"
+//
+//      x = string.gsub("hello world", "%w+", "%0 %0", 1)
+//      --> x="hello hello world"
+//
+//      x = string.gsub("hello world from Lua", "(%w+)%s*(%w+)", "%2 %1")
+//      --> x="world hello Lua from"
+//
+//      x = string.gsub("home = $HOME, user = $USER", "%$(%w+)", os.getenv)
+//      --> x="home = /home/roberto, user = roberto"
+//
+//      x = string.gsub("4+5 = $return 4+5$", "%$(.-)%$", function (s)
+//            return load(s)()
+//          end)
+//      --> x="4+5 = 9"
+//
+//      local t = {name="lua", version="5.3"}
+//      x = string.gsub("$name-$version.tar.gz", "%$(%w+)", t)
+//      --> x="lua-5.3.tar.gz"
+
 #pragma mark * From lua utf8 library *
 
 // utf8.codepoint (s [, i [, j]])
@@ -794,6 +952,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"len",                    utf16_string_length},
     {"sub",                    utf16_string_sub},
     {"reverse",                utf16_string_reverse},
+    {"match",                  utf16_string_match},
+    {"find",                   utf16_string_find},
 
     {"codepoint",              utf16_utf8_codepoint},
     {"offset",                 utf16_utf8_offset},
