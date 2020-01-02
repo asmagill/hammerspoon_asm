@@ -26,27 +26,28 @@
 
 Module Constructors
 #   cp.text.char(...) -> text                               # hs.text.utf16.char(...)
-  cp.text.fromCodepoints(codepoints[, i[, j]]) -> text    # local a2 = {} ; table.move(codepoints, i, j, 1, a2) ; hs.text.utf16.char(table.unpack(a2))
-  cp.text.fromFile(path[, encoding]) -> text              # not yet...
+    cp.text.fromCodepoints(codepoints[, i[, j]]) -> text    # local a2 = {} ; table.move(codepoints, i, j, 1, a2) ;
+                                                            # hs.text.utf16.char(table.unpack(a2))
+    cp.text.fromFile(path[, encoding]) -> text              # not yet...
 #   cp.text.fromString(value[, encoding]) -> text           # hs.text.utf16.new
-  cp.text.matcher(pattern[, plain]) -> cp.text.matcher
+    cp.text.matcher(pattern[, plain]) -> cp.text.matcher
 
 Module Functions
-  cp.text.is(value) -> boolean                            # getmetatable(obj) == hs.getObjectMetatable("hs.text.utf16")
+    cp.text.is(value) -> boolean                            # getmetatable(obj) == hs.getObjectMetatable("hs.text.utf16")
 
 Module Methods
 #   cp.text:encode([encoding]) -> string                    # hs.text module
-  cp.text:find(pattern [, init [, plain]])
+#   cp.text:find(pattern [, init [, plain]])                # hs.text.utf16:find(...)
 #   cp.text:len() -> number                                 # hs.text.utf16:characterCount()
-  cp.text:match(pattern[, start]) -> ...
+#   cp.text:match(pattern[, start]) -> ...                  # hs.text.utf16:match(...)
 #   cp.text:sub(i [, j]) -> cp.text                         # hs.text.utf16:sub(i,j)
 
 Module Constants
 #   cp.text.encoding                                        # hs.text.encodingTypes
 
 Module Methods
-  cp.text.matcher:find(value[, start]) -> number, number, ...
-  cp.text.matcher:gmatch(pattern[, start]) -> function
-  cp.text.matcher:gmatch(value) -> function
-  cp.text.matcher:gsub(value, repl, limit) -> text, number
-  cp.text.matcher:match(value[, start]) -> ...
+#   cp.text.matcher:find(value[, start]) -> number, number, ... # hs.text.utf16:find(...)
+    cp.text.matcher:gmatch(pattern[, start]) -> function
+    cp.text.matcher:gmatch(value) -> function
+    cp.text.matcher:gsub(value, repl, limit) -> text, number
+#   cp.text.matcher:match(value[, start]) -> ...                # hs.text.utf16:match(...)

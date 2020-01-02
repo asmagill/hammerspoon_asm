@@ -9,6 +9,8 @@ Implementation Plans/Thoughts/Notes
   reverse = <function 14>,  // in utf16 submodule
 
   len = <function 8>,       // in both; utf16 version returns unichar count
+
+// utf16.unitCharacter almost does this but out of range indices give error, not no result... ponder
   byte = <function 1>,      // in main module: hs.text:rawData():byte([i],[j]) wrapped in lua
 
   find = <function 4>,      // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
