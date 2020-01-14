@@ -31,6 +31,39 @@ textMT.byte = function(self, ...)
     return self:rawData():byte(...)
 end
 
+-- string.gmatch (s, pattern)
+--
+-- Returns an iterator function that, each time it is called, returns the next captures from pattern (see §6.4.1) over the string s. If pattern specifies no captures, then the whole match is produced in each call.
+-- As an example, the following loop will iterate over all the words from string s, printing one per line:
+--
+--      s = "hello world from Lua"
+--      for w in string.gmatch(s, "%a+") do
+--        print(w)
+--      end
+-- The next example collects all pairs key=value from the given string into a table:
+--
+--      t = {}
+--      s = "from=world, to=Lua"
+--      for k, v in string.gmatch(s, "(%w+)=(%w+)") do
+--        t[k] = v
+--      end
+-- For this function, a caret '^' at the start of a pattern does not work as an anchor, as this would prevent the iteration.
+utf16MT.gmatch = function(self, pattern)
+    local pos, selfCopy = 1, self:copy()
+    return function()
+        local results = table.pack(selfCopy:find(pattern, pos))
+        if results.n < 2 then return end
+        pos = results[2] + 1
+        if results.n == 2 then
+            return selfCopy:sub(results[1], results[2])
+        else
+            table.remove(results, 1)
+            table.remove(results, 1)
+            return table.unpack(results)
+        end
+    end
+end
+
 -- utf8.codes (s)
 --
 -- Returns values so that the construction

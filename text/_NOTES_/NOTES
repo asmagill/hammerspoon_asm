@@ -1,5 +1,12 @@
 Implementation Plans/Thoughts/Notes
 
+    compare strings (__le, __lt)
+        method with additional options?
+    equality method with options?
+    add options to len method?
+
+    find, match, gmatch, gsub -- allow pattern to be utf16 object?
+
 > inspect1(string)
 {
 // Done
@@ -15,10 +22,8 @@ Implementation Plans/Thoughts/Notes
 
   find = <function 4>,      // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
   match = <function 10>,    // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
-
-      // Planned
-        gmatch = <function 6>,
-        gsub = <function 7>,
+  gmatch = <function 6>,    // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
+  gsub = <function 7>,      // uses http://userguide.icu-project.org/strings/regexp; should we convert to lua style?
 
       // Uncertain
         rep = <function 13>,      //  easyish, but is it really useful?

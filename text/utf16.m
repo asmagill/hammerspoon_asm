@@ -2,7 +2,7 @@
 @import LuaSkin ;
 
 static const char * const USERDATA_TAG = "hs.text.utf16" ;
-static int refTable = LUA_NOREF;
+static int refTable = LUA_NOREF ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
@@ -217,6 +217,17 @@ static int utf16_codepointForSurrogatePair(lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+static int utf16_copy(__unused lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+
+    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:[objString copy]] ;
+    [skin pushNSObject:newObject] ;
+    return 1 ;
+}
 
 // need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
 // or helpers to make them
@@ -573,24 +584,6 @@ static int utf16_string_find(lua_State *L) {
     return combinedFindAndMatch(L, objString, pattern, i, YES) ;
 }
 
-// string.gmatch (s, pattern)
-//
-// Returns an iterator function that, each time it is called, returns the next captures from pattern (see §6.4.1) over the string s. If pattern specifies no captures, then the whole match is produced in each call.
-// As an example, the following loop will iterate over all the words from string s, printing one per line:
-//
-//      s = "hello world from Lua"
-//      for w in string.gmatch(s, "%a+") do
-//        print(w)
-//      end
-// The next example collects all pairs key=value from the given string into a table:
-//
-//      t = {}
-//      s = "from=world, to=Lua"
-//      for k, v in string.gmatch(s, "(%w+)=(%w+)") do
-//        t[k] = v
-//      end
-// For this function, a caret '^' at the start of a pattern does not work as an anchor, as this would prevent the iteration.
-
 // string.gsub (s, pattern, repl [, n])
 //
 // Returns a copy of s in which all (or the first n, if given) occurrences of the pattern (see §6.4.1) have been replaced by a replacement string specified by repl, which can be a string, a table, or a function. gsub also returns, as its second value, the total number of matches that occurred. The name gsub comes from Global SUBstitution.
@@ -626,6 +619,134 @@ static int utf16_string_find(lua_State *L) {
 //      local t = {name="lua", version="5.3"}
 //      x = string.gsub("$name-$version.tar.gz", "%$(%w+)", t)
 //      --> x="lua-5.3.tar.gz"
+
+static int utf16_string_gsub(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TSTRING | LS_TTABLE | LS_TFUNCTION, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+
+    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    if (lua_type(L, 2) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
+        pattern = patternObject.utf16string ;
+    }
+
+    // prepare placeholders for the possible values of argument 3
+    NSString *replString = (lua_type(L, 3) == LUA_TSTRING) ? [skin toNSObjectAtIndex:3] : nil ;
+
+    NSDictionary *replDictionary = (lua_type(L, 3) == LUA_TTABLE)  ? [skin toNSObjectAtIndex:3] : nil ;
+    // if they pass in an array like table, we silently ignore it since the keys have to be strings
+    if ([replDictionary isKindOfClass:[NSArray class]]) replDictionary = [NSDictionary dictionary] ;
+
+    int replFnRef = LUA_NOREF ;
+    if (lua_type(L, 3) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 3) ;
+        replFnRef = [skin luaRef:refTable] ;
+    }
+
+
+
+    lua_Integer maxSubstitutions = (lua_gettop(L) > 3) ? lua_tointeger(L, 4) : ((lua_Integer)objString.length + 1) ;
+
+// NOTE: Do we want/need to convert lua style regular expression codes (e.g. %d instead of \d)? If so, do it here...
+
+    NSError             *error     = nil ;
+    NSRegularExpression *patternRE = [NSRegularExpression regularExpressionWithPattern:pattern
+                                                                               options:0
+                                                                                 error:&error] ;
+    if (error)  return luaL_argerror(L, 2, error.localizedDescription.UTF8String) ;
+
+    lua_Integer changeCount = 0 ;
+
+    // inspired by https://stackoverflow.com/a/23827451
+    NSMutableString* mutableString = [objString mutableCopy] ;
+    NSInteger offset = 0 ; // keeps track of range changes in the string due to replacements.
+    for (NSTextCheckingResult* result in [patternRE matchesInString:objString
+                                                            options:0
+                                                              range:NSMakeRange(0, objString.length)]) {
+        if (changeCount >= maxSubstitutions) break ;
+
+        NSRange resultRange = [result range] ;
+        resultRange.location = (NSUInteger)((NSInteger)resultRange.location + offset) ; // resultRange.location is updated based on the offset updated below
+
+        NSMutableArray *elements = [NSMutableArray arrayWithCapacity:result.numberOfRanges] ;
+        for (NSUInteger i = 0 ; i < result.numberOfRanges ; i++) {
+            NSRange componentRange = [result rangeAtIndex:i] ;
+            componentRange.location = (NSUInteger)((NSInteger)componentRange.location + offset) ;
+            [elements addObject:[mutableString substringWithRange:componentRange]] ;
+        }
+
+        // here's where the magic happens
+        NSString *replacement = nil ;
+        switch(lua_type(L, 3)) {
+            case LUA_TSTRING:
+                replacement = [patternRE replacementStringForResult:result
+                                                           inString:mutableString
+                                                             offset:offset
+                                                           template:replString] ;
+                break ;
+            case LUA_TTABLE:
+                replacement = [replDictionary objectForKey:(elements.count > 1) ? elements[1] : elements[0]] ;
+                if (!replacement) replacement = elements[0] ;
+                break ;
+            case LUA_TFUNCTION:
+                [skin pushLuaRef:refTable ref:replFnRef] ;
+                int argCount = (int)elements.count - 1 ;
+                if (argCount == 0) {
+                    [skin pushNSObject:elements[0]] ;
+                    argCount = 1 ;
+                } else {
+                    for (NSUInteger i = 1 ; i < elements.count ; i++) [skin pushNSObject:elements[i]] ;
+                }
+                if (![skin protectedCallAndTraceback:argCount nresults:1]) {
+                    return luaL_error(L, lua_tostring(L, -1)) ;
+                } else {
+                    switch(lua_type(L, -1)) {
+                        case LUA_TNIL:
+                            replacement = elements[0] ;
+                            break ;
+                        case LUA_TSTRING:
+                            {
+                                NSData *input = [skin toNSObjectAtIndex:-1 withOptions:LS_NSLuaStringAsDataOnly] ;
+                                replacement = [[NSString alloc] initWithData:input encoding:NSUTF8StringEncoding] ;
+                            }
+                            break ;
+                        case LUA_TNUMBER:
+                            replacement = [NSString stringWithCString:lua_tostring(L, -1) encoding:NSUTF8StringEncoding] ;
+                            break ;
+                        case LUA_TUSERDATA:
+                            if (luaL_testudata(L, -1, USERDATA_TAG)) {
+                                HSTextUTF16Object *newObject = [skin toNSObjectAtIndex:-1] ;
+                                replacement = newObject.utf16string ;
+                                break ;
+                            }
+                        default:
+                            return luaL_error(L, "invalid replacement value (a %s)", lua_typename(L, -1)) ;
+                    }
+                }
+                break ;
+            default: // shouldn't happen as we checked above in checkArgs:
+                return luaL_argerror(L, 3, [[NSString stringWithFormat:@"expected string, table, or function; found %s", luaL_typename(L, lua_type(L, 3))] UTF8String]) ;
+        }
+
+        // make the replacement
+        [mutableString replaceCharactersInRange:resultRange withString:replacement] ;
+
+        // update the offset based on the replacement
+        offset += ((NSInteger)replacement.length - (NSInteger)resultRange.length) ;
+
+        changeCount++ ;
+    }
+
+    if (replFnRef != LUA_NOREF) {
+        replFnRef = [skin luaUnref:refTable ref:replFnRef] ;
+    }
+    [skin pushNSObject:mutableString] ;
+    lua_pushinteger(L, changeCount) ;
+    return 2 ;
+}
 
 #pragma mark * From lua utf8 library *
 
@@ -839,17 +960,17 @@ static int utf16_builtinTransforms(lua_State *L) {
 
 static int pushHSTextUTF16Object(lua_State *L, id obj) {
     LuaSkin *skin  = [LuaSkin shared] ;
-    HSTextUTF16Object *value = obj;
+    HSTextUTF16Object *value = obj ;
     if (value.selfRefCount == 0) {
-        void** valuePtr = lua_newuserdata(L, sizeof(HSTextUTF16Object *));
-        *valuePtr = (__bridge_retained void *)value;
-        luaL_getmetatable(L, USERDATA_TAG);
-        lua_setmetatable(L, -2);
+        void** valuePtr = lua_newuserdata(L, sizeof(HSTextUTF16Object *)) ;
+        *valuePtr = (__bridge_retained void *)value ;
+        luaL_getmetatable(L, USERDATA_TAG) ;
+        lua_setmetatable(L, -2) ;
         value.selfRef = [skin luaRef:refTable] ;
     }
     value.selfRefCount++ ;
     [skin pushLuaRef:refTable ref:value.selfRef] ;
-    return 1;
+    return 1 ;
 }
 
 id toHSTextUTF16ObjectFromLua(lua_State *L, int idx) {
@@ -946,6 +1067,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"unitCharacter",          utf16_unitCharacter},
     {"composedCharacterRange", utf16_composedCharacterRange},
     {"capitalize",             utf16_capitalize},
+    {"copy",                   utf16_copy},
 
     {"upper",                  utf16_string_upper},
     {"lower",                  utf16_string_lower},
@@ -954,6 +1076,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"reverse",                utf16_string_reverse},
     {"match",                  utf16_string_match},
     {"find",                   utf16_string_find},
+    {"gsub",                   utf16_string_gsub},
 
     {"codepoint",              utf16_utf8_codepoint},
     {"offset",                 utf16_utf8_offset},
@@ -965,7 +1088,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"__eq",                   userdata_eq},
     {"__gc",                   userdata_gc},
     {NULL,                     NULL}
-};
+} ;
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
@@ -976,26 +1099,26 @@ static luaL_Reg moduleLib[] = {
     {"surrogatePairForCodepoint", utf16_surrogatePairForCodepoint},
     {"codepointForSurrogatePair", utf16_codepointForSurrogatePair},
     {NULL,                        NULL}
-};
+} ;
 
 // // Metatable for module, if needed
 // static const luaL_Reg module_metaLib[] = {
 //     {"__gc", meta_gc},
 //     {NULL,   NULL}
-// };
+// } ;
 
 int luaopen_hs_text_utf16(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
-                               objectFunctions:userdata_metaLib];
+                               objectFunctions:userdata_metaLib] ;
 
     utf16_builtinTransforms(L) ; lua_setfield(L, -2, "builtinTransforms") ;
 
-    [skin registerPushNSHelper:pushHSTextUTF16Object         forClass:"HSTextUTF16Object"];
+    [skin registerPushNSHelper:pushHSTextUTF16Object         forClass:"HSTextUTF16Object"] ;
     [skin registerLuaObjectHelper:toHSTextUTF16ObjectFromLua forClass:"HSTextUTF16Object"
-                                                  withUserdataMapping:USERDATA_TAG];
+                                                  withUserdataMapping:USERDATA_TAG] ;
 
-    return 1;
+    return 1 ;
 }
