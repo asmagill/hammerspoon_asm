@@ -101,8 +101,32 @@ utf16MT.composedCharacters = function(self)
     end, self, 0
 end
 
+utf16MT.compare = function(self, ...)
+    local args = table.pack(...)
+    if args.n > 1 and type(args[2]) == "table" then
+        local options = 0
+        for _,v in ipairs(args[2]) do
+            if type(v) == "number" then
+                options = options | v
+            elseif type(v) == "string" then
+                local value = module.utf16.compareOptions[v]
+                if value then
+                    options = options | value
+                else
+                    error("expected integer or string from hs.utf16.compareOptions in argument 2 table", 2)
+                end
+            else
+                error("expected integer or string from hs.utf16.compareOptions in argument 2 table", 2)
+            end
+        end
+        args[2] = options
+    end
+    return self:_compare(table.unpack(args))
+end
+
 module.encodingTypes           = ls.makeConstantsTable(module.encodingTypes)
 module.utf16.builtinTransforms = ls.makeConstantsTable(module.utf16.builtinTransforms)
+module.utf16.compareOptions    = ls.makeConstantsTable(module.utf16.compareOptions)
 
 -- Return Module Object --------------------------------------------------
 

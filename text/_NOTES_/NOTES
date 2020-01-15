@@ -1,11 +1,11 @@
 Implementation Plans/Thoughts/Notes
+    document (don't have many excuses left...)
 
-    compare strings (__le, __lt)
-        method with additional options?
-    equality method with options?
-    add options to len method?
+*   compare strings (__le, __lt)        -- uses `hs.text.utf16.compare` with "literal" option
+*       method with additional options? -- `hs.text.utf16.compare`
+*   equality method with options?       -- use `hs.text.utf16.compare` and test for 0
 
-    find, match, gmatch, gsub -- allow pattern to be utf16 object?
+-   find, match, gmatch, gsub -- allow pattern to be utf16 object? -- wait until this is asked for
 
 > inspect1(string)
 {

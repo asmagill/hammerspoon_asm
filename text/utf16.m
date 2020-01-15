@@ -69,11 +69,18 @@ static int combinedFindAndMatch(lua_State *L, NSString *objString, NSString *pat
         }
         if (searchResults.numberOfRanges > 1) {
             for (NSUInteger a = 1 ; a < searchResults.numberOfRanges ; a++) {
-                [skin pushNSObject:[objString substringWithRange:[searchResults rangeAtIndex:a]]] ;
+                NSRange componentRange = [searchResults rangeAtIndex:a] ;
+                if (componentRange.location == NSNotFound) {
+                    lua_pushnil(L) ;
+                } else {
+                    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:[objString substringWithRange:componentRange]] ;
+                    [skin pushNSObject:newObject] ;
+                }
             }
             returning = returning + (int)(searchResults.numberOfRanges - 1) ;
         } else if (!isFind) {
-            [skin pushNSObject:[objString substringWithRange:searchResults.range]] ;
+            HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:[objString substringWithRange:searchResults.range]] ;
+            [skin pushNSObject:newObject] ;
             returning = 1 ;
         }
     } else {
@@ -351,31 +358,85 @@ static int utf16_composedCharacterRange(lua_State *L) {
 
 static int utf16_capitalize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
-    BOOL              useLocale    = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
+    BOOL              useLocale    = (lua_gettop(L) == 2) ;
     NSString          *locale      = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
 
     NSString          *newString   = nil ;
 
     if (useLocale) {
+        NSLocale *specifiedLocale = lua_toboolean(L, 2) ? [NSLocale currentLocale] : nil ; // handles boolean/nil
         if (locale) {
-            NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
-            if (specifiedLocale) {
-                newString = [objString capitalizedStringWithLocale:specifiedLocale] ;
-            } else {
+            specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
+            if (!specifiedLocale) {
                 return luaL_argerror(L, 2, "unrecognized locale specified") ;
             }
-        } else {
-            newString = objString.localizedCapitalizedString ;
         }
+        newString = [objString capitalizedStringWithLocale:specifiedLocale] ;
     } else {
         newString = objString.capitalizedString ;
     }
 
     HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:newString] ;
     [skin pushNSObject:newObject] ;
+    return 1 ;
+}
+
+static int utf16_compare(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TANY,
+                    LS_TNUMBER | LS_TINTEGER | LS_TSTRING | LS_TNIL | LS_TOPTIONAL,
+                    LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
+
+    HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
+    NSString          *objString   = utf16Object.utf16string ;
+
+    NSString          *target      = [NSString stringWithUTF8String:luaL_tolstring(L, 2, NULL)] ;
+    lua_pop(L, 1) ;
+    if (lua_type(L, 2) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TANY, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        HSTextUTF16Object *targetObject = [skin toNSObjectAtIndex:2] ;
+        target = targetObject.utf16string ;
+    }
+
+    NSStringCompareOptions options = 0 ;
+    int                    localeIdx = 3 ;
+
+    if (lua_type(L, 3) == LUA_TNUMBER) {
+        localeIdx++ ;
+        options = (NSStringCompareOptions)(lua_tointeger(L, 3)) ;
+    }
+
+    BOOL     useLocale = (lua_gettop(L) == localeIdx) ;
+    NSString *locale   = (lua_type(L, localeIdx) == LUA_TSTRING) ? [skin toNSObjectAtIndex:localeIdx] : nil ;
+
+    NSRange  compareRange = NSMakeRange(0, objString.length) ;
+
+    NSComparisonResult result ;
+    if (useLocale) {
+        NSLocale *specifiedLocale = lua_toboolean(L, localeIdx) ? [NSLocale currentLocale] : nil ; // handles boolean/nil
+        if (locale) {
+            specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
+            if (!specifiedLocale) {
+                return luaL_argerror(L, localeIdx, "unrecognized locale specified") ;
+            }
+        }
+        result = [objString compare:target options:options range:compareRange locale:specifiedLocale] ;
+    } else {
+        result = [objString compare:target options:options range:compareRange] ;
+    }
+
+    switch (result) {
+        case NSOrderedAscending:  lua_pushinteger(L, -1) ; break ;
+        case NSOrderedSame:       lua_pushinteger(L,  0) ; break ;
+        case NSOrderedDescending: lua_pushinteger(L,  1) ; break ;
+        default:
+            [skin logError:[NSString stringWithFormat:@"%s:compare - unexpected comparison result of %ld when comparing %@ and %@", USERDATA_TAG, result, objString, target]] ;
+            lua_pushinteger(L, -999) ;
+    }
     return 1 ;
 }
 
@@ -386,25 +447,23 @@ static int utf16_capitalize(lua_State *L) {
 // Receives a string and returns a copy of this string with all lowercase letters changed to uppercase. All other characters are left unchanged. The definition of what a lowercase letter is depends on the current locale.
 static int utf16_string_upper(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
-    BOOL              useLocale    = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
+    BOOL              useLocale    = (lua_gettop(L) == 2) ;
     NSString          *locale      = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
 
     NSString          *newString   = nil ;
 
     if (useLocale) {
+        NSLocale *specifiedLocale = lua_toboolean(L, 2) ? [NSLocale currentLocale] : nil ; // handles boolean/nil
         if (locale) {
-            NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
-            if (specifiedLocale) {
-                newString = [objString uppercaseStringWithLocale:specifiedLocale] ;
-            } else {
+            specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
+            if (!specifiedLocale) {
                 return luaL_argerror(L, 2, "unrecognized locale specified") ;
             }
-        } else {
-            newString = objString.localizedUppercaseString ;
         }
+        newString = [objString uppercaseStringWithLocale:specifiedLocale] ;
     } else {
         newString = objString.uppercaseString ;
     }
@@ -419,25 +478,23 @@ static int utf16_string_upper(lua_State *L) {
 // Receives a string and returns a copy of this string with all uppercase letters changed to lowercase. All other characters are left unchanged. The definition of what an uppercase letter is depends on the current locale.
 static int utf16_string_lower(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
-    BOOL              useLocale    = (lua_gettop(L) == 2) && lua_toboolean(L, 2) ; // string will == true
+    BOOL              useLocale    = (lua_gettop(L) == 2) ;
     NSString          *locale      = (lua_type(L, 2) == LUA_TSTRING) ? [skin toNSObjectAtIndex:2] : nil ;
 
     NSString          *newString   = nil ;
 
     if (useLocale) {
+        NSLocale *specifiedLocale = lua_toboolean(L, 2) ? [NSLocale currentLocale] : nil ; // handles boolean/nil
         if (locale) {
-            NSLocale *specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
-            if (specifiedLocale) {
-                newString = [objString lowercaseStringWithLocale:specifiedLocale] ;
-            } else {
+            specifiedLocale = [NSLocale localeWithLocaleIdentifier:locale] ;
+            if (!specifiedLocale) {
                 return luaL_argerror(L, 2, "unrecognized locale specified") ;
             }
-        } else {
-            newString = objString.localizedLowercaseString ;
         }
+        newString = [objString lowercaseStringWithLocale:specifiedLocale] ;
     } else {
         newString = objString.lowercaseString ;
     }
@@ -531,9 +588,10 @@ static int utf16_string_match(lua_State *L) {
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
-    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    NSString          *pattern     = [NSString stringWithUTF8String:luaL_tolstring(L, 2, NULL)] ;
+    lua_pop(L, 1) ;
     if (lua_type(L, 2) == LUA_TUSERDATA) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        [skin checkArgs:LS_TANY, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
         HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
         pattern = patternObject.utf16string ;
     }
@@ -563,9 +621,10 @@ static int utf16_string_find(lua_State *L) {
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
-    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    NSString          *pattern     = [NSString stringWithUTF8String:luaL_tolstring(L, 2, NULL)] ;
+    lua_pop(L, 1) ;
     if (lua_type(L, 2) == LUA_TUSERDATA) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        [skin checkArgs:LS_TANY, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
         HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
         pattern = patternObject.utf16string ;
     }
@@ -619,16 +678,16 @@ static int utf16_string_find(lua_State *L) {
 //      local t = {name="lua", version="5.3"}
 //      x = string.gsub("$name-$version.tar.gz", "%$(%w+)", t)
 //      --> x="lua-5.3.tar.gz"
-
 static int utf16_string_gsub(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TANY, LS_TSTRING | LS_TTABLE | LS_TFUNCTION, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
-    NSString          *pattern     = [NSString stringWithUTF8String:lua_tostring(L, 2)] ;
+    NSString          *pattern     = [NSString stringWithUTF8String:luaL_tolstring(L, 2, NULL)] ;
+    lua_pop(L, 1) ;
     if (lua_type(L, 2) == LUA_TUSERDATA) {
-        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+        [skin checkArgs:LS_TANY, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
         HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
         pattern = patternObject.utf16string ;
     }
@@ -674,8 +733,12 @@ static int utf16_string_gsub(lua_State *L) {
         NSMutableArray *elements = [NSMutableArray arrayWithCapacity:result.numberOfRanges] ;
         for (NSUInteger i = 0 ; i < result.numberOfRanges ; i++) {
             NSRange componentRange = [result rangeAtIndex:i] ;
-            componentRange.location = (NSUInteger)((NSInteger)componentRange.location + offset) ;
-            [elements addObject:[mutableString substringWithRange:componentRange]] ;
+            if (componentRange.location == NSNotFound) {
+                [elements addObject:@""] ;
+            } else {
+                componentRange.location = (NSUInteger)((NSInteger)componentRange.location + offset) ;
+                [elements addObject:[mutableString substringWithRange:componentRange]] ;
+            }
         }
 
         // here's where the magic happens
@@ -695,10 +758,14 @@ static int utf16_string_gsub(lua_State *L) {
                 [skin pushLuaRef:refTable ref:replFnRef] ;
                 int argCount = (int)elements.count - 1 ;
                 if (argCount == 0) {
-                    [skin pushNSObject:elements[0]] ;
+                    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[0]] ;
+                    [skin pushNSObject:newObject] ;
                     argCount = 1 ;
                 } else {
-                    for (NSUInteger i = 1 ; i < elements.count ; i++) [skin pushNSObject:elements[i]] ;
+                    for (NSUInteger i = 1 ; i < elements.count ; i++) {
+                        HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[i]] ;
+                        [skin pushNSObject:newObject] ;
+                    }
                 }
                 if (![skin protectedCallAndTraceback:argCount nresults:1]) {
                     return luaL_error(L, lua_tostring(L, -1)) ;
@@ -954,6 +1021,20 @@ static int utf16_builtinTransforms(lua_State *L) {
     return 1 ;
 }
 
+static int utf16_compareOptions(lua_State *L) {
+    lua_newtable(L) ;
+    lua_pushinteger(L, NSCaseInsensitiveSearch) ;      lua_setfield(L, -2, "caseInsensitive") ;
+    lua_pushinteger(L, NSLiteralSearch) ;              lua_setfield(L, -2, "literal") ;
+    lua_pushinteger(L, NSNumericSearch) ;              lua_setfield(L, -2, "numeric") ;
+    lua_pushinteger(L, NSDiacriticInsensitiveSearch) ; lua_setfield(L, -2, "diacriticInsensitive") ;
+    lua_pushinteger(L, NSWidthInsensitiveSearch) ;     lua_setfield(L, -2, "widthInsensitive") ;
+    lua_pushinteger(L, NSForcedOrderingSearch) ;       lua_setfield(L, -2, "forcedOrdering") ;
+    // convienence combination:
+    lua_pushinteger(L, NSCaseInsensitiveSearch | NSNumericSearch | NSWidthInsensitiveSearch | NSForcedOrderingSearch) ;
+    lua_setfield(L, -2, "finderFileOrder") ;
+    return 1 ;
+}
+
 #pragma mark - Lua<->NSObject Conversion Functions
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
@@ -1023,17 +1104,63 @@ static int userdata_tostring(__unused lua_State* L) {
     return 1 ;
 }
 
-static int userdata_eq(lua_State* L) {
-// can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
-// so use luaL_testudata before the macro causes a lua error.
-    if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
-        HSTextUTF16Object *obj1 = [skin luaObjectAtIndex:1 toClass:"HSTextUTF16Object"] ;
-        HSTextUTF16Object *obj2 = [skin luaObjectAtIndex:2 toClass:"HSTextUTF16Object"] ;
-        lua_pushboolean(L, [obj1.utf16string isEqualToString:obj2.utf16string]) ;
-    } else {
-        lua_pushboolean(L, NO) ;
+static int userdata_common_compare_wrapper(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+// can't get here if at least one of us isn't our userdata type
+    HSTextUTF16Object *obj1 = luaL_testudata(L, 1, USERDATA_TAG) ? [skin luaObjectAtIndex:1 toClass:"HSTextUTF16Object"] : nil ;
+    if (!obj1) {
+        if (lua_type(L, 1) == LUA_TSTRING || lua_type(L, 1) == LUA_TNUMBER) {
+            const char *input = lua_tostring(L, 1) ;
+            obj1 = [[HSTextUTF16Object alloc] initWithString:[NSString stringWithCString:input encoding:NSUTF8StringEncoding]] ;
+        } else {
+            return luaL_error(L, "attempt to compare a %s value", lua_typename(L, 1)) ;
+        }
     }
+    HSTextUTF16Object *obj2 = luaL_testudata(L, 2, USERDATA_TAG) ? [skin luaObjectAtIndex:2 toClass:"HSTextUTF16Object"] : nil ;
+    if (!obj2) {
+        if (lua_type(L, 2) == LUA_TSTRING || lua_type(L, 2) == LUA_TNUMBER) {
+            const char *input = lua_tostring(L, 2) ;
+            obj2 = [[HSTextUTF16Object alloc] initWithString:[NSString stringWithCString:input encoding:NSUTF8StringEncoding]] ;
+        } else {
+            return luaL_error(L, "attempt to compare a %s value", lua_typename(L, 2)) ;
+        }
+    }
+
+    lua_pushcfunction(L, utf16_compare) ;
+    [skin pushNSObject:obj1] ;
+    [skin pushNSObject:obj2] ;
+    lua_pushinteger(L, NSLiteralSearch) ;
+    if (![skin protectedCallAndTraceback:3 nresults:1]) {
+        return luaL_error(L, lua_tostring(L, -1)) ;
+    }
+    return 1 ;
+}
+
+// less than
+static int userdata_lt(lua_State *L) {
+    userdata_common_compare_wrapper(L) ;
+    lua_Integer result = lua_tointeger(L, -1) ;
+    lua_pop(L, 1) ;
+    lua_pushboolean(L, (result < 0)) ;
+    return 1 ;
+}
+
+// less than or equal to
+// (strictly not required in 5.3 as lua assumes `a <= b` is equivalent to `not (b < a)`
+// but this use case is listed as "may go away in the future", so...)
+static int userdata_le(lua_State *L) {
+    userdata_common_compare_wrapper(L) ;
+    lua_Integer result = lua_tointeger(L, -1) ;
+    lua_pop(L, 1) ;
+    lua_pushboolean(L, (result <= 0)) ;
+    return 1 ;
+}
+
+static int userdata_eq(lua_State* L) {
+    userdata_common_compare_wrapper(L) ;
+    lua_Integer result = lua_tointeger(L, -1) ;
+    lua_pop(L, 1) ;
+    lua_pushboolean(L, (result == 0)) ;
     return 1 ;
 }
 
@@ -1068,6 +1195,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"composedCharacterRange", utf16_composedCharacterRange},
     {"capitalize",             utf16_capitalize},
     {"copy",                   utf16_copy},
+    {"_compare",               utf16_compare},
 
     {"upper",                  utf16_string_upper},
     {"lower",                  utf16_string_lower},
@@ -1085,6 +1213,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"__concat",               userdata_concat},
     {"__tostring",             userdata_tostring},
     {"__len",                  utf16_string_length},
+    {"__lt",                   userdata_lt},
+    {"__le",                   userdata_le},
     {"__eq",                   userdata_eq},
     {"__gc",                   userdata_gc},
     {NULL,                     NULL}
@@ -1115,6 +1245,7 @@ int luaopen_hs_text_utf16(lua_State* L) {
                                objectFunctions:userdata_metaLib] ;
 
     utf16_builtinTransforms(L) ; lua_setfield(L, -2, "builtinTransforms") ;
+    utf16_compareOptions(L) ;    lua_setfield(L, -2, "compareOptions") ;
 
     [skin registerPushNSHelper:pushHSTextUTF16Object         forClass:"HSTextUTF16Object"] ;
     [skin registerLuaObjectHelper:toHSTextUTF16ObjectFromLua forClass:"HSTextUTF16Object"
