@@ -1,6 +1,11 @@
 Implementation Plans/Thoughts/Notes
     document (don't have many excuses left...)
 
+    import/export from file
+    import/export from url (tie into hs.http)
+
+    other interesting NSString methods (see NOTES_objc)
+
 *   compare strings (__le, __lt)        -- uses `hs.text.utf16.compare` with "literal" option
 *       method with additional options? -- `hs.text.utf16.compare`
 *   equality method with options?       -- use `hs.text.utf16.compare` and test for 0
