@@ -20,8 +20,8 @@ HEADERS  = ${wildcard *.h}
 # swap if all objective-c files should be compiled into one target -- this is necessary if you organize your code in
 # multiple files but need them to access functions/objects defined in different files -- each dynamic library is loaded
 # individually by Hammerspoon so they can't see the exports of each other directly.
-SOFILE  := $(OBJCFILE:.m=.so)
-# SOFILE  := internal.so
+# SOFILE  := $(OBJCFILE:.m=.so)
+SOFILE  := internal.so
 DEBUG_CFLAGS ?= -g
 
 # special vars for uninstall
@@ -35,7 +35,7 @@ ALLFILES += $(SOFILE)
 
 #CC=cc
 CC=@clang
-WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration
+WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration -Wno-documentation-unknown-command
 EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -mmacosx-version-min=10.12
 
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
@@ -50,11 +50,11 @@ releaseWithDocs: clean all docs
 	HS_APPLICATION=$(HS_APPLICATION) PREFIX=tmp make install ; cd tmp ; tar -cf ../$(MODULE)-v$(VERSION).tar hs ; cd .. ; gzip $(MODULE)-v$(VERSION).tar
 
 # swap if all objective-c files should be compiled into one target
-.m.so: $(HEADERS) $(OBJCFILE)
-	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+# .m.so: $(HEADERS) $(OBJCFILE)
+# 	$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
 
-# internal.so: $(HEADERS) $(OBJCFILE)
-# 	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
+internal.so: $(HEADERS) $(OBJCFILE)
+	$(CC) $(OBJCFILE) $(CFLAGS) $(LDFLAGS) -o $@
 
 install: verify install-objc install-lua
 	test -f docs.json && install -m 0644 docs.json $(PREFIX)/$(MODPATH)/$(MODULE) || echo "No docs.json file to install"
@@ -66,8 +66,8 @@ install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/$(MODPATH)/$(MODULE)
 	install -m 0644 $(SOFILE) $(PREFIX)/$(MODPATH)/$(MODULE)
 # swap if all objective-c files should be compiled into one target
-	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/$(MODPATH)/$(MODULE)
-# 	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/$(MODPATH)/$(MODULE)
+# 	cp -vpR $(OBJCFILE:.m=.so.dSYM) $(PREFIX)/$(MODPATH)/$(MODULE)
+	cp -vpR $(SOFILE:.so=.so.dSYM) $(PREFIX)/$(MODPATH)/$(MODULE)
 
 install-lua: $(LUAFILE)
 	mkdir -p $(PREFIX)/$(MODPATH)/$(MODULE)
@@ -88,8 +88,8 @@ clean:
 uninstall:
 	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
 # swap if all objective-c files should be compiled into one target
-	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
-# 	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
+# 	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(OBJCFILE:.m=.so.dSYM) ; popd)
+	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(SOFILE:.so=.so.dSYM) ; popd)
 	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE)/docs.json
 	rmdir -p $(PREFIX)/$(MODPATH)/$(MODULE) ; exit 0
 

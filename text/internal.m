@@ -1,19 +1,21 @@
 @import Cocoa ;
 @import LuaSkin ;
 
-static const char * const USERDATA_TAG = "hs.text" ;
+#import "text.h"
+
+/// === hs.text ===
+///
+/// This module provides functions and methods for converting text between the various encodings supported by macOS.
+///
+/// This module allows the import and export of text conforming to any of the encodings supported by macOS. Additionally, this module provides methods foc converting between encodings and attempting to identify the encoding of raw data when the original encoding may be unknown.
+///
+/// Because the macOS natively treats all textual data as UTF-16, additional support is provided in the `hs.text.utf16` submodule for working with textual data that has been converted to UTF16.
+///
+/// For performance reasons, the text objects are maintained as macOS native objects unless explicitely converted to a lua string with [hs.text:rawData](#rawData) or [hs.text:tostring](#tostring).
+
 static int refTable = LUA_NOREF;
 
-#define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
-
 #pragma mark - Support Functions and Classes
-
-@interface HSTextObject : NSObject
-@property NSData           *contents ;
-@property int              selfRef ;
-@property int              selfRefCount ;
-@property NSStringEncoding encoding ;
-@end
 
 @implementation HSTextObject
 
@@ -32,6 +34,22 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
+/// hs.text.new(text, [encoding] | [lossy, [windows]]) -> textObject
+/// Constructor
+/// Creates a new text object from a lua string or `hs.text.utf16` object.
+///
+/// Params:
+///  * `text`      - a lua string or `hs.text.utf16` object. When this parameter is an `hs.text.utf16` object, no other parameters are allowed.
+///  * `encoding`  - an optional integer, specifying the encoding of the contents of the lua string. Valid encodings are contained within the [hs.text.encodingTypes](#encodingTypes) table.
+///  * If `encoding` is not provided, this contructor will attempt to guess the encoding (see [hs.text:guessEncoding](#guessEncoding) for more details).
+///    * `lossy`   - an optional boolean, default false, specifying whether or not lossy conversions should be considered when guessing the encoding.
+///    * `windows` - an optional boolean, default false, specifying whether or not to consider encodings corresponding to Windows codepage numbers when guessing the encoding.
+///
+/// Returns:
+///  * a new textObject
+///
+/// Notes:
+///  * The contents of `text` is stored exactly as provided, even if the specified encoding (or guessed encoding) is not valid for the entire contents of the data.
 static int text_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSData *rawData = nil ;
@@ -40,11 +58,9 @@ static int text_new(lua_State *L) {
         [skin checkArgs:LS_TSTRING, LS_TBREAK | LS_TVARARG] ;
         rawData = [skin toNSObjectAtIndex:1 withOptions:LS_NSLuaStringAsDataOnly] ;
     } else {
-        [skin checkArgs:LS_TUSERDATA, "hs.text.utf16", LS_TBREAK] ;
-        // treat userdata as NSObject so we don't have to link files together to get definition of HSTextUTF16Object class
-        NSObject *object      = [skin toNSObjectAtIndex:1] ;
-        NSString *utf16String = [object valueForKey:@"utf16string"] ;
-        rawData = [utf16String dataUsingEncoding:NSUnicodeStringEncoding] ;
+        [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TBREAK] ;
+        HSTextUTF16Object *object = [skin toNSObjectAtIndex:1] ;
+        rawData = [object.utf16string dataUsingEncoding:NSUnicodeStringEncoding] ;
     }
 
     BOOL             hasEncoding = (lua_gettop(L) > 1 && lua_type(L, 2) == LUA_TNUMBER) ;
@@ -76,6 +92,80 @@ static int text_new(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.readFile(path, [encoding]) -> textObject | nil, errorString
+/// Constructor
+/// Create text object with the contents of the file at the specified path.
+///
+/// Parameters:
+///  * `path`     -
+///  * `encoding` -
+///
+/// Returns:
+///  * a new textObect containing the contents of the specified file, or nil and a string specifying the error
+///
+/// Notes:
+///  * if no encoding is specified, the encoding will be determined by macOS when the file is read. If no encoding can be determined, the file will be read as if the encoding had been specified as [hs.text.encodingTypes.rawData](#encodingTypes)
+///    * to identify the encoding determined, see [hs.text:encoding](#encoding)
+static int text_fromFile(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TSTRING, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    NSString         *path       = [skin toNSObjectAtIndex:1] ;
+    BOOL             hasEncoding = lua_gettop(L) > 1 ;
+    NSStringEncoding encoding    = hasEncoding ? (NSStringEncoding)lua_tointeger(L, 2) : (NSStringEncoding)0 ;
+
+    path = path.stringByStandardizingPath ;
+    NSData  *data  = nil ;
+    NSError *error = nil ;
+
+    if (hasEncoding && encoding != 0) {
+        NSString *fileContents = [NSString stringWithContentsOfFile:path
+                                                           encoding:encoding
+                                                              error:&error] ;
+        if (!error) {
+            data = [fileContents dataUsingEncoding:encoding] ;
+        }
+    } else if (!hasEncoding) {
+        NSString *fileContents = [NSString stringWithContentsOfFile:path
+                                                       usedEncoding:&encoding
+                                                              error:&error ] ;
+        if (!error) {
+            data = [fileContents dataUsingEncoding:encoding] ;
+        } else {
+            // it probably already is, but since we want to make sure to try a raw data grab, be explicit
+            encoding = 0 ;
+            error    = nil ;
+        }
+    }
+
+    if (encoding == 0) {
+        data = [NSData dataWithContentsOfFile:path
+                                      options:0
+                                        error:&error] ;
+    }
+
+    if (error) {
+        lua_pushnil(L) ;
+        [skin pushNSObject:error.localizedDescription] ;
+        return 2 ;
+    } else {
+        HSTextObject *object = [[HSTextObject alloc] init:data withEncoding:encoding] ;
+        [skin pushNSObject:object] ;
+        return 1 ;
+    }
+}
+
+/// hs.text.encodingName(encoding) -> string
+/// Function
+/// Returns the localzed name for the encoding.
+///
+/// Parameters:
+///  * `encoding` - an integer specifying the encoding
+///
+/// Returns:
+///  * a string specifying the localized name for the encoding specified or an empty string if the number does not refer to a valid encoding.
+///
+/// Notes:
+///  * the name returned will match the name of one of the keys in [hs.text.encodingTypes](#encodingTypes) unless the system locale has changed since the module was first loaded.
 static int text_localizedEncodingName(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -91,6 +181,20 @@ static int text_localizedEncodingName(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.text:guessEncoding([lossy], [windows]) -> integer, boolean
+/// Method
+/// Guess the encoding for the data held in the textObject
+///
+/// Paramters:
+///  * `lossy`   - an optional boolean, default false, specifying whether or not lossy conversions should be considered when guessing the encoding.
+///  * `windows` - an optional boolean, default false, specifying whether or not to consider encodings corresponding to Windows codepage numbers when guessing the encoding.
+///
+/// Returns:
+///  * an integer specifying the guessed encoding and a boolean indicating whether or not the guess results in partial data loss (lossy)
+///
+/// Notes:
+///  * this method works with the raw data contents of the textObject and ignores the currently assigned encoding.
+///  * the integer returned will correspond to an encoding defined in [hs.text.encodingTypes](#encodingTypes)
 static int text_guessEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -112,6 +216,20 @@ static int text_guessEncoding(lua_State *L) {
     return 2 ;
 }
 
+/// hs.text:fastestEncoding() -> integer
+/// Method
+/// Returns the fastest encoding to which the textObject may be converted without loss of information.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the encoding
+///
+/// Notes:
+///  * this method works with string representation of the textObject in its current encoding.
+///  * the integer returned will correspond to an encoding defined in [hs.text.encodingTypes](#encodingTypes)
+///  * “Fastest” applies to retrieval of characters from the string. This encoding may not be space efficient. See also [hs.text:smallestEncoding](#smallestEncoding).
 static int text_fastestEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -123,6 +241,20 @@ static int text_fastestEncoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:smallestEncoding() -> integer
+/// Method
+/// Returns the smallest encoding to which the textObject may be converted without loss of information.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the encoding
+///
+/// Notes:
+///  * this method works with string representation of the textObject in its current encoding.
+///  * the integer returned will correspond to an encoding defined in [hs.text.encodingTypes](#encodingTypes)
+///  * This encoding may not be the fastest for accessing characters, but is space-efficient. See also [hs.text:fastestEncoding](#fastestEncoding).
 static int text_smallestEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -134,6 +266,18 @@ static int text_smallestEncoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:encoding() -> integer
+/// Method
+/// Returns the encoding currently assigned for the textObject
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the encoding
+///
+/// Notes:
+///  * the integer returned will correspond to an encoding defined in [hs.text.encodingTypes](#encodingTypes)
 static int text_encoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -142,6 +286,15 @@ static int text_encoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:rawData() -> string
+/// Method
+/// Returns the raw data which makes up the contents of the textObject
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a lua string containing the raw data of the textObject
 static int text_raw(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -262,7 +415,10 @@ static int text_encodingTypes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
 
-    // first add internal encodings with common shorthand names
+    // add our special built in encoding
+    lua_pushinteger(L, 0) ;                                 lua_setfield(L, -2, "rawData") ;
+
+    // add internal encodings with common shorthand names
     lua_pushinteger(L, NSASCIIStringEncoding) ;             lua_setfield(L, -2, "ASCII") ;
     lua_pushinteger(L, NSNEXTSTEPStringEncoding) ;          lua_setfield(L, -2, "NEXTSTEP") ;
     lua_pushinteger(L, NSJapaneseEUCStringEncoding) ;       lua_setfield(L, -2, "JapaneseEUC") ;
@@ -397,6 +553,8 @@ static const luaL_Reg userdata_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"new",          text_new},
+    {"readFile",     text_fromFile},
+
     {"encodingName", text_localizedEncodingName},
     {NULL,           NULL}
 };
@@ -419,6 +577,9 @@ int luaopen_hs_text_internal(lua_State* L) {
     [skin registerPushNSHelper:pushHSTextObject         forClass:"HSTextObject"];
     [skin registerLuaObjectHelper:toHSTextObjectFromLua forClass:"HSTextObject"
                                              withUserdataMapping:USERDATA_TAG];
+
+    luaopen_hs_text_utf16(L) ; lua_setfield(L, -2, "utf16") ;
+    luaopen_hs_text_http(L) ;  lua_setfield(L, -2, "http") ;
 
     return 1;
 }

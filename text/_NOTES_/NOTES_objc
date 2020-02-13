@@ -1,8 +1,44 @@
 Creating and Initializing a String from a File -- probably put in hs.text
-
 Creating and Initializing a String from an URL -- probably put in hs.text
-
 Writing to a File or URL -- probably put in hs.text
+    NSData
+        Reading Data from a File
+
+            + (instancetype)dataWithContentsOfFile:(NSString *)path;
+            + (instancetype)dataWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)readOptionsMask error:(NSError * _Nullable *)errorPtr;
+            - (instancetype)initWithContentsOfFile:(NSString *)path;
+            - (instancetype)initWithContentsOfFile:(NSString *)path options:(NSDataReadingOptions)readOptionsMask error:(NSError * _Nullable *)errorPtr;
+
+            + (instancetype)dataWithContentsOfURL:(NSURL *)url;
+            + (instancetype)dataWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)readOptionsMask error:(NSError * _Nullable *)errorPtr;
+            - (instancetype)initWithContentsOfURL:(NSURL *)url;
+            - (instancetype)initWithContentsOfURL:(NSURL *)url options:(NSDataReadingOptions)readOptionsMask error:(NSError * _Nullable *)errorPtr;
+
+        Writing Data to a File
+
+            - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile;
+            - (BOOL)writeToFile:(NSString *)path options:(NSDataWritingOptions)writeOptionsMask error:(NSError * _Nullable *)errorPtr;
+            - (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)atomically;
+            - (BOOL)writeToURL:(NSURL *)url options:(NSDataWritingOptions)writeOptionsMask error:(NSError * _Nullable *)errorPtr;
+
+    NSString
+        Creating and Initializing a String from a File
+
+            + (instancetype)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+            + (instancetype)stringWithContentsOfFile:(NSString *)path usedEncoding:(NSStringEncoding *)enc error:(NSError * _Nullable *)error;
+            - (instancetype)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+            - (instancetype)initWithContentsOfFile:(NSString *)path usedEncoding:(NSStringEncoding *)enc error:(NSError * _Nullable *)error;
+
+            + (instancetype)stringWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+            + (instancetype)stringWithContentsOfURL:(NSURL *)url usedEncoding:(NSStringEncoding *)enc error:(NSError * _Nullable *)error;
+            - (instancetype)initWithContentsOfURL:(NSURL *)url encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+            - (instancetype)initWithContentsOfURL:(NSURL *)url usedEncoding:(NSStringEncoding *)enc error:(NSError * _Nullable *)error;
+
+        Writing to a File or URL
+
+            - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+            - (BOOL)writeToURL:(NSURL *)url atomically:(BOOL)useAuxiliaryFile encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
+
 
 - Working with Encodings -- in hs.text
 -     - (BOOL)canBeConvertedToEncoding:(NSStringEncoding)encoding;    ??
