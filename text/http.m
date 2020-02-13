@@ -4,6 +4,12 @@
 @import LuaSkin;
 @import WebKit;
 
+/// === hs.text.http ===
+///
+/// Perform HTTP requests with hs.text objects
+///
+/// This submodule is a subet of the `hs.http` module modified to return `hs.text` objects for the response body of http requests. For http methods which allow submitting a body (e.g. POST), `hs.text` object may be used instead of lua strings as well.
+
 #import "text.h"
 
 static int refTable;
@@ -107,10 +113,13 @@ static void remove_delegate(__unused lua_State* L, HSTextHTTPDelegate* delegate)
 // add it to the request and add the content length header field
 static void getBodyFromStack(lua_State* L, int index, NSMutableURLRequest* request){
     if (!lua_isnoneornil(L, index)) {
+        LuaSkin *skin = [LuaSkin shared] ;
         NSData *postData ;
         if (lua_type(L, index) == LUA_TSTRING) {
-        LuaSkin *skin = [LuaSkin shared] ;
             postData = [skin toNSObjectAtIndex:index withOptions:LS_NSLuaStringAsDataOnly] ;
+        } else if (lua_type(L, index) == LUA_TUSERDATA && luaL_testudata(L, index, USERDATA_TAG)) {
+            HSTextObject *object = [skin toNSObjectAtIndex:index] ;
+            postData = object.contents ;
         } else {
             NSString* body = [NSString stringWithCString:lua_tostring(L, index) encoding:NSASCIIStringEncoding];
             postData = [body dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES];
@@ -179,15 +188,15 @@ static void extractHeadersFromStack(lua_State* L, int index, NSMutableURLRequest
 /// Creates an HTTP request and executes it asynchronously
 ///
 /// Parameters:
-///  * url - A string containing the URL
-///  * method - A string containing the HTTP method to use (e.g. "GET", "POST", etc)
-///  * data - A string containing the request body, or nil to send no body
-///  * headers - A table containing string keys and values representing request header keys and values, or nil to add no headers
-///  * callback - A function to called when the response is received. The function should accept three arguments:
-///   * code - A number containing the HTTP response code
-///   * body - A string containing the body of the response
-///   * headers - A table containing the HTTP headers of the response
-///  * cachePolicy - An optional string containing the cache policy ("protocolCachePolicy", "ignoreLocalCache", "ignoreLocalAndRemoteCache", "returnCacheOrLoad", "returnCacheDontLoad" or "reloadRevalidatingCache"). Defaults to `protocolCachePolicy`.
+///  * `url`         - A string containing the URL
+///  * `method`      - A string containing the HTTP method to use (e.g. "GET", "POST", etc)
+///  * `data`        - A string or `hs.text` object containing the request body, or nil to send no body
+///  * `headers`     - A table containing string keys and values representing request header keys and values, or nil to add no headers
+///  * `callback`    - A function to called when the response is received. The function should accept three arguments:
+///   * `code`    - A number containing the HTTP response code
+///   * `body`    - An `hs.text` object containing the body of the response
+///   * `headers` - A table containing the HTTP headers of the response
+///  * `cachePolicy` - An optional string containing the cache policy ("protocolCachePolicy", "ignoreLocalCache", "ignoreLocalAndRemoteCache", "returnCacheOrLoad", "returnCacheDontLoad" or "reloadRevalidatingCache"). Defaults to `protocolCachePolicy`.
 ///
 /// Returns:
 ///  * None
@@ -197,7 +206,7 @@ static void extractHeadersFromStack(lua_State* L, int index, NSMutableURLRequest
 ///  * If the Content-Type response header begins `text/` then the response body return value is a UTF8 string. Any other content type passes the response body, unaltered, as a stream of bytes.
 static int http_doAsyncRequest(lua_State* L){
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TSTRING|LS_TNIL, LS_TTABLE|LS_TNIL, LS_TFUNCTION, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK];
+    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TANY, LS_TTABLE|LS_TNIL, LS_TFUNCTION, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK];
 
     NSString* cachePolicy = [skin toNSObjectAtIndex:6];
 
@@ -205,7 +214,7 @@ static int http_doAsyncRequest(lua_State* L){
     getBodyFromStack(L, 3, request);
     extractHeadersFromStack(L, 4, request);
 
-    luaL_checktype(L, 5, LUA_TFUNCTION);
+//     luaL_checktype(L, 5, LUA_TFUNCTION); // checkArgs does this and also supports tables with __call metamethod
     lua_pushvalue(L, 5);
 
     HSTextHTTPDelegate* delegate = [[HSTextHTTPDelegate alloc] init];
@@ -225,20 +234,20 @@ static int http_doAsyncRequest(lua_State* L){
     return 0;
 }
 
-/// hs.text.http.doRequest(url, method, [data, headers, cachePolicy]) -> int, string, table
+/// hs.text.http.doRequest(url, method, [data, headers, cachePolicy]) -> int, textObject, table
 /// Function
 /// Creates an HTTP request and executes it synchronously
 ///
 /// Parameters:
-///  * url - A string containing the URL
-///  * method - A string containing the HTTP method to use (e.g. "GET", "POST", etc)
-///  * data - An optional string containing the data to POST to the URL, or nil to send no data
-///  * headers - An optional table of string keys and values used as headers for the request, or nil to add no headers
-///  * cachePolicy - An optional string containing the cache policy ("protocolCachePolicy", "ignoreLocalCache", "ignoreLocalAndRemoteCache", "returnCacheOrLoad", "returnCacheDontLoad" or "reloadRevalidatingCache"). Defaults to `protocolCachePolicy`.
+///  * `url`         - A string containing the URL
+///  * `method`      - A string containing the HTTP method to use (e.g. "GET", "POST", etc)
+///  * `data`        - An optional string or `hs.text` object containing the data to POST to the URL, or nil to send no data
+///  * `headers`     - An optional table of string keys and values used as headers for the request, or nil to add no headers
+///  * `cachePolicy` - An optional string containing the cache policy ("protocolCachePolicy", "ignoreLocalCache", "ignoreLocalAndRemoteCache", "returnCacheOrLoad", "returnCacheDontLoad" or "reloadRevalidatingCache"). Defaults to `protocolCachePolicy`.
 ///
 /// Returns:
 ///  * A number containing the HTTP response status code
-///  * A string containing the response body
+///  * An `hs.text` object containing the response body
 ///  * A table containing the response headers
 ///
 /// Notes:
@@ -249,7 +258,7 @@ static int http_doAsyncRequest(lua_State* L){
 ///  * If the Content-Type response header begins `text/` then the response body return value is a UTF8 string. Any other content type passes the response body, unaltered, as a stream of bytes.
 static int http_doRequest(lua_State* L) {
     LuaSkin *skin = [LuaSkin shared];
-    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TSTRING|LS_TNIL|LS_TOPTIONAL, LS_TTABLE|LS_TNIL|LS_TOPTIONAL, LS_TSTRING|LS_TOPTIONAL, LS_TBREAK];
+    [skin checkArgs:LS_TSTRING, LS_TSTRING, LS_TANY|LS_TOPTIONAL, LS_TTABLE|LS_TNIL|LS_TOPTIONAL, LS_TSTRING|LS_TOPTIONAL, LS_TBREAK];
 
     NSString* cachePolicy = [skin toNSObjectAtIndex:5];
 

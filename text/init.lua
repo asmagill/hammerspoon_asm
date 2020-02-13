@@ -1,16 +1,27 @@
 --- === hs.text ===
 ---
---- Stuff about the module
+--- This module provides functions and methods for converting text between the various encodings supported by macOS.
+---
+--- This module allows the import and export of text conforming to any of the encodings supported by macOS. Additionally, this module provides methods foc converting between encodings and attempting to identify the encoding of raw data when the original encoding may be unknown.
+---
+--- Because the macOS natively treats all textual data as UTF-16, additional support is provided in the `hs.text.utf16` submodule for working with textual data that has been converted to UTF16.
+---
+--- For performance reasons, the text objects are maintained as macOS native objects unless explicitely converted to a lua string with [hs.text:rawData](#rawData) or [hs.text:tostring](#tostring).
+
 
 local USERDATA_TAG = "hs.text"
 local module       = require(USERDATA_TAG..".internal")
--- module.utf16       = require(USERDATA_TAG..".utf16")
--- module.http        = require(USERDATA_TAG..".http")
+
+local basePath = package.searchpath(USERDATA_TAG, package.path)
+if basePath then
+    basePath = basePath:match("^(.+)/init.lua$")
+    if require"hs.fs".attributes(basePath .. "/docs.json") then
+        require"hs.doc".registerJSONFile(basePath .. "/docs.json")
+    end
+end
 
 local textMT  = hs.getObjectMetatable(USERDATA_TAG)
 local utf16MT = hs.getObjectMetatable(USERDATA_TAG..".utf16")
-
--- local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
 require("hs.http") -- load some conversion functions that may be useful with hs.text.http, not certain yet
 
@@ -18,10 +29,33 @@ require("hs.http") -- load some conversion functions that may be useful with hs.
 
 -- Public interface ------------------------------------------------------
 
+-- pragma - mark - hs.text functions, methods, and constants
+
+--- hs.text:tostring([lossy]) -> string
+--- Method
+--- Returns the textObject as a UTF8 string that can be printed and manipulated directly by lua.
+---
+--- Parameters:
+---  * `lossy`    - a boolean, defailt false, specifying whether or not characters can be removed or altered in the conversion to UTF8.
+---
+--- Returns:
+---  * a lua string containing the UTF8 representation of the textObject. The string will be empty (i.e. "") if the conversion to UTF8 could not be performed.
+---
+--- Notes:
+---  * this method is basically a wrapper for `textObject:asEncoding(hs.text.encodingTypes.UTF8, [lossy]):rawData()`
 textMT.tostring = function(self, ...)
-    return self:asEncoding(module.encodingTypes.UTF8, ...):rawData()
+    return self:asEncoding(module.encodingTypes.UTF8, ...):rawData() or ""
 end
 
+--- hs.text:toUTF16([lossy]) -> utf16TextObject | nil
+--- Method
+--- Returns a new hs.text.utf16 object representing the textObject for use with the `hs.text.utf16` submodule and its methods.
+---
+--- Parameters:
+---  * `lossy`    - a boolean, defailt false, specifying whether or not characters can be removed or altered in the conversion to UTF16.
+---
+--- Returns:
+---  * a new `hs.text.utf16` object or nil if the conversion could not be performed.
 textMT.toUTF16 = function(self, ...)
     return module.utf16.new(self, ...)
 end
@@ -30,9 +64,116 @@ end
 --
 -- Returns the internal numeric codes of the characters s[i], s[i+1], ..., s[j]. The default value for i is 1; the default value for j is i. These indices are corrected following the same rules of function string.sub.
 -- Numeric codes are not necessarily portable across platforms.
+
+--- hs.text:byte([i, [j]]) -> 0 or more integeres
+--- Method
+--- Get the actual bytes of data present between the specified indices of the textObject
+---
+--- Paramaters:
+---  * `i` - an optional integer, default 1, specifying the starting index. Negative numbers start from the end of the texObject.
+---  * `j` - an optional integer, defaults to the value of `i`, specifying the ending index. Negative numbers start from the end of the texObject.
+---
+--- Returns:
+---  * 0 or more integers representing the bytes within the range specified by the indicies.
+---
+--- Notes:
+---  * This is syntactic sugar for `string.bytes(hs.text:rawData() [, i [, j]])`
+---  * This method returns the byte values of the actual data present in the textObject. Depending upon the encoding of the textObject, these bytes may or may not represent individual or complete characters within the text itself.
 textMT.byte = function(self, ...)
     return self:rawData():byte(...)
 end
+
+module.encodingTypes           = ls.makeConstantsTable(module.encodingTypes)
+
+-- pragma - mark - hs.text.http functions, methods, and constants
+
+--- hs.text.http.get(url, headers) -> int, textObject, table
+--- Function
+--- Sends an HTTP GET request to a URL
+---
+--- Parameters
+---  * `url`     - A string containing the URL to retrieve
+---  * `headers` - A table containing string keys and values representing the request headers, or nil to add no headers
+---
+--- Returns:
+---  * A number containing the HTTP response status
+---  * A textObject containing the response body
+---  * A table containing the response headers
+---
+--- Notes:
+---  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
+---
+---  * This function is synchronous and will therefore block all other Lua execution while the request is in progress, you are encouraged to use the asynchronous functions
+---  * If you attempt to connect to a local Hammerspoon server created with `hs.httpserver`, then Hammerspoon will block until the connection times out (60 seconds), return a failed result due to the timeout, and then the `hs.httpserver` callback function will be invoked (so any side effects of the function will occur, but it's results will be lost).  Use [hs.text.http.asyncGet](#asyncGet) to avoid this.
+module.http.get = function(url, headers)
+    return module.http.doRequest(url, "GET", nil, headers)
+end
+
+--- hs.text.http.post(url, data, headers) -> int, textObject, table
+--- Function
+--- Sends an HTTP POST request to a URL
+---
+--- Parameters
+---  * `url`     - A string containing the URL to submit to
+---  * `data`    - A string or hs.text object containing the request body, or nil to send no body
+---  * `headers` - A table containing string keys and values representing the request headers, or nil to add no headers
+---
+--- Returns:
+---  * A number containing the HTTP response status
+---  * A textObject containing the response body
+---  * A table containing the response headers
+---
+--- Notes:
+---  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
+---
+---  * This function is synchronous and will therefore block all other Lua execution while the request is in progress, you are encouraged to use the asynchronous functions
+---  * If you attempt to connect to a local Hammerspoon server created with `hs.httpserver`, then Hammerspoon will block until the connection times out (60 seconds), return a failed result due to the timeout, and then the `hs.httpserver` callback function will be invoked (so any side effects of the function will occur, but it's results will be lost).  Use [hs.text.http.asyncPost](#asyncPost) to avoid this.
+module.http.post = function(url, data, headers)
+    return module.http.doRequest(url, "POST", data,headers)
+end
+
+--- hs.text.http.asyncGet(url, headers, callback)
+--- Function
+--- Sends an HTTP GET request asynchronously
+---
+--- Parameters:
+---  * `url`      - A string containing the URL to retrieve
+---  * `headers`  - A table containing string keys and values representing the request headers, or nil to add no headers
+---  * `callback` - A function to be called when the request succeeds or fails. The function will be passed three parameters:
+---   * A number containing the HTTP response status
+---   * A textObject containing the response body
+---   * A table containing the response headers
+---
+--- Notes:
+---  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
+---
+---  * If the request fails, the callback function's first parameter will be negative and the second parameter will contain an error message. The third parameter will be nil
+module.http.asyncGet = function(url, headers, callback)
+    module.http.doAsyncRequest(url, "GET", nil, headers, callback)
+end
+
+--- hs.text.http.asyncPost(url, data, headers, callback)
+--- Function
+--- Sends an HTTP POST request asynchronously
+---
+--- Parameters:
+---  * `url`      - A string containing the URL to submit to
+---  * `data`     - A string or hs.text object containing the request body, or nil to send no body
+---  * `headers`  - A table containing string keys and values representing the request headers, or nil to add no headers
+---  * `callback` - A function to be called when the request succeeds or fails. The function will be passed three parameters:
+---   * A number containing the HTTP response status
+---   * A textObject containing the response body
+---   * A table containing the response headers
+---
+--- Notes:
+---  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
+---
+---  * If the request fails, the callback function's first parameter will be negative and the second parameter will contain an error message. The third parameter will be nil
+module.http.asyncPost = function(url, data, headers, callback)
+    module.http.doAsyncRequest(url, "POST", data, headers, callback)
+end
+
+-- pragma - mark - hs.text.utf16 functions, methods, and constants
 
 -- string.gmatch (s, pattern)
 --
@@ -125,94 +266,6 @@ utf16MT.compare = function(self, ...)
         args[2] = options
     end
     return self:_compare(table.unpack(args))
-end
-
-module.encodingTypes           = ls.makeConstantsTable(module.encodingTypes)
-
---- hs.text.http.get(url, headers) -> int, string, table
---- Function
---- Sends an HTTP GET request to a URL
----
---- Parameters
----  * url - A string containing the URL to retrieve
----  * headers - A table containing string keys and values representing the request headers, or nil to add no headers
----
---- Returns:
----  * A number containing the HTTP response status
----  * A string containing the response body
----  * A table containing the response headers
----
---- Notes:
----  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
----
----  * This function is synchronous and will therefore block all other Lua execution while the request is in progress, you are encouraged to use the asynchronous functions
----  * If you attempt to connect to a local Hammerspoon server created with `hs.httpserver`, then Hammerspoon will block until the connection times out (60 seconds), return a failed result due to the timeout, and then the `hs.httpserver` callback function will be invoked (so any side effects of the function will occur, but it's results will be lost).  Use [hs.text.http.asyncGet](#asyncGet) to avoid this.
-module.http.get = function(url, headers)
-    return module.http.doRequest(url, "GET", nil, headers)
-end
-
---- hs.text.http.post(url, data, headers) -> int, string, table
---- Function
---- Sends an HTTP POST request to a URL
----
---- Parameters
----  * url - A string containing the URL to submit to
----  * data - A string containing the request body, or nil to send no body
----  * headers - A table containing string keys and values representing the request headers, or nil to add no headers
----
---- Returns:
----  * A number containing the HTTP response status
----  * A string containing the response body
----  * A table containing the response headers
----
---- Notes:
----  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
----
----  * This function is synchronous and will therefore block all other Lua execution while the request is in progress, you are encouraged to use the asynchronous functions
----  * If you attempt to connect to a local Hammerspoon server created with `hs.httpserver`, then Hammerspoon will block until the connection times out (60 seconds), return a failed result due to the timeout, and then the `hs.httpserver` callback function will be invoked (so any side effects of the function will occur, but it's results will be lost).  Use [hs.text.http.asyncPost](#asyncPost) to avoid this.
-module.http.post = function(url, data, headers)
-    return module.http.doRequest(url, "POST", data,headers)
-end
-
---- hs.text.http.asyncGet(url, headers, callback)
---- Function
---- Sends an HTTP GET request asynchronously
----
---- Parameters:
----  * url - A string containing the URL to retrieve
----  * headers - A table containing string keys and values representing the request headers, or nil to add no headers
----  * callback - A function to be called when the request succeeds or fails. The function will be passed three parameters:
----   * A number containing the HTTP response status
----   * A string containing the response body
----   * A table containing the response headers
----
---- Notes:
----  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
----
----  * If the request fails, the callback function's first parameter will be negative and the second parameter will contain an error message. The third parameter will be nil
-module.http.asyncGet = function(url, headers, callback)
-    module.http.doAsyncRequest(url, "GET", nil, headers, callback)
-end
-
---- hs.text.http.asyncPost(url, data, headers, callback)
---- Function
---- Sends an HTTP POST request asynchronously
----
---- Parameters:
----  * url - A string containing the URL to submit to
----  * data - A string containing the request body, or nil to send no body
----  * headers - A table containing string keys and values representing the request headers, or nil to add no headers
----  * callback - A function to be called when the request succeeds or fails. The function will be passed three parameters:
----   * A number containing the HTTP response status
----   * A string containing the response body
----   * A table containing the response headers
----
---- Notes:
----  * If authentication is required in order to download the request, the required credentials must be specified as part of the URL (e.g. "http://user:password@host.com/"). If authentication fails, or credentials are missing, the connection will attempt to continue without credentials.
----
----  * If the request fails, the callback function's first parameter will be negative and the second parameter will contain an error message. The third parameter will be nil
-module.http.asyncPost = function(url, data, headers, callback)
-    module.http.doAsyncRequest(url, "POST", data, headers, callback)
 end
 
 module.utf16.builtinTransforms = ls.makeConstantsTable(module.utf16.builtinTransforms)

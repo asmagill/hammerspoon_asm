@@ -3,16 +3,6 @@
 
 #import "text.h"
 
-/// === hs.text ===
-///
-/// This module provides functions and methods for converting text between the various encodings supported by macOS.
-///
-/// This module allows the import and export of text conforming to any of the encodings supported by macOS. Additionally, this module provides methods foc converting between encodings and attempting to identify the encoding of raw data when the original encoding may be unknown.
-///
-/// Because the macOS natively treats all textual data as UTF-16, additional support is provided in the `hs.text.utf16` submodule for working with textual data that has been converted to UTF16.
-///
-/// For performance reasons, the text objects are maintained as macOS native objects unless explicitely converted to a lua string with [hs.text:rawData](#rawData) or [hs.text:tostring](#tostring).
-
 static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
@@ -42,7 +32,7 @@ static int refTable = LUA_NOREF;
 ///  * `text`      - a lua string or `hs.text.utf16` object. When this parameter is an `hs.text.utf16` object, no other parameters are allowed.
 ///  * `encoding`  - an optional integer, specifying the encoding of the contents of the lua string. Valid encodings are contained within the [hs.text.encodingTypes](#encodingTypes) table.
 ///  * If `encoding` is not provided, this contructor will attempt to guess the encoding (see [hs.text:guessEncoding](#guessEncoding) for more details).
-///    * `lossy`   - an optional boolean, default false, specifying whether or not lossy conversions should be considered when guessing the encoding.
+///    * `lossy`   - an optional boolean, defailt false, specifying whether or not characters can be removed or altered when guessing the encoding.
 ///    * `windows` - an optional boolean, default false, specifying whether or not to consider encodings corresponding to Windows codepage numbers when guessing the encoding.
 ///
 /// Returns:
@@ -97,11 +87,11 @@ static int text_new(lua_State *L) {
 /// Create text object with the contents of the file at the specified path.
 ///
 /// Parameters:
-///  * `path`     -
-///  * `encoding` -
+///  * `path`     - a string specifying the absolute or relative (to your Hammerspoon configuration directory) path to the file to read.
+///  * `encoding` - an optional integer specifying the encoding of the data in the file. See [hs.text.encodingTypes](#encodingTypes) for possible values.
 ///
 /// Returns:
-///  * a new textObect containing the contents of the specified file, or nil and a string specifying the error
+///  * a new textObject containing the contents of the specified file, or nil and a string specifying the error
 ///
 /// Notes:
 ///  * if no encoding is specified, the encoding will be determined by macOS when the file is read. If no encoding can be determined, the file will be read as if the encoding had been specified as [hs.text.encodingTypes.rawData](#encodingTypes)
@@ -181,12 +171,57 @@ static int text_localizedEncodingName(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.text:writeToFile(path, [encoding]) -> textObject | nil, errorString
+/// Method
+/// Write the textObject to the specified file.
+///
+/// Parameters:
+///  * `path`     - a string specifying the absolute or relative (to your Hammerspoon configuration directory) path to save the data to.
+///  * `encoding` - an optional integer specifying the encoding to use when writing the file. If not specified, the current encoding of the textObject is used. See [hs.text.encodingTypes](#encodingTypes) for possible values.
+///
+/// Returns:
+///  * the textObject, or nil and a string specifying the error
+static int text_saveToFile(lua_State *L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSTextObject     *object     = [skin toNSObjectAtIndex:1] ;
+    NSString         *path       = [skin toNSObjectAtIndex:2] ;
+    BOOL             hasEncoding = (lua_gettop(L) > 2) ;
+    NSStringEncoding encoding    = hasEncoding ? (NSStringEncoding)lua_tointeger(L, 3) : object.encoding ;
+
+    path = path.stringByStandardizingPath ;
+
+    NSError *writeError = nil ;
+    BOOL    succeeded   = NO ;
+    if (encoding == 0) {
+        succeeded = [object.contents writeToFile:path options:NSDataWritingAtomic error:&writeError] ;
+        if (writeError) succeeded = YES ; // probably is already, but just in case
+    } else {
+        NSString *objectString = [[NSString alloc] initWithData:object.contents encoding:object.encoding] ;
+        succeeded = [objectString writeToFile:path atomically:YES encoding:encoding error:&writeError] ;
+        if (writeError) succeeded = YES ; // probably is already, but just in case
+    }
+
+    if (!succeeded) {
+        lua_pushnil(L) ;
+        if (writeError) {
+            [skin pushNSObject:writeError.localizedDescription] ;
+        } else {
+            lua_pushstring(L, "unspecified error") ;
+        }
+        return 2 ;
+    } else {
+        lua_pushvalue(L, 1) ;
+        return 1 ;
+    }
+}
+
 /// hs.text:guessEncoding([lossy], [windows]) -> integer, boolean
 /// Method
 /// Guess the encoding for the data held in the textObject
 ///
 /// Paramters:
-///  * `lossy`   - an optional boolean, default false, specifying whether or not lossy conversions should be considered when guessing the encoding.
+///  * `lossy`   - an optional boolean, defailt false, specifying whether or not characters can be removed or altered when guessing the encoding.
 ///  * `windows` - an optional boolean, default false, specifying whether or not to consider encodings corresponding to Windows codepage numbers when guessing the encoding.
 ///
 /// Returns:
@@ -303,6 +338,19 @@ static int text_raw(__unused lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:validEncodings([lossy]) -> table of integers
+/// Method
+/// Generate a list of possible encodings for the data represented by the hs.text object
+///
+/// Paramters:
+///  * `lossy`   - an optional boolean, defailt false, specifying whether or not characters can be removed or altered when evaluating each potential encoding.
+///
+/// Returns:
+///  * a table of integers specifying identified potential encodings for the data. Each integer will correspond to an encoding defined in [hs.text.encodingTypes](#encodingTypes)
+///
+/// Notes:
+///  * this method works with the raw data contents of the textObject and ignores the currently assigned encoding.
+///  * the encodings identified are ones for which the bytes of data can represent valid character or formatting sequences within the encoding -- the specific textual representation for each encoding may differ. See the notes for [hs.text:asEncoding](#asEncoding) for an example of a byte sequence which has very different textual meanings for different encodings.
 static int text_validEncodings(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -327,6 +375,34 @@ static int text_validEncodings(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:asEncoding(encoding, [lossy]) -> textObject | nil
+/// Method
+/// Convert the textObject to a different encoding.
+///
+/// Parameters:
+///  * `encoding` - an integer specifying the new encoding. Valid encoding values can be looked up in [hs.text.encodingTypes](#encodingTypes)
+///  * `lossy`    - a optional boolean, defailt false, specifying whether or not characters can be removed or altered when converted to the new encoding.
+///
+/// Returns:
+///  * a new textObject with the text converted to the new encoding, or nil if the object cannot be converted to the new encoding.
+///
+/// Notes:
+///  * If the encoding is not 0 ([hs.text.encodingTypes.rawData](#encodingTypes)), the actual data in the new textObject may be different then the original if the new encoding represents the characters differently.
+///
+///  * The encoding type 0 is special in that it creates a new textObject with the exact same data as the original but with no information as to the encoding type. This can be useful when the textObject has assumed an incorrect encoding and you wish to change it without loosing data. For example:
+///
+///       ~~~
+///       a = hs.text.new("abcd")
+///       print(a:encoding(), #a, #(a:rawData()), a:tostring()) -- prints `1	4	4	abcd`
+///
+///       b = a:asEncoding(hs.text.encodingTypes.UTF16)
+///       print(b:encoding(), #b, #(b:rawData()), b:tostring()) -- prints `10	4	10	abcd`
+///           -- note the change in the length of the raw data (the first two bytes will be the UTF16 BOM, but even factoring that out, the size went from 4 to 8), but not the text represented
+///
+///       c = a:asEncoding(0):asEncoding(hs.text.encodingTypes.UTF16)
+///       print(c:encoding(), #c, #(c:rawData()), c:tostring()) -- prints `10	2	6	慢捤`
+///           -- note the change in the length of both the text and the raw data, as well as the actual text represented. Factoring out the UTF16 BOM, the data length is still 4, like the original object.
+///       ~~~
 static int text_asEncoding(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -357,6 +433,19 @@ static int text_asEncoding(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:encodingValid() -> boolean
+/// Method
+/// Returns whether or not the current encoding is valid for the data in the textObject
+///
+/// Paramters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicathing whether or not the encoding for the textObject is valid for the data in the textObject
+///
+/// Notes:
+///  * for an encoding to be considered valid by the macOS, it must be able to be converted to an NSString object within the Objective-C runtime. The resulting string may or may not be an exact representation of the data present (i.e. it may be a lossy representation). See also [hs.text:encodingLossless](#encodingLossless).
+///  * a textObject with an encoding of 0 (rawData) is always considered invalid (i.e. this method will return false)
 static int text_encodingValid(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -372,6 +461,19 @@ static int text_encodingValid(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:encodingLossless() -> boolean
+/// Method
+/// Returns whether or not the data representing the textObject is completely valid for the objects currently specified encoding with no loss or conversion of characters required.
+///
+/// Paramters:
+///  * None
+///
+/// Returns:
+///  * a boolean indicathing whether or not the data representing the textObject is completely valid for the objects currently specified encoding with no loss or conversion of characters required.
+///
+/// Notes:
+///  * for an encoding to be considered lossless, no data may be dropped or changed when evaluating the data within the requirements of the encoding. See also [hs.text:encodingValid](#encodingValid).
+///  * a textObject with an encoding of 0 (rawData) is always considered lossless (i.e. this method will return true)
 static int text_encodingLossless(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -393,6 +495,19 @@ static int text_encodingLossless(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text:len() -> integer
+/// Method
+/// Returns the length of the textObject
+///
+/// Paramaters:
+///  * None
+///
+/// Returns:
+///  * an integer specifying the length of the textObject
+///
+/// Notes:
+///  * if the textObject's encoding is 0 (rawData), this method will return the number of bytes of data the textObject contains
+///  * otherwise, the length will be the number of characters the data represents in its current encoding.
 static int text_length(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     // when used as the metmethod __len, we may get "self" provided twice, so let's just check the first arg
@@ -411,6 +526,38 @@ static int text_length(lua_State *L) {
 
 #pragma mark - Module Constants
 
+/// hs.text.encodingTypes
+/// Constant
+/// A table containing key-value pairs mapping encoding names to their integer representation used by the methods in this module.
+///
+/// This table will contain all of the encodings recognized by the macOS Objective-C runtime. Key values (strings) will be the localized name of the encoding based on the users locale at the time this module is loaded.
+///
+/// In addition to the localized names generated at load time, the following common encoding shorthands are also defined and are guaranteed to be consistent across all locales:
+///
+///  * `rawData`           - The data of the textObject is treated as 8-bit bytes with no special meaning or encodings.
+///  * `ASCII`             - Strict 7-bit ASCII encoding within 8-bit chars; ASCII values 0…127 only.
+///  * `ISO2022JP`         - ISO 2022 Japanese encoding for email.
+///  * `ISOLatin1`         - 8-bit ISO Latin 1 encoding.
+///  * `ISOLatin2`         - 8-bit ISO Latin 2 encoding.
+///  * `JapaneseEUC`       - 8-bit EUC encoding for Japanese text.
+///  * `MacOSRoman`        - Classic Macintosh Roman encoding.
+///  * `NEXTSTEP`          - 8-bit ASCII encoding with NEXTSTEP extensions.
+///  * `NonLossyASCII`     - 7-bit verbose ASCII to represent all Unicode characters.
+///  * `ShiftJIS`          - 8-bit Shift-JIS encoding for Japanese text.
+///  * `Symbol`            - 8-bit Adobe Symbol encoding vector.
+///  * `Unicode`           - The canonical Unicode encoding for string objects.
+///  * `UTF16`             - A synonym for `Unicode`. The default encoding used by macOS and `hs.text.utf16` for direct manipulation of encoded text.
+///  * `UTF16BigEndian`    - UTF16 encoding with explicit endianness specified.
+///  * `UTF16LittleEndian` - UTF16 encoding with explicit endianness specified.
+///  * `UTF32`             - 32-bit UTF encoding.
+///  * `UTF32BigEndian`    - 32-bit UTF encoding with explicit endianness specified.
+///  * `UTF32LittleEndian` - 32-bit UTF encoding with explicit endianness specified.
+///  * `UTF8`              - An 8-bit representation of Unicode characters, suitable for transmission or storage by ASCII-based systems.
+///  * `WindowsCP1250`     - Microsoft Windows codepage 1250; equivalent to WinLatin2.
+///  * `WindowsCP1251`     - Microsoft Windows codepage 1251, encoding Cyrillic characters; equivalent to AdobeStandardCyrillic font encoding.
+///  * `WindowsCP1252`     - Microsoft Windows codepage 1252; equivalent to WinLatin1.
+///  * `WindowsCP1253`     - Microsoft Windows codepage 1253, encoding Greek characters.
+///  * `WindowsCP1254`     - Microsoft Windows codepage 1254, encoding Turkish characters.
 static int text_encodingTypes(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -542,6 +689,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"smallestEncoding",     text_smallestEncoding},
     {"fastestEncoding",      text_fastestEncoding},
     {"len",                  text_length},
+    {"writeToFile",          text_saveToFile},
 
     {"__tostring",           userdata_tostring},
     {"__len",                text_length},

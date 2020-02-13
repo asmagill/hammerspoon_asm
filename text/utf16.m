@@ -5,6 +5,14 @@
 
 /// === hs.text.utf16 ===
 ///
+/// Perform text manipulation on UTF16 objects created by the `hs.text` module.
+///
+/// This sumodule replicates many of the functions found in the lua `string` and `utf8` libraries but modified for use with UTF16 text objects.
+///
+/// Internally, the macOS provides a wide range of functions for manipulating and managing UTF16 strings in the Objective-C runtime. While a wide variety of encodings can be used for importing and exporting data (see the main body of the `hs.text` module), string manipulation is provided by macOS only for the UTf16 representation of the encoded data. When working with data encoded in other formats, use the `hs.text:toUTF16()` method which will create an object his submodule can manipulate. When finished, you can convert the data back to the necessary encoding with the `hs.text.new()` function and then export the data back (e.g. writing to a file or posting to a URL).
+///
+/// In addition to the lua `string` and `utf8` functions, additional functions provided by the macOS are included. This includes, but is not limited to, Unicode normalization and ICU transforms.
+
 static int refTable = LUA_NOREF ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
