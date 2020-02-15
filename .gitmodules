@@ -19,3 +19,6 @@
 [submodule "axuielement"]
 	path = axuielement
 	url = ../hs._asm.axuielement
+[submodule "text"]
+	path = text
+	url = https://github.com/asmagill/hs.text.git
