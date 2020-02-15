@@ -1,7 +1,7 @@
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
-MODULE := $(current_dir)
+MODULE := $(lastword $(subst ., ,$(current_dir)))
 PREFIX ?= ~/.hammerspoon
 MODPATH = hs/_asm
 VERSION ?= 0.x
