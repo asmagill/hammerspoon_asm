@@ -26,11 +26,10 @@
 
 Module Constructors
 #   cp.text.char(...) -> text                               # hs.text.utf16.char(...)
-    cp.text.fromCodepoints(codepoints[, i[, j]]) -> text    # local a2 = {} ; table.move(codepoints, i, j, 1, a2) ;
-                                                            # hs.text.utf16.char(table.unpack(a2))
-    cp.text.fromFile(path[, encoding]) -> text              # not yet...
+-   cp.text.fromCodepoints(codepoints[, i[, j]]) -> text    # local a2 = {} ; table.move(codepoints, i, j, 1, a2) ; hs.text.utf16.char(table.unpack(a2))
+#   cp.text.fromFile(path[, encoding]) -> text              # not yet...
 #   cp.text.fromString(value[, encoding]) -> text           # hs.text.utf16.new
-    cp.text.matcher(pattern[, plain]) -> cp.text.matcher
+-   cp.text.matcher(pattern[, plain]) -> cp.text.matcher    # not required
 
 Module Functions
     cp.text.is(value) -> boolean                            # getmetatable(obj) == hs.getObjectMetatable("hs.text.utf16")
@@ -47,7 +46,7 @@ Module Constants
 
 Module Methods
 #   cp.text.matcher:find(value[, start]) -> number, number, ... # hs.text.utf16:find(...)
-    cp.text.matcher:gmatch(pattern[, start]) -> function
-    cp.text.matcher:gmatch(value) -> function
-    cp.text.matcher:gsub(value, repl, limit) -> text, number
+#   cp.text.matcher:gmatch(pattern[, start]) -> function
+#   cp.text.matcher:gmatch(value) -> function
+#   cp.text.matcher:gsub(value, repl, limit) -> text, number
 #   cp.text.matcher:match(value[, start]) -> ...                # hs.text.utf16:match(...)

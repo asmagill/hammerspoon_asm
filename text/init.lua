@@ -245,6 +245,28 @@ utf16MT.composedCharacters = function(self)
     end, self, 0
 end
 
+--- hs.text.utf16:compare(text, [options], [locale]) -> -1 | 0 | 1
+--- Method
+--- Compare the utf16TextObject to a string or another utf16TextObject and return the order
+---
+--- Paramters:
+---  * `text`    - a lua string or another utf16TextObject specifying the value to compare this object to
+---  * `options` - an optional integer or table of integers and strings corresponding to values in the [hs.text.utf16.compareOptions](#compareOptions) constant.
+---    * if `options` is an integer, it should a combination of 1 or more of the numeric values in the [hs.text.utf16.compareOptions](#compareOptions) constant logically OR'ed together (e.g. `hs.text.utf16.compareOptions.caseInsensitive | hs.text.utf16.compareOptions.numeric`)
+---    * if `options` is a table, each element of the array table should be a number value from the [hs.text.utf16.compareOptions](#compareOptions) constant or a string matching one of the constant's keys. This method will logically OR the appropriate values together for you (e.g. `{"caseInsensitive", "numeric"}`)
+---  * `locale`  - an optional string, booleam, or nil value specifying the locale to use when comparing.
+---    * if this parameter is ommitted, is an explicit `nil` or is the boolean value `false`, the system locale is used
+---    * if this parameter is a boolean value of `true`, the users current locale is used
+---    * if this paramter is a string, the locale specified by the string is used. (See `hs.host.locale.availableLocales()` for valid locale identifiers)
+---
+--- Returns:
+---  * -1 if `text` is ordered *after* the object (i.e. they are presented in ascending order)
+---  *  0 if `text` is ordered the same as the object (i.e. they are equal or equivalent, given the options)
+---  *  1 if `text` is ordered *before* the object (i.e. they are presented in descending order)
+---
+--- Notes:
+---  * The locale argument affects both equality and ordering algorithms. For example, in some locales, accented characters are ordered immediately after the base; other locales order them after “z”.
+---  * This method does *not* consider characters with composed character equivalences as identical or similar; if this is a concern, make sure to normalize the source and `text` as appropriate for your purposes with [hs.text.utf16.unicodeDecomposition](#unicodeDecomposition) or [hs.text.utf16.unicodeComposition](#unicodeComposition) before utilizing this method.
 utf16MT.compare = function(self, ...)
     local args = table.pack(...)
     if args.n > 1 and type(args[2]) == "table" then

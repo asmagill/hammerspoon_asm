@@ -9,6 +9,14 @@
 ///
 /// This sumodule replicates many of the functions found in the lua `string` and `utf8` libraries but modified for use with UTF16 text objects.
 ///
+/// Metamethods to make the objects work more like Lua strings:
+///
+///  * unlike most userdata objects used by Hammerspoon modules, `hs.text.utf16` objects have their `__tostring` metamethod defined to return the UTF8 equivalent of the object. This allows the object to be printed to the Hammerspoon console directly with the lua `print` command (e.g. `print(object)`). You can also save the object as a lua string with `tostring(object)`.
+///  * (in)equality -- the metamethods for equality and inequality use [hs.text.utf16:compare({"literal"})](#compate) when you use `==`, `~=`, `<`, `<=`, `>`, or `>=` to compare a `hs.text.utf16` to another or to a lua string.
+///  * concatenation -- you can create a new `hs.utf16.text` objext by combining two objects (or one and a lua string) with `..`
+///
+/// Additional Notes
+///
 /// Internally, the macOS provides a wide range of functions for manipulating and managing UTF16 strings in the Objective-C runtime. While a wide variety of encodings can be used for importing and exporting data (see the main body of the `hs.text` module), string manipulation is provided by macOS only for the UTf16 representation of the encoded data. When working with data encoded in other formats, use the `hs.text:toUTF16()` method which will create an object his submodule can manipulate. When finished, you can convert the data back to the necessary encoding with the `hs.text.new()` function and then export the data back (e.g. writing to a file or posting to a URL).
 ///
 /// In addition to the lua `string` and `utf8` functions, additional functions provided by the macOS are included. This includes, but is not limited to, Unicode normalization and ICU transforms.
@@ -96,7 +104,16 @@ static int combinedFindAndMatch(lua_State *L, NSString *objString, NSString *pat
 }
 
 #pragma mark - Module Functions
-
+/// hs.text.utf16.new(text, [lossy]) -> utf16TextObject
+/// Constructor
+/// Create a new utf16TextObject from a lua string or `hs.text` object
+///
+/// Parameters:
+///  * `text`  - a lua string or `hs.text` object specifying the text for the new utf16TextObject
+///  * `lossy` - an optional boolean, default false, specifying whether or not characters can be removed or altered when converting the data to the UTF16 encoding.
+///
+/// Returns:
+///  * a new utf16TextObject, or nil if the data could not be encoded as a utf16TextObject
 static int utf16_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSData           *input   = [NSData data] ;
@@ -151,6 +168,19 @@ static int utf16_new(lua_State *L) {
 // utf8.char (···)
 //
 // Receives zero or more integers, converts each one to its corresponding UTF-8 byte sequence and returns a string with the concatenation of all these sequences.
+
+/// hs.text.utf16.char(...) -> utf16TextObject
+/// Constructor
+/// Create a new utf16TextObject from the Unicode Codepoints specified.
+///
+/// Paramters:
+///  * zero or more Unicode Codepoints specified as integers
+///
+/// Returns:
+///  * a new utf16TextObject
+///
+/// Notes:
+///  * Unicode Codepoints are often written as `U+xxxx` where `xxxx` is between 4 and 6 hexadecimal digits. Lua can automatically convert hexadecimal numbers to integers, so replace the `U+` with `0x` when specifying codepoints in this format.
 static int utf16_utf8_char(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     NSMutableString *newString = [NSMutableString stringWithCapacity:(NSUInteger)lua_gettop(L)] ;
@@ -173,6 +203,23 @@ static int utf16_utf8_char(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16.isHighSurrogate(unitchar) -> boolean
+/// Function
+/// Returns whether or not the specified 16-bit UTF16 unit character is a High Surrogate
+///
+/// Parameters:
+///  * `unitchar` - an integer specifying a single UTF16 character
+///
+/// Returns:
+///  * a boolean specifying whether or not the single UTF16 character specified is a High Surrogate (true) or not (false).
+///
+/// Notes:
+///  * UTF16 represents Unicode characters in the range of U+010000 to U+10FFFF as a pair of UTF16 characters known as a surrogate pair. A surrogate pair is made up of a High Surrogate and a Low Surrogate.
+///    * A high surrogate is a single UTF16 "character" with an integer representation between 0xD800 and 0xDBFF inclusive
+///    * A low surrogate is a single UTF16 "character" with an integer representation between 0xDC00 and 0xDFFF inclusive.
+///    * It is an encoding error if a high surrogate is not immediately followed by a low surrogate or for either surrogate type to be found by itself or surrounded by UTF16 characters outside of the surrogate pair ranges. However, most implementations silently ignore this and simply treat unpaired surrogates as unprintable (control characters) or equivalent to the Unicode Replacement character (U+FFFD).
+///
+/// * See also [hs.text.utf16.isLowSurrogate](#isLowSurrogate)
 static int utf16_isHighSurrogate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -181,6 +228,23 @@ static int utf16_isHighSurrogate(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16.isLowSurrogate(unitchar) -> boolean
+/// Function
+/// Returns whether or not the specified 16-bit UTF16 unit character is a Low Surrogate
+///
+/// Parameters:
+///  * `unitchar` - an integer specifying a single UTF16 character
+///
+/// Returns:
+///  * a boolean specifying whether or not the single UTF16 character specified is a Low Surrogate (true) or not (false).
+///
+/// Notes:
+///  * UTF16 represents Unicode characters in the range of U+010000 to U+10FFFF as a pair of UTF16 characters known as a surrogate pair. A surrogate pair is made up of a High Surrogate and a Low Surrogate.
+///    * A high surrogate is a single UTF16 "character" with an integer representation between 0xD800 and 0xDBFF inclusive
+///    * A low surrogate is a single UTF16 "character" with an integer representation between 0xDC00 and 0xDFFF inclusive.
+///    * It is an encoding error if a high surrogate is not immediately followed by a low surrogate or for either surrogate type to be found by itself or surrounded by UTF16 characters outside of the surrogate pair ranges. However, most implementations silently ignore this and simply treat unpaired surrogates as unprintable (control characters) or equivalent to the Unicode Replacement character (U+FFFD).
+///
+/// * See also [hs.text.utf16.isHighSurrogate](#isHighSurrogate)
 static int utf16_isLowSurrogate(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -189,6 +253,20 @@ static int utf16_isLowSurrogate(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16.surrogatePairForCodepoint(codepoint) -> integer, integer | nil
+/// Function
+/// Returns the surrogate pair for the specified Unicode Codepoint
+///
+/// Parameters:
+///  * `codepoint` - an integer specifying the Unicode codepoint
+///
+/// Returns:
+///  * if the codepoint is between U+010000 to U+10FFFF, returns the UTF16 surrogate pair for the character as 2 integers; otherwise returns nil
+///
+/// Notes:
+///  * UTF16 represents Unicode characters in the range of U+010000 to U+10FFFF as a pair of UTF16 characters known as a surrogate pair. A surrogate pair is made up of a High Surrogate and a Low Surrogate.
+///
+/// * See also [hs.text.utf16.isHighSurrogate](#isHighSurrogate) and [hs.text.utf16.isLowSurrogate](#isLowSurrogate)
 static int utf16_surrogatePairForCodepoint(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -204,6 +282,21 @@ static int utf16_surrogatePairForCodepoint(lua_State *L) {
     }
 }
 
+/// hs.text.utf16.codepointForSurrogatePair(high, low) -> integer | nil
+/// Function
+/// Returns the Unicode Codepoint number for the specified high and low surrogate pair
+///
+/// Parameters:
+///  * `high` - an integer specifying the UTF16 "character" specifying the High Surrogate
+///  * `low` - an integer specifying the UTF16 "character" specifying the Low Surrogate
+///
+/// Returns:
+///  * if the `high` and `low` values specify a valid UTF16 surrogate pair, returns an integer specifying the codepoint for the pair; otherwise returns nil
+///
+/// Notes:
+///  * UTF16 represents Unicode characters in the range of U+010000 to U+10FFFF as a pair of UTF16 characters known as a surrogate pair. A surrogate pair is made up of a High Surrogate and a Low Surrogate.
+///
+/// * See also [hs.text.utf16.isHighSurrogate](#isHighSurrogate) and [hs.text.utf16.isLowSurrogate](#isLowSurrogate)
 static int utf16_codepointForSurrogatePair(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -220,6 +313,15 @@ static int utf16_codepointForSurrogatePair(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.text.utf16:copy() -> utf16TextObject
+/// Method
+/// Create a copy of the utf16TextObject
+///
+/// Paramters:
+///  * None
+///
+/// Returns:
+///  * a copy of the utf16TextObject as a new object
 static int utf16_copy(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TBREAK] ;
@@ -231,8 +333,22 @@ static int utf16_copy(__unused lua_State *L) {
     return 1 ;
 }
 
-// need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
-// or helpers to make them
+/// hs.text.utf16:transform(transform, [inverse]) -> utf16TextObject | nil
+/// Method
+/// Create a new utf16TextObject by applying the specified ICU transform
+///
+/// Paramters:
+///  * `transform` - a string specifying the ICU transform(s) to apply
+///  * `inverse`   - an optional boolean, default false, specifying whether or not to apply the inverse (or reverse) of the specified transformation
+///
+/// Returns:
+///  * a new utf16TextObject containing the transformed data, or nil if the transform (or its inverse) could not be applied or was invalid
+///
+/// Notes:
+///  * some built in transforms are identified in the constant table [hs.text.utf16.builtinTransforms](#builtInTransforms).
+///  * transform syntax is beyond the scope of this document; see http://userguide.icu-project.org/transforms/general for more information on creating your own transforms
+///
+///  * Note that not all transforms have an inverse or are reversible.
 static int utf16_transform(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TSTRING, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -259,7 +375,22 @@ static int utf16_transform(lua_State *L) {
     return 1 ;
 }
 
-// Normalizing Strings (see http://www.unicode.org/reports/tr15/)
+/// hs.text.utf16:unicodeDecomposition([compatibilityMapping]) -> utf16TextObject
+/// Method
+/// Create a new utf16TextObject with the contents of the parent normalized using Unicode Normalization Form (K)D.
+///
+/// Paramters:
+///  * `compatibilityMapping` - an optionabl boolean, default false, specifying whether compatibility mapping (true) should be used (Normalization Form KD) or canonical mapping (false) should be used (Normalization Form D) when normalizing the text.
+///
+/// Returns:
+///  * a new utf16TextObject with the contents of the parent normalized using Unicode NormalizationForm (K)D.
+///
+/// Notes:
+///  * At its most basic, normalization is useful when comparing strings which may have been composed differently (e.g. a single UTF16 character representing an accented `á` vs the visually equivalent composed character sequence of an `a` followed by U+0301) or use stylized versions of characters or numbers (e.g. `1` vs `①`), but need to be compared for their "visual" or "intended" equivalance.
+///
+///  * see http://www.unicode.org/reports/tr15/ for a more complete discussion of the various types of Unicode Normalization and the differences/strengths/weaknesses of each.
+///
+///  * See also [hs.text.utf16:unicodeComposition](#unicodeComposition)
 static int utf16_unicodeDecomposition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -275,6 +406,22 @@ static int utf16_unicodeDecomposition(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16:unicodeComposition([compatibilityMapping]) -> utf16TextObject
+/// Method
+/// Create a new utf16TextObject with the contents of the parent normalized using Unicode Normalization Form (K)C.
+///
+/// Paramters:
+///  * `compatibilityMapping` - an optionabl boolean, default false, specifying whether compatibility mapping (true) should be used (Normalization Form KC) or canonical mapping (false) should be used (Normalization Form C) when normalizing the text.
+///
+/// Returns:
+///  * a new utf16TextObject with the contents of the parent normalized using Unicode NormalizationForm (K)C.
+///
+/// Notes:
+///  * At its most basic, normalization is useful when comparing strings which may have been composed differently (e.g. a single UTF16 character representing an accented `á` vs the visually equivalent composed character sequence of an `a` followed by U+0301) or use stylized versions of characters or numbers (e.g. `1` vs `①`), but need to be compared for their "visual" or "intended" equivalance.
+///
+///  * see http://www.unicode.org/reports/tr15/ for a more complete discussion of the various types of Unicode Normalization and the differences/strengths/weaknesses of each.
+///
+///  * See also [hs.text.utf16:unicodeDecomposition](#unicodeDecomposition)
 static int utf16_unicodeComposition(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -290,6 +437,21 @@ static int utf16_unicodeComposition(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16:unitCharacter([i], [j]) -> integer, ...
+/// Method
+/// Returns the UTF16 unit character codes for the range specified
+///
+/// Paramters:
+///  * `i` - the starting index, default 1, specifying which UTF16 character to begin at; negative indicies are counted from the end of the string.
+///  * `j` - the ending index, default the valur of `i`, specifying the end of the range; negative indicies are counted from the end of the string.
+///
+/// Returns:
+///  * zero or more integers representing the individual utf16 "characters" of the object within the range specified
+///
+/// Notes:
+///  * this method returns the 16bit integer corresponding to the UTF16 "character" at the indicies specified. Surrogate pairs *are* treated as two separate "characters" by this method, so the initial or final character may be a broken surrogate -- see [hs.text.utf16.isHighSurrogate](#isHighSurrogate) and [hs.text.utf16.isLowSurrogate](#isLowSurrogate).
+///
+///  * this method follows the semantics of `utf8.codepoint` -- if a specified index is out of range, an error is generated.
 static int utf16_unitCharacter(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -318,6 +480,22 @@ static int utf16_unitCharacter(lua_State *L) {
     return count ;
 }
 
+/// hs.text.utf16:composedCharacterRange([i], [j]) -> start, end
+/// Method
+/// Returns the starting and ending index of the specified range, adjusting for composed characters or surrogate pairs at the beginning and end of the range.
+///
+/// Paramters:
+///  * `i` - the starting index, default 1, specifying which UTF16 character to begin at; negative indicies are counted from the end of the string.
+///  * `j` - the ending index, default the valur of `i`, specifying the end of the range; negative indicies are counted from the end of the string.
+///
+/// Returns:
+///  * the `start` and `end` indicies for the range of characters specified by the initial range
+///
+/// Notes:
+///  * if the unit character at index `i` specifies a low surrogate or is in the middle of a mulit-"character" composed character, `start` will be < `i`
+///  * likewise if `j` is in the middle of a multi-"character" composition or surrogate, `end` will be > `j`.
+///
+///  * this method follows the semantics of `utf8.codepoint` -- if a specified index is out of range, an error is generated.
 static int utf16_composedCharacterRange(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -351,6 +529,22 @@ static int utf16_composedCharacterRange(lua_State *L) {
     return 2 ;
 }
 
+/// hs.text.utf16:capitalize([locale]) -> utf16TextObject
+/// Method
+/// Returns a copy of the utf16TextObject with all words capitalized.
+///
+/// Paramters:
+///  * `locale` - an optional string or boolean (default ommitted) specifying whether to consider localization when determining how to capitalize words.
+///    * if this parameter is ommitted, uses canonical (non-localized) mapping suitable for programming operations that require stable results not depending on the current locale.
+///    * if this parameter is the boolean `false` or `nil`, uses the system locale
+///    * if this parameter is the boolean `true`, uses the users current locale
+///    * if this parameter is a string, the locale specified by the string is used. (See `hs.host.locale.availableLocales()` for valid locale identifiers)
+///
+/// Returns:
+///  * a new utf16TextObject containing the capitalized version of the source
+///
+/// Notes:
+///  * For the purposes of this methif, a capitalized string is a string with the first character in each word changed to its corresponding uppercase value, and all remaining characters set to their corresponding lowercase values. A word is any sequence of characters delimited by spaces, tabs, or line terminators. Some common word delimiting punctuation isn’t considered, so this property may not generally produce the desired results for multiword strings.
 static int utf16_capitalize(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -379,6 +573,7 @@ static int utf16_capitalize(lua_State *L) {
     return 1 ;
 }
 
+// documented in `init.lua`
 static int utf16_compare(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG,
@@ -437,9 +632,23 @@ static int utf16_compare(lua_State *L) {
 
 #pragma mark * From lua string library *
 
-// string.upper (s)
-//
-// Receives a string and returns a copy of this string with all lowercase letters changed to uppercase. All other characters are left unchanged. The definition of what a lowercase letter is depends on the current locale.
+/// hs.text.utf16:upper([locale]) -> utf16TextObject
+/// Method
+/// Returns a copy of the utf16TextObject with an uppercase representation of the source.
+///
+/// Paramters:
+///  * `locale` - an optional string or boolean (default ommitted) specifying whether to consider localization when determining how change case.
+///    * if this parameter is ommitted, uses canonical (non-localized) mapping suitable for programming operations that require stable results not depending on the current locale.
+///    * if this parameter is the boolean `false` or `nil`, uses the system locale
+///    * if this parameter is the boolean `true`, uses the users current locale
+///    * if this parameter is a string, the locale specified by the string is used. (See `hs.host.locale.availableLocales()` for valid locale identifiers)
+///
+/// Returns:
+///  * a new utf16TextObject containing an uppercase representation of the source.
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.upper`
+///  * Case transformations aren’t guaranteed to be symmetrical or to produce strings of the same lengths as the originals.
 static int utf16_string_upper(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -468,9 +677,23 @@ static int utf16_string_upper(lua_State *L) {
     return 1 ;
 }
 
-// string.lower (s)
-//
-// Receives a string and returns a copy of this string with all uppercase letters changed to lowercase. All other characters are left unchanged. The definition of what an uppercase letter is depends on the current locale.
+/// hs.text.utf16:lower([locale]) -> utf16TextObject
+/// Method
+/// Returns a copy of the utf16TextObject with an lowercase representation of the source.
+///
+/// Paramters:
+///  * `locale` - an optional string or boolean (default ommitted) specifying whether to consider localization when determining how change case.
+///    * if this parameter is ommitted, uses canonical (non-localized) mapping suitable for programming operations that require stable results not depending on the current locale.
+///    * if this parameter is the boolean `false` or `nil`, uses the system locale
+///    * if this parameter is the boolean `true`, uses the users current locale
+///    * if this parameter is a string, the locale specified by the string is used. (See `hs.host.locale.availableLocales()` for valid locale identifiers)
+///
+/// Returns:
+///  * a new utf16TextObject containing an lowercase representation of the source.
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.lower`
+///  * Case transformations aren’t guaranteed to be symmetrical or to produce strings of the same lengths as the originals.
 static int utf16_string_lower(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TSTRING | LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
@@ -499,9 +722,19 @@ static int utf16_string_lower(lua_State *L) {
     return 1 ;
 }
 
-// string.len (s)
-//
-// Receives a string and returns its length. The empty string "" has length 0. Embedded zeros are counted, so "a\000bc\000" has length 5.
+/// hs.text.utf16:len() -> integer
+/// Method
+/// Returns the length in UTF16 characters in the object
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the number of UTF16 characterss in the object
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.len`
+///  * Composed character sequences and surrogate pairs are made up of multiple UTF16 "characters"; see also [hs.text.utf16:characterCount](#characterCount) wihch offers more options.
 static int utf16_string_length(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     // when used as the metmethod __len, we may get "self" provided twice, so let's just check the first arg
@@ -514,10 +747,22 @@ static int utf16_string_length(lua_State *L) {
     return 1 ;
 }
 
-// string.sub (s, i [, j])
-//
-// Returns the substring of s that starts at i and continues until j; i and j can be negative. If j is absent, then it is assumed to be equal to -1 (which is the same as the string length). In particular, the call string.sub(s,1,j) returns a prefix of s with length j, and string.sub(s, -i) (for a positive i) returns a suffix of s with length i.
-// If, after the translation of negative indices, i is less than 1, it is corrected to 1. If j is greater than the string length, it is corrected to that length. If, after these corrections, i is greater than j, the function returns the empty string.
+/// hs.text.utf16:sub([i], [j]) -> utf16TextObject
+/// Method
+/// Returns a new utf16TextObject containing a substring of the source object
+///
+/// Parameters:
+///  * `i` - an integer specifying the starting index of the substring; negative indicies are counted from the end of the string.
+///  * `j` - an optional integer, default -1, specifying the end of the substring; negative indicies are counted from the end of the string.
+///
+/// Returns:
+///  * a new utf16TextObject containing a substring of the source object as delimited by the indicies `i` and `j`
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.sub`
+///    * In particular, `hs.text.utf16:sub(1, j)` will return the prefix of the source with a length of `j`, and `hs.text.utf16:sub(-i)` returns the suffix of the source with a length of `i`.
+///
+///  * This method uses the specific indicies provided, which could result in a broken surrogate or composed character sequence at the begining or end of the substring. If this is a concern, use [hs.text.utf16:composedCharacterRange](#composedCharacterRange) to adjust the range values before invoking this method.
 static int utf16_string_sub(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -549,9 +794,19 @@ static int utf16_string_sub(lua_State *L) {
     return 1 ;
 }
 
-// string.reverse (s)
-//
-// Returns a string that is the string s reversed.
+/// hs.text.utf16:reverse() -> utf16TextObject
+/// Method
+/// Returns a new utf16TextObject with the characters reveresed.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a new utf16TextObject with the characters reveresed
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.reverse`
+///  * Surrogate pairs and composed character sequences are maintained, so the reversed object will be composed of valid UTF16 sequences (assuming, of course, that the original object was composed of valid UTF16 sequences)
 static int utf16_string_reverse(__unused lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TBREAK] ;
@@ -574,9 +829,21 @@ static int utf16_string_reverse(__unused lua_State *L) {
     return 1 ;
 }
 
-// string.match (s, pattern [, init])
-//
-// Looks for the first match of pattern (see §6.4.1) in the string s. If it finds one, then match returns the captures from the pattern; otherwise it returns nil. If pattern specifies no captures, then the whole match is returned. A third, optional numeric argument init specifies where to start the search; its default value is 1 and can be negative.
+/// hs.text.utf16:match(pattern, [i]) -> match(es) | nil
+/// Method
+/// Looks for the first match of a pattern within the utf16TextObject and returns it
+///
+/// Paramters:
+///  * `pattern` - a lua string or utf16TextObject specifying the pattern for the match. See *Notes*.
+///  * `i`       - an optional integer, default 1, specifying the index of the utf16TextObject where the search for the pattern should begin; negative indicies are counted from the end of the object.
+///
+/// Returns:
+///  * If a match is found and the pattern specifies captures, returns a new utf16TextObjects for each capture; if no captures are specified, returns the entire match as a new utf16TextObject. If no matche is found, returns nil.
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.match` with one important caveat:
+///    * This method utilizes regular expressions as described at http://userguide.icu-project.org/strings/regexp, not the Lua pattern matching syntax.
+///    * Again, ***Lua pattern matching syntax will not work with this method.***
 static int utf16_string_match(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TANY, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -605,11 +872,22 @@ static int utf16_string_match(lua_State *L) {
     return combinedFindAndMatch(L, objString, pattern, i, NO) ;
 }
 
-// string.find (s, pattern [, init [, plain]])
-//
-// Looks for the first match of pattern (see §6.4.1) in the string s. If it finds a match, then find returns the indices of s where this occurrence starts and ends; otherwise, it returns nil. A third, optional numeric argument init specifies where to start the search; its default value is 1 and can be negative. A value of true as a fourth, optional argument plain turns off the pattern matching facilities, so the function does a plain "find substring" operation, with no characters in pattern being considered magic. Note that if plain is given, then init must be given as well.
-//
-// If the pattern has captures, then in a successful match the captured values are also returned, after the two indices.
+/// hs.text.utf16:find(pattern, [i], [plain]) -> start, end, [captures...] | nil
+/// Method
+/// Looks for the first match of a pattern within the utf16TextObject and returns the indicies of the match
+///
+/// Paramters:
+///  * `pattern` - a lua string or utf16TextObject specifying the pattern for the match. See *Notes*.
+///  * `i`       - an optional integer, default 1, specifying the index of the utf16TextObject where the search for the pattern should begin; negative indicies are counted from the end of the object.
+///  * `plain`   - an optional boolean, default false, specifying that the pattern should be matched *exactly* (true) instead of treated as a regular expression (false).
+///
+/// Returns:
+///  * If a match is found, returns the starting and ending indicies of the match (as integers); if captures are specified in the pattern, also returns a new utf16TextObjects for each capture after the indicies. If no match is found, returns nil.
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.find` with one important caveat:
+///    * This method utilizes regular expressions as described at http://userguide.icu-project.org/strings/regexp, not the Lua pattern matching syntax.
+///    * Again, ***Lua pattern matching syntax will not work with this method.***
 static int utf16_string_find(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TANY, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -638,44 +916,53 @@ static int utf16_string_find(lua_State *L) {
     return combinedFindAndMatch(L, objString, pattern, i, YES) ;
 }
 
-// string.gsub (s, pattern, repl [, n])
-//
-// Returns a copy of s in which all (or the first n, if given) occurrences of the pattern (see §6.4.1) have been replaced by a replacement string specified by repl, which can be a string, a table, or a function. gsub also returns, as its second value, the total number of matches that occurred. The name gsub comes from Global SUBstitution.
-// If repl is a string, then its value is used for replacement. The character % works as an escape character: any sequence in repl of the form %d, with d between 1 and 9, stands for the value of the d-th captured substring. The sequence %0 stands for the whole match. The sequence %% stands for a single %.
-//
-// If repl is a table, then the table is queried for every match, using the first capture as the key.
-//
-// If repl is a function, then this function is called every time a match occurs, with all captured substrings passed as arguments, in order.
-//
-// In any case, if the pattern specifies no captures, then it behaves as if the whole pattern was inside a capture.
-//
-// If the value returned by the table query or by the function call is a string or a number, then it is used as the replacement string; otherwise, if it is false or nil, then there is no replacement (that is, the original match is kept in the string).
-//
-// Here are some examples:
-//
-//      x = string.gsub("hello world", "(%w+)", "%1 %1")
-//      --> x="hello hello world world"
-//
-//      x = string.gsub("hello world", "%w+", "%0 %0", 1)
-//      --> x="hello hello world"
-//
-//      x = string.gsub("hello world from Lua", "(%w+)%s*(%w+)", "%2 %1")
-//      --> x="world hello Lua from"
-//
-//      x = string.gsub("home = $HOME, user = $USER", "%$(%w+)", os.getenv)
-//      --> x="home = /home/roberto, user = roberto"
-//
-//      x = string.gsub("4+5 = $return 4+5$", "%$(.-)%$", function (s)
-//            return load(s)()
-//          end)
-//      --> x="4+5 = 9"
-//
-//      local t = {name="lua", version="5.3"}
-//      x = string.gsub("$name-$version.tar.gz", "%$(%w+)", t)
-//      --> x="lua-5.3.tar.gz"
+/// hs.text.urf16:gsub(pattern, replacement, [n]) -> utf16TextObject, count
+/// Method
+/// Return a gopy of the object with occurances of the pattern replaced; global substitution.
+///
+/// Paramters:
+///  * `pattern`     - a lua string or utf16TextObject specifying the pattern for the match. See *Notes*.
+///  * `replacement` - a lua string, utf16TextObject, table, or function which specifies replacement(s) for pattern matches.
+///    * if `replacement` is a string or utf16TextObject, then its value is used for replacement. Any sequence in the replacement of the form `$n` where `n` is an integer >= 0 will be replaced by the `n`th capture from the pattern (`$0` specifies the entire match). A `$` not followed by a number is treated as a literal `$`. To specify a literal `$` followed by a numeric digit, escape the dollar sign (e.g. `\$1`)
+///    * if `replacement` is a table, the table is queried for every match using the first capture (if captures are specified) or the entire match (if no captures are specified). Keys in the table must be lua strings or utf16TextObjects, and values must be lua strings, numbers, or utf16TextObjects. If no key matches the capture, no replacement of the match occurs.
+///    * if `replacement` is a function, the function will be called with all of the captured substrings passed in as utf16TextObjects in order (or the entire match, if no captures are specified). The return value is used as the repacement of the match and must be `nil`, a lua string, a number, or a utf16TextObject. If the return value is `nil`, no replacement of the match occurs.
+///  * `n`           - an optional integer specifying the maximum number of replacements to perform. If this is not specified, all matches in the object will be replaced.
+///
+/// Returns:
+///  * a new utf16TextObject with the substitutions specified, followed by an integer specifying the number of substitutions that occurred.
+///
+/// Notes:
+///  * This method is the utf16 equivalent of lua's `string.gsub` with one important caveat:
+///    * This method utilizes regular expressions as described at http://userguide.icu-project.org/strings/regexp, not the Lua pattern matching syntax.
+///    * Again, ***Lua pattern matching syntax will not work with this method.***
+///
+///  * The following examples are from the Lua documentation for `string.gsub` modified with the proper syntax:
+///
+///      ~~~
+///      x = hs.text.utf16.new("hello world"):gsub("(\\w+)", "$1 $1")
+///      -- x will equal "hello hello world world"
+///
+///      -- note that if we use Lua's block quotes (e.g. `[[` and `]]`), then we don't have to escape the backslash:
+///
+///      x = hs.text.utf16.new("hello world"):gsub([[\w+]], "$0 $0", 1)
+///      -- x will equal "hello hello world"
+///
+///      x = hs.text.utf16.new("hello world from Lua"):gsub([[(\w+)\s*(\w+)]], "$2 $1")
+///      -- x will equal "world hello Lua from"
+///
+///      x = hs.text.utf16.new("home = $HOME, user = $USER"):gsub([[\$(\w+)]], function(a) return os.getenv(tostring(a)) end)
+///      -- x will equal "home = /home/username, user = username"
+///
+///      x = hs.text.utf16.new("4+5 = $return 4+5$"):gsub([[\$(.+)\$]], function (s) return load(tostring(s))() end)
+///      -- x will equal "4+5 = 9"
+///
+///      local t = {name="lua", version="5.3"}
+///      x = hs.text.utf16.new("$name-$version.tar.gz"):gsub([[\$(\w+)]], t)
+///      -- x will equal "lua-5.3.tar.gz"
+///      ~~~
 static int utf16_string_gsub(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TANY, LS_TSTRING | LS_TTABLE | LS_TFUNCTION, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, UTF16_UD_TAG, LS_TANY, LS_TANY, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     HSTextUTF16Object *utf16Object = [skin toNSObjectAtIndex:1] ;
     NSString          *objString   = utf16Object.utf16string ;
 
@@ -685,22 +972,58 @@ static int utf16_string_gsub(lua_State *L) {
         [skin checkArgs:LS_TANY, LS_TUSERDATA, UTF16_UD_TAG, LS_TBREAK | LS_TVARARG] ;
         HSTextUTF16Object *patternObject = [skin toNSObjectAtIndex:2] ;
         pattern = patternObject.utf16string ;
+    } else {
+        [skin checkArgs:LS_TANY, LS_TSTRING | LS_TNUMBER, LS_TBREAK | LS_TVARARG] ;
     }
 
     // prepare placeholders for the possible values of argument 3
     NSString *replString = (lua_type(L, 3) == LUA_TSTRING) ? [skin toNSObjectAtIndex:3] : nil ;
+    if (lua_type(L, 3) == LUA_TUSERDATA) {
+        [skin checkArgs:LS_TANY, LS_TANY, LS_TUSERDATA, UTF16_UD_TAG, LS_TBREAK | LS_TVARARG] ;
+        HSTextUTF16Object *replObject = [skin toNSObjectAtIndex:3] ;
+        replString = replObject.utf16string ;
+    } else {
+        [skin checkArgs:LS_TANY, LS_TANY, LS_TSTRING | LS_TTABLE | LS_TFUNCTION, LS_TBREAK | LS_TVARARG] ;
+    }
 
     NSDictionary *replDictionary = (lua_type(L, 3) == LUA_TTABLE)  ? [skin toNSObjectAtIndex:3] : nil ;
     // if they pass in an array like table, we silently ignore it since the keys have to be strings
-    if ([replDictionary isKindOfClass:[NSArray class]]) replDictionary = [NSDictionary dictionary] ;
+    if ([replDictionary isKindOfClass:[NSArray class]]) {
+        replDictionary = [NSDictionary dictionary] ;
+    } else {
+        NSMutableDictionary *realReplDictionary = [NSMutableDictionary dictionaryWithCapacity:replDictionary.count] ;
+        __block NSString *errorMessage = nil ;
+        [replDictionary enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+            NSString *newKey   = key ;
+            NSString *newValue = value ;
+            if ([key isKindOfClass:[HSTextUTF16Object class]]) {
+                newKey = ((HSTextUTF16Object *)key).utf16string ;
+            } else {
+                errorMessage = @"expected string or hs.text.utf16 object for replacement key in table" ;
+                *stop = true ;
+                return ;
+            }
+            if ([value isKindOfClass:[HSTextUTF16Object class]]) {
+                newValue = ((HSTextUTF16Object *)value).utf16string ;
+            } else if ([value isKindOfClass:[NSNumber class]]) {
+                newValue = ((NSNumber *)value).stringValue ;
+            } else {
+                errorMessage = @"expected string, number, or hs.text.utf16 object for replacement value in table" ;
+                *stop = true ;
+                return ;
+            }
+            realReplDictionary[newKey] = newValue ;
+        }] ;
+        if (errorMessage) return luaL_argerror(L, 3, errorMessage.UTF8String) ;
+
+        replDictionary = [realReplDictionary copy] ;
+    }
 
     int replFnRef = LUA_NOREF ;
     if (lua_type(L, 3) == LUA_TFUNCTION) {
         lua_pushvalue(L, 3) ;
         replFnRef = [skin luaRef:refTable] ;
     }
-
-
 
     lua_Integer maxSubstitutions = (lua_gettop(L) > 3) ? lua_tointeger(L, 4) : ((lua_Integer)objString.length + 1) ;
 
@@ -738,59 +1061,53 @@ static int utf16_string_gsub(lua_State *L) {
 
         // here's where the magic happens
         NSString *replacement = nil ;
-        switch(lua_type(L, 3)) {
-            case LUA_TSTRING:
-                replacement = [patternRE replacementStringForResult:result
-                                                           inString:mutableString
-                                                             offset:offset
-                                                           template:replString] ;
-                break ;
-            case LUA_TTABLE:
-                replacement = [replDictionary objectForKey:(elements.count > 1) ? elements[1] : elements[0]] ;
-                if (!replacement) replacement = elements[0] ;
-                break ;
-            case LUA_TFUNCTION:
-                [skin pushLuaRef:refTable ref:replFnRef] ;
-                int argCount = (int)elements.count - 1 ;
-                if (argCount == 0) {
-                    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[0]] ;
+        if (replString) {
+            replacement = [patternRE replacementStringForResult:result
+                                                       inString:mutableString
+                                                         offset:offset
+                                                       template:replString] ;
+        } else if (replDictionary) {
+            replacement = [replDictionary objectForKey:(elements.count > 1) ? elements[1] : elements[0]] ;
+            if (!replacement) replacement = elements[0] ;
+        } else if (replFnRef != LUA_NOREF) {
+            [skin pushLuaRef:refTable ref:replFnRef] ;
+            int argCount = (int)elements.count - 1 ;
+            if (argCount == 0) {
+                HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[0]] ;
+                [skin pushNSObject:newObject] ;
+                argCount = 1 ;
+            } else {
+                for (NSUInteger i = 1 ; i < elements.count ; i++) {
+                    HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[i]] ;
                     [skin pushNSObject:newObject] ;
-                    argCount = 1 ;
-                } else {
-                    for (NSUInteger i = 1 ; i < elements.count ; i++) {
-                        HSTextUTF16Object *newObject = [[HSTextUTF16Object alloc] initWithString:elements[i]] ;
-                        [skin pushNSObject:newObject] ;
-                    }
                 }
-                if (![skin protectedCallAndTraceback:argCount nresults:1]) {
-                    return luaL_error(L, lua_tostring(L, -1)) ;
-                } else {
-                    switch(lua_type(L, -1)) {
-                        case LUA_TNIL:
-                            replacement = elements[0] ;
+            }
+            if (![skin protectedCallAndTraceback:argCount nresults:1]) {
+                return luaL_error(L, lua_tostring(L, -1)) ;
+            } else {
+                switch(lua_type(L, -1)) {
+                    case LUA_TNIL:
+                        replacement = elements[0] ;
+                        break ;
+                    case LUA_TSTRING:
+                        {
+                            NSData *input = [skin toNSObjectAtIndex:-1 withOptions:LS_NSLuaStringAsDataOnly] ;
+                            replacement = [[NSString alloc] initWithData:input encoding:NSUTF8StringEncoding] ;
+                        }
+                        break ;
+                    case LUA_TNUMBER:
+                        replacement = [NSString stringWithCString:lua_tostring(L, -1) encoding:NSUTF8StringEncoding] ;
+                        break ;
+                    case LUA_TUSERDATA:
+                        if (luaL_testudata(L, -1, UTF16_UD_TAG)) {
+                            HSTextUTF16Object *newObject = [skin toNSObjectAtIndex:-1] ;
+                            replacement = newObject.utf16string ;
                             break ;
-                        case LUA_TSTRING:
-                            {
-                                NSData *input = [skin toNSObjectAtIndex:-1 withOptions:LS_NSLuaStringAsDataOnly] ;
-                                replacement = [[NSString alloc] initWithData:input encoding:NSUTF8StringEncoding] ;
-                            }
-                            break ;
-                        case LUA_TNUMBER:
-                            replacement = [NSString stringWithCString:lua_tostring(L, -1) encoding:NSUTF8StringEncoding] ;
-                            break ;
-                        case LUA_TUSERDATA:
-                            if (luaL_testudata(L, -1, UTF16_UD_TAG)) {
-                                HSTextUTF16Object *newObject = [skin toNSObjectAtIndex:-1] ;
-                                replacement = newObject.utf16string ;
-                                break ;
-                            }
-                        default:
-                            return luaL_error(L, "invalid replacement value (a %s)", lua_typename(L, -1)) ;
-                    }
+                        }
+                    default:
+                        return luaL_error(L, "invalid replacement value (a %s)", lua_typename(L, -1)) ;
                 }
-                break ;
-            default: // shouldn't happen as we checked above in checkArgs:
-                return luaL_argerror(L, 3, [[NSString stringWithFormat:@"expected string, table, or function; found %s", luaL_typename(L, lua_type(L, 3))] UTF8String]) ;
+            }
         }
 
         // make the replacement
@@ -994,6 +1311,29 @@ static int utf16_utf8_offset(lua_State *L) {
 
 // need to understand http://userguide.icu-project.org/transforms/general to see about adding new transforms
 // or helpers to make them
+/// hs.text.utf16.builtInTransforms
+/// Constant
+/// Built in transormations which can be used with [hs.text.utf16:transform](#transform).
+///
+/// This table contains key-value pairs identifying built in transforms provided by the macOS Objective-C runtime environment for use with [hs.text.utf16:transform](#transform). See http://userguide.icu-project.org/transforms/general for a more complete discussion on how to specify aditional transformations.
+///
+/// The built in transformations are:
+///  * `fullwidthToHalfwidth` - transform full-width CJK characters to their half-width forms. e.g. “マット” transforms to “ﾏｯﾄ”. This transformation is reversible.
+///  * `hiraganaToKatakana`   - transliterate the text from Hiragana script to Katakana script. e.g. “ひらがな” transliterates to “カタカナ”. This transformation is reversible.
+///  * `latinToArabic`        - transliterate the text from Latin script to Arabic script. e.g. “ạlʿarabīẗ‎” transliterates to “العَرَبِية”. This transformation is reversible.
+///  * `latinToCyrillic`      - transliterate the text from Latin script to Cyrillic script. e.g. “kirillica” transliterates to “кириллица”. This transformation is reversible.
+///  * `latinToGreek`         - transliterate the text from Latin script to Greek script. e.g. “Ellēnikó alphábēto‎” transliterates to “Ελληνικό αλφάβητο”. This transformation is reversible.
+///  * `latinToHangul`        - transliterate the text from Latin script to Hangul script. e.g. “hangul” transliterates to “한굴”. This transformation is reversible.
+///  * `latinToHebrew`        - transliterate the text from Latin script to Hebrew script. e.g. “ʻbryţ” transliterates to “עברית”. This transformation is reversible.
+///  * `latinToHiragana`      - transliterate the text from Latin script to Hiragana script. e.g. “hiragana” transliterates to “ひらがな”. This transformation is reversible.
+///  * `latinToKatakana`      - transliterate the text from Latin script to Katakana script. e.g. “katakana” transliterates to “カタカナ”. This transformation is reversible.
+///  * `latinToThai`          - transliterate the text from Latin script to Thai script. e.g. “p̣hās̄ʹā thịy” transliterates to “ภาษาไทย”. This transformation is reversible.
+///  * `mandarinToLatin`      - transliterate the text from Han script to Latin script. e.g. “hàn zì” transliterates to “汉字”.
+///  * `stripCombiningMarks`  - removes all combining marks (including diacritics and accents) from the text
+///  * `stripDiacritics`      - removes all diacritic marks from the text
+///  * `toLatin`              - transliterate all text possible to Latin script. Ideographs are transliterated as Mandarin Chinese.
+///  * `toUnicodeName`        - converts characters other than printable ASCII to their Unicode character name in braces. e.g. “🐶🐮” transforms to "\N{DOG FACE}\N{COW FACE}". This transformation is reversible.
+///  * `toXMLHex`             - transliterate characters other than printable ASCII to XML/HTML numeric entities. e.g. “❦” transforms to “&#x2766;”. This transformation is reversible.
 static int utf16_builtinTransforms(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     lua_newtable(L) ;
@@ -1016,6 +1356,20 @@ static int utf16_builtinTransforms(lua_State *L) {
     return 1 ;
 }
 
+/// hs.text.utf16.compareOptions
+/// Constant
+/// A table containing the modifier options for use with the [hs.text.utf16:compare](#compare) method.
+///
+/// This table contains key-value pairs specifying the numeric values which should be logically OR'ed together (or listed individually in a table as either the integer or the key name) for use with the [hs.text.utf16:compare](#compare) method.
+///
+/// Valid options are as follows:
+///  * `caseInsensitive`      - sort order is case-insensitive
+///  * `diacriticInsensitive` - ignores diacritic marks
+///  * `finderFileOrder`      - sort order matches what the Finder uses for the locale specified. This is a convienence combination which is equivalent to `{ "caseInsensitive", "numeric", "widthInsensitive", "forcedOrdering" }`.
+///  * `forcedOrdering`       - comparisons are forced to return either -1 or 1 if the strings are equivalent but not strictly equal. (e.g.  “aaa” is greater than "AAA" if `caseInsensitive` is also set.)
+///  * `literal`              - exact character-by-character equivalence.
+///  * `numeric`              - numbers within the string are compared numerically. This only applies to actual numeric characters, not characters that would have meaning in a numeric representation such as a negative sign, a comma, or a decimal point.
+///  * `widthInsensitive`     - ignores width differences in characters that have full-width and half-width forms, common in East Asian character sets.
 static int utf16_compareOptions(lua_State *L) {
     lua_newtable(L) ;
     lua_pushinteger(L, NSCaseInsensitiveSearch) ;      lua_setfield(L, -2, "caseInsensitive") ;

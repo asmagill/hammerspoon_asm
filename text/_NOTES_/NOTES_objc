@@ -1,32 +1,26 @@
 * Creating and Initializing a String from a File -- in hs.text
 * Creating and Initializing a String from an URL -- in hs.text.http
-  Writing to a File
-  Posting to an URL -- in hs.text.http
+* Writing to a File
+* Posting to an URL -- in hs.text.http
 
-      NSData
-  *       Reading Data from a File
-          Writing Data to a File
-              - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile;
-              - (BOOL)writeToFile:(NSString *)path options:(NSDataWritingOptions)writeOptionsMask error:(NSError * _Nullable *)errorPtr;
-
-      NSString
-  *       Creating and Initializing a String from a File
-          Writing to a File or URL
-              - (BOOL)writeToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile encoding:(NSStringEncoding)enc error:(NSError * _Nullable *)error;
-
-
-- Working with Encodings -- in hs.text
--     - (BOOL)canBeConvertedToEncoding:(NSStringEncoding)encoding;    ??
-
-
+* Working with Encodings -- in hs.text
+*     - (BOOL)canBeConvertedToEncoding:(NSStringEncoding)encoding;    -- we already check for nil in NSData conversion, so duplicattion of effort
 
 * Getting Characters and Bytes
-
-  Identifying and Comparing Strings
 
 * Combining Strings
 
 * Changing Case
+
+* Normalizing Strings (see http://www.unicode.org/reports/tr15/)
+
+* Determining Composed Character Sequences
+
+- Transforming Strings
+  -     - (NSString *)stringByApplyingTransform:(NSStringTransform)transform reverse:(BOOL)reverse;
+  -         partially complete; need better understanding of http://userguide.icu-project.org/transforms/general
+
+  Identifying and Comparing Strings
 
   Dividing Strings
       - (NSArray<NSString *> *)componentsSeparatedByString:(NSString *)separator;
@@ -36,19 +30,11 @@
           Think trimming whitespace from begining and ending
   *   - (NSString *)substringWithRange:(NSRange)range;
 
-* Normalizing Strings (see http://www.unicode.org/reports/tr15/)
-
-- Transforming Strings
-  -     - (NSString *)stringByApplyingTransform:(NSStringTransform)transform reverse:(BOOL)reverse;
-  -         partially complete; need better understanding of http://userguide.icu-project.org/transforms/general
-
   Finding Characters and Substrings
 
   Replacing Substrings
 
   Determining Line and Paragraph Ranges
-
-* Determining Composed Character Sequences
 
   Future string related module or text submodule:
       Performing Linguistic Analysis

@@ -1,8 +1,8 @@
 Implementation Plans/Thoughts/Notes
     document (don't have many excuses left...)
 
-    import/export from file
-    import/export from url (tie into hs.http)
+*   import/export from file
+*   import/export from url (tie into hs.http)
 
     other interesting NSString methods (see NOTES_objc)
 
