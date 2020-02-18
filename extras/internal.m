@@ -238,9 +238,10 @@ static int networkUserPreferences(lua_State *L) {
 static int lockscreen(__unused lua_State* L) {
     NSBundle *bundle = [NSBundle bundleWithPath:@"/Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain.menu"];
     Class principalClass = [bundle principalClass];
-    id instance = [[principalClass alloc] init];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
+#pragma clang diagnostic ignored "-Wobjc-messaging-id"
+    id instance = [[principalClass alloc] init];
     [instance performSelector:@selector(_lockScreenMenuHit:) withObject:nil];
 #pragma clang diagnostic pop
 
@@ -255,7 +256,7 @@ static int nsvalueTest2(lua_State *L) {
                                        LS_NSDescribeUnknownTypes         |
                                        LS_NSPreserveLuaStringExactly] ;
     if (lua_type(L, -1) == LUA_TTABLE) {
-        [skin pushNSObject:[obj className]] ; lua_setfield(L, -2, "__className") ;
+        [skin pushNSObject:[(NSObject *)obj className]] ; lua_setfield(L, -2, "__className") ;
     }
     return 1 ;
 }
@@ -392,12 +393,14 @@ static int boolTest(lua_State *L) {
     lua_pop(L, 2) ;
 
     NSDictionary *testDictionary = @{ @"yes" : @(YES), @"no" : @(NO), } ;
+    NSNumber *yesObjFromDict = [testDictionary objectForKey:@"yes"] ;
+    NSNumber *noObjFromDict  = [testDictionary objectForKey:@"no"] ;
     lua_newtable(L) ;
     [skin pushNSObject:testDictionary] ; lua_setfield(L, -2, "dictionary") ;
-    [skin pushNSObject:[[testDictionary objectForKey:@"yes"] className]] ; lua_setfield(L, -2, "yesClassName") ;
-    [skin pushNSObject:[[testDictionary objectForKey:@"no"] className]] ;  lua_setfield(L, -2, "noClassName") ;
-    lua_pushstring(L, [[testDictionary objectForKey:@"yes"] objCType]) ;   lua_setfield(L, -2, "yesObjCType") ;
-    lua_pushstring(L, [[testDictionary objectForKey:@"no"] objCType]) ;    lua_setfield(L, -2, "noObjCType") ;
+    [skin pushNSObject:[yesObjFromDict className]] ; lua_setfield(L, -2, "yesClassName") ;
+    [skin pushNSObject:[noObjFromDict className]] ;  lua_setfield(L, -2, "noClassName") ;
+    lua_pushstring(L, [yesObjFromDict objCType]) ;   lua_setfield(L, -2, "yesObjCType") ;
+    lua_pushstring(L, [noObjFromDict objCType]) ;    lua_setfield(L, -2, "noObjCType") ;
 
     [skin pushNSObject:[yesObject className]] ; lua_setfield(L, -2, "yesObjectClassName") ;
     [skin pushNSObject:[noObject className]] ;  lua_setfield(L, -2, "noObjectClassName") ;
@@ -521,7 +524,9 @@ static int macSerialNumber(lua_State __unused *L) {
         serialNumberAsNSString = [NSString stringWithString:(__bridge NSString *)serialNumberAsCFString] ;
         CFRelease(serialNumberAsCFString) ;
     }
-    [[LuaSkin shared] pushNSObject:serialNumberAsNSString] ;
+
+    LuaSkin *skin = [LuaSkin shared] ;
+    [skin pushNSObject:serialNumberAsNSString] ;
 
     return 1 ;
 }
@@ -670,8 +675,43 @@ static int lua_meyersShortestEdit(lua_State *L) {
 static int extras_random(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
-    lua_pushinteger(L, (lua_Integer)arc4random_uniform(lua_tointeger(L, 1))) ;
+    lua_pushinteger(L, (lua_Integer)arc4random_uniform((uint32_t)lua_tointeger(L, 1))) ;
     return 1 ;
+}
+
+static int extras_isMainThreadForState(lua_State *L) {
+    int isMainThread = lua_pushthread(L) ;
+    lua_pop(L, 1) ; // remove thread we just pushed onto the stack
+    lua_pushboolean(L, isMainThread) ;
+    return 1 ;
+}
+
+// testing confirms invoking this from a coroutine doesn't affect things; callbacks use the original
+// lua_State stored at LuaSkin creation. See inline note at bottom for expected change once
+// LuaSkin becomes coroutine safe.
+static int extras_yield(lua_State *L) {
+    // if argument is 0, only 1 queued event will execute before resuming. Ok, if yield is called
+    // often, but not as friendly if yield only called infrequently.
+    NSTimeInterval interval = (lua_type(L, 1) == LUA_TNUMBER) ? lua_tonumber(L, 1) : 0.000001 ;
+    NSDate         *date    = [[NSDate date] dateByAddingTimeInterval:interval] ;
+
+    // a melding of code from gnustep's implementation of NSApplication's run and runUntilDate: methods
+    // this allows acting on events (hs.eventtap) and keys (hs.hotkey) as well as timers, etc.
+    BOOL   mayDoMore = YES ;
+    while (mayDoMore) {
+        NSEvent *e = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                        untilDate:date
+                                           inMode:NSDefaultRunLoopMode
+                                          dequeue:YES] ;
+        if (e) [NSApp sendEvent:e] ;
+
+        mayDoMore = !([date timeIntervalSinceNow] <= 0.0) ;
+    }
+    // // since callbcaks use the initial lua_State, return it to ours, just in case we're invoked from
+    // // within a co-routine
+    // [LuaSkin sharedWithState:L] ;
+
+    return 0 ;
 }
 
 static const luaL_Reg extrasLib[] = {
@@ -718,11 +758,15 @@ static const luaL_Reg extrasLib[] = {
 
     {"random",               extras_random},
 
+    {"yield",                extras_yield},
+    {"mainThreadForState",   extras_isMainThreadForState},
+
     {NULL,                   NULL}
 };
 
 int luaopen_hs__asm_extras_internal(__unused lua_State* L) {
-    refTable = [[LuaSkin shared] registerLibrary:extrasLib metaFunctions:nil] ;
+    LuaSkin *skin = [LuaSkin shared] ;
+    refTable = [skin registerLibrary:extrasLib metaFunctions:nil] ;
 //     luaL_newlib(L, extrasLib);
 
     return 1;
