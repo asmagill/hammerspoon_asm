@@ -10,6 +10,22 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
+// @interface <moduleType> : NSObject
+// @property int selfRef ;
+// @property int selfRefCount ;
+// @end
+//
+// @implementation <moduleType>
+// - (instancetype)init {
+//     self = [super init] ;
+//     if (self) {
+//         _selfRef      = LUA_NOREF ;
+//         _selfRefCount = 0 ;
+//     }
+//     return self ;
+// }
+// @end
+
 #pragma mark - Module Functions
 
 #pragma mark - Module Methods
@@ -21,12 +37,18 @@ static int refTable = LUA_NOREF;
 // delegates and blocks.
 
 // static int push<moduleType>(lua_State *L, id obj) {
+//     LuaSkin *skin = [LuaSkin shared] ;
 //     <moduleType> *value = obj;
+//     if (value.selfRefCount == 0) {
+//         value.selfRefCount++ ;
+//         void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
+//         *valuePtr = (__bridge_retained void *)value;
+//         luaL_getmetatable(L, USERDATA_TAG);
+//         lua_setmetatable(L, -2);
+//         value.selfRef = [skin luaRef:refTable] ;
+//     }
 //     value.selfRefCount++ ;
-//     void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
-//     *valuePtr = (__bridge_retained void *)value;
-//     luaL_getmetatable(L, USERDATA_TAG);
-//     lua_setmetatable(L, -2);
+//     [skin pushLuaRef:refTable ref:value.selfRef] ;
 //     return 1;
 // }
 //
@@ -71,6 +93,8 @@ static int refTable = LUA_NOREF;
 //     if (obj) {
 //         obj.selfRefCount-- ;
 //         if (obj.selfRefCount == 0) {
+//             LuaSkin *skin = [LuaSkin shared] ;
+//             obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
 //             obj = nil ;
 //         }
 //     }
