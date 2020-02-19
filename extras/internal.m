@@ -1,3 +1,7 @@
+// Start adding comments about what spawned some of these ideas -- I have *NO* idea now
+// why I ever started some of these...
+
+
 @import Cocoa ;
 @import Carbon ;
 @import LuaSkin ;
@@ -672,6 +676,7 @@ static int lua_meyersShortestEdit(lua_State *L) {
     }
 }
 
+// added to test better random number generation per HS issue #2260
 static int extras_random(lua_State *L) {
     LuaSkin *skin = [LuaSkin shared] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -679,12 +684,15 @@ static int extras_random(lua_State *L) {
     return 1 ;
 }
 
+// added to test hair brained idea that spawned HS issue #2304
 static int extras_isMainThreadForState(lua_State *L) {
     int isMainThread = lua_pushthread(L) ;
     lua_pop(L, 1) ; // remove thread we just pushed onto the stack
     lua_pushboolean(L, isMainThread) ;
     return 1 ;
 }
+
+// added to test hair brained idea that spawned HS issue #2304
 
 // testing confirms invoking this from a coroutine doesn't affect things; callbacks use the original
 // lua_State stored at LuaSkin creation. See inline note at bottom for expected change once
