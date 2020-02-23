@@ -27,7 +27,7 @@ static int refTable = LUA_NOREF;
 ///
 ///  * This constructor works by attempting to create the specified selector and returning the created selector object.  If the selector already exists (i.e. is defined as a valid selector in a class or protocol somewhere), then the already existing selector is returned instead of a new one.  Because there is no built in facility for determining if a selector is valid without also creating it if it does not already exist, use of this constructor is not preferred.
 static int objc_sel_selectorFromName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 // sel_registerName/sel_getUid (which is what NSSelectorFromString uses) creates the selector, even if it doesn't exist yet, so it can't be used to verify that a selector is a valid message for any, much less a specific, class. See init.lua which adds selector methods to class, protocol, and object which check for the selector string in the "current" context without creating anything that doesn't already exist yet.
     push_selector(L, sel_getUid(luaL_checkstring(L, 1))) ;
@@ -46,7 +46,7 @@ static int objc_sel_selectorFromName(lua_State *L) {
 /// Returns:
 ///  * the selector's name as a string.
 static int objc_sel_getName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, SEL_USERDATA_TAG, LS_TBREAK] ;
     SEL sel = get_objectFromUserdata(SEL, L, 1, SEL_USERDATA_TAG) ;
     lua_pushstring(L, sel_getName(sel)) ;
@@ -59,7 +59,7 @@ static int objc_sel_getName(lua_State *L) {
 
 int push_selector(lua_State *L, SEL sel) {
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"selector: create %@ (%p)", NSStringForSelector(sel), sel]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"selector: create %@ (%p)", NSStringForSelector(sel), sel]] ;
 #endif
     if (sel) {
         void** thePtr = lua_newuserdata(L, sizeof(SEL)) ;
@@ -91,7 +91,7 @@ static int selector_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     SEL __unused sel = get_objectFromUserdata(SEL, L, 1, SEL_USERDATA_TAG) ;
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"selector: remove %@ (%p)", NSStringForSelector(sel), sel]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"selector: remove %@ (%p)", NSStringForSelector(sel), sel]] ;
 #endif
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -128,8 +128,8 @@ static luaL_Reg selector_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_selector(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_selector(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:SEL_USERDATA_TAG
                                      functions:selector_moduleLib
                                  metaFunctions:nil // selector_module_metaLib

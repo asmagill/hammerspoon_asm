@@ -37,7 +37,7 @@ static int refTable = LUA_NOREF;
 ///    * a Point table          - will convert to an NSValue containing an NSPoint; the hs.geometry equivalent is not yet supported, but this is expected to be a temporary limitation.
 ///    * a Size table           - will convert to an NSValue containing an NSSize; the hs.geometry equivalent is not yet supported, but this is expected to be a temporary limitation.
 static int object_fromLuaObject(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TANY, LS_TBREAK] ;
     id obj = [skin toNSObjectAtIndex:1] ;
     push_object(L, obj) ;
@@ -56,7 +56,7 @@ static int object_fromLuaObject(lua_State *L) {
 /// Returns:
 ///  * the name of the object's class as a string
 static int objc_object_getClassName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     lua_pushstring(L, object_getClassName(obj)) ;
@@ -73,7 +73,7 @@ static int objc_object_getClassName(lua_State *L) {
 /// Returns:
 ///  * the classObject (hs._asm.objc.class) of the object.
 static int objc_object_getClass(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     push_class(L, object_getClass(obj)) ;
@@ -90,7 +90,7 @@ static int objc_object_getClass(lua_State *L) {
 /// Returns:
 ///  * the value of the object as its closest Hammerspoon or Lua equivalent.  Where modules have registered helper functions for handling Objective-C types directly, the appropriate userdata object is returned.  Where no such convertor exists, and if the object does not match a basic Lua data type (string, boolean, number, table), the Objective-C `debugDescription` method of the object is used to return a string describing the object.
 static int object_value(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, ID_USERDATA_TAG, LS_TBREAK] ;
     id obj = get_objectFromUserdata(__bridge id, L, 1, ID_USERDATA_TAG) ;
     [skin pushNSObject:obj withOptions:LS_NSUnsignedLongLongPreserveBits |
@@ -105,7 +105,7 @@ static int object_value(lua_State *L) {
 
 int push_object(lua_State *L, id obj) {
 #if defined(DEBUG_GC) || defined(DEBUG_GC_OBJONLY)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"object: create %@ (%p)", [obj class], obj]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"object: create %@ (%p)", [obj class], obj]] ;
 #endif
     if (obj) {
         void** thePtr = lua_newuserdata(L, sizeof(id)) ;
@@ -136,7 +136,7 @@ static int object_userdata_eq(lua_State* L) {
 static int object_userdata_gc(lua_State* L) {
     id __unused obj = get_objectFromUserdata(__bridge_transfer id, L, 1, ID_USERDATA_TAG) ;
 #if defined(DEBUG_GC) || defined(DEBUG_GC_OBJONLY)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"object: remove %@ (%p)", [obj class], obj]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"object: remove %@ (%p)", [obj class], obj]] ;
 #endif
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -174,8 +174,8 @@ static luaL_Reg object_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_object(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_object(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:ID_USERDATA_TAG
                                      functions:object_moduleLib
                                  metaFunctions:nil // object_module_metaLib

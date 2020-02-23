@@ -23,7 +23,7 @@ static int refTable = LUA_NOREF;
 /// Notes:
 ///  * this may differ from the property's getter method
 static int objc_property_getName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     lua_pushstring(L, property_getName(prop)) ;
@@ -43,7 +43,7 @@ static int objc_property_getName(lua_State *L) {
 /// Notes:
 ///  * The format of property attributes string can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributes(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     lua_pushstring(L, property_getAttributes(prop)) ;
@@ -63,7 +63,7 @@ static int objc_property_getAttributes(lua_State *L) {
 /// Notes:
 ///  * Property codes and their meanings can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributeValue(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
     const char      *result = property_copyAttributeValue(prop, luaL_checkstring(L, 2)) ;
@@ -86,7 +86,7 @@ static int objc_property_getAttributeValue(lua_State *L) {
 /// Notes:
 ///  * Property codes and their meanings can be found at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6.
 static int objc_property_getAttributeList(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROPERTY_USERDATA_TAG, LS_TBREAK] ;
     objc_property_t prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
 
@@ -110,7 +110,7 @@ static int objc_property_getAttributeList(lua_State *L) {
 
 int push_property(lua_State *L, objc_property_t prop) {
 #if defined(DEBUG_GC)
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin logDebug:[NSString stringWithFormat:@"property: create %s (%p)", property_getName(prop), prop]] ;
 #endif
     if (prop) {
@@ -143,8 +143,7 @@ static int property_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     objc_property_t __unused prop = get_objectFromUserdata(objc_property_t, L, 1, PROPERTY_USERDATA_TAG) ;
 #if defined(DEBUG_GC)
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin logDebug:[NSString stringWithFormat:@"property: remove %s (%p)", property_getName(prop), prop]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"property: remove %s (%p)", property_getName(prop), prop]] ;
 #endif
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -182,8 +181,8 @@ static luaL_Reg property_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_property(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_property(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:PROPERTY_USERDATA_TAG
                                      functions:property_moduleLib
                                  metaFunctions:nil // property_module_metaLib

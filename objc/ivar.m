@@ -24,7 +24,7 @@ static int refTable = LUA_NOREF;
 /// Returns:
 ///  * the name of the instance variable
 static int objc_ivar_getName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushstring(L, ivar_getName(iv)) ;
@@ -44,7 +44,7 @@ static int objc_ivar_getName(lua_State *L) {
 /// Notes:
 ///  * Type encoding strings are encoded as described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_ivar_getTypeEncoding(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushstring(L, ivar_getTypeEncoding(iv)) ;
@@ -61,7 +61,7 @@ static int objc_ivar_getTypeEncoding(lua_State *L) {
 /// Returns:
 ///  * the offset of an instance variable.
 static int objc_ivar_getOffset(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, IVAR_USERDATA_TAG, LS_TBREAK] ;
     Ivar iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
     lua_pushinteger(L, ivar_getOffset(iv)) ;
@@ -74,7 +74,7 @@ static int objc_ivar_getOffset(lua_State *L) {
 
 int push_ivar(lua_State *L, Ivar iv) {
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"ivar: create %s (%p)", ivar_getName(iv), iv]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"ivar: create %s (%p)", ivar_getName(iv), iv]] ;
 #endif
     if (iv) {
         void** thePtr = lua_newuserdata(L, sizeof(Ivar)) ;
@@ -106,7 +106,7 @@ static int ivar_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     Ivar __unused iv = get_objectFromUserdata(Ivar, L, 1, IVAR_USERDATA_TAG) ;
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"ivar: remove %s (%p)", ivar_getName(iv), iv]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"ivar: remove %s (%p)", ivar_getName(iv), iv]] ;
 #endif
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -143,8 +143,8 @@ static luaL_Reg ivar_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_ivar(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_ivar(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:IVAR_USERDATA_TAG
                                      functions:ivar_moduleLib
                                  metaFunctions:nil // ivar_module_metaLib

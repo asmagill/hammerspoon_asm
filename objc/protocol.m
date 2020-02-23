@@ -21,7 +21,7 @@ static int refTable = LUA_NOREF;
 /// Notes:
 ///  * This constructor has also been assigned to the __call metamethod of the `hs._asm.objc.protocol` sub-module so that it can be invoked as `hs._asm.objc.protocol(name)` as a shortcut.
 static int objc_protocolFromString(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     Protocol *prot = objc_getProtocol(luaL_checkstring(L, 1)) ;
 
@@ -39,7 +39,7 @@ static int objc_protocolFromString(lua_State *L) {
 /// Returns:
 ///  * a table of all currently available protocols as key-value pairs.  The key is the protocol name as a string and the value for each key is the protocolObject for the named protocol.
 static int objc_protocolList(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
 
     lua_newtable(L) ;
@@ -65,7 +65,7 @@ static int objc_protocolList(lua_State *L) {
 /// Returns:
 ///  * the name of the protocol as a string
 static int objc_protocol_getName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     lua_pushstring(L, protocol_getName(prot)) ;
@@ -82,7 +82,7 @@ static int objc_protocol_getName(lua_State *L) {
 /// Returns:
 ///  * a table of the properties declared by the protocol as key-value pairs.  The key is a property name as a string, and the value is the propertyObject for the named property.
 static int objc_protocol_getPropertyList(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
 
@@ -109,7 +109,7 @@ static int objc_protocol_getPropertyList(lua_State *L) {
 /// Returns:
 ///  * the propertyObject or nil if a property with the specified name, required, and instance parameters does not exist.
 static int objc_protocol_getProperty(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                     LS_TSTRING,
                     LS_TBOOLEAN,
@@ -131,7 +131,7 @@ static int objc_protocol_getProperty(lua_State *L) {
 /// Returns:
 ///  * a table of the protocols adopted by this protocol as key-value pairs.  The key is the protocol name as a string and the value for each key is the protocolObject for the named protocol.
 static int objc_protocol_getAdoptedProtocols(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
 
@@ -156,7 +156,7 @@ static int objc_protocol_getAdoptedProtocols(lua_State *L) {
 /// Returns:
 ///  * true if the target object conforms to the specified protocol; otherwise false.
 static int objc_protocol_conformsToProtocol(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                     LS_TUSERDATA, PROTOCOL_USERDATA_TAG, LS_TBREAK] ;
     Protocol *prot1 = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
@@ -176,7 +176,7 @@ static int objc_protocol_conformsToProtocol(lua_State* L) {
 /// Returns:
 ///  * a table of key-value pairs where the key is the name of the method and the value is a table containing the method's selector object and encoding type.
 static int objc_protocol_getMethodDescriptionList(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                     LS_TBOOLEAN,
                     LS_TBOOLEAN, LS_TBREAK] ;
@@ -213,7 +213,7 @@ static int objc_protocol_getMethodDescriptionList(lua_State* L) {
 /// Returns:
 ///  * a table of key-value pairs containing the method's selector name keyed to its object and its encoding type.
 static int objc_protocol_getMethodDescription(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, PROTOCOL_USERDATA_TAG,
                     LS_TUSERDATA, SEL_USERDATA_TAG,
                     LS_TBOOLEAN,
@@ -240,8 +240,7 @@ static int objc_protocol_getMethodDescription(lua_State* L) {
 
 int push_protocol(lua_State *L, Protocol *prot) {
 #if defined(DEBUG_GC)
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin logDebug:[NSString stringWithFormat:@"protocol: create %@ (%p)", NSStringFromProtocol(prot), prot]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"protocol: create %@ (%p)", NSStringFromProtocol(prot), prot]] ;
 #endif
     if (prot) {
         void** thePtr = lua_newuserdata(L, sizeof(Protocol *)) ;
@@ -274,8 +273,7 @@ static int protocol_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     Protocol * __unused prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
 #if defined(DEBUG_GC)
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin logDebug:[NSString stringWithFormat:@"protocol: remove %@ (%p)", NSStringFromProtocol(prot), prot]] ;
+    [LuaSkin logDebug:[NSString stringWithFormat:@"protocol: remove %@ (%p)", NSStringFromProtocol(prot), prot]] ;
 #endif
 
 // Remove the Metatable so future use of the variable in Lua won't think its valid
@@ -319,8 +317,8 @@ static luaL_Reg protocol_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_protocol(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_protocol(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:PROTOCOL_USERDATA_TAG
                                      functions:protocol_moduleLib
                                  metaFunctions:nil // protocol_module_metaLib
