@@ -10,6 +10,8 @@
 
 static int refTable = LUA_NOREF ;
 
+static NSMutableSet *backgroundCallbacks ;
+
 @import AddressBook ;
 @import SystemConfiguration ;
 
@@ -628,18 +630,21 @@ static int lua_LevenshteinDistance(lua_State *L) {
     } else {
         lua_pushvalue(L, 3) ;
         int fnRef = [skin luaRef:refTable] ;
-// NOTE: in addition to being slow as #$^&%$&#$%^&#, this will crash HS if you reload before the callback
-// completes....
+        [backgroundCallbacks addObject:@(fnRef)] ;
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             size_t results = LevenshteinDistance(s1, s2) ;
             dispatch_sync(dispatch_get_main_queue(), ^{
-                [skin pushLuaRef:refTable ref:fnRef] ; // <--- here, so need a way to detect if L is valid and skip if not
-                lua_pushinteger(L, (lua_Integer)results) ;
-                if (![skin protectedCallAndTraceback:1 nresults:0]) {
-                    [skin logError:[NSString stringWithFormat:@"levenshteinDistance callback error:%s", lua_tostring(L, -1)]] ;
-                    lua_pop(L, 1) ;
+                if ([backgroundCallbacks containsObject:@(fnRef)]) {
+                    LuaSkin   *_skin = [LuaSkin shared] ;
+                    [_skin pushLuaRef:refTable ref:fnRef] ;
+                    lua_pushinteger(_skin.L, (lua_Integer)results) ;
+                    if (![_skin protectedCallAndTraceback:1 nresults:0]) {
+                        [_skin logError:[NSString stringWithFormat:@"levenshteinDistance callback error:%s", lua_tostring(_skin.L, -1)]] ;
+                        lua_pop(_skin.L, 1) ;
+                    }
+                    [_skin luaUnref:refTable ref:fnRef] ;
+                    [backgroundCallbacks removeObject:@(fnRef)] ;
                 }
-                [skin luaUnref:refTable ref:fnRef] ;
             }) ;
         }) ;
         return 0 ;
@@ -658,18 +663,21 @@ static int lua_meyersShortestEdit(lua_State *L) {
     } else {
         lua_pushvalue(L, 3) ;
         int fnRef = [skin luaRef:refTable] ;
-// NOTE: in addition to being slow as #$^&%$&#$%^&#, this will crash HS if you reload before the callback
-// completes....
+        [backgroundCallbacks addObject:@(fnRef)] ;
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             NSInteger results = meyersShortestEdit(s1, s2) ;
             dispatch_sync(dispatch_get_main_queue(), ^{
-                [skin pushLuaRef:refTable ref:fnRef] ; // <--- here, so need a way to detect if L is valid and skip if not
-                lua_pushinteger(L, (lua_Integer)results) ;
-                if (![skin protectedCallAndTraceback:1 nresults:0]) {
-                    [skin logError:[NSString stringWithFormat:@"meyersShortestEdit callback error:%s", lua_tostring(L, -1)]] ;
-                    lua_pop(L, 1) ;
+                if ([backgroundCallbacks containsObject:@(fnRef)]) {
+                    LuaSkin   *_skin = [LuaSkin shared] ;
+                    [_skin pushLuaRef:refTable ref:fnRef] ;
+                    lua_pushinteger(_skin.L, (lua_Integer)results) ;
+                    if (![_skin protectedCallAndTraceback:1 nresults:0]) {
+                        [_skin logError:[NSString stringWithFormat:@"meyersShortestEdit callback error:%s", lua_tostring(_skin.L, -1)]] ;
+                        lua_pop(_skin.L, 1) ;
+                    }
+                    [_skin luaUnref:refTable ref:fnRef] ;
+                    [backgroundCallbacks removeObject:@(fnRef)] ;
                 }
-                [skin luaUnref:refTable ref:fnRef] ;
             }) ;
         }) ;
         return 0 ;
@@ -719,6 +727,15 @@ static int extras_yield(lua_State *L) {
     // // within a co-routine
     // [LuaSkin sharedWithState:L] ;
 
+    return 0 ;
+}
+
+static int meta_gc(lua_State* __unused L) {
+    LuaSkin *skin = [LuaSkin shared] ;
+    [backgroundCallbacks enumerateObjectsUsingBlock:^(NSNumber *ref, __unused BOOL *stop) {
+        [skin luaUnref:refTable ref:ref.intValue] ;
+    }] ;
+    [backgroundCallbacks removeAllObjects] ;
     return 0 ;
 }
 
@@ -772,10 +789,16 @@ static const luaL_Reg extrasLib[] = {
     {NULL,                   NULL}
 };
 
+static const luaL_Reg module_metaLib[] = {
+    {"__gc", meta_gc},
+    {NULL,   NULL}
+};
+
 int luaopen_hs__asm_extras_internal(__unused lua_State* L) {
     LuaSkin *skin = [LuaSkin shared] ;
-    refTable = [skin registerLibrary:extrasLib metaFunctions:nil] ;
+    refTable = [skin registerLibrary:extrasLib metaFunctions:module_metaLib] ;
 //     luaL_newlib(L, extrasLib);
 
+    backgroundCallbacks = [NSMutableSet set] ;
     return 1;
 }
