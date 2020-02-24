@@ -7,6 +7,7 @@
 @import LuaSkin ;
 @import AVFoundation;
 @import OSAKit ;
+@import Darwin.POSIX.dlfcn ;
 
 static int refTable = LUA_NOREF ;
 
@@ -730,6 +731,67 @@ static int extras_yield(lua_State *L) {
     return 0 ;
 }
 
+// trying to figure out where c-code source is from within Lua
+//    for deprecation warnings with [LuaSkin shared]
+//    useful errors about re-declaration of helper functions
+
+    static int extras_luaL_where(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin checkArgs:LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+        int lvl = (lua_gettop(L) == 1) ? (int)lua_tointeger(L, 1) : 0 ;
+
+        lua_Debug ar ;
+
+        lua_pushboolean(L, lua_getstack(L, lvl, &ar)) ;
+        if (lua_toboolean(L, -1)) {
+            lua_getinfo(L, "Sn", &ar) ;
+            lua_pushstring(L, ar.name) ;
+            lua_pushstring(L, ar.namewhat) ;
+            lua_pushstring(L, ar.what) ;
+            lua_pushstring(L, ar.source) ;
+            lua_pushstring(L, ar.short_src) ;
+
+            return 6 ;
+        } else {
+            return 1 ;
+        }
+    }
+
+    static int extras_callStackSymbols(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin pushNSObject:[NSThread callStackSymbols]] ;
+        return 1 ;
+    }
+
+    static int extras_callStackSymbols2(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin pushNSObject:[[NSThread callStackSymbols] componentsJoinedByString:@"\r"]] ;
+        return 1 ;
+    }
+
+    static int extras_callStackReturnAddresses(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin pushNSObject:[NSThread callStackReturnAddresses]] ;
+        return 1 ;
+    }
+
+    static int extras_dladdr(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin checkArgs:LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+        uintptr_t addr = (uintptr_t)lua_tointeger(L, 1) ;
+
+        Dl_info info ;
+        if (dladdr((const void *)addr, &info) != 0) {
+            lua_pushstring(L, info.dli_fname) ;
+        } else {
+            lua_pushnil(L) ;
+        }
+        return 1 ;
+    }
+
+
+#pragma mark - infrastructure stuffs
+
 static int meta_gc(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [backgroundCallbacks enumerateObjectsUsingBlock:^(NSNumber *ref, __unused BOOL *stop) {
@@ -785,6 +847,12 @@ static const luaL_Reg extrasLib[] = {
 
     {"yield",                extras_yield},
     {"mainThreadForState",   extras_isMainThreadForState},
+
+    {"whereLevel",           extras_luaL_where},
+    {"css",                  extras_callStackSymbols},
+    {"cssr",                 extras_callStackSymbols2},
+    {"csa",                  extras_callStackReturnAddresses},
+    {"dladdr",               extras_dladdr},
 
     {NULL,                   NULL}
 };
