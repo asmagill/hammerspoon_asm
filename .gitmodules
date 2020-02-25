@@ -7,15 +7,9 @@
 [submodule "wip/filelistmenu"]
 	path = filelistmenu
 	url = https://github.com/asmagill/hammerspoon_filelistmenu.git
-[submodule "wip/hotkey"]
-	path = hotkey
-	url = https://github.com/asmagill/hammerspoon_hotkey.git
 [submodule "wip/serial"]
 	path = serial
 	url = https://github.com/asmagill/hammerspoon_serial.git
-[submodule "luathread"]
-	path = luathread
-	url = https://github.com/asmagill/hs._asm.luathread.git
 [submodule "axuielement"]
 	path = axuielement
 	url = ../hs._asm.axuielement
