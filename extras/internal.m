@@ -26,6 +26,73 @@ static NSMutableSet *backgroundCallbacks ;
 @import Darwin.POSIX.netdb ;
 @import Darwin.Mach ;
 
+@interface ASM_RETAIN_TEST : NSObject
+@end
+
+// curious if ARC recognizes ID type since retain/relase are part of NSObject protocol
+// it seems to based on this basic test... when sent to obj class, count = 5 for both
+@implementation ASM_RETAIN_TEST
+- (void)withString:(NSString *)sender withState:(lua_State *)L {
+    NSUInteger c ;
+    NSMethodSignature *signature  = [NSNumber instanceMethodSignatureForSelector:NSSelectorFromString(@"unsignedIntegerValue")] ;
+    NSInvocation      *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:sender];
+    [invocation setSelector:NSSelectorFromString(@"retainCount")];
+    [invocation invoke];
+    [invocation getReturnValue:&c];
+    lua_pushinteger(L, (lua_Integer)c) ;
+}
+
+- (void)withId:(id)sender withState:(lua_State *)L {
+    NSUInteger c ;
+    NSMethodSignature *signature  = [NSNumber instanceMethodSignatureForSelector:NSSelectorFromString(@"unsignedIntegerValue")] ;
+    NSInvocation      *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:sender];
+    [invocation setSelector:NSSelectorFromString(@"retainCount")];
+    [invocation invoke];
+    [invocation getReturnValue:&c];
+    lua_pushinteger(L, (lua_Integer)c) ;
+}
+
+@end
+
+static int testARCandID(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *holder = [skin toNSObjectAtIndex:1] ;
+    id       hold2   = [skin toNSObjectAtIndex:1] ;
+
+    ASM_RETAIN_TEST *obj = [[ASM_RETAIN_TEST alloc] init] ;
+    [obj withString:holder withState:L] ;
+    [obj withId:hold2      withState:L] ;
+
+// when invoked directly on stored variables, count = 4
+    NSUInteger c ;
+    NSMethodSignature *signature  = [NSNumber instanceMethodSignatureForSelector:NSSelectorFromString(@"unsignedIntegerValue")] ;
+    NSInvocation      *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:holder];
+    [invocation setSelector:NSSelectorFromString(@"retainCount")];
+    [invocation invoke];
+    [invocation getReturnValue:&c];
+    lua_pushinteger(L, (lua_Integer)c) ;
+
+    invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:hold2];
+    [invocation setSelector:NSSelectorFromString(@"retainCount")];
+    [invocation invoke];
+    [invocation getReturnValue:&c];
+    lua_pushinteger(L, (lua_Integer)c) ;
+
+// and here count = 3
+    invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:[skin toNSObjectAtIndex:1]];
+    [invocation setSelector:NSSelectorFromString(@"retainCount")];
+    [invocation invoke];
+    [invocation getReturnValue:&c];
+    lua_pushinteger(L, (lua_Integer)c) ;
+
+    return 5 ;
+}
 
 /// hs._asm.extras.NSLog(luavalue)
 /// Function
@@ -853,6 +920,7 @@ static const luaL_Reg extrasLib[] = {
     {"cssr",                 extras_callStackSymbols2},
     {"csa",                  extras_callStackReturnAddresses},
     {"dladdr",               extras_dladdr},
+    {"testARCandID",         testARCandID},
 
     {NULL,                   NULL}
 };
