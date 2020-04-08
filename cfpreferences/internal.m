@@ -42,7 +42,7 @@ static NSDate* date_from_string(NSString* dateString) {
 #pragma mark - Module Functions
 
 static int cfpreferences_copyAppValue(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
 
     BOOL     useSimplified  = YES ;
@@ -92,7 +92,7 @@ static int cfpreferences_copyAppValue(lua_State *L) {
 }
 
 static int cfpreferences_getAppBooleanValue(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *key           = [skin toNSObjectAtIndex:1] ;
     NSString *applicationID = (lua_gettop(L) == 2) ? [skin toNSObjectAtIndex:2] : (__bridge NSString *)kCFPreferencesCurrentApplication ;
@@ -107,7 +107,7 @@ static int cfpreferences_getAppBooleanValue(lua_State *L) {
 }
 
 static int cfpreferences_getAppIntegerValue(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *key           = [skin toNSObjectAtIndex:1] ;
     NSString *applicationID = (lua_gettop(L) == 2) ? [skin toNSObjectAtIndex:2] : (__bridge NSString *)kCFPreferencesCurrentApplication ;
@@ -122,7 +122,7 @@ static int cfpreferences_getAppIntegerValue(lua_State *L) {
 }
 
 static int cfpreferences_appSynchronize(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
 
     BOOL     useSimplified  = YES ;
@@ -163,7 +163,7 @@ static int cfpreferences_appSynchronize(lua_State *L) {
 }
 
 static int cfpreferences_appValueIsForced(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *key           = [skin toNSObjectAtIndex:1] ;
     NSString *applicationID = (lua_gettop(L) == 2) ? [skin toNSObjectAtIndex:2] : (__bridge NSString *)kCFPreferencesCurrentApplication ;
@@ -172,7 +172,7 @@ static int cfpreferences_appValueIsForced(lua_State *L) {
 }
 
 static int cfpreferences_copyKeyList(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *applicationID = (lua_gettop(L) > 0) ? [skin toNSObjectAtIndex:1] : (__bridge NSString *)kCFPreferencesCurrentApplication ;
     CFStringRef userName    = (lua_gettop(L) > 1) ? (lua_toboolean(L, 2) ? kCFPreferencesAnyUser : kCFPreferencesCurrentUser) : kCFPreferencesCurrentUser ;
@@ -188,7 +188,7 @@ static int cfpreferences_copyKeyList(lua_State *L) {
 }
 
 static int cfpreferences_setAppValue(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TANY, LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
 
     BOOL              useSimplified  = YES ;
@@ -252,7 +252,7 @@ extern CFPropertyListRef _CFPreferencesCopyApplicationMap(CFStringRef userName, 
 extern void              _CFPreferencesFlushCachesForIdentifier(CFStringRef applicationID, CFStringRef userName) __attribute__((weak_import));
 
 static int cfpreferences_flushCachesForIdentifier(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     NSString *applicationID = (lua_gettop(L) > 0) ? [skin toNSObjectAtIndex:1] : (__bridge NSString *)kCFPreferencesCurrentApplication ;
     CFStringRef userName    = (lua_gettop(L) > 1) ? (lua_toboolean(L, 2) ? kCFPreferencesAnyUser : kCFPreferencesCurrentUser) : kCFPreferencesCurrentUser ;
@@ -267,7 +267,7 @@ static int cfpreferences_flushCachesForIdentifier(lua_State *L) {
 }
 
 static int cfpreferences_copyApplicationMap(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     CFStringRef userName = (lua_gettop(L) > 0) ? (lua_toboolean(L, 1) ? kCFPreferencesAnyUser : kCFPreferencesCurrentUser) : kCFPreferencesCurrentUser ;
     CFStringRef hostName = (lua_gettop(L) > 1) ? (lua_toboolean(L, 2) ? kCFPreferencesAnyHost : kCFPreferencesCurrentHost) : kCFPreferencesAnyHost ;
@@ -291,7 +291,7 @@ static int cfpreferences_copyApplicationMap(lua_State *L) {
 _Nullable CFArrayRef CFPreferencesCopyApplicationList(CFStringRef userName, CFStringRef hostName) __attribute__((weak_import));
 
 static int cfpreferences_copyApplicationList(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     CFStringRef userName = (lua_gettop(L) > 0) ? (lua_toboolean(L, 1) ? kCFPreferencesAnyUser : kCFPreferencesCurrentUser) : kCFPreferencesCurrentUser ;
     CFStringRef hostName = (lua_gettop(L) > 1) ? (lua_toboolean(L, 2) ? kCFPreferencesAnyHost : kCFPreferencesCurrentHost) : kCFPreferencesAnyHost ;
@@ -315,7 +315,7 @@ static int cfpreferences_copyApplicationList(lua_State *L) {
 #pragma mark - Module Constants
 
 // static int push_preferencesKeys(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     lua_newtable(L) ;
 //     [skin pushNSObject:(__bridge NSString *)kCFPreferencesAnyApplication] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
 //     [skin pushNSObject:(__bridge NSString *)kCFPreferencesCurrentApplication] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
@@ -360,7 +360,7 @@ static int cfpreferences_copyApplicationList(lua_State *L) {
 // }
 static id table_toNSDate(lua_State *L, int idx) {
     NSDate *theDate = nil ;
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     if (lua_type(L, idx) == LUA_TTABLE) {
         if (luaL_len(L, idx) != 0) {
             if (lua_rawgeti(L, idx, 1) == LUA_TNUMBER) {
@@ -475,7 +475,7 @@ static id table_toNSDate(lua_State *L, int idx) {
 // }
 static id table_toNSData(lua_State *L, int idx) {
     NSData *theData = nil ;
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     if (lua_type(L, idx) == LUA_TTABLE) {
         if (lua_rawgeti(L, idx, 1) == LUA_TSTRING) {
             theData = [skin toNSObjectAtIndex:-1 withOptions:LS_NSLuaStringAsDataOnly] ;
@@ -513,8 +513,8 @@ static id table_toNSData(lua_State *L, int idx) {
 // fundamental rewrite
 
 static int pushNSDateAsTable(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    if ([obj isKindOfClass:[NSDate class]]) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    if ([(NSObject *)obj isKindOfClass:[NSDate class]]) {
         NSDate *value = obj ;
         lua_newtable(L) ;
         [skin pushNSObject:@"NSDate"] ; lua_setfield(L, -2, "__luaSkinType") ;
@@ -528,8 +528,8 @@ static int pushNSDateAsTable(lua_State *L, id obj) {
 }
 
 static int pushNSDataAsTable(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    if ([obj isKindOfClass:[NSData class]]) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    if ([(NSObject *)obj isKindOfClass:[NSData class]]) {
         NSData *value = obj ;
         lua_newtable(L) ;
         [skin pushNSObject:@"NSData"] ; lua_setfield(L, -2, "__luaSkinType") ;
@@ -552,7 +552,7 @@ static int pushNSDataAsTable(lua_State *L, id obj) {
 //     A more generic CFType checker would have to check for these...
 static int pushCFPropertyListToLua(lua_State *L, CFPropertyListRef obj) {
     if (obj != NULL) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         CFTypeID typeID = CFGetTypeID(obj) ;
         // CFData, CFString, CFArray, CFDictionary, CFDate, CFBoolean, and CFNumber
         if (typeID == CFDataGetTypeID()) {
@@ -593,7 +593,7 @@ static int pushCFPropertyListToLua(lua_State *L, CFPropertyListRef obj) {
 }
 
 static CFPropertyListRef luaObjectToCFPropertyListRef(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CFPropertyListRef obj = NULL ;
 
     switch(lua_type(L, idx)) {
@@ -612,7 +612,7 @@ static CFPropertyListRef luaObjectToCFPropertyListRef(lua_State *L, int idx) {
             obj = lua_toboolean(L, idx) ? kCFBooleanTrue : kCFBooleanFalse ;
             break ;
         case LUA_TSTRING: {
-            id holder = [skin toNSObjectAtIndex:idx] ;
+            NSObject *holder = [skin toNSObjectAtIndex:idx] ;
             if ([holder isKindOfClass:[NSString class]]) {
                 obj = (__bridge_retained CFStringRef)holder ;
             } else {
@@ -622,7 +622,7 @@ static CFPropertyListRef luaObjectToCFPropertyListRef(lua_State *L, int idx) {
         case LUA_TTABLE: {
             BOOL treatAsRealTable = YES ;
             if (lua_getfield(L, idx, "__luaSkinType") != LUA_TNIL) {
-                id possibleObj = [skin toNSObjectAtIndex:idx] ;
+                NSObject *possibleObj = [skin toNSObjectAtIndex:idx] ;
                 if ([possibleObj isKindOfClass:[NSData class]]) {
                     obj = (__bridge_retained CFDataRef)possibleObj ;
                 } else if ([possibleObj isKindOfClass:[NSDate class]]) {
@@ -725,8 +725,8 @@ static luaL_Reg moduleLib[] = {
     {NULL,         NULL}
 };
 
-int luaopen_hs__asm_cfpreferences_internal(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_cfpreferences_internal(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 
 //     push_preferencesKeys(L) ; lua_setfield(L, -2, "predefinedKeys") ;

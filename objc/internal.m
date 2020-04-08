@@ -15,8 +15,8 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
-// static int extras_nslog(__unused lua_State* L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+// static int extras_nslog(lua_State* L) {
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     id val = [skin toNSObjectAtIndex:1] ;
 //     [skin logVerbose:[NSString stringWithFormat:@"%@", val]] ;
 //     NSLog(@"%@", val);
@@ -36,7 +36,7 @@ static int refTable = LUA_NOREF;
 /// Notes:
 ///  * You can load a framework which is not currently loaded by using the lua builtin `package.loadlib`.  E.g. `package.loadlib("/System/Library/Frameworks/MapKit.framework/Versions/Current/MapKit","*")`
 static int objc_getImageNames(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
 
     lua_newtable(L) ;
@@ -64,7 +64,7 @@ static int objc_getImageNames(lua_State *L) {
 ///  * You can load a framework which is not currently loaded by using the lua builtin `package.loadlib`.  E.g. `package.loadlib("/System/Library/Frameworks/MapKit.framework/Versions/Current/MapKit","*")`
 ///  * the `imageName` must match the actual path (without symbolic links) that was loaded.  For the example given above, the proper path name (as of OS X 10.11.3) would be "/System/Library/Frameworks/MapKit.framework/Versions/A/MapKit".  You can determine this path by looking at the results from [hs._asm.objc.imageNames](#imageNames).
 static int objc_classNamesForImage(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
 
     lua_newtable(L) ;
@@ -127,7 +127,7 @@ static int objc_classNamesForImage(lua_State *L) {
 ///    * other classes provide their own shortcuts (e.g. NSString allows `a = [NSString stringWithUTF8String:"c-string"]` as a shortcut for `a = [[NSString alloc] initWithUTF8String:"c-string"]`).
 ///  * Whatever style you use, make sure that you're working with a properly allocated **AND** initialized object; otherwise you're gonna get an earth-shattering kaboom.
 static int invocator(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     BOOL hasFlags   = (lua_type(L, 1) == LUA_TNUMBER) ;
     int  objIndex   = hasFlags ? 2 : 1 ;
     int  selIndex   = objIndex + 1 ;
@@ -514,7 +514,7 @@ static int NSMethodSignature_toLua(lua_State *L, id obj) {
 }
 
 static int NSException_toLua(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     NSException *theError = obj ;
 
     lua_newtable(L) ;
@@ -546,7 +546,7 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_objc_internal(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 
     refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ;
 

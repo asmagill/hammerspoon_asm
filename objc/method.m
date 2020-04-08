@@ -24,7 +24,7 @@ static int refTable = LUA_NOREF;
 /// Returns:
 ///  * the selectorObject for the method
 static int objc_method_getName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     push_selector(L, method_getName(meth)) ;
@@ -47,7 +47,7 @@ static int objc_method_getName(lua_State *L) {
 ///  * The numerical value between the return type (first character) and the arguments represents an idealized stack size for the method's argument list.  The numbers between arguments specify offsets within that idealized space.  These numbers should not be trusted as they ignore register usage and other optimizations that may be in effect for a given architecture.
 ///  * Since our implementation of Objective-C message sending utilizes the NSInvocation Objective-C class, we do not have to concern ourselves with the stack space -- it is handled for us; this method is generally not necessary and is provided for informational purposes only.
 static int objc_method_getTypeEncoding(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     lua_pushstring(L, method_getTypeEncoding(meth)) ;
@@ -67,7 +67,7 @@ static int objc_method_getTypeEncoding(lua_State *L) {
 /// Notes:
 ///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_method_getReturnType(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     const char      *result = method_copyReturnType(meth) ;
@@ -90,7 +90,7 @@ static int objc_method_getReturnType(lua_State *L) {
 /// Notes:
 ///  * Encoding types are described at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html
 static int objc_method_getArgumentType(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TNUMBER, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     const char      *result = method_copyArgumentType(meth, (UInt)luaL_checkinteger(L, 2)) ;
@@ -113,7 +113,7 @@ static int objc_method_getArgumentType(lua_State *L) {
 /// Notes:
 ///  * Note that all methods have two internal arguments: the object or class receiving the message, and the selector representing the message being sent.  A method which takes additional user provided arguments will return a number greater than 2 for this method.
 static int objc_method_getNumberOfArguments(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
     lua_pushinteger(L, method_getNumberOfArguments(meth)) ;
@@ -135,7 +135,7 @@ static int objc_method_getNumberOfArguments(lua_State *L) {
 ///
 ///  * See also the notes for [hs._asm.objc.method:typeEncoding](#typeEncoding) concerning the type encoding value returned by this method.
 static int objc_method_getDescription(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, METHOD_USERDATA_TAG, LS_TBREAK] ;
     Method meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
 
@@ -150,7 +150,7 @@ static int objc_method_getDescription(lua_State *L) {
 
 int push_method(lua_State *L, Method meth) {
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"method: create %@ (%p)",
+    [LuaSkin logDebug:[NSString stringWithFormat:@"method: create %@ (%p)",
                                                           NSStringFromSelector(method_getName(meth)),
                                                           meth]] ;
 #endif
@@ -184,7 +184,7 @@ static int method_userdata_gc(lua_State* L) {
 // check to make sure we're not called with the wrong type for some reason...
     Method __unused meth = get_objectFromUserdata(Method, L, 1, METHOD_USERDATA_TAG) ;
 #if defined(DEBUG_GC)
-    [[LuaSkin shared] logDebug:[NSString stringWithFormat:@"method: remove %@ (%p)",
+    [LuaSkin logDebug:[NSString stringWithFormat:@"method: remove %@ (%p)",
                                                           NSStringFromSelector(method_getName(meth)),
                                                           meth]] ;
 #endif
@@ -226,8 +226,8 @@ static luaL_Reg method_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_method(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_objc_method(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:METHOD_USERDATA_TAG
                                      functions:method_moduleLib
                                  metaFunctions:nil // method_module_metaLib

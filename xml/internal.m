@@ -1,5 +1,5 @@
-#import <Cocoa/Cocoa.h>
-#import <LuaSkin/LuaSkin.h>
+@import Cocoa ;
+@import LuaSkin ;
 
 // Documentation Needed:
 //  Need examples/documentation for XPath and XQuery queries
@@ -17,7 +17,7 @@
 // should we allow creating an xml doc from scratch?
 
 #define USERDATA_TAG        "hs._asm.xml"
-int refTable ;
+static int refTable ;
 
 #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
 
@@ -35,7 +35,7 @@ int refTable ;
 /// Returns:
 ///  * an xmlDTD object
 static int xml_openDTD(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
     NSXMLDTD *xmlDTD;
@@ -69,7 +69,7 @@ static int xml_openDTD(lua_State *L) {
 /// Returns:
 ///  * an xmlDocument object
 static int xml_openURL(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
     NSXMLDocument *xmlDoc;
@@ -112,7 +112,7 @@ static int xml_openURL(lua_State *L) {
 /// Notes:
 ///  * This is a wrapper for [hs._asm.xml.openURL](#openURL) which converts the specified path into a properly formatted file URL.
 static int xml_open(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
     NSString *file = [skin toNSObjectAtIndex:1] ;
@@ -143,7 +143,7 @@ static int xml_open(lua_State *L) {
 /// Notes:
 ///  * for example, `hs._asm.xml.localNameFor("acme:chapter")` would return `chapter`
 static int xml_localNameFor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
     [skin pushNSObject:[NSXMLNode localNameForName:[skin toNSObjectAtIndex:1]]] ;
@@ -163,7 +163,7 @@ static int xml_localNameFor(lua_State *L) {
 /// Notes:
 ///  * for example, `hs._asm.xml.prefixFor("acme:chapter")` would return  `acme`
 static int xml_prefixFor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
     [skin pushNSObject:[NSXMLNode prefixForName:[skin toNSObjectAtIndex:1]]] ;
@@ -188,10 +188,11 @@ static int xml_prefixFor(lua_State *L) {
 ///    * " (quotation mark)    - with the entity name "quot"
 ///    * ' (apostrophe)        - with the entity name "apos"
 static int xml_predefinedEntityDeclaration(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 1) ;
-    NSXMLDTDNode *node = [NSXMLDTD predefinedEntityDeclarationForName:[NSString stringWithUTF8String:luaL_checkstring(L, 1)]] ;
+    NSString *name = [NSString stringWithUTF8String:luaL_checkstring(L, 1)] ;
+    NSXMLDTDNode *node = [NSXMLDTD predefinedEntityDeclarationForName:name] ;
     [skin pushNSObject:node] ;
     return 1 ;
 }
@@ -216,7 +217,7 @@ static int xml_predefinedEntityDeclaration(lua_State *L) {
 ///    * NSXMLDTD      - the object represents a Document Type Definition
 ///    * NSXMLDTDNode  - the object represents an element, attribute-list, entity, or notation declaration in a Document Type Declaration
 static int xml_nodeType(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")])           lua_pushstring(L, "NSXMLDTD") ;
@@ -239,8 +240,8 @@ static int xml_nodeType(lua_State *L) {
 ///
 /// Returns:
 ///  * an xmlDocument object
-static int xml_rootDocument(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_rootDocument(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj rootDocument]] ;
@@ -256,8 +257,8 @@ static int xml_rootDocument(__unused lua_State *L) {
 ///
 /// Returns:
 ///  * an xmlNode object, or nil if no parent exists for this object
-static int xml_parent(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_parent(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj parent]] ;
@@ -277,13 +278,13 @@ static int xml_parent(__unused lua_State *L) {
 /// Notes:
 ///  * The returned node object can represent an element, comment, text, or processing instruction.
 static int xml_childAtIndex(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     lua_Integer idx = luaL_checkinteger(L, 2) ;
 
     if (idx < 0 || idx > (lua_Integer)[obj childCount])
-        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index must be between 0 and %d", [obj childCount]] UTF8String]) ;
+        return luaL_argerror(L, 2, [[NSString stringWithFormat:@"index must be between 0 and %lu", [obj childCount]] UTF8String]) ;
 
     @try {
         [skin pushNSObject:[obj childAtIndex:(NSUInteger)idx]] ;
@@ -304,7 +305,7 @@ static int xml_childAtIndex(lua_State *L) {
 /// Returns:
 ///  * the number of child nodes for the object
 static int xml_childCount(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     lua_pushinteger(L, (lua_Integer)[obj childCount]) ;
@@ -320,8 +321,8 @@ static int xml_childCount(lua_State *L) {
 ///
 /// Returns:
 ///  * the children of the object in a table as an array.
-static int xml_children(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_children(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj children]] ;
@@ -340,8 +341,8 @@ static int xml_children(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * Use this method to “walk” forward through the tree structure representing an XML document or document section. Document order is the natural order that XML constructs appear in markup text. This method bypasses namespace and attribute nodes when traversing the tree in document order.
-static int xml_nextNode(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_nextNode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj nextNode]] ;
@@ -360,8 +361,8 @@ static int xml_nextNode(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * This object will have an index value that is one more than the object’s. If there are no more subsequent siblings (that is, other child nodes of the object’s parent) the method returns nil.
-static int xml_nextSibling(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_nextSibling(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj nextSibling]] ;
@@ -380,8 +381,8 @@ static int xml_nextSibling(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * Use this method to “walk” backward through the tree structure representing an XML document or document section. Document order is the natural order that XML constructs appear in markup text. This method bypasses namespace and attribute nodes when traversing the tree in document order.
-static int xml_previousNode(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_previousNode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj previousNode]] ;
@@ -400,8 +401,8 @@ static int xml_previousNode(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * This object will have an index value that is one less than the object’s. If there are no more previous siblings (that is, other child nodes of the object’s parent) the method returns nil.
-static int xml_previousSibling(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_previousSibling(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj previousSibling]] ;
@@ -421,7 +422,7 @@ static int xml_previousSibling(__unused lua_State *L) {
 /// Notes:
 ///  * The returned string includes the string representations of all children.
 static int xml_xmlString(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
     NSXMLNode   *obj = [skin toNSObjectAtIndex:1] ;
     lua_Integer options = NSXMLNodeOptionsNone ;
@@ -457,9 +458,9 @@ static int xml_xmlString(lua_State *L) {
 ///    * Replaces special characters in attribute values and character content with character references.
 ///    * Removes superfluous namespace declarations from each element.
 ///    * Adds default attributes to each element.
-Imposes lexicographic order on the namespace declarations and attributes of each element.
+///    * Imposes lexicographic order on the namespace declarations and attributes of each element.
 static int xml_canonicalXMLString(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     NSXMLNode   *obj = [skin toNSObjectAtIndex:1] ;
     BOOL        preserveComments = YES ;
@@ -480,7 +481,7 @@ static int xml_canonicalXMLString(lua_State *L) {
 /// Returns:
 ///  * the index of the object identifying its position relative to its sibling nodes.
 static int xml_index(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     lua_pushinteger(L, (lua_Integer)[obj index]) ;
@@ -511,7 +512,7 @@ static int xml_index(lua_State *L) {
 ///    * notationDeclaration   - a notation declaration
 ///    * unknown               - should not occur -- the presence of this value indicates that an error has occurred of that Apple has changed the NSXML* classes and this module should be updated.
 static int xml_kind(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     switch ([obj kind]) {
@@ -546,7 +547,7 @@ static int xml_kind(lua_State *L) {
 /// Notes:
 ///  * The root element of a document has a nesting level of one.
 static int xml_level(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     lua_pushinteger(L, (lua_Integer)[obj level]) ;
@@ -565,8 +566,8 @@ static int xml_level(lua_State *L) {
 ///
 /// Notes:
 ///  * This method is applicable only to objects representing elements, attributes, namespaces, processing instructions, and DTD-declaration nodes. If the object is not one of these kinds, this method returns nil.
-static int xml_name(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_name(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj name]] ;
@@ -582,8 +583,8 @@ static int xml_name(__unused lua_State *L) {
 ///
 /// Returns:
 ///  * the value of the xmlObject node.  For nodes without content (for example, document nodes), this method returns the same value as [hs._asm.xml:stringValue](#stringValue), or an empty string if there is no string value.
-static int xml_objectValue(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_objectValue(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj objectValue]] ;
@@ -605,8 +606,8 @@ static int xml_objectValue(__unused lua_State *L) {
 ///  * If the receiver’s content is set as an object value, this method returns the string value representing the object.
 ///  * If the object value is one of the standard, built-in ones (NSNumber, NSCalendarDate, and so on), the string value is in canonical format as defined by the W3C XML Schema Data Types specification.
 ///  * If the object value is not represented by one of these classes (or if the default value transformer for a class has been overridden), the string value is generated by the NSValueTransformer registered for that object type.
-static int xml_stringValue(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_stringValue(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj stringValue]] ;
@@ -625,8 +626,8 @@ static int xml_stringValue(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * A node’s URI is derived from its namespace or a document’s URI; for documents, the URI comes either from the parsed XML or is explicitly set.
-static int xml_URI(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_URI(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj URI]] ;
@@ -645,8 +646,8 @@ static int xml_URI(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * The local name is the part of a node name that follows a namespace-qualifying colon or the full name if there is no colon.
-static int xml_localName(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_localName(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj localName]] ;
@@ -665,8 +666,8 @@ static int xml_localName(__unused lua_State *L) {
 ///
 /// Notes:
 ///  * The prefix is the part of a namespace-qualified name that precedes the colon.  This method returns an empty string if the object’s name is not qualified by a namespace.
-static int xml_prefix(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_prefix(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj prefix]] ;
@@ -682,8 +683,8 @@ static int xml_prefix(__unused lua_State *L) {
 ///
 /// Returns:
 ///  * the XPath expression identifying the xmlObject node’s location in the document tree.
-static int xml_XPath(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int xml_XPath(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     [skin pushNSObject:[obj XPath]] ;
@@ -700,7 +701,7 @@ static int xml_XPath(__unused lua_State *L) {
 /// Returns:
 ///  * a table containing the nodes (if any) that match the XPath query within the context of the xmlObject node.
 static int xml_XPathQuery(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL,
                     LS_TBREAK] ;
@@ -729,7 +730,7 @@ static int xml_XPathQuery(lua_State *L) {
 /// Returns:
 ///  * a table containing the nodes (if any) that match the XQuery query within the context of the xmlObject node.
 static int xml_XQuery(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TTABLE | LS_TSTRING | LS_TNUMBER | LS_TOPTIONAL,
                     LS_TTABLE | LS_TOPTIONAL,
@@ -772,7 +773,7 @@ static int xml_XQuery(lua_State *L) {
 /// Note:
 ///  * this method is only valid for DTD and DTDNode xmlObjects; if used on an xmlObject of a different type, it will result in an error.
 static int xml_publicID(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")])
@@ -797,7 +798,7 @@ static int xml_publicID(lua_State *L) {
 /// Note:
 ///  * this method is only valid for DTD and DTDNode xmlObjects; if used on an xmlObject of a different type, it will result in an error.
 static int xml_systemID(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")])
@@ -812,14 +813,15 @@ static int xml_systemID(lua_State *L) {
 #pragma mark - DTD Module Methods
 
 static int xml_elementDeclaration(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TSTRING | LS_TNUMBER,
                     LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")]) {
         luaL_checkstring(L, 2) ;
-        NSXMLDTDNode *node = [(NSXMLDTD *)obj elementDeclarationForName:[NSString stringWithUTF8String:luaL_checkstring(L, 2)]] ;
+        NSString *name = [NSString stringWithUTF8String:luaL_checkstring(L, 2)] ;
+        NSXMLDTDNode *node = [(NSXMLDTD *)obj elementDeclarationForName:name] ;
         [skin pushNSObject:node] ;
     } else
         return luaL_argerror(L, 1, "expected NSXMLDTD") ;
@@ -827,7 +829,7 @@ static int xml_elementDeclaration(lua_State *L) {
 }
 
 static int xml_attributeElementDeclaration(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TSTRING | LS_TNUMBER,
                     LS_TSTRING | LS_TNUMBER,
@@ -836,8 +838,10 @@ static int xml_attributeElementDeclaration(lua_State *L) {
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")]) {
         luaL_checkstring(L, 2) ;
         luaL_checkstring(L, 3) ;
-        NSXMLDTDNode *node = [(NSXMLDTD *)obj attributeDeclarationForName:[NSString stringWithUTF8String:luaL_checkstring(L, 2)]
-                                                              elementName:[NSString stringWithUTF8String:luaL_checkstring(L, 3)]] ;
+        NSString *name = [NSString stringWithUTF8String:luaL_checkstring(L, 2)] ;
+        NSString *elementName = [NSString stringWithUTF8String:luaL_checkstring(L, 3)] ;
+        NSXMLDTDNode *node = [(NSXMLDTD *)obj attributeDeclarationForName:name
+                                                              elementName:elementName] ;
         [skin pushNSObject:node] ;
     } else
         return luaL_argerror(L, 1, "expected NSXMLDTD") ;
@@ -845,13 +849,14 @@ static int xml_attributeElementDeclaration(lua_State *L) {
 }
 
 static int xml_entityDeclaration(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TSTRING | LS_TNUMBER,
                     LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")]) {
-        NSXMLDTDNode *node = [(NSXMLDTD *)obj entityDeclarationForName:[NSString stringWithUTF8String:luaL_checkstring(L, 2)]] ;
+        NSString *name = [NSString stringWithUTF8String:luaL_checkstring(L, 2)] ;
+        NSXMLDTDNode *node = [(NSXMLDTD *)obj entityDeclarationForName:name] ;
         [skin pushNSObject:node] ;
     } else
         return luaL_argerror(L, 1, "expected NSXMLDTD") ;
@@ -859,13 +864,14 @@ static int xml_entityDeclaration(lua_State *L) {
 }
 
 static int xml_notationDeclaration(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TSTRING | LS_TNUMBER,
                     LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTD")]) {
-        NSXMLDTDNode *node = [(NSXMLDTD *)obj notationDeclarationForName:[NSString stringWithUTF8String:luaL_checkstring(L, 2)]] ;
+        NSString *name = [NSString stringWithUTF8String:luaL_checkstring(L, 2)] ;
+        NSXMLDTDNode *node = [(NSXMLDTD *)obj notationDeclarationForName:name] ;
         [skin pushNSObject:node] ;
     } else
         return luaL_argerror(L, 1, "expected NSXMLDTD") ;
@@ -875,7 +881,7 @@ static int xml_notationDeclaration(lua_State *L) {
 #pragma mark - DTDNode Module Methods
 
 static int xml_isExternal(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTDNode")])
@@ -886,7 +892,7 @@ static int xml_isExternal(lua_State *L) {
 }
 
 static int xml_notationName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTDNode")])
@@ -897,7 +903,7 @@ static int xml_notationName(lua_State *L) {
 }
 
 static int xml_DTDKind(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDTDNode")]) {
@@ -932,7 +938,7 @@ static int xml_DTDKind(lua_State *L) {
 #pragma mark - Document Module Methods
 
 static int xml_rootElement(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
 
@@ -944,7 +950,7 @@ static int xml_rootElement(lua_State *L) {
 }
 
 static int xml_characterEncoding(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")])
@@ -955,7 +961,7 @@ static int xml_characterEncoding(lua_State *L) {
 }
 
 static int xml_DTD(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")])
@@ -966,7 +972,7 @@ static int xml_DTD(lua_State *L) {
 }
 
 static int xml_MIMEType(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")])
@@ -977,7 +983,7 @@ static int xml_MIMEType(lua_State *L) {
 }
 
 static int xml_version(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")])
@@ -988,7 +994,7 @@ static int xml_version(lua_State *L) {
 }
 
 static int xml_isStandalone(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")])
@@ -1000,7 +1006,7 @@ static int xml_isStandalone(lua_State *L) {
 
 
 static int xml_documentContentKind(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
     if ([obj isKindOfClass:NSClassFromString(@"NSXMLDocument")]) {
@@ -1019,7 +1025,7 @@ static int xml_documentContentKind(lua_State *L) {
 #pragma mark - Element Module Methods
 
 static int xml_attributes(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
 
@@ -1031,7 +1037,7 @@ static int xml_attributes(lua_State *L) {
 }
 
 static int xml_namespaces(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSXMLNode *obj = [skin toNSObjectAtIndex:1] ;
 
@@ -1093,7 +1099,7 @@ static int NSXMLNode_toLua(lua_State *L, id obj) {
 }
 
 static id toNSXMLNodeTypeFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     NSXMLNode *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge NSXMLNode, L, idx) ;
@@ -1107,7 +1113,7 @@ static id toNSXMLNodeTypeFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     NSXMLNode *obj = [skin luaObjectAtIndex:1 toClass:"NSXMLNode"] ;
 
     lua_pushcfunction(L, xml_nodeType) ;
@@ -1122,7 +1128,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         NSXMLNode *obj1 = [skin luaObjectAtIndex:1 toClass:"NSXMLNode"] ;
         NSXMLNode *obj2 = [skin luaObjectAtIndex:2 toClass:"NSXMLNode"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -1227,7 +1233,7 @@ static luaL_Reg moduleLib[] = {
 // };
 
 int luaopen_hs__asm_xml_internal(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
