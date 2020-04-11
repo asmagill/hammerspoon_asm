@@ -22,3 +22,6 @@
 [submodule "xml"]
 	path = xml
 	url = https://github.com/asmagill/hs._asm.xml.git
+[submodule "cfpreferences"]
+	path = cfpreferences
+	url = https://github.com/asmagill/hs._asm.cfpreferences.git
