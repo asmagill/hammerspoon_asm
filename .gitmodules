@@ -19,3 +19,6 @@
 [submodule "guitk"]
 	path = guitk
 	url = https://github.com/asmagill/hs._asm.guitk.git
+[submodule "xml"]
+	path = xml
+	url = https://github.com/asmagill/hs._asm.xml.git
