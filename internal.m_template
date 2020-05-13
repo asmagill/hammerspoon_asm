@@ -11,16 +11,16 @@ static int refTable = LUA_NOREF;
 #pragma mark - Support Functions and Classes
 
 // @interface <moduleType> : NSObject
-// @property int selfRef ;
-// @property int selfRefCount ;
+// @property int selfRef ;      -- one of these, but probably not both
+// @property int selfRefCount ; -- see notes in push<moduleType>
 // @end
 //
 // @implementation <moduleType>
 // - (instancetype)init {
 //     self = [super init] ;
 //     if (self) {
-//         _selfRef      = LUA_NOREF ;
-//         _selfRefCount = 0 ;
+//         _selfRef      = LUA_NOREF ; -- one of these, but probably not both
+//         _selfRefCount = 0 ;         -- see notes in push<moduleType>
 //     }
 //     return self ;
 // }
@@ -29,6 +29,19 @@ static int refTable = LUA_NOREF;
 #pragma mark - Module Functions
 
 #pragma mark - Module Methods
+
+// // if using selfRef (not selfRefCount, unless you're using a hybrid)
+// static int userdata_gc(lua_State *L) ; // forward ref for delete method
+// static int <moduleType>Delete(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+//     obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
+//     // call userdata_gc here to make sure any remaining objects in lua
+//     // space that refer to this object won't prevent garbage collection. If __gc
+//     // delayed, a registered callback could "recreate" selfRef thus negating the
+//     // delete entirely.
+//     return userdata_gc(L) ;
+// }
+// // or just move userdata_gc into this method and change the functionref in module_metatable below.
 
 #pragma mark - Module Constants
 
@@ -39,16 +52,34 @@ static int refTable = LUA_NOREF;
 // static int push<moduleType>(lua_State *L, id obj) {
 //     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     <moduleType> *value = obj;
-//     if (value.selfRefCount == 0) {
-//         value.selfRefCount++ ;
+
+// // Using selfRef: ensures that everytime this object is pushed back to Lua, the identical userdata is used
+// //     Pros: can use userdata as key in key-value table
+// //     Cons: requires explicit delete method because useradata will never collect on its own (it exists in
+// //           the registry at `self.luaRef`)
+//     if (value.luaRef == LUA_NOREF) {
 //         void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
 //         *valuePtr = (__bridge_retained void *)value;
 //         luaL_getmetatable(L, USERDATA_TAG);
 //         lua_setmetatable(L, -2);
 //         value.selfRef = [skin luaRef:refTable] ;
 //     }
-//     value.selfRefCount++ ;
 //     [skin pushLuaRef:refTable ref:value.selfRef] ;
+
+// // Using selfRefCount: auto collection when *last* userdata for object leaves lua variable space
+// //     Pros: can autoclean with __gc
+// //     Cons: can't directly be used as key in key-value table because different instances of userdata
+// //           for same object have different hash values; requires O(n) search on table to find out if
+// //           a userdata in the table matches the one we have right now (say as arg to a callback)
+// //           (__eq checks aganst *object* equality, not userdata equality)
+//     value.selfRefCount++ ;
+//     void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
+//     *valuePtr = (__bridge_retained void *)value;
+//     luaL_getmetatable(L, USERDATA_TAG);
+//     lua_setmetatable(L, -2);
+
+// // If you use both, explicit delete will be required (see notes for selfRef above)
+
 //     return 1;
 // }
 //
@@ -91,12 +122,20 @@ static int refTable = LUA_NOREF;
 // static int userdata_gc(lua_State* L) {
 //     <moduleType> *obj = get_objectFromUserdata(__bridge_transfer <moduleType>, L, 1, USERDATA_TAG) ;
 //     if (obj) {
-//         obj.selfRefCount-- ;
+
+// // If using selfRef:
+//         LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+//         obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ; // in case force by reload or meta_gc
+//         // other clean up as necessary
+//         obj = nil ;
+
+// // If using selfRefCount:
+//         obj. selfRefCount-- ;
 //         if (obj.selfRefCount == 0) {
-//             LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-//             obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
+//             // other clean up as necessary
 //             obj = nil ;
 //         }
+
 //     }
 //     // Remove the Metatable so future use of the variable in Lua won't think its valid
 //     lua_pushnil(L) ;
