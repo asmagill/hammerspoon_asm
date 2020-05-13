@@ -38,7 +38,7 @@ static int refTable = LUA_NOREF;
 #pragma mark - CBCentralManagerDelegate Stuff
 
 - (void)centralManager:(__unused CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     peripheral.delegate = self ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef];
@@ -54,7 +54,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)centralManager:(__unused CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     peripheral.delegate = nil ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef];
@@ -75,7 +75,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)centralManager:(__unused CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef];
         [skin pushNSObject:self];
@@ -97,7 +97,7 @@ static int refTable = LUA_NOREF;
 - (void)centralManager:(__unused CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral
                                                        advertisementData:(NSDictionary *)advertisementData
                                                                     RSSI:(NSNumber *)RSSI {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef];
         [skin pushNSObject:self];
@@ -117,7 +117,7 @@ static int refTable = LUA_NOREF;
 // Used by deprecated methods; since we're not implementing an interface to such methods, don't support for now
 //
 // - (void)centralManager:(__unused CBCentralManager *)central didRetrieveConnectedPeripherals:(NSArray *)peripherals {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
 //     if (_callbackRef != LUA_NOREF) {
 //         [skin pushLuaRef:refTable ref:_callbackRef];
 //         [skin pushNSObject:self];
@@ -133,7 +133,7 @@ static int refTable = LUA_NOREF;
 // }
 //
 // - (void)centralManager:(__unused CBCentralManager *)central didRetrievePeripherals:(NSArray *)peripherals {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
 //     if (_callbackRef != LUA_NOREF) {
 //         [skin pushLuaRef:refTable ref:_callbackRef];
 //         [skin pushNSObject:self];
@@ -149,7 +149,7 @@ static int refTable = LUA_NOREF;
 // }
 
 - (void)centralManagerDidUpdateState:(__unused CBCentralManager *)central {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_callbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_callbackRef];
         [skin pushNSObject:self];
@@ -177,7 +177,7 @@ static int refTable = LUA_NOREF;
 #pragma mark - CBPeripheralDelegate Stuff
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -196,7 +196,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverIncludedServicesForService:(CBService *)service error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -216,7 +216,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -236,7 +236,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverDescriptorsForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -256,7 +256,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     [skin logDebug:[NSString stringWithFormat:@"didUpdateValueForCharacteristic %@ error = %@",characteristic.UUID,error]];
     [skin logDebug:[NSString stringWithFormat:@"didUpdateValue %@ %lu ; error = %@",characteristic.value, characteristic.value.length, error]];
     if (_peripheralCallbackRef != LUA_NOREF) {
@@ -278,7 +278,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForDescriptor:(CBDescriptor *)descriptor error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -298,7 +298,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -318,7 +318,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didWriteValueForDescriptor:(CBDescriptor *)descriptor error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -338,7 +338,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -357,27 +357,27 @@ static int refTable = LUA_NOREF;
     }
 }
 
-- (void)peripheralDidUpdateRSSI:(CBPeripheral *)peripheral error:(NSError *)error {
-    LuaSkin *skin = [LuaSkin shared] ;
+- (void)peripheral:(CBPeripheral *)peripheral didReadRSSI:(NSNumber *)RSSI error:(NSError *)error {
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
-        [skin pushNSObject:@"peripheralDidUpdateRSSI"];
+        [skin pushNSObject:@"peripheralDidReadRSSI"];
         if (error) {
             [skin pushNSObject:[error localizedDescription]] ;
         } else {
-            lua_pushnil([skin L]) ;
+            [skin pushNSObject:RSSI] ;
         }
         if (![skin protectedCallAndTraceback:3 nresults:0]) {
             NSString *theError = [skin toNSObjectAtIndex:-1];
             lua_pop([skin L], 1);
-            [skin logWarn:[NSString stringWithFormat:@"%s:peripheralDidUpdateRSSI callback: %@", UD_PERIPHERAL_TAG, theError]];
+            [skin logWarn:[NSString stringWithFormat:@"%s:peripheralDidReadRSSI callback: %@", UD_PERIPHERAL_TAG, theError]];
         }
     }
 }
 
 - (void)peripheralDidUpdateName:(CBPeripheral *)peripheral {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -391,7 +391,7 @@ static int refTable = LUA_NOREF;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didModifyServices:(NSArray *)invalidatedServices {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
     if (_peripheralCallbackRef != LUA_NOREF) {
         [skin pushLuaRef:refTable ref:_peripheralCallbackRef];
         [skin pushNSObject:peripheral];
@@ -419,7 +419,7 @@ static int refTable = LUA_NOREF;
 /// Returns:
 ///  * a new btleObject
 static int createManager(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
     HSCBCentralManager *theManager = [[HSCBCentralManager alloc] init] ;
     if (theManager)
@@ -450,17 +450,17 @@ static int createManager(lua_State *L) {
 /// Notes:
 ///  * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the "didUpdateState" message.
 static int getManagerState(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TBREAK] ;
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
-    CBCentralManagerState currentState = [manager.manager state] ;
+    CBManagerState currentState = [manager.manager state] ;
     switch(currentState) {
-        case CBCentralManagerStateUnknown:      lua_pushstring(L, "unknown") ; break ;
-        case CBCentralManagerStateResetting:    lua_pushstring(L, "resetting") ; break ;
-        case CBCentralManagerStateUnsupported:  lua_pushstring(L, "unsupported") ; break ;
-        case CBCentralManagerStateUnauthorized: lua_pushstring(L, "unauthorized") ; break ;
-        case CBCentralManagerStatePoweredOff:   lua_pushstring(L, "poweredOff") ; break ;
-        case CBCentralManagerStatePoweredOn:    lua_pushstring(L, "poweredOn") ; break ;
+        case CBManagerStateUnknown:      lua_pushstring(L, "unknown") ; break ;
+        case CBManagerStateResetting:    lua_pushstring(L, "resetting") ; break ;
+        case CBManagerStateUnsupported:  lua_pushstring(L, "unsupported") ; break ;
+        case CBManagerStateUnauthorized: lua_pushstring(L, "unauthorized") ; break ;
+        case CBManagerStatePoweredOff:   lua_pushstring(L, "poweredOff") ; break ;
+        case CBManagerStatePoweredOn:    lua_pushstring(L, "poweredOn") ; break ;
         default:
             [skin pushNSObject:[NSString stringWithFormat:@"unrecognized state: %ld", currentState]] ;
             break ;
@@ -469,7 +469,7 @@ static int getManagerState(lua_State *L) {
 }
 
 static int setManagerCallback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
 
@@ -484,7 +484,7 @@ static int setManagerCallback(lua_State *L) {
 }
 
 static int setPeripheralCallback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
 
@@ -499,7 +499,7 @@ static int setPeripheralCallback(lua_State *L) {
 }
 
 static int stopScan(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TBREAK] ;
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
     [manager.manager stopScan] ;
@@ -508,7 +508,7 @@ static int stopScan(lua_State *L) {
 }
 
 static int startScan(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
 
@@ -552,7 +552,7 @@ static int startScan(lua_State *L) {
 }
 
 static int connectPeripheral(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     HSCBCentralManager *manager    = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
     CBPeripheral       *peripheral = [skin luaObjectAtIndex:2 toClass:"CBPeripheral"] ;
@@ -562,7 +562,7 @@ static int connectPeripheral(lua_State *L) {
 }
 
 static int cancelPeripheralConnection(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     HSCBCentralManager *manager    = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
     CBPeripheral       *peripheral = [skin luaObjectAtIndex:2 toClass:"CBPeripheral"] ;
@@ -575,8 +575,8 @@ static int cancelPeripheralConnection(lua_State *L) {
 // instead/as-well.
 //
 // //FIXME: currently searches for all -- add support for limiting by CBUUID (service) array
-// static int retrieveConnectedPeripherals(__unused lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+// static int retrieveConnectedPeripherals(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TBREAK] ;
 //     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
 //     NSArray *thePeripherals = [manager.manager retrieveConnectedPeripheralsWithServices:nil] ;
@@ -586,7 +586,7 @@ static int cancelPeripheralConnection(lua_State *L) {
 // }
 
 static int retrievePeripheralsWithIdentifiers(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_MANAGER_TAG, LS_TTABLE, LS_TBREAK] ;
     HSCBCentralManager *manager = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
     NSMutableArray *peripherals = [[NSMutableArray alloc] init] ;
@@ -632,7 +632,7 @@ static int pushHSCBCentralManager(lua_State *L, id obj) {
 }
 
 static id toHSCBCentralManagerFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     HSCBCentralManager *value ;
     if (luaL_testudata(L, idx, UD_MANAGER_TAG)) {
         value = get_objectFromUserdata(__bridge HSCBCentralManager, L, idx, UD_MANAGER_TAG) ;
@@ -643,9 +643,9 @@ static id toHSCBCentralManagerFromLua(lua_State *L, int idx) {
     return value ;
 }
 
-static int pushCBUUID(__unused lua_State *L, id obj) {
+static int pushCBUUID(lua_State *L, id obj) {
     CBUUID *theCBUUID = obj ;
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     NSString *answer = theCBUUID.UUIDString ;
     [skin pushNSObject:answer];
     return 1 ;
@@ -654,7 +654,7 @@ static int pushCBUUID(__unused lua_State *L, id obj) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", UD_MANAGER_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
 }
@@ -662,7 +662,7 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     if (luaL_testudata(L, 1, UD_MANAGER_TAG) && luaL_testudata(L, 2, UD_MANAGER_TAG)) {
         HSCBCentralManager *obj1 = [skin luaObjectAtIndex:1 toClass:"HSCBCentralManager"] ;
         HSCBCentralManager *obj2 = [skin luaObjectAtIndex:2 toClass:"HSCBCentralManager"] ;
@@ -678,7 +678,7 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
-            LuaSkin *skin             = [LuaSkin shared] ;
+            LuaSkin *skin             = [LuaSkin sharedWithState:L] ;
             obj.peripheralCallbackRef = [skin luaUnref:refTable ref:obj.peripheralCallbackRef] ;
             obj.callbackRef           = [skin luaUnref:refTable ref:obj.callbackRef] ;
             obj.manager.delegate      = nil ;
@@ -728,8 +728,8 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_btle_manager(__unused lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_btle_manager(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:UD_MANAGER_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

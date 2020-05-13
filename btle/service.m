@@ -15,8 +15,8 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Service Methods
 
-static int serviceUUID(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int serviceUUID(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     NSString *answer = [theService.UUID UUIDString] ;
@@ -24,24 +24,24 @@ static int serviceUUID(__unused lua_State *L) {
     return 1 ;
 }
 
-static int servicePeripheral(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int servicePeripheral(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     [skin pushNSObject:theService.peripheral] ;
     return 1 ;
 }
 
-static int serviceCharacteristics(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int serviceCharacteristics(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     [skin pushNSObject:theService.characteristics] ;
     return 1 ;
 }
 
-static int serviceIncludedServices(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int serviceIncludedServices(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     [skin pushNSObject:theService.includedServices] ;
@@ -49,7 +49,7 @@ static int serviceIncludedServices(__unused lua_State *L) {
 }
 
 static int servicePrimary(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService *theService = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     lua_pushboolean(L, theService.isPrimary) ;
@@ -58,7 +58,7 @@ static int servicePrimary(lua_State *L) {
 
 //FIXME: currently searches for all -- add support for limiting by CBService array
 static int peripheralDiscoverIncludedServices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService    *theService    = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     CBPeripheral *thePeripheral = [theService peripheral] ;
@@ -69,7 +69,7 @@ static int peripheralDiscoverIncludedServices(lua_State *L) {
 
 //FIXME: currently searches for all -- add support for limiting by CBCharacteristic array
 static int peripheralDiscoverCharacteristicsForService(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_SERVICE_TAG, LS_TBREAK] ;
     CBService    *theService    = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     CBPeripheral *thePeripheral = [theService peripheral] ;
@@ -93,7 +93,7 @@ static int pushCBServiceAsUD(lua_State *L, id obj) {
 }
 
 static id toCBServiceFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBService *value ;
     if (luaL_testudata(L, idx, UD_SERVICE_TAG)) {
         value = get_objectFromUserdata(__bridge CBService, L, idx, UD_SERVICE_TAG) ;
@@ -107,7 +107,7 @@ static id toCBServiceFromLuaUD(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBService *obj = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
     NSString *label = [[obj UUID] UUIDString] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_SERVICE_TAG,
@@ -119,7 +119,7 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     if (luaL_testudata(L, 1, UD_SERVICE_TAG) && luaL_testudata(L, 2, UD_SERVICE_TAG)) {
         CBService *obj1 = [skin luaObjectAtIndex:1 toClass:"CBService"] ;
         CBService *obj2 = [skin luaObjectAtIndex:2 toClass:"CBService"] ;
@@ -166,8 +166,8 @@ static const luaL_Reg service_metaLib[] = {
     {NULL,                       NULL}
 };
 
-int luaopen_hs__asm_btle_service(__unused lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_btle_service(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:UD_SERVICE_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

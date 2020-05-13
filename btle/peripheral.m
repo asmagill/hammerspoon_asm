@@ -15,24 +15,24 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Peripheral Methods
 
-static int peripheralIdentifier(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int peripheralIdentifier(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [skin pushNSObject:[thePeripheral.identifier UUIDString]] ;
     return 1 ;
 }
 
-static int peripheralName(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int peripheralName(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [skin pushNSObject:thePeripheral.name] ;
     return 1 ;
 }
 
-static int peripheralServices(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int peripheralServices(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [skin pushNSObject:thePeripheral.services] ;
@@ -41,7 +41,7 @@ static int peripheralServices(__unused lua_State *L) {
 
 //FIXME: currently searches for all -- add support for limiting by CBService array
 static int peripheralDiscoverServices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [thePeripheral discoverServices:nil] ;
@@ -50,14 +50,15 @@ static int peripheralDiscoverServices(lua_State *L) {
 }
 
 static int peripheralState(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     CBPeripheralState theState = thePeripheral.state ;
     switch(theState) {
-        case CBPeripheralStateDisconnected: lua_pushstring(L, "disconnected") ; break ;
-        case CBPeripheralStateConnecting:   lua_pushstring(L, "connecting") ; break ;
-        case CBPeripheralStateConnected:    lua_pushstring(L, "connected") ; break ;
+        case CBPeripheralStateDisconnected:  lua_pushstring(L, "disconnected") ; break ;
+        case CBPeripheralStateConnecting:    lua_pushstring(L, "connecting") ; break ;
+        case CBPeripheralStateConnected:     lua_pushstring(L, "connected") ; break ;
+        case CBPeripheralStateDisconnecting: lua_pushstring(L, "disconnecting") ; break ;
         default:
             [skin pushNSObject:[NSString stringWithFormat:@"unrecognized state: %ld", theState]] ;
             break ;
@@ -65,16 +66,8 @@ static int peripheralState(lua_State *L) {
     return 1 ;
 }
 
-static int peripheralRSSI(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
-    [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
-    CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
-    [skin pushNSObject:thePeripheral.RSSI] ;
-    return 1 ;
-}
-
 static int peripheralReadRSSI(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [thePeripheral readRSSI] ;
@@ -95,7 +88,7 @@ static int peripheralReadRSSI(lua_State *L) {
 /// Notes:
 ///  * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.
 static int peripheralMaximumWriteValueLength(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_PERIPHERAL_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     CBPeripheral *thePeripheral = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     CBCharacteristicWriteType writeType = (lua_gettop(L) == 2 && lua_toboolean(L, 2)) ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse ;
@@ -126,7 +119,7 @@ static int pushCBPeripheralAsUD(lua_State *L, id obj) {
 }
 
 static id toCBPeripheralFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBPeripheral *value ;
     if (luaL_testudata(L, idx, UD_PERIPHERAL_TAG)) {
         value = get_objectFromUserdata(__bridge CBPeripheral, L, idx, UD_PERIPHERAL_TAG) ;
@@ -140,7 +133,7 @@ static id toCBPeripheralFromLuaUD(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBPeripheral *obj = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_PERIPHERAL_TAG,
                                                                   [obj name],
@@ -151,7 +144,7 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     if (luaL_testudata(L, 1, UD_PERIPHERAL_TAG) && luaL_testudata(L, 2, UD_PERIPHERAL_TAG)) {
         CBPeripheral *obj1 = [skin luaObjectAtIndex:1 toClass:"CBPeripheral"] ;
         CBPeripheral *obj2 = [skin luaObjectAtIndex:2 toClass:"CBPeripheral"] ;
@@ -191,7 +184,6 @@ static const luaL_Reg peripheral_metaLib[] = {
     {"discoverServices", peripheralDiscoverServices},
     {"services",         peripheralServices},
 
-    {"RSSI",             peripheralRSSI},
     {"readRSSI",         peripheralReadRSSI},
 
     {"__tostring",       userdata_tostring},
@@ -200,8 +192,8 @@ static const luaL_Reg peripheral_metaLib[] = {
     {NULL,               NULL}
 };
 
-int luaopen_hs__asm_btle_peripheral(__unused lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_btle_peripheral(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:UD_PERIPHERAL_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

@@ -15,8 +15,8 @@ static int refTable = LUA_NOREF;
 
 #pragma mark - Descriptor Methods
 
-static int descriptorUUID(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int descriptorUUID(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     NSString *answer = [theDescriptor.UUID UUIDString] ;
@@ -24,16 +24,16 @@ static int descriptorUUID(__unused lua_State *L) {
     return 1 ;
 }
 
-static int descriptorValue(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int descriptorValue(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     [skin pushNSObject:theDescriptor.value] ;
     return 1 ;
 }
 
-static int descriptorCharacteristic(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int descriptorCharacteristic(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     [skin pushNSObject:theDescriptor.characteristic] ;
@@ -41,7 +41,7 @@ static int descriptorCharacteristic(__unused lua_State *L) {
 }
 
 static int peripheralReadValueForDescriptor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     CBPeripheral *thePeripheral = [[[theDescriptor characteristic] service] peripheral] ;
@@ -51,7 +51,7 @@ static int peripheralReadValueForDescriptor(lua_State *L) {
 }
 
 static int peripheralWriteValueForDescriptor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, UD_DESCRIPTOR_TAG, LS_TSTRING, LS_TBREAK] ;
     CBDescriptor *theDescriptor = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     CBPeripheral *thePeripheral = [[[theDescriptor characteristic] service] peripheral] ;
@@ -76,7 +76,7 @@ static int pushCBDescriptorAsUD(lua_State *L, id obj) {
 }
 
 static id toCBDescriptorFromLuaUD(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBDescriptor *value ;
     if (luaL_testudata(L, idx, UD_DESCRIPTOR_TAG)) {
         value = get_objectFromUserdata(__bridge CBDescriptor, L, idx, UD_DESCRIPTOR_TAG) ;
@@ -90,7 +90,7 @@ static id toCBDescriptorFromLuaUD(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     CBDescriptor *obj = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
     NSString *label = [[obj UUID] UUIDString] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", UD_DESCRIPTOR_TAG,
@@ -102,7 +102,7 @@ static int userdata_tostring(lua_State* L) {
 static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     if (luaL_testudata(L, 1, UD_DESCRIPTOR_TAG) && luaL_testudata(L, 2, UD_DESCRIPTOR_TAG)) {
         CBDescriptor *obj1 = [skin luaObjectAtIndex:1 toClass:"CBDescriptor"] ;
         CBDescriptor *obj2 = [skin luaObjectAtIndex:2 toClass:"CBDescriptor"] ;
@@ -147,8 +147,8 @@ static const luaL_Reg descriptor_metaLib[] = {
     {NULL,             NULL}
 };
 
-int luaopen_hs__asm_btle_descriptor(__unused lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_btle_descriptor(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:UD_DESCRIPTOR_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

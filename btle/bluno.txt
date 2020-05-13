@@ -19,7 +19,6 @@
           ["2A23"] = {
             characteristic = <userdata 2> -- hs._asm.btle.characteristic: 2A23 (0x608000a56ee8),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -33,7 +32,6 @@
           ["2A24"] = {
             characteristic = <userdata 3> -- hs._asm.btle.characteristic: 2A24 (0x608000a56e88),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -47,7 +45,6 @@
           ["2A25"] = {
             characteristic = <userdata 4> -- hs._asm.btle.characteristic: 2A25 (0x608000e52bf8),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -61,7 +58,6 @@
           ["2A26"] = {
             characteristic = <userdata 5> -- hs._asm.btle.characteristic: 2A26 (0x6080010507f8),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -75,7 +71,6 @@
           ["2A27"] = {
             characteristic = <userdata 6> -- hs._asm.btle.characteristic: 2A27 (0x608001054f68),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -89,7 +84,6 @@
           ["2A28"] = {
             characteristic = <userdata 7> -- hs._asm.btle.characteristic: 2A28 (0x608000a57e48),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -103,7 +97,6 @@
           ["2A29"] = {
             characteristic = <userdata 8> -- hs._asm.btle.characteristic: 2A29 (0x608000a56e58),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -117,7 +110,6 @@
           ["2A2A"] = {
             characteristic = <userdata 9> -- hs._asm.btle.characteristic: 2A2A (0x608000a55f88),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -131,7 +123,6 @@
           ["2A50"] = {
             characteristic = <userdata 10> -- hs._asm.btle.characteristic: 2A50 (0x6080010526b8),
             descriptors = {},
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 2,
@@ -162,7 +153,6 @@
                 valueUpdated = 1496643589
               }
             },
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 30,
@@ -187,7 +177,6 @@
                 valueUpdated = 1496643590
               }
             },
-            isBroadcasted = false,
             isNotifying = false,
             properties = {
               _raw = 30,

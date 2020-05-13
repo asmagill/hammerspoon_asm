@@ -244,7 +244,6 @@ module.create = function()
                                 descriptors    = {},
                                 properties     = characteristic:properties(),
                                 isNotifying    = characteristic:isNotifying(),
-                                isBroadcasted  = characteristic:isBroadcasted(),
                                 characteristic = characteristic,
                                 updated        = os.time(),
                                 label          = module.gattByUUID[label:upper()] and module.gattByUUID[label:upper()].name,
@@ -373,12 +372,12 @@ module.create = function()
                         device.services[serviceLabel].characteristics[charLabel].fn(peripheral, message, ...)
                     end
 
-                elseif message == "peripheralDidUpdateRSSI" then
-                    local errMsg = ...
-                    if errMsg then
-                        errorToLog = errMsg
+                elseif message == "peripheralDidReadRSSI" then
+                    local errMsgOrRSSI = ...
+                    if type(errMsgOrRSSI) == "string" then
+                        errorToLog = errMsgOrRSSI
                     else
-                        device.RSSI    = peripheral:RSSI()
+                        device.RSSI    = errMsgOrRSSI
                         device.updated = os.time()
                     end
 
