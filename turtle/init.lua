@@ -23,7 +23,60 @@ end
 
 -- private variables and methods -----------------------------------------
 
-local _internalLuaSideVars = setmetatable({}, { __mode = "k" })
+local _internalLuaSideVars = setmetatable({}, {
+    __mode = "k",
+
+    -- work around for the fact that we're using selfRefCount to allow for auto-clean on __gc
+    -- relies on the fact that these are only called if the key *doesn't* exist already in the
+    -- table
+
+    -- the following assume [<userdata>] = { table } in weak-key table; if you're not
+    --     saving a table of values keyed to the userdata, all bets are off and you'll
+    --     need to write something else
+
+    __index = function(self, key)
+        for k,v in pairs(self) do
+            if k == key then
+                -- put *this* key in with the same table so changes to the table affect all
+                -- "keys" pointing to this table
+                rawset(self, key, v)
+                return v
+            end
+        end
+        return nil
+    end,
+
+    __newindex = function(self, key, value)
+        local haslogged = false
+        -- only called for a complete re-assignment of the table if __index wasn't
+        -- invoked first...
+        for k,v in pairs(self) do
+            if k == key then
+                if type(value) == "table" and type(v) == "table" then
+                    -- do this to keep the target table for existing useradata the same
+                    -- because it may have multiple other userdatas pointing to it
+                    for k2, v2 in pairs(v) do v[k2] = nil end
+                    -- shallow copy -- can't have everything or this will get insane
+                    for k2, v2 in pairs(value) do v[k2] = v2 end
+                    rawset(self, key, v)
+                    return
+                else
+                    -- we'll try... replace *all* existing matches (i.e. don't return after 1st)
+                    -- but since this will never get called if __index was invoked first, log
+                    -- warning anyways because this *isn't* what these additions are for...
+                    if not haslogged then
+                        hs.luaSkinLog.wf("%s - weak table indexing only works when value is a table; behavior is undefined for value type %s", USERDATA_TAG, type(value))
+                        haslogged = true
+                    end
+                    rawset(self, k, value)
+                end
+            end
+        end
+        rawset(self, key, value)
+    end,
+})
+
+module._internalLuaSideVars = _internalLuaSideVars
 
 -- Hide the internals from accidental usage
 local _wrappedCommands  = module._wrappedCommands
@@ -35,7 +88,8 @@ local _unwrappedSynonyms = {
     clearscreen = { "cs", "clearScreen" },
     showturtle  = { "st", "showTurtle" },
     hideturtle  = { "ht", "hideTurtle" },
-    shownp      = { "turtleVisible" },
+    shownp      = { "isTurtleVisible" },
+    pendownp    = { "penDownP", "isPenDown" },
 }
 
 local penColors = {
@@ -76,6 +130,7 @@ end
 
 -- Public interface ------------------------------------------------------
 
+-- reminders for docs
 --   forward
 --   back
 --   left
@@ -93,6 +148,9 @@ end
 --   clearscreen
 --   pendown
 --   penup
+--   penpaint
+--   penerase
+--   penreverse
 
 for i, v in ipairs(_wrappedCommands) do
     local cmdLabel, cmdNumber = v[1], i - 1
@@ -126,6 +184,11 @@ turtleMT.pos = function(...)
     return setmetatable(result, {
         __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
     })
+end
+
+turtleMT.towards = function(self, x, y)
+    local pos = self:pos()
+    return (90 - math.atan(y - pos[2],x - pos[1]) * 180 / math.pi) % 360
 end
 
 turtleMT._yieldRatio = function(self, ...)
@@ -197,6 +260,48 @@ module.new = function(...)
     return self
 end
 
+turtleMT.bye = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        if c[#c].canvas == self then
+            c[#c].canvas = nil
+        else
+            for i = 1, #c, 1 do
+                if c[i].canvas == self then
+                    c[i].canvas = nil
+                    break
+                end
+            end
+        end
+        c:delete()
+    else
+        hs.luaSkinLog.f("%s:delete - not a known turtle only canvas; apply delete method to parent canvas, or pass in `true` as argument to this method")
+    end
+end
+
+turtleMT.show = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        c:show()
+    else
+        hs.luaSkinLog.f("%s:show - not a known turtle only canvas; apply show method to parent canvas, or pass in `true` as argument to this method")
+    end
+    return self
+end
+
+turtleMT.hide = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        c:hide()
+    else
+        hs.luaSkinLog.f("%s:hide - not a known turtle only canvas; apply hide method to parent canvas, or pass in `true` as argument to this method")
+    end
+    return self
+end
+
 module.turtleCanvas = function(...)
     local screen   = require("hs.screen")
     local canvas   = require("hs.canvas")
@@ -232,7 +337,7 @@ module.turtleCanvas = function(...)
                 w = decorateSize
             }
 
-            nC.turtle.frame = {
+            nC.turtleView.frame = {
                 x = 0,
                 y = decorateSize,
                 h = frame.h - decorateSize * 2,
@@ -310,10 +415,11 @@ module.turtleCanvas = function(...)
         }
     end
 
+    local turtleViewObject = module.new()
     nC[#nC + 1] = {
-        id     = "turtle",
+        id     = "turtleView",
         type   = "canvas",
-        canvas = module.new(),
+        canvas = turtleViewObject,
     }
 
     recalcDecorations(nC, decorate)
@@ -378,7 +484,7 @@ module.turtleCanvas = function(...)
           end)
     end
 
-    return nC.turtle.canvas
+    return turtleViewObject
 end
 
 -- Return Module Object --------------------------------------------------

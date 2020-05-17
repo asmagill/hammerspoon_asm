@@ -19,34 +19,36 @@
 
 //   add way to dump/import commandList?
 
-// ? is there something better than individual BezierPaths for lines/vector graphics?
-// *     save bezierPaths in commandList when built in drawRect and reuse
-// *         if insert/remove not at end, invalidate remaining
-
-// - use rect within drawRect: method to minimize drawing
-//     only things triggering needsDisplay are us and overhead of verifying path in dirtyRect actually
-//         slowed it down -- we still have to run through all commands to keep _tX, etc current, so
-//         paths got made (or retrieved) but not stroked... verification slowed us down more than
-//         stroking did, so... skpping for now.
-
-//   can we render into bitmap and then copy it to view when it changes?
-//       would remove need to re-stroke in drawRect:
-// **** Move render logic into separate method invoked by insertCommand/removeCommandAtIndex and
-//      others as necessary to build and maintain NSImage
-//      All drawRect: does is transform NSImage to proper origin position.
+//   Turtle state is only updated in drawRect. Attempts at capturing an image of the results and just redraw
+//       the image if the update is from outside (e.g. move or resize of window) have crashed hard. Still,
+//       the current state of affairs means even a "penUp" triggers drawRect: so that turtle state gets
+//       updated and predicates can return current data.
 //
-//      Problems:   NSImage is bounded at init, not "infinite" like NSView
-//                  NSImage drawInRect scales images so it doesn't exist outside of rect...
-//                     either need rect to be bigger than actual view and position accordingly
-//                     or use NSImageView, but I'm less familiar with how it updates (e.g. drawRect?)
-//                     or what we'd have to override, call the super for, or what...
-//                  Probably former, but we're going to need to define a basic "limit" to the grid size
-//                     at initialization
-//
-//      per NSImage initializer:
-//          It is permissible to initialize the image object by passing a size of (0.0, 0.0); however, you must set the size to a non-zero value before using it or an exception will be raised.
-//          Need to test: does this mean before we draw it in the view or before we draw *into* it with lockFocus?
+//   Can we either render off screen (in another view?) and then just swap in the content of the off screen view?
+//       Views may have different size, so this will have to be taken into account...
+//   Or at least move turtle state updates out of drawRect: and into insertCommand:atIndex:withArguments:error:
+//       and removeCommandAtIndex:? Probably mean replicating some code, but at least if view hidden during
+//       updates, it should be lightning fast (and it already is pretty fast... the actual drawing *is* the
+//       slowest part)
 
+// ***** Need to move state tracking out of drawRect: anyways: *****
+//
+// ~~~lau
+// > myC:pendownp()
+// true
+//
+// > myC:pu():pendownp() -- drawRect: hasn't been invoked before the query occurs...
+// true
+//
+// > myC:pendownp()
+// false
+// ~~~
+
+// ***** Simplify: change insert to append, remove removeCommandAtIndex *****
+//       build in separate function invoked after append; could store interim x0,y0,x1,y1 along the way
+//       and (maybe) even prebuild bezier objects... this assumes they take on graphics context state
+//       when stroke actually occurs. drawRect: then becomes only a replay of what's already calculated
+//       and makes no changes to state at all
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int refTable = LUA_NOREF;
@@ -60,37 +62,39 @@ static NSArray *penColors ;
 #pragma mark - Support Functions and Classes
 
 @interface HSCanvasTurtleView : NSView
-@property            int            selfRef ;
-@property            int            selfRefCount ;
+@property            int                    selfRefCount ;
 
-@property (readonly) NSMutableArray *commandList ;
+@property (readonly) NSMutableArray         *commandList ;
 
-@property            NSUInteger     turtleSize ;
-@property            NSImageView    *turtleImageView ;
+@property            NSUInteger             turtleSize ;
+@property            NSImageView            *turtleImageView ;
 
-@property            CGFloat        tX ;
-@property            CGFloat        tY ;
-@property            CGFloat        tHeading ;
-@property            BOOL           tPenDown ;
+@property            CGFloat                tX ;
+@property            CGFloat                tY ;
+@property            CGFloat                tHeading ;
+@property            BOOL                   tPenDown ;
+@property            NSCompositingOperation tPenMode ;
 
-@property            NSUInteger     pColorNumber ;
-@property            NSUInteger     bColorNumber ;
-@property            NSColor        *pColor ;
-@property            NSColor        *bColor ;
+@property            NSUInteger             pColorNumber ;
+@property            NSUInteger             bColorNumber ;
+@property            NSColor                *pColor ;
+@property            NSColor                *bColor ;
 @end
 
 @implementation HSCanvasTurtleView {
     // things clean doesn't reset
-    CGFloat    _tInitX ;
-    CGFloat    _tInitY ;
-    CGFloat    _tInitHeading ;
-    BOOL       _tInitPenDown ;
-    NSColor    *_pInitColor ;
-    NSColor    *_bInitColor ;
+    CGFloat                _tInitX ;
+    CGFloat                _tInitY ;
+    CGFloat                _tInitHeading ;
+    BOOL                   _tInitPenDown ;
+    NSCompositingOperation _tInitPenMode ;
 
-    BOOL       _neverRender ;
-    NSWindow   *_parentWindow ;
-    NSUInteger _pathsValidBefore ;
+    NSColor                *_pInitColor ;
+    NSColor                *_bInitColor ;
+
+    BOOL                   _neverRender ;
+    NSWindow               *_parentWindow ;
+    NSUInteger             _pathsValidBefore ;
 }
 
 #pragma mark - Required for Canvas compatible view -
@@ -98,7 +102,6 @@ static NSArray *penColors ;
 - (instancetype)initWithFrame:(NSRect)frameRect {
     self = [super initWithFrame:frameRect] ;
     if (self) {
-        _selfRef      = LUA_NOREF ;
         _selfRefCount = 0 ;
 
         _neverRender  = YES ;
@@ -118,15 +121,9 @@ static NSArray *penColors ;
     BOOL render = !_neverRender ;
 
     NSGraphicsContext* gc ;
-    __block CGFloat      x            = _tInitX ;
-    __block CGFloat      y            = _tInitY ;
-    __block CGFloat      heading      = _tInitHeading ;
-    __block BOOL         penDown      = _tPenDown ;
 
     gc = [NSGraphicsContext currentContext];
     [gc saveGraphicsState];
-
-    [_pInitColor setStroke] ;
 
     CGFloat xOriginOffset = self.frame.size.width / 2 ;
     CGFloat yOriginOffset = self.frame.size.height / 2 ;
@@ -135,6 +132,15 @@ static NSArray *penColors ;
     NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
     [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
     [shiftOriginToCenter concat] ;
+
+    [_pInitColor setStroke] ;
+    gc.compositingOperation = _tInitPenMode ;
+
+    __block CGFloat                x       = _tInitX ;
+    __block CGFloat                y       = _tInitY ;
+    __block CGFloat                heading = _tInitHeading ;
+    __block BOOL                   penDown = _tInitPenDown ;
+    __block NSCompositingOperation penMode = _tInitPenMode ;
 
     [_commandList enumerateObjectsUsingBlock:^(NSArray *cmdDetails, NSUInteger idx, __unused BOOL *stop) {
         NSUInteger cmd        = [(NSNumber *)cmdDetails[0] unsignedIntegerValue] ;
@@ -205,6 +211,16 @@ static NSArray *penColors ;
                 penDown = (cmd == 10) ;
             } break ;
 
+            case 12:   // penpaint
+            case 13:   // penerase
+            case 14: { // penreverse
+                penMode = (cmd == 14) ? NSCompositingOperationDifference :
+                          (cmd == 13) ? NSCompositingOperationDestinationOut :
+                                        NSCompositingOperationSourceOver ;
+                if (render) gc.compositingOperation = penMode ;
+                penDown = YES ;
+            } break ;
+
             default: {
                 [LuaSkin logWarn:[NSString stringWithFormat:@"%s: @drawRect - command code %lu at index %lu currently unsupported", USERDATA_TAG, cmd, idx]] ;
             }
@@ -217,10 +233,11 @@ static NSArray *penColors ;
     _tY       = y ;
     _tHeading = heading ;
     _tPenDown = penDown ;
+    _tPenMode = penMode ;
 
     if (render) [self updateTurtle] ;
 
-    [gc restoreGraphicsState];
+    [gc restoreGraphicsState] ;
 }
 
 #pragma mark   Only required if we want to know when we are hidden
@@ -279,6 +296,7 @@ static NSArray *penColors ;
     _tY           = 0.0 ;
     _tHeading     = 0.0 ;
     _tPenDown     = YES ;
+    _tPenMode     = NSCompositingOperationSourceOver ;
 
     _turtleSize      = 45 ;
     _turtleImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, _turtleSize, _turtleSize)] ;
@@ -302,6 +320,8 @@ static NSArray *penColors ;
     _tInitY       = _tY ;
     _tInitHeading = _tHeading ;
     _tInitPenDown = _tPenDown ;
+    _tInitPenMode = _tPenMode ;
+
     _pInitColor   = _pColor ;
     _bInitColor   = _bColor ;
 
@@ -335,13 +355,13 @@ static NSArray *penColors ;
     if (cmd < cmdCount) {
         NSArray    *cmdDetails      = wrappedCommands[cmd] ;
         NSString   *cmdName         = cmdDetails[0] ;
-        NSUInteger expectedArgCount = [(NSNumber *)cmdDetails[2] unsignedIntegerValue] ;
+        NSUInteger expectedArgCount = [(NSNumber *)cmdDetails[3] unsignedIntegerValue] ;
         NSUInteger actualArgCount   = (arguments) ? arguments.count : 0 ;
 
         if (expectedArgCount == actualArgCount) {
             if (expectedArgCount > 0) {
                 for (NSUInteger i = 0 ; i < expectedArgCount ; i++) {
-                    NSString *expectedArgType = cmdDetails[3 + i] ;
+                    NSString *expectedArgType = cmdDetails[4 + i] ;
                     if ([expectedArgType isKindOfClass:[NSString class]]) {
                         if ([expectedArgType isEqualToString:@"number"]) {
                             if (![(NSObject *)arguments[i] isKindOfClass:[NSNumber class]]) {
@@ -435,6 +455,9 @@ static NSArray *penColors ;
         if (arguments) newCommand[1][@"arguments"] = arguments ;
         [_commandList insertObject:newCommand atIndex:(NSUInteger)idx] ;
         _pathsValidBefore = (NSUInteger)idx ;
+// as long as drawRect: is where turtle state gets updated, we always need to rerun it...
+//         self.needsDisplay = (idx < (NSInteger)count) || [(NSNumber *)(wrappedCommands[cmd][2]) boolValue] ;
+        self.needsDisplay = YES ;
     }
 
     return isGood ;
@@ -445,6 +468,15 @@ static NSArray *penColors ;
     NSUInteger count = _commandList.count ;
     if (idx < 0) idx = (NSInteger)count + idx ;
     if (idx >= 0 && idx < (NSInteger)count) {
+// as long as drawRect: is where turtle state gets updated, we always need to rerun it...
+//         if (idx == (NSInteger)(count - 1)) {
+//             NSUInteger lastCommand = [(NSNumber *)(_commandList.lastObject[0]) unsignedIntegerValue] ;
+//             self.needsDisplay = [(NSNumber *)(wrappedCommands[lastCommand][2]) boolValue] ;
+//         } else {
+//             self.needsDisplay = YES ;
+//         }
+        self.needsDisplay = YES ;
+
         [_commandList removeObjectAtIndex:(NSUInteger)idx] ;
         _pathsValidBefore = (NSUInteger)idx ;
     }
@@ -534,7 +566,8 @@ static int turtle_removeCommandAtIndex(lua_State *L) {
     if (idx > 0 && idx <= (NSInteger)count) {
         [turtleCanvas removeCommandAtIndex:(idx - 1)] ;
     } else {
-        return luaL_argerror(L, 2, "index out of bounds") ;
+        // error generation is being done by lua wrapper
+        lua_pushstring(L, "index out of bounds") ;
     }
     return 1 ;
 }
@@ -576,11 +609,12 @@ static int turtle_insertCommandAtIndex(lua_State *L) {
             // this shouldn't be possible, but we don't want to keep anything that generated an error
             if (wasAdded) [turtleCanvas removeCommandAtIndex:-1] ;
         } else {
-            turtleCanvas.needsDisplay = YES ;
+//             turtleCanvas.needsDisplay = YES ;
             lua_pushvalue(L, 1) ;
         }
     } else {
-        return luaL_argerror(L, 3, "index out of bounds") ;
+        // error generation is being done by lua wrapper
+        lua_pushstring(L, "index out of bounds") ;
     }
     return 1 ;
 }
@@ -654,13 +688,42 @@ static int turtle_shownp(lua_State *L) {
     return 1 ;
 }
 
+static int turtle_pendownp(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    lua_pushboolean(L, turtleCanvas.tPenDown) ;
+    return 1 ;
+}
+
+static int turtle_penmode(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+// this is a stupid warning to have to supress since I included a default... it makes sense
+// if I don't, but... CLANG is muy muy loco when all warnings are turned on...
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wswitch-enum"
+    switch(turtleCanvas.tPenMode) {
+        case NSCompositingOperationSourceOver:     lua_pushstring(L, "paint") ; break ;
+        case NSCompositingOperationDestinationOut: lua_pushstring(L, "erase") ; break ;
+        case NSCompositingOperationDifference:     lua_pushstring(L, "reverse") ; break ;
+        default:
+            [skin pushNSObject:[NSString stringWithFormat:@"** unknown compositing mode: %lu", turtleCanvas.tPenMode]] ;
+    }
+#pragma clang diagnostic pop
+
+    return 1 ;
+}
+
 static int turtle_showturtle(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     turtleCanvas.turtleImageView.hidden = NO ;
-//     turtleCanvas.needsDisplay = YES ;
 
     lua_pushvalue(L, 1) ;
     return 1 ;
@@ -672,7 +735,6 @@ static int turtle_hideturtle(lua_State *L) {
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     turtleCanvas.turtleImageView.hidden = YES ;
-//     turtleCanvas.needsDisplay = YES ;
 
     lua_pushvalue(L, 1) ;
     return 1 ;
@@ -710,7 +772,6 @@ static int turtle_hideturtle(lua_State *L) {
 
 // Probably defined in here, if implemented
     // 6.2 Turtle Motion Queries
-        //   towards
         //   scrunch
 
     // 6.4 Turtle and Window Queries
@@ -719,7 +780,6 @@ static int turtle_hideturtle(lua_State *L) {
         //   labelsize
 
     // 6.6 Pen Queries
-        //   pendownp
         //   penmode
         //   pencolor
         //   palette
@@ -764,18 +824,12 @@ static int turtle_assignPenColorsFromLua(lua_State *L) {
 // delegates and blocks.
 
 static int pushHSCanvasTurtleView(lua_State *L, id obj) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     HSCanvasTurtleView *value = obj;
-    if (value.selfRefCount == 0) {
-        value.selfRefCount++ ;
-        void** valuePtr = lua_newuserdata(L, sizeof(HSCanvasTurtleView *));
-        *valuePtr = (__bridge_retained void *)value;
-        luaL_getmetatable(L, USERDATA_TAG);
-        lua_setmetatable(L, -2);
-        value.selfRef = [skin luaRef:refTable] ;
-    }
     value.selfRefCount++ ;
-    [skin pushLuaRef:refTable ref:value.selfRef] ;
+    void** valuePtr = lua_newuserdata(L, sizeof(HSCanvasTurtleView *));
+    *valuePtr = (__bridge_retained void *)value;
+    luaL_getmetatable(L, USERDATA_TAG);
+    lua_setmetatable(L, -2);
     return 1;
 }
 
@@ -826,8 +880,7 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
-            LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-            obj.selfRef = [skin luaUnref:refTable ref:obj.selfRef] ;
+//             LuaSkin *skin = [LuaSkin sharedWithState:L] ;
             [obj removeObserver] ;
             [obj removeFromSuperview] ;
             obj = nil ;
@@ -855,6 +908,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"showturtle",      turtle_showturtle},
     {"hideturtle",      turtle_hideturtle},
     {"shownp",          turtle_shownp},
+    {"pendownp",        turtle_pendownp},
+    {"penmode",         turtle_penmode},
 
     {"_cmdCount",       turtle_commandCount},
     {"_insertCmdAtIdx", turtle_insertCommandAtIndex},
@@ -898,19 +953,22 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
                                                    withUserdataMapping:USERDATA_TAG];
 
     wrappedCommands = @[
-        // name            synonyms                             #args  type(s)
-        @[ @"forward",     @[ @"fd" ],                           @(1), @"number" ],
-        @[ @"back",        @[ @"bk" ],                           @(1), @"number" ],
-        @[ @"left",        @[ @"lt" ],                           @(1), @"number" ],
-        @[ @"right",       @[ @"rt" ],                           @(1), @"number" ],
-        @[ @"setpos",      @[ @"setPos" ],                       @(1), @[ @(2), @"number", @"number"]],
-        @[ @"setxy",       @[ @"setXY" ],                        @(2), @"number", @"number"],
-        @[ @"setx",        @[ @"setX" ],                         @(1), @"number"],
-        @[ @"sety",        @[ @"setY" ],                         @(1), @"number"],
-        @[ @"setheading",  @[ @"seth", @"setH", @"setHeading" ], @(1), @"number"],
-        @[ @"home",        @[],                                  @(0) ],
-        @[ @"pendown",     @[ @"pd", @"penDown" ],               @(0) ],
-        @[ @"penup",       @[ @"pu", @"penUp" ],                 @(0) ],
+        // name            synonyms                              visual  #args type(s)
+        @[ @"forward",     @[ @"fd" ],                           @(YES), @(1), @"number" ],
+        @[ @"back",        @[ @"bk" ],                           @(YES), @(1), @"number" ],
+        @[ @"left",        @[ @"lt" ],                           @(NO),  @(1), @"number" ],
+        @[ @"right",       @[ @"rt" ],                           @(NO),  @(1), @"number" ],
+        @[ @"setpos",      @[ @"setPos" ],                       @(YES), @(1), @[ @(2), @"number", @"number"]],
+        @[ @"setxy",       @[ @"setXY" ],                        @(YES), @(2), @"number", @"number"],
+        @[ @"setx",        @[ @"setX" ],                         @(YES), @(1), @"number"],
+        @[ @"sety",        @[ @"setY" ],                         @(YES), @(1), @"number"],
+        @[ @"setheading",  @[ @"seth", @"setH", @"setHeading" ], @(NO),  @(1), @"number"],
+        @[ @"home",        @[],                                  @(YES), @(0) ],
+        @[ @"pendown",     @[ @"pd", @"penDown" ],               @(NO),  @(0) ],
+        @[ @"penup",       @[ @"pu", @"penUp" ],                 @(NO),  @(0) ],
+        @[ @"penpaint",    @[ @"ppt", @"penPaint" ],             @(NO),  @(0) ],
+        @[ @"penerase",    @[ @"pe", @"penErase" ],              @(NO),  @(0) ],
+        @[ @"penreverse",  @[ @"px", @"penReverse" ],            @(NO),  @(0) ],
     //     @"arc",
     //     @"wrap",
     //     @"window",
@@ -925,9 +983,6 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
     //     @"setscrunch",
     //     @"refresh",
     //     @"norefresh",
-    //     @"penpaint",
-    //     @"penerase",
-    //     @"penreverse",
     //     @"setpencolor",
     //     @"setpalette",
     //     @"setpensize",
