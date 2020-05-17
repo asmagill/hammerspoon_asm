@@ -50,14 +50,14 @@ static int refTable = LUA_NOREF;
 // delegates and blocks.
 
 // static int push<moduleType>(lua_State *L, id obj) {
-//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     <moduleType> *value = obj;
 
 // // Using selfRef: ensures that everytime this object is pushed back to Lua, the identical userdata is used
 // //     Pros: can use userdata as key in key-value table
 // //     Cons: requires explicit delete method because useradata will never collect on its own (it exists in
-// //           the registry at `self.luaRef`)
-//     if (value.luaRef == LUA_NOREF) {
+// //           the registry at `self.selfRef`)
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+//     if (value.selfRef == LUA_NOREF) {
 //         void** valuePtr = lua_newuserdata(L, sizeof(<moduleType> *));
 //         *valuePtr = (__bridge_retained void *)value;
 //         luaL_getmetatable(L, USERDATA_TAG);
