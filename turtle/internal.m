@@ -17,38 +17,13 @@
 // * decide for certain about camelCase vs logo syntax
 // * force refresh when window unhidden
 
-//   add way to dump/import commandList?
+// + add way to dump/import commandList?
+//   * dump
 
-//   Turtle state is only updated in drawRect. Attempts at capturing an image of the results and just redraw
-//       the image if the update is from outside (e.g. move or resize of window) have crashed hard. Still,
-//       the current state of affairs means even a "penUp" triggers drawRect: so that turtle state gets
-//       updated and predicates can return current data.
-//
-//   Can we either render off screen (in another view?) and then just swap in the content of the off screen view?
-//       Views may have different size, so this will have to be taken into account...
-//   Or at least move turtle state updates out of drawRect: and into insertCommand:atIndex:withArguments:error:
-//       and removeCommandAtIndex:? Probably mean replicating some code, but at least if view hidden during
-//       updates, it should be lightning fast (and it already is pretty fast... the actual drawing *is* the
-//       slowest part)
-
-// ***** Need to move state tracking out of drawRect: anyways: *****
-//
-// ~~~lau
-// > myC:pendownp()
-// true
-//
-// > myC:pu():pendownp() -- drawRect: hasn't been invoked before the query occurs...
-// true
-//
-// > myC:pendownp()
-// false
-// ~~~
-
-// ***** Simplify: change insert to append, remove removeCommandAtIndex *****
-//       build in separate function invoked after append; could store interim x0,y0,x1,y1 along the way
-//       and (maybe) even prebuild bezier objects... this assumes they take on graphics context state
-//       when stroke actually occurs. drawRect: then becomes only a replay of what's already calculated
-//       and makes no changes to state at all
+//   drawRect: still unacceptably slow for humongous renderings...
+//   see about drawing into bitmap and then just render current bitmap in NSView
+//      change to NSImageView?
+//      what about resizing? this would change center point (translation) and/or what's cropped
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int refTable = LUA_NOREF;
@@ -69,32 +44,41 @@ static NSArray *penColors ;
 @property            NSUInteger             turtleSize ;
 @property            NSImageView            *turtleImageView ;
 
+// current turtle state -- should be updated as commands appended
 @property            CGFloat                tX ;
 @property            CGFloat                tY ;
 @property            CGFloat                tHeading ;
 @property            BOOL                   tPenDown ;
 @property            NSCompositingOperation tPenMode ;
+@property            CGFloat                tPenSize ;
+@property            CGFloat                tScaleX ;
+@property            CGFloat                tScaleY ;
+
 
 @property            NSUInteger             pColorNumber ;
 @property            NSUInteger             bColorNumber ;
 @property            NSColor                *pColor ;
 @property            NSColor                *bColor ;
+
+@property            BOOL                   renderingPaused ;
 @end
 
 @implementation HSCanvasTurtleView {
-    // things clean doesn't reset
+    BOOL                   _neverRender ;
+    NSWindow               *_parentWindow ;
+
+    // things clean doesn't reset -- this is where drawRect starts before rendering anything
     CGFloat                _tInitX ;
     CGFloat                _tInitY ;
     CGFloat                _tInitHeading ;
     BOOL                   _tInitPenDown ;
     NSCompositingOperation _tInitPenMode ;
+    CGFloat                _tInitPenSize ;
+    CGFloat                _tInitScaleX ;
+    CGFloat                _tInitScaleY ;
 
     NSColor                *_pInitColor ;
     NSColor                *_bInitColor ;
-
-    BOOL                   _neverRender ;
-    NSWindow               *_parentWindow ;
-    NSUInteger             _pathsValidBefore ;
 }
 
 #pragma mark - Required for Canvas compatible view -
@@ -104,8 +88,9 @@ static NSArray *penColors ;
     if (self) {
         _selfRefCount = 0 ;
 
-        _neverRender  = YES ;
-        _parentWindow = nil ;
+        _parentWindow    = nil ;
+        _neverRender     = YES ;
+        _renderingPaused = NO ;
 
         self.wantsLayer = YES ;
         [self resetTurtleView] ;
@@ -118,126 +103,34 @@ static NSArray *penColors ;
 - (BOOL)isFlipped { return NO ; }
 
 - (void)drawRect:(__unused NSRect)dirtyRect {
-    BOOL render = !_neverRender ;
+    if (!(_neverRender || _renderingPaused)) {
+        NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+        [gc saveGraphicsState] ;
 
-    NSGraphicsContext* gc ;
+        CGFloat xOriginOffset = self.frame.size.width / 2 ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 ;
 
-    gc = [NSGraphicsContext currentContext];
-    [gc saveGraphicsState];
+        // use transform so origin shifted to center of view
+        NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
+        [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
+        [shiftOriginToCenter concat] ;
 
-    CGFloat xOriginOffset = self.frame.size.width / 2 ;
-    CGFloat yOriginOffset = self.frame.size.height / 2 ;
+        [_pInitColor setStroke] ;
+        gc.compositingOperation = _tInitPenMode ;
 
-    // use transform so origin shifted to center of view
-    NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
-    [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
-    [shiftOriginToCenter concat] ;
+        for (NSArray *entry in _commandList) {
+            NSMutableDictionary *properties = entry[1] ;
 
-    [_pInitColor setStroke] ;
-    gc.compositingOperation = _tInitPenMode ;
+            NSBezierPath *strokePath = properties[@"stroke"] ;
+            if (strokePath) [strokePath stroke] ;
 
-    __block CGFloat                x       = _tInitX ;
-    __block CGFloat                y       = _tInitY ;
-    __block CGFloat                heading = _tInitHeading ;
-    __block BOOL                   penDown = _tInitPenDown ;
-    __block NSCompositingOperation penMode = _tInitPenMode ;
-
-    [_commandList enumerateObjectsUsingBlock:^(NSArray *cmdDetails, NSUInteger idx, __unused BOOL *stop) {
-        NSUInteger cmd        = [(NSNumber *)cmdDetails[0] unsignedIntegerValue] ;
-        NSArray    *arguments = cmdDetails[1][@"arguments"] ;
-
-        switch(cmd) {
-            case  0:   // forward
-            case  1:   // back
-            case  4:   // setpos
-            case  5:   // setxy
-            case  6:   // setx
-            case  7:   // sety
-            case  9: { // home
-                NSBezierPath *strokePath = (idx < _pathsValidBefore) ? cmdDetails[1][@"path"] : nil ;
-                CGFloat initX = x ;
-                CGFloat initY = y ;
-
-                if (cmd < 2) {
-                    CGFloat headingInRadians = heading * M_PI / 180 ;
-                    CGFloat distance = [(NSNumber *)arguments[0] doubleValue] ;
-                    if (cmd == 1) distance = -distance ;
-                    x = x + distance * sin(headingInRadians) ;
-                    y = y + distance * cos(headingInRadians) ;
-                } else if (cmd == 4) {
-                    NSArray *list = (NSArray *)arguments[0] ;
-                    x = [(NSNumber *)list[0] doubleValue] ;
-                    y = [(NSNumber *)list[1] doubleValue] ;
-                } else if (cmd == 5) {
-                    x = [(NSNumber *)arguments[0] doubleValue] ;
-                    y = [(NSNumber *)arguments[1] doubleValue] ;
-                } else if (cmd == 6) {
-                    x = [(NSNumber *)arguments[0] doubleValue] ;
-                } else if (cmd == 7) {
-                    y = [(NSNumber *)arguments[0] doubleValue] ;
-                } else if (cmd == 9) {
-                    x       = 0.0 ;
-                    y       = 0.0 ;
-                    heading = 0.0 ;
-                }
-
-                if (penDown) {
-                    if (!strokePath) {
-                        strokePath = [NSBezierPath bezierPath] ;
-                        [strokePath moveToPoint:NSMakePoint(initX, initY)] ;
-                        [strokePath lineToPoint:NSMakePoint(x, y)] ;
-                        cmdDetails[1][@"path"] = strokePath ;
-                    }
-                    if (render) [strokePath stroke] ;
-                }
-            } break ;
-
-            case  2:   // left
-            case  3:   // right
-            case  8: { // setheading
-                CGFloat angle = [(NSNumber *)arguments[0] doubleValue] ;
-                if (cmd == 2) {
-                    angle = heading - angle ;
-                } else if (cmd == 3) {
-                    angle = heading + angle ;
-//              } else if (cmd == 8) {
-//                  angle = angle ; // NOP since we already do this as the first line in this block
-                }
-                heading = fmod(angle, 360) ;
-            } break ;
-
-            case 10:   // pendown
-            case 11: { // penup
-                penDown = (cmd == 10) ;
-            } break ;
-
-            case 12:   // penpaint
-            case 13:   // penerase
-            case 14: { // penreverse
-                penMode = (cmd == 14) ? NSCompositingOperationDifference :
-                          (cmd == 13) ? NSCompositingOperationDestinationOut :
-                                        NSCompositingOperationSourceOver ;
-                if (render) gc.compositingOperation = penMode ;
-                penDown = YES ;
-            } break ;
-
-            default: {
-                [LuaSkin logWarn:[NSString stringWithFormat:@"%s: @drawRect - command code %lu at index %lu currently unsupported", USERDATA_TAG, cmd, idx]] ;
-            }
+            NSNumber *compositeMode = properties[@"penMode"] ;
+            if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
         }
-    }] ;
 
-    _pathsValidBefore = _commandList.count ;
-
-    _tX       = x ;
-    _tY       = y ;
-    _tHeading = heading ;
-    _tPenDown = penDown ;
-    _tPenMode = penMode ;
-
-    if (render) [self updateTurtle] ;
-
-    [gc restoreGraphicsState] ;
+        [gc restoreGraphicsState] ;
+        [self updateTurtle] ;
+    }
 }
 
 #pragma mark   Only required if we want to know when we are hidden
@@ -263,7 +156,7 @@ static NSArray *penColors ;
                                                     context:(void *)context {
     if (context == myKVOContext && [keyPath isEqualToString:@"visible"]) {
         _neverRender = !self.window.visible ;
-        self.needsDisplay = YES ;
+        self.needsDisplay = !(_neverRender || _renderingPaused) ;
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context] ;
     }
@@ -278,6 +171,9 @@ static NSArray *penColors ;
 
 - (void)viewDidMoveToWindow {
     if (self.window) {
+        if (_parentWindow && ![_parentWindow isEqualTo:self.window]) {
+            [self removeObserver] ;
+        }
         if (!_parentWindow) {
             _parentWindow = self.window ;
             [_parentWindow addObserver:self forKeyPath:@"visible" options:0 context:myKVOContext] ;
@@ -297,6 +193,9 @@ static NSArray *penColors ;
     _tHeading     = 0.0 ;
     _tPenDown     = YES ;
     _tPenMode     = NSCompositingOperationSourceOver ;
+    _tPenSize     = NSBezierPath.defaultLineWidth ;
+    _tScaleX      = 1.0 ;
+    _tScaleY      = 1.0 ;
 
     _turtleSize      = 45 ;
     _turtleImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, _turtleSize, _turtleSize)] ;
@@ -305,7 +204,6 @@ static NSArray *penColors ;
     _turtleImageView.imageScaling   = NSImageScaleProportionallyUpOrDown ;
     _turtleImageView.imageAlignment =  NSImageAlignCenter ;
     [self addSubview:_turtleImageView] ;
-    [self updateTurtle] ;
 
     _pColorNumber = 0 ;
     _bColorNumber = 7 ;
@@ -321,30 +219,34 @@ static NSArray *penColors ;
     _tInitHeading = _tHeading ;
     _tInitPenDown = _tPenDown ;
     _tInitPenMode = _tPenMode ;
+    _tInitPenSize = _tPenSize ;
+    _tInitScaleX  = _tScaleX ;
+    _tInitScaleY  = _tScaleY ;
 
     _pInitColor   = _pColor ;
     _bInitColor   = _bColor ;
 
-    _commandList      = [NSMutableArray array] ;
-    _pathsValidBefore = 0 ;
+    _commandList  = [NSMutableArray array] ;
 
     self.layer.backgroundColor = _bColor.CGColor ;
-    self.needsDisplay = YES ;
+    self.needsDisplay = !(_neverRender || _renderingPaused) ;
 }
 
 - (void)updateTurtle {
-    CGFloat xOriginOffset = self.frame.size.width / 2 ;
-    CGFloat yOriginOffset = self.frame.size.height / 2 ;
+    if (!(_neverRender || _renderingPaused)) {
+        CGFloat xOriginOffset = self.frame.size.width / 2 ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 ;
 
-    _turtleImageView.frameCenterRotation = 0 ;
-    _turtleImageView.frame = NSMakeRect(
-        xOriginOffset + _tX - _turtleSize / 2,
-        yOriginOffset + _tY - _turtleSize / 2,
-        _turtleSize,
-        _turtleSize
-    ) ;
-    _turtleImageView.frameCenterRotation = -_tHeading ;
-    _turtleImageView.needsDisplay = YES ;
+        _turtleImageView.frameCenterRotation = 0 ;
+        _turtleImageView.frame = NSMakeRect(
+            xOriginOffset + _tX - _turtleSize / 2,
+            yOriginOffset + _tY - _turtleSize / 2,
+            _turtleSize,
+            _turtleSize
+        ) ;
+        _turtleImageView.frameCenterRotation = -_tHeading ;
+        _turtleImageView.needsDisplay = YES ;
+    }
 }
 
 - (BOOL)validateCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments
@@ -366,6 +268,10 @@ static NSArray *penColors ;
                         if ([expectedArgType isEqualToString:@"number"]) {
                             if (![(NSObject *)arguments[i] isKindOfClass:[NSNumber class]]) {
                                 errMsg = [NSString stringWithFormat:@"expected %@ for argument %lu of %@", expectedArgType, (i + 1), cmdName] ;
+                                break ;
+                            }
+                            if (!isfinite([(NSNumber *)arguments[i] doubleValue])) {
+                                errMsg = [NSString stringWithFormat:@"argument %lu of %@ must be a finite number", (i + 1), cmdName] ;
                                 break ;
                             }
                         } else if ([expectedArgType isEqualToString:@"string"]) {
@@ -390,7 +296,11 @@ static NSArray *penColors ;
                             if ([expectedArgType isKindOfClass:[NSString class]]) {
                                 if ([expectedArgType isEqualToString:@"number"]) {
                                     if (![(NSObject *)list[j] isKindOfClass:[NSNumber class]]) {
-                                        errMsg = [NSString stringWithFormat:@"expected %@ for argument %lu, index %lu of %@", expectedArgType, (i + 1), (j + 1), cmdName] ;
+                                        errMsg = [NSString stringWithFormat:@"expected %@ for index %lu of argument %lu of %@", expectedArgType, (j + 1), (i + 1), cmdName] ;
+                                        break ;
+                                    }
+                                    if (!isfinite([(NSNumber *)list[j] doubleValue])) {
+                                        errMsg = [NSString stringWithFormat:@"index %lu of argument %lu of %@ must be a finite number", (j + 1), (i + 1), cmdName] ;
                                         break ;
                                     }
                                 } else if ([expectedArgType isEqualToString:@"string"]) {
@@ -413,9 +323,22 @@ static NSArray *penColors ;
                         break ;
                     }
                 }
+
+                // command specific validataion
+                if (!errMsg) {
+                    if (cmd == 15 || cmd == 16) { // pensize / penwidth
+                        CGFloat number = [(NSNumber *)arguments[0] doubleValue] ;
+                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
+                    } else if (cmd == 18) { // setscrunch
+                        CGFloat number = [(NSNumber *)arguments[0] doubleValue] ;
+                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
+                        number = [(NSNumber *)arguments[1] doubleValue] ;
+                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
+                    }
+                }
             }
         } else {
-            errMsg = [NSString stringWithFormat:@"%@ requires %lu arguments but %lu were found", cmdName, expectedArgCount, actualArgCount] ;
+            errMsg = [NSString stringWithFormat:@"%@ requires %lu arguments but %lu were provided", cmdName, expectedArgCount, actualArgCount] ;
         }
     } else {
         errMsg = @"undefined command number specified" ;
@@ -432,54 +355,161 @@ static NSArray *penColors ;
     return YES ;
 }
 
-// NOTE: Uses Objective-C indexing, but negative numbers are from end (e.g. -1 is last object)
-- (BOOL)insertCommand:(NSUInteger)cmd atIndex:(NSInteger)idx
-                                withArguments:(nullable NSArray *)arguments
-                                        error:(NSError * __autoreleasing *)error {
-    NSUInteger count = _commandList.count ;
-    if (idx < 0) idx = (NSInteger)count + idx ;
-    BOOL isGood = (idx >= 0 && idx <= (NSInteger)count) ;
+- (void)updateStateWithCommand:(NSUInteger)cmd andArguments:(nullable NSArray *)arguments {
+    NSMutableDictionary *stepAttributes = _commandList.lastObject[1] ;
 
-    if (!isGood) {
-        if (error) {
-            *error = [NSError errorWithDomain:(NSString * _Nonnull)[NSString stringWithUTF8String:USERDATA_TAG]
-                                         code:-1
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"index out of range" }] ;
+    CGFloat x = _tX ;
+    CGFloat y = _tY ;
+
+    switch(cmd) {
+        case  0:   // forward
+        case  1:   // back
+        case  4:   // setpos
+        case  5:   // setxy
+        case  6:   // setx
+        case  7:   // sety
+        case  9: { // home
+            if (cmd < 2) {
+                CGFloat headingInRadians = _tHeading * M_PI / 180 ;
+                CGFloat distance = [(NSNumber *)arguments[0] doubleValue] ;
+                if (cmd == 1) distance = -distance ;
+                _tX = x + distance * sin(headingInRadians) * _tScaleX ;
+                _tY = y + distance * cos(headingInRadians) * _tScaleY ;
+            } else if (cmd == 4) {
+                NSArray *list = (NSArray *)arguments[0] ;
+                _tX = [(NSNumber *)list[0] doubleValue] * _tScaleX ;
+                _tY = [(NSNumber *)list[1] doubleValue] * _tScaleY ;
+            } else if (cmd == 5) {
+                _tX = [(NSNumber *)arguments[0] doubleValue] * _tScaleX ;
+                _tY = [(NSNumber *)arguments[1] doubleValue] * _tScaleY ;
+            } else if (cmd == 6) {
+                _tX = [(NSNumber *)arguments[0] doubleValue] * _tScaleX ;
+            } else if (cmd == 7) {
+                _tY = [(NSNumber *)arguments[0] doubleValue] * _tScaleY ;
+            } else if (cmd == 9) {
+                _tX       = 0.0 ;
+                _tY       = 0.0 ;
+                _tHeading = 0.0 ;
+            }
+
+            if (_tPenDown) {
+                NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
+                strokePath.lineWidth = _tPenSize ;
+                [strokePath moveToPoint:NSMakePoint(x, y)] ;
+                [strokePath lineToPoint:NSMakePoint(_tX, _tY)] ;
+                stepAttributes[@"stroke"] = strokePath ;
+            }
+        } break ;
+
+        case  2:   // left
+        case  3:   // right
+        case  8: { // setheading
+            CGFloat angle = [(NSNumber *)arguments[0] doubleValue] ;
+            if (cmd == 2) {
+                angle = _tHeading - angle ;
+            } else if (cmd == 3) {
+                angle = _tHeading + angle ;
+         // } else if (cmd == 8) { // NOP since first line in this block does this
+         //     angle = angle ;
+            }
+            _tHeading = fmod(angle, 360) ;
+        } break ;
+
+        case 10:   // pendown
+        case 11: { // penup
+            _tPenDown = (cmd == 10) ;
+        } break ;
+
+        case 12:   // penpaint
+        case 13:   // penerase
+        case 14: { // penreverse
+            _tPenMode = (cmd == 14) ? NSCompositingOperationDifference :
+                        (cmd == 13) ? NSCompositingOperationDestinationOut :
+                                      NSCompositingOperationSourceOver ;
+            _tPenDown = YES ;
+            stepAttributes[@"penMode"] = @(_tPenMode) ;
+        } break ;
+        case 15:   // setpensize
+        case 16: { // setpenwidth
+            _tPenSize = [(NSNumber *)arguments[0] doubleValue] ;
+        } break ;
+        case 17: { // arc
+            CGFloat angle  = [(NSNumber *)arguments[0] doubleValue] ;
+            NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
+            strokePath.lineWidth = _tPenSize ;
+            [strokePath appendBezierPathWithArcWithCenter:NSMakePoint(0, 0)
+                                                   radius:[(NSNumber *)arguments[1] doubleValue]
+                                               startAngle:((360 - _tHeading) + 90)
+                                                 endAngle:((360 - (_tHeading + angle)) + 90)
+                                                clockwise:(angle > 0)] ;
+            NSAffineTransform *scrunch = [[NSAffineTransform alloc] init] ;
+            [scrunch scaleXBy:_tScaleX yBy:_tScaleY] ;
+            [scrunch translateXBy:(_tX / _tScaleX) yBy:(_tY / _tScaleY)] ;
+            [strokePath transformUsingAffineTransform:scrunch] ;
+            stepAttributes[@"stroke"] = strokePath ;
+        } break ;
+        case 18: { // setscrunch
+            _tScaleX = [(NSNumber *)arguments[0] doubleValue] ;
+            _tScaleY = [(NSNumber *)arguments[1] doubleValue] ;
+        } break ;
+        default: {
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments: - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
+            return ;
         }
-    } else {
-        isGood = [self validateCommand:cmd withArguments:arguments error:error] ;
     }
+}
 
+- (BOOL)appendCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments
+                                              error:(NSError * __autoreleasing *)error {
+
+    BOOL isGood = [self validateCommand:cmd withArguments:arguments error:error] ;
     if (isGood) {
         NSArray *newCommand = @[ @(cmd), [NSMutableDictionary dictionary] ] ;
         if (arguments) newCommand[1][@"arguments"] = arguments ;
-        [_commandList insertObject:newCommand atIndex:(NSUInteger)idx] ;
-        _pathsValidBefore = (NSUInteger)idx ;
-// as long as drawRect: is where turtle state gets updated, we always need to rerun it...
-//         self.needsDisplay = (idx < (NSInteger)count) || [(NSNumber *)(wrappedCommands[cmd][2]) boolValue] ;
-        self.needsDisplay = YES ;
+        [_commandList addObject:newCommand] ;
+        [self updateStateWithCommand:cmd andArguments:arguments] ;
+
+        if ([(NSNumber *)(wrappedCommands[cmd][2]) boolValue]) {
+            self.needsDisplay = !(_neverRender || _renderingPaused) ;
+        } else {
+            [self updateTurtle] ;
+        }
     }
 
     return isGood ;
 }
 
-// NOTE: Uses Objective-C indexing, but negative numbers are from end (e.g. -1 is last object)
-- (void)removeCommandAtIndex:(NSInteger)idx {
-    NSUInteger count = _commandList.count ;
-    if (idx < 0) idx = (NSInteger)count + idx ;
-    if (idx >= 0 && idx < (NSInteger)count) {
-// as long as drawRect: is where turtle state gets updated, we always need to rerun it...
-//         if (idx == (NSInteger)(count - 1)) {
-//             NSUInteger lastCommand = [(NSNumber *)(_commandList.lastObject[0]) unsignedIntegerValue] ;
-//             self.needsDisplay = [(NSNumber *)(wrappedCommands[lastCommand][2]) boolValue] ;
-//         } else {
-//             self.needsDisplay = YES ;
-//         }
-        self.needsDisplay = YES ;
+- (NSImage *)renderToImage {
+// NOTE: this should track drawRect, but ignore background color changes as they aren't captured by this
+    NSImage *newImage = [[NSImage alloc] initWithSize:self.bounds.size] ;
+    [newImage lockFocus] ;
+        NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+        [gc saveGraphicsState];
 
-        [_commandList removeObjectAtIndex:(NSUInteger)idx] ;
-        _pathsValidBefore = (NSUInteger)idx ;
-    }
+        CGFloat xOriginOffset = self.frame.size.width / 2 ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 ;
+
+        // use transform so origin shifted to center of view
+        NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
+        [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
+        [shiftOriginToCenter concat] ;
+
+        [_pInitColor setStroke] ;
+        gc.compositingOperation = _tInitPenMode ;
+
+        for (NSArray *entry in _commandList) {
+            NSMutableDictionary *properties = entry[1] ;
+
+            NSBezierPath *strokePath = properties[@"stroke"] ;
+            if (strokePath) [strokePath stroke] ;
+
+            NSNumber *compositeMode = properties[@"penMode"] ;
+            if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
+        }
+
+        [gc restoreGraphicsState] ;
+    [newImage unlockFocus] ;
+    return newImage ;
 }
 
 @end
@@ -502,6 +532,31 @@ static int turtle_new(lua_State *L) {
 }
 
 #pragma mark - Module Methods
+
+static int turtle_pauseRendering(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, turtleCanvas.renderingPaused) ;
+    } else {
+        turtleCanvas.renderingPaused = lua_toboolean(L, 2) ;
+        turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+static int turtle_asImage(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    NSImage *image = [turtleCanvas renderToImage] ;
+    [skin pushNSObject:image] ;
+    return 1;
+}
 
 static int turtle_parentView(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
@@ -554,67 +609,56 @@ static int turtle_commandCount(lua_State *L) {
     return 1 ;
 }
 
-static int turtle_removeCommandAtIndex(lua_State *L) {
+static int turtle_commandDump(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
-    lua_Integer        idx           = lua_tointeger(L, 2) ;
+    BOOL raw = (lua_gettop(L) == 1) ? NO : (BOOL)lua_toboolean(L, 2) ;
 
-    NSUInteger count = turtleCanvas.commandList.count ;
-
-    if (idx < 0) idx = (NSInteger)count + 1 + idx ;
-    if (idx > 0 && idx <= (NSInteger)count) {
-        [turtleCanvas removeCommandAtIndex:(idx - 1)] ;
+    if (raw) {
+        [skin pushNSObject:turtleCanvas.commandList withOptions:LS_NSDescribeUnknownTypes] ;
     } else {
-        // error generation is being done by lua wrapper
-        lua_pushstring(L, "index out of bounds") ;
+        lua_newtable(L) ;
+        for (NSArray *entry in turtleCanvas.commandList) {
+            lua_newtable(L) ;
+            [skin pushNSObject:entry[0]] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            NSArray *arguments = entry[1][@"arguments"] ;
+            if (arguments) {
+                for (NSObject *arg in arguments) {
+                    [skin pushNSObject:arg] ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                }
+            }
+            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
     }
     return 1 ;
 }
 
-static int turtle_insertCommandAtIndex(lua_State *L) {
+static int turtle_appendCommand(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TNUMBER | LS_TINTEGER,
-                    LS_TNUMBER | LS_TINTEGER | LS_TNIL,
                     LS_TBREAK | LS_TVARARG] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
     lua_Integer        command       = lua_tointeger(L, 2) ;
-    lua_Integer        idx           = (lua_type(L, 3) == LUA_TNUMBER) ? lua_tointeger(L, 3) : 0 ;
 
-    int argCount = lua_gettop(L) - 3 ;
+    int     argCount  = lua_gettop(L) - 2 ;
+    NSArray *arguments = nil ;
 
-    NSUInteger count = turtleCanvas.commandList.count ;
+    if (argCount > 0) {
+        NSMutableArray *argAccumulator = [NSMutableArray arrayWithCapacity:(NSUInteger)argCount] ;
+        for (int i = 0 ; i < argCount ; i++) [argAccumulator addObject:[skin toNSObjectAtIndex:(3 + i)]] ;
+        arguments = [argAccumulator copy] ;
+    }
 
-    if (idx == 0) idx = (NSInteger)count + 1 ;       // zero appends to end
-    if (idx < 0)  idx = (NSInteger)count + 1 + idx ; // negative is counted from end
+    NSError *errMsg  = nil ;
+    [turtleCanvas appendCommand:(NSUInteger)command withArguments:arguments error:&errMsg] ;
 
-    if (idx > 0 && idx <= (NSInteger)(count + 1)) {
-        NSArray *arguments = nil ;
-
-        if (argCount > 0) {
-            NSMutableArray *argAccumulator = [NSMutableArray arrayWithCapacity:(NSUInteger)argCount] ;
-            for (int i = 0 ; i < argCount ; i++) [argAccumulator addObject:[skin toNSObjectAtIndex:(4 + i)]] ;
-            arguments = [argAccumulator copy] ;
-        }
-
-        NSError *errMsg  = nil ;
-        BOOL    wasAdded = [turtleCanvas insertCommand:(NSUInteger)command
-                                               atIndex:(idx - 1)
-                                         withArguments:arguments
-                                                 error:&errMsg] ;
-
-        if (errMsg) {
-            [skin pushNSObject:errMsg.localizedDescription] ;
-            // this shouldn't be possible, but we don't want to keep anything that generated an error
-            if (wasAdded) [turtleCanvas removeCommandAtIndex:-1] ;
-        } else {
-//             turtleCanvas.needsDisplay = YES ;
-            lua_pushvalue(L, 1) ;
-        }
+    if (errMsg) {
+        // error is handled in lua wrapper
+        [skin pushNSObject:errMsg.localizedDescription] ;
     } else {
-        // error generation is being done by lua wrapper
-        lua_pushstring(L, "index out of bounds") ;
+        lua_pushvalue(L, 1) ;
     }
     return 1 ;
 }
@@ -625,8 +669,8 @@ static int turtle_pos(lua_State *L) {
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     lua_newtable(L) ;
-    lua_pushnumber(L, turtleCanvas.tX) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-    lua_pushnumber(L, turtleCanvas.tY) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L, turtleCanvas.tX / turtleCanvas.tScaleX) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L, turtleCanvas.tY / turtleCanvas.tScaleY) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     return 1 ;
 }
 
@@ -635,7 +679,7 @@ static int turtle_xcor(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    lua_pushnumber(L, turtleCanvas.tX) ;
+    lua_pushnumber(L, turtleCanvas.tX / turtleCanvas.tScaleX) ;
     return 1 ;
 }
 
@@ -644,7 +688,7 @@ static int turtle_ycor(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    lua_pushnumber(L, turtleCanvas.tY) ;
+    lua_pushnumber(L, turtleCanvas.tY / turtleCanvas.tScaleY) ;
     return 1 ;
 }
 
@@ -707,14 +751,45 @@ static int turtle_penmode(lua_State *L) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wswitch-enum"
     switch(turtleCanvas.tPenMode) {
-        case NSCompositingOperationSourceOver:     lua_pushstring(L, "paint") ; break ;
-        case NSCompositingOperationDestinationOut: lua_pushstring(L, "erase") ; break ;
-        case NSCompositingOperationDifference:     lua_pushstring(L, "reverse") ; break ;
+        case NSCompositingOperationSourceOver:     lua_pushstring(L, "PAINT") ; break ;
+        case NSCompositingOperationDestinationOut: lua_pushstring(L, "ERASE") ; break ;
+        case NSCompositingOperationDifference:     lua_pushstring(L, "REVERSE") ; break ;
         default:
             [skin pushNSObject:[NSString stringWithFormat:@"** unknown compositing mode: %lu", turtleCanvas.tPenMode]] ;
     }
 #pragma clang diagnostic pop
 
+    return 1 ;
+}
+
+static int turtle_pensize(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    lua_newtable(L) ;
+    lua_pushnumber(L, turtleCanvas.tPenSize) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L, turtleCanvas.tPenSize) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    return 1 ;
+}
+
+static int turtle_penwidth(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    lua_pushnumber(L, turtleCanvas.tPenSize) ;
+    return 1 ;
+}
+
+static int turtle_scrunch(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    lua_newtable(L) ;
+    lua_pushnumber(L, turtleCanvas.tScaleX) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L, turtleCanvas.tScaleY) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
     return 1 ;
 }
 
@@ -741,56 +816,52 @@ static int turtle_hideturtle(lua_State *L) {
 }
 
 // Probably to be wrapped, if implemented
-    // 6.1 Turtle Motion
-        //   arc
-
     // 6.3 Turtle and Window Control
-        //   wrap
-        //   window
-        //   fence
         //   fill
         //   filled
         //   label
         //   setlabelheight
-        //   textscreen
-        //   fullscreen
-        //   splitscreen
-        //   setscrunch
-        //   refresh
-        //   norefresh
-
     // 6.5 Pen and Background Control
-        //   penpaint
-        //   penerase
-        //   penreverse
         //   setpencolor
         //   setpalette
-        //   setpensize
-        //   setpenpattern
-        //   setpen
         //   setbackground
+    // suggested by JS logo at https://www.calormen.com/jslogo/#
+        //   setlabelfont ['serif', 'sans-serif', 'cursive', 'fantasy', 'monospace']
 
 // Probably defined in here, if implemented
-    // 6.2 Turtle Motion Queries
-        //   scrunch
-
     // 6.4 Turtle and Window Queries
-        //   screenmode
-        //   turtlemode
         //   labelsize
-
     // 6.6 Pen Queries
-        //   penmode
         //   pencolor
         //   palette
-        //   pensize
-        //   pen
         //   background
+    // suggested by JS logo at https://www.calormen.com/jslogo/#
+        //   labelfont
 
 // Not Sure Yet
+    // 6.5 Pen and Background Control
+        //   setpen
+    // 6.6 Pen Queries
+        //   pen
     // 6.7 Saving and Loading Pictures
-        //   savepict
-        //   loadpict
+        //   savepict -- could do in lua, leveraging _commands
+        //   loadpict -- could do in lua, leveraging _appendCommand after resetting state
+
+// Probably Not
+    // 6.3 Turtle and Window Control
+        //   wrap            -- marked as nop
+        //   window          -- marked as nop
+        //   fence           -- marked as nop
+        //   textscreen      -- marked as nop
+        //   fullscreen      -- marked as nop
+        //   splitscreen     -- marked as nop
+        //   refresh         -- marked as nop
+        //   norefresh       -- marked as nop
+    // 6.5 Pen and Background Control
+        //   setpenpattern
+    // 6.6 Pen Queries
+        //   penpattern
+    // 6.7 Saving and Loading Pictures
         //   epspict
     // 6.8 Mouse Queries
         //   mousepos
@@ -803,12 +874,6 @@ static int turtle_hideturtle(lua_State *L) {
 static int turtle_CommandsToBeWrapped(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushNSObject:wrappedCommands] ;
-//     lua_newtable(L) ;
-//
-//     [wrappedCommands enumerateObjectsUsingBlock:^(NSArray *entry, NSUInteger idx, __unused BOOL *stop) {
-//         NSString *commandName = entry[0] ;
-//         lua_pushinteger(L, (lua_Integer)idx) ; lua_setfield(L, -2, commandName.UTF8String) ;
-//     }] ;
     return 1 ;
 }
 
@@ -880,7 +945,6 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         obj.selfRefCount-- ;
         if (obj.selfRefCount == 0) {
-//             LuaSkin *skin = [LuaSkin sharedWithState:L] ;
             [obj removeObserver] ;
             [obj removeFromSuperview] ;
             obj = nil ;
@@ -898,7 +962,6 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-
     {"pos",             turtle_pos},
     {"xcor",            turtle_xcor},
     {"ycor",            turtle_ycor},
@@ -910,13 +973,18 @@ static const luaL_Reg userdata_metaLib[] = {
     {"shownp",          turtle_shownp},
     {"pendownp",        turtle_pendownp},
     {"penmode",         turtle_penmode},
+    {"pensize",         turtle_pensize},
+    {"penwidth",        turtle_penwidth},
+    {"scrunch",         turtle_scrunch},
 
+    {"_pause",          turtle_pauseRendering},
+    {"_image",          turtle_asImage},
     {"_cmdCount",       turtle_commandCount},
-    {"_insertCmdAtIdx", turtle_insertCommandAtIndex},
-    {"_removeCmdAtIdx", turtle_removeCommandAtIndex},
+    {"_appendCommand",  turtle_appendCommand},
     {"_turtleImage",    turtle_turtleImage},
     {"_turtleSize",     turtle_turtleSize},
     {"_canvas",         turtle_parentView},
+    {"_commands",       turtle_commandDump},
 
     {"__tostring",      userdata_tostring},
     {"__eq",            userdata_eq},
@@ -927,9 +995,7 @@ static const luaL_Reg userdata_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"new",          turtle_new},
-
     {"_shareColors", turtle_assignPenColorsFromLua},
-
     {NULL,  NULL}
 };
 
@@ -958,39 +1024,32 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
         @[ @"back",        @[ @"bk" ],                           @(YES), @(1), @"number" ],
         @[ @"left",        @[ @"lt" ],                           @(NO),  @(1), @"number" ],
         @[ @"right",       @[ @"rt" ],                           @(NO),  @(1), @"number" ],
-        @[ @"setpos",      @[ @"setPos" ],                       @(YES), @(1), @[ @(2), @"number", @"number"]],
-        @[ @"setxy",       @[ @"setXY" ],                        @(YES), @(2), @"number", @"number"],
-        @[ @"setx",        @[ @"setX" ],                         @(YES), @(1), @"number"],
-        @[ @"sety",        @[ @"setY" ],                         @(YES), @(1), @"number"],
-        @[ @"setheading",  @[ @"seth", @"setH", @"setHeading" ], @(NO),  @(1), @"number"],
+        @[ @"setpos",      @[ @"setPos" ],                       @(YES), @(1), @[ @(2), @"number", @"number" ] ],
+        @[ @"setxy",       @[ @"setXY" ],                        @(YES), @(2), @"number", @"number" ],
+        @[ @"setx",        @[ @"setX" ],                         @(YES), @(1), @"number" ],
+        @[ @"sety",        @[ @"setY" ],                         @(YES), @(1), @"number" ],
+        @[ @"setheading",  @[ @"seth", @"setH", @"setHeading" ], @(NO),  @(1), @"number" ],
         @[ @"home",        @[],                                  @(YES), @(0) ],
         @[ @"pendown",     @[ @"pd", @"penDown" ],               @(NO),  @(0) ],
         @[ @"penup",       @[ @"pu", @"penUp" ],                 @(NO),  @(0) ],
         @[ @"penpaint",    @[ @"ppt", @"penPaint" ],             @(NO),  @(0) ],
         @[ @"penerase",    @[ @"pe", @"penErase" ],              @(NO),  @(0) ],
         @[ @"penreverse",  @[ @"px", @"penReverse" ],            @(NO),  @(0) ],
-    //     @"arc",
-    //     @"wrap",
-    //     @"window",
-    //     @"fence",
+        @[ @"setpensize",  @[ @"setPenSize"],                    @(NO),  @(2), @"number", @"number" ],
+        @[ @"setpenwidth", @[ @"setPenWidth"],                   @(NO),  @(1), @"number" ],
+        @[ @"arc",         @[],                                  @(YES), @(2), @"number", @"number" ],
+        @[ @"setscrunch",  @[ @"setScrunch" ],                   @(NO),  @(2), @"number", @"number" ],
     //     @"fill",
     //     @"filled",
     //     @"label",
     //     @"setlabelheight",
-    //     @"textscreen",
-    //     @"fullscreen",
-    //     @"splitscreen",
-    //     @"setscrunch",
-    //     @"refresh",
-    //     @"norefresh",
     //     @"setpencolor",
     //     @"setpalette",
-    //     @"setpensize",
     //     @"setpenpattern",
     //     @"setpen",
     //     @"setbackground",
-    ] ;
 
+    ] ;
     turtle_CommandsToBeWrapped(L) ; lua_setfield(L, -2, "_wrappedCommands") ;
 
     return 1;

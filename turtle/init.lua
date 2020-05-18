@@ -92,6 +92,18 @@ local _unwrappedSynonyms = {
     pendownp    = { "penDownP", "isPenDown" },
 }
 
+-- in case I ever write something to import turtle code directly, don't want these to cause it to break immediately
+local _nops = {
+    wrap        = false, -- boolean indicates whether or not warning has been issued; don't want to spam console
+    window      = false,
+    fence       = false,
+    textscreen  = false,
+    fullscreen  = false,
+    splitscreen = false,
+    refresh     = false,
+    norefresh   = false,
+}
+
 local penColors = {
     { "black",   { __luaSkinType = "NSColor", list = "Apple",   name = "Black" }},
     { "blue",    { __luaSkinType = "NSColor", list = "Apple",   name = "Blue" }},
@@ -130,57 +142,25 @@ end
 
 -- Public interface ------------------------------------------------------
 
--- reminders for docs
---   forward
---   back
---   left
---   right
---   setpos
---   setxy
---   setx
---   sety
---   setheading
---   home
---   arc
---   showturtle
---   hideturtle
---   clean
---   clearscreen
---   pendown
---   penup
---   penpaint
---   penerase
---   penreverse
-
-for i, v in ipairs(_wrappedCommands) do
-    local cmdLabel, cmdNumber = v[1], i - 1
-    local synonyms = v[2] or {}
-
-    if not turtleMT[cmdLabel] then
-        turtleMT[cmdLabel] = function(self, ...)
-            local result = self:_insertCmdAtIdx(cmdNumber, nil, ...)
-            if type(result) == "string" then
-                error(result, 2) ;
-            end
-            coroutineFriendlyCheck(self)
-            return result
-        end
-
-        for i2, v2 in ipairs(synonyms) do
-            if not turtleMT[v2] then
-                turtleMT[v2] = turtleMT[cmdLabel]
-            else
-                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, cmdLabel)
-            end
-        end
-    else
-        hs.luaSkinLog.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
-    end
-end
-
 local _pos = turtleMT.pos
 turtleMT.pos = function(...)
     local result = _pos(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _pensize = turtleMT.pensize
+turtleMT.pensize = function(...)
+    local result = _pensize(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _scrunch = turtleMT.scrunch
+turtleMT.scrunch = function(...)
+    local result = _scrunch(...)
     return setmetatable(result, {
         __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
     })
@@ -190,6 +170,10 @@ turtleMT.towards = function(self, x, y)
     local pos = self:pos()
     return (90 - math.atan(y - pos[2],x - pos[1]) * 180 / math.pi) % 360
 end
+
+turtleMT.screenmode = function(self, ...) return "FULLSCREEN" end
+
+turtleMT.turtlemode = function(self, ...) return "WINDOW" end
 
 turtleMT._yieldRatio = function(self, ...)
     local args = table.pack(...)
@@ -232,20 +216,6 @@ turtleMT._background = function(self, func, ...)
     coroutine.wrap(fnutils.partial(func, self, ...))()
 
     return self
-end
-
-for k, v in pairs(_unwrappedSynonyms) do
-    if turtleMT[k] then
-        for i, v2 in ipairs(v) do
-            if not turtleMT[v2] then
-                turtleMT[v2] = turtleMT[k]
-            else
-                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, k)
-            end
-        end
-    else
-        hs.luaSkinLog.wf("%s:%s - method not defined; can't assign synonyms %s", USERDATA_TAG, k, finspect(v))
-    end
 end
 
 local _new = module.new
@@ -485,6 +455,83 @@ module.turtleCanvas = function(...)
     end
 
     return turtleViewObject
+end
+
+-- reminders for docs
+--   forward
+--   back
+--   left
+--   right
+--   setpos
+--   setxy
+--   setx
+--   sety
+--   setheading
+--   home
+--   pendown
+--   penup
+--   penpaint
+--   penerase
+--   penreverse
+--   setpensize
+--   setpenwidth
+--   arc
+
+for i, v in ipairs(_wrappedCommands) do
+    local cmdLabel, cmdNumber = v[1], i - 1
+    local synonyms = v[2] or {}
+
+    if not turtleMT[cmdLabel] then
+        turtleMT[cmdLabel] = function(self, ...)
+            local result = self:_appendCommand(cmdNumber, ...)
+            if type(result) == "string" then
+                error(result, 2) ;
+            end
+            coroutineFriendlyCheck(self)
+            return result
+        end
+
+        for i2, v2 in ipairs(synonyms) do
+            if not turtleMT[v2] then
+                turtleMT[v2] = turtleMT[cmdLabel]
+            else
+                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, cmdLabel)
+            end
+        end
+    else
+        hs.luaSkinLog.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
+    end
+end
+
+for k, v in pairs(_unwrappedSynonyms) do
+    if turtleMT[k] then
+        for i, v2 in ipairs(v) do
+            if not turtleMT[v2] then
+                turtleMT[v2] = turtleMT[k]
+            else
+                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, k)
+            end
+        end
+    else
+        hs.luaSkinLog.wf("%s:%s - method not defined; can't assign synonyms %s", USERDATA_TAG, k, finspect(v))
+    end
+end
+
+-- We can do this for actions; queries imply some decision or calculation based on return, so those will just have to
+-- break since we're not implementing the full logo command structure. Really, this will only be useful if I ever write
+-- something to convert turtle code into the lua method approach used by this module and it's just raw turtle orders.
+for k, v in pairs(_nops) do
+    if not turtleMT[k] then
+        turtleMT[k] = function(self, ...)
+            if not _nops[k] then
+                hs.luaSkinLog.wf("%s:%s - method is a nop and has no effect for this implemntation; please remove from source", USERDATA_TAG, k)
+                _nops[k] = true
+            end
+            return self
+        end
+    else
+        hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as nop", USERDATA_TAG, k)
+    end
 end
 
 -- Return Module Object --------------------------------------------------
