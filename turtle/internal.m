@@ -5,25 +5,17 @@
 
 // TODO:
 
-// * add flag to skip yielding, even if in coroutine
-// * add turtle to display
-//       add *better* turtle to display
 //   add other methods (esp color)
 //   figure out WTF to do about fills
 //       fill uses floodFill algorithm; probably not reasonable unless we can easily build bitmap, but look into
 //       filled takes a list of commands as arguments, so can't implement with method style approach...
 //           instead, two methods? 1 to mark begining of filled object, 2 to mark end -- create new path
 //               with intervening paths as appended subpaths, then fill new object?
-// * decide for certain about camelCase vs logo syntax
-// * force refresh when window unhidden
+//           make filled take function which accepts one variable (turtleObject) and then applies actions to that,
+//               closing off and filling combined bezier path?
 
 // + add way to dump/import commandList?
 //   * dump
-
-//   drawRect: still unacceptably slow for humongous renderings...
-//   see about drawing into bitmap and then just render current bitmap in NSView
-//      change to NSImageView?
-//      what about resizing? this would change center point (translation) and/or what's cropped
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int refTable = LUA_NOREF;
@@ -187,6 +179,12 @@ static NSArray *penColors ;
 
 #pragma mark - HSTurtleView Specific Methods -
 
+- (void)defaultTurtleImage {
+    _turtleImageView.image          = [NSImage imageNamed:NSImageNameTouchBarColorPickerFont] ;
+    _turtleImageView.imageScaling   = NSImageScaleProportionallyUpOrDown ;
+    _turtleImageView.imageAlignment =  NSImageAlignCenter ;
+}
+
 - (void)resetTurtleView {
     _tX           = 0.0 ;
     _tY           = 0.0 ;
@@ -199,11 +197,8 @@ static NSArray *penColors ;
 
     _turtleSize      = 45 ;
     _turtleImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, _turtleSize, _turtleSize)] ;
-
-    _turtleImageView.image          = [NSImage imageNamed:NSImageNameTouchBarColorPickerFont] ;
-    _turtleImageView.imageScaling   = NSImageScaleProportionallyUpOrDown ;
-    _turtleImageView.imageAlignment =  NSImageAlignCenter ;
     [self addSubview:_turtleImageView] ;
+    [self defaultTurtleImage] ;
 
     _pColorNumber = 0 ;
     _bColorNumber = 7 ;
@@ -569,15 +564,19 @@ static int turtle_parentView(lua_State *L) {
 
 static int turtle_turtleImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA | LS_TOPTIONAL, "hs.image", LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA | LS_TNIL | LS_TOPTIONAL, "hs.image", LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:turtleCanvas.turtleImageView.image] ;
     } else {
-        NSImage *newTurtle = [skin toNSObjectAtIndex:2] ;
-        turtleCanvas.turtleImageView.image = newTurtle ;
-        [turtleCanvas updateTurtle] ;
+        if (lua_type(L, 2) == LUA_TNIL) {
+            [turtleCanvas defaultTurtleImage] ;
+        } else {
+            NSImage *newTurtle = [skin toNSObjectAtIndex:2] ;
+            turtleCanvas.turtleImageView.image = newTurtle ;
+            [turtleCanvas updateTurtle] ;
+        }
         lua_pushvalue(L, 1) ;
     }
     return 1 ;

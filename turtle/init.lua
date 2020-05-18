@@ -10,6 +10,7 @@ local image        = require("hs.image")
 local color        = require("hs.drawing.color")
 local inspect      = require("hs.inspect")
 local fnutils      = require("hs.fnutils")
+local canvas       = require("hs.canvas")
 
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
@@ -22,6 +23,57 @@ end
 -- local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
 -- private variables and methods -----------------------------------------
+
+-- borrowed and (very) slightly modified from https://www.calormen.com/jslogo/#; specifically
+-- https://github.com/inexorabletash/jslogo/blob/02482525925e399020f23339a0991d98c4f088ff/turtle.js#L129-L152
+local betterTurtle = canvas.new{ x = 100, y = 100, h = 40, w = 40 }:appendElements{
+    {
+        type           = "segments",
+        action         = "strokeAndFill",
+        strokeColor    = { green = 1 },
+        fillColor      = { green = .75, alpha = .25 },
+        frame          = { x = 0, y = 0, h = 40, w = 40 },
+        strokeWidth    = 2,
+        transformation = canvas.matrix.translate(20, 22),
+        coordinates    = {
+            { x =    0, y =  -20 },
+            { x =  2.5, y =  -17 },
+            { x =    3, y =  -12 },
+            { x =    6, y =  -10 },
+            { x =    9, y =  -13 },
+            { x =   13, y =  -12 },
+            { x =   18, y =   -4 },
+            { x =   18, y =    0 },
+            { x =   14, y =   -1 },
+            { x =   10, y =   -7 },
+            { x =    8, y =   -6 },
+            { x =   10, y =   -2 },
+            { x =    9, y =    3 },
+            { x =    6, y =   10 },
+            { x =    9, y =   13 },
+            { x =    6, y =   15 },
+            { x =    3, y =   12 },
+            { x =    0, y =   13 },
+            { x =   -3, y =   12 },
+            { x =   -6, y =   15 },
+            { x =   -9, y =   13 },
+            { x =   -6, y =   10 },
+            { x =   -9, y =    3 },
+            { x =  -10, y =   -2 },
+            { x =   -8, y =   -6 },
+            { x =  -10, y =   -7 },
+            { x =  -14, y =   -1 },
+            { x =  -18, y =    0 },
+            { x =  -18, y =   -4 },
+            { x =  -13, y =  -12 },
+            { x =   -9, y =  -13 },
+            { x =   -6, y =  -10 },
+            { x =   -3, y =  -12 },
+            { x = -2.5, y =  -17 },
+            { x =    0, y =  -20 },
+        },
+    },
+}:imageFromCanvas()
 
 local _internalLuaSideVars = setmetatable({}, {
     __mode = "k",
@@ -227,7 +279,7 @@ module.new = function(...)
             neverYield = false,
         }
     end
-    return self
+    return self:_turtleImage(betterTurtle)
 end
 
 turtleMT.bye = function(self, doItNoMatterWhat)
