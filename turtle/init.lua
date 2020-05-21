@@ -75,73 +75,23 @@ local betterTurtle = canvas.new{ x = 100, y = 100, h = 40, w = 40 }:appendElemen
     },
 }:imageFromCanvas()
 
-local _internalLuaSideVars = setmetatable({}, {
-    __mode = "k",
-
-    -- work around for the fact that we're using selfRefCount to allow for auto-clean on __gc
-    -- relies on the fact that these are only called if the key *doesn't* exist already in the
-    -- table
-
-    -- the following assume [<userdata>] = { table } in weak-key table; if you're not
-    --     saving a table of values keyed to the userdata, all bets are off and you'll
-    --     need to write something else
-
-    __index = function(self, key)
-        for k,v in pairs(self) do
-            if k == key then
-                -- put *this* key in with the same table so changes to the table affect all
-                -- "keys" pointing to this table
-                rawset(self, key, v)
-                return v
-            end
-        end
-        return nil
-    end,
-
-    __newindex = function(self, key, value)
-        local haslogged = false
-        -- only called for a complete re-assignment of the table if __index wasn't
-        -- invoked first...
-        for k,v in pairs(self) do
-            if k == key then
-                if type(value) == "table" and type(v) == "table" then
-                    -- do this to keep the target table for existing useradata the same
-                    -- because it may have multiple other userdatas pointing to it
-                    for k2, v2 in pairs(v) do v[k2] = nil end
-                    -- shallow copy -- can't have everything or this will get insane
-                    for k2, v2 in pairs(value) do v[k2] = v2 end
-                    rawset(self, key, v)
-                    return
-                else
-                    -- we'll try... replace *all* existing matches (i.e. don't return after 1st)
-                    -- but since this will never get called if __index was invoked first, log
-                    -- warning anyways because this *isn't* what these additions are for...
-                    if not haslogged then
-                        hs.luaSkinLog.wf("%s - weak table indexing only works when value is a table; behavior is undefined for value type %s", USERDATA_TAG, type(value))
-                        haslogged = true
-                    end
-                    rawset(self, k, value)
-                end
-            end
-        end
-        rawset(self, key, value)
-    end,
-})
-
-module._internalLuaSideVars = _internalLuaSideVars
-
 -- Hide the internals from accidental usage
 local _wrappedCommands  = module._wrappedCommands
 -- module._wrappedCommands = nil
 
 local _unwrappedSynonyms = {
-    xcor        = { "xCor" },
-    ycor        = { "yCor" },
-    clearscreen = { "cs", "clearScreen" },
-    showturtle  = { "st", "showTurtle" },
-    hideturtle  = { "ht", "hideTurtle" },
-    shownp      = { "isTurtleVisible" },
-    pendownp    = { "penDownP", "isPenDown" },
+--     xcor        = { "xCor" },
+--     ycor        = { "yCor" },
+--     clearscreen = { "cs", "clearScreen" },
+--     showturtle  = { "st", "showTurtle" },
+--     hideturtle  = { "ht", "hideTurtle" },
+--     shownp      = { "isTurtleVisible" },
+--     pendownp    = { "penDownP" },
+--     labelfont   = { "labelFont" },
+--     labelsize   = { "labelSize" },
+    clearscreen = { "cs" },
+    showturtle  = { "st" },
+    hideturtle  = { "ht" },
 }
 
 -- in case I ever write something to import turtle code directly, don't want these to cause it to break immediately
@@ -156,7 +106,7 @@ local _nops = {
     norefresh   = false,
 }
 
-local penColors = {
+local defaultPalette = {
     { "black",   { __luaSkinType = "NSColor", list = "Apple",   name = "Black" }},
     { "blue",    { __luaSkinType = "NSColor", list = "Apple",   name = "Blue" }},
     { "green",   { __luaSkinType = "NSColor", list = "Apple",   name = "Green" }},
@@ -175,8 +125,20 @@ local penColors = {
     { "gray",    { __luaSkinType = "NSColor", list = "x11",     name = "gray" }},
 }
 
-module._shareColors(penColors)
-module._shareColors = nil
+-- pulled from webkit/Source/WebKit/Shared/WebPreferencesDefaultValues.h 2020-05-17
+module._fontMap = {
+    serif          = "Times",
+    ["sans-serif"] = "Helvetica",
+    cursive        = "Apple Chancery",
+    fantasy        = "Papyrus",
+    monospace      = "Courier",
+--     pictograph     = "Apple Color Emoji",
+}
+
+module._registerInitialPalette(defaultPalette)
+module._registerInitialPalette = nil
+module._registerFontMap(module._fontMap)
+module._registerFontMap = nil
 
 local finspect = function(obj)
     return inspect(obj, { newline = " ", indent = "" })
@@ -184,7 +146,7 @@ end
 
 -- methods with visual impact call this to allow for yields when we're running in a coroutine
 local coroutineFriendlyCheck = function(self)
-    if not _internalLuaSideVars[self].neverYield then
+    if not self:_neverYield() then
         local thread, isMain = coroutine.running()
         if not isMain and (self:_cmdCount() % self:_yieldRatio()) == 0 then
             coroutine.applicationYield()
@@ -218,6 +180,65 @@ turtleMT.scrunch = function(...)
     })
 end
 
+local _labelsize = turtleMT.labelsize
+turtleMT.labelsize = function(...)
+    local result = _labelsize(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _pencolor = turtleMT.pencolor
+turtleMT.pencolor = function(...)
+    local result = _pencolor(...)
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
+local _background = turtleMT.background
+turtleMT.background = function(...)
+    local result = _background(...)
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
+local _palette = turtleMT.palette
+turtleMT.palette = function(...)
+    local result = _palette(...)
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
 turtleMT.towards = function(self, x, y)
     local pos = self:pos()
     return (90 - math.atan(y - pos[2],x - pos[1]) * 180 / math.pi) % 360
@@ -226,39 +247,6 @@ end
 turtleMT.screenmode = function(self, ...) return "FULLSCREEN" end
 
 turtleMT.turtlemode = function(self, ...) return "WINDOW" end
-
-turtleMT._yieldRatio = function(self, ...)
-    local args = table.pack(...)
-    local retV = self
-
-    if args.n == 0 then
-        retV = _internalLuaSideVars[self].yieldRatio
-    else
-        local newValue = args[1]
-        if math.type(newValue) == "integer" then
-            _internalLuaSideVars[self].yieldRatio = newValue > 0 and newValue or 1
-        else
-            error("expected integer for yieldRatio", 2)
-        end
-    end
-    return retV
-end
-
-turtleMT._neverYield = function(self, ...)
-    local args = table.pack(...)
-    local retV = self
-
-    if args.n == 0 then
-        retV = _internalLuaSideVars[self].neverYield
-    else
-        if args[1] then
-            _internalLuaSideVars[self].neverYield = true
-        else
-            _internalLuaSideVars[self].neverYield = false
-        end
-    end
-    return retV
-end
 
 turtleMT._background = function(self, func, ...)
     if not (type(func) == "function" or (getmetatable(func) or {}).__call) then
@@ -271,16 +259,7 @@ turtleMT._background = function(self, func, ...)
 end
 
 local _new = module.new
-module.new = function(...)
-    local self = _new(...)
-    if self then
-        _internalLuaSideVars[self] = {
-            yieldRatio = 500,
-            neverYield = false,
-        }
-    end
-    return self:_turtleImage(betterTurtle)
-end
+module.new = function(...) return _new(...):_turtleImage(betterTurtle) end
 
 turtleMT.bye = function(self, doItNoMatterWhat)
     local c = self:_canvas()
@@ -528,26 +507,39 @@ end
 --   setpensize
 --   setpenwidth
 --   arc
+--   setscrunch
+--   setlabelheight
+--   setlabelfont
+--   label
+--   setpencolor
+--   setbackground
+--   setpalette
 
 for i, v in ipairs(_wrappedCommands) do
     local cmdLabel, cmdNumber = v[1], i - 1
-    local synonyms = v[2] or {}
+--     local synonyms = v[2] or {}
 
     if not turtleMT[cmdLabel] then
-        turtleMT[cmdLabel] = function(self, ...)
-            local result = self:_appendCommand(cmdNumber, ...)
-            if type(result) == "string" then
-                error(result, 2) ;
+        -- this needs "special" help not worth changing the validation code in internal.m for
+        if cmdLabel == "setpensize" then
+            turtleMT[cmdLabel] = function(self, ...)
+                local args = table.pack(...)
+                if type(args[1] ~= "table") then args[1] = { args[1], args[1] } end
+                local result = self:_appendCommand(cmdNumber, table.unpack(args))
+                if type(result) == "string" then
+                    error(result, 2) ;
+                end
+                coroutineFriendlyCheck(self)
+                return result
             end
-            coroutineFriendlyCheck(self)
-            return result
-        end
-
-        for i2, v2 in ipairs(synonyms) do
-            if not turtleMT[v2] then
-                turtleMT[v2] = turtleMT[cmdLabel]
-            else
-                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, cmdLabel)
+        else
+            turtleMT[cmdLabel] = function(self, ...)
+                local result = self:_appendCommand(cmdNumber, ...)
+                if type(result) == "string" then
+                    error(result, 2) ;
+                end
+                coroutineFriendlyCheck(self)
+                return result
             end
         end
     else
@@ -555,28 +547,11 @@ for i, v in ipairs(_wrappedCommands) do
     end
 end
 
-for k, v in pairs(_unwrappedSynonyms) do
-    if turtleMT[k] then
-        for i, v2 in ipairs(v) do
-            if not turtleMT[v2] then
-                turtleMT[v2] = turtleMT[k]
-            else
-                hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as synonym for %s", USERDATA_TAG, v2, k)
-            end
-        end
-    else
-        hs.luaSkinLog.wf("%s:%s - method not defined; can't assign synonyms %s", USERDATA_TAG, k, finspect(v))
-    end
-end
-
--- We can do this for actions; queries imply some decision or calculation based on return, so those will just have to
--- break since we're not implementing the full logo command structure. Really, this will only be useful if I ever write
--- something to convert turtle code into the lua method approach used by this module and it's just raw turtle orders.
 for k, v in pairs(_nops) do
     if not turtleMT[k] then
         turtleMT[k] = function(self, ...)
             if not _nops[k] then
-                hs.luaSkinLog.wf("%s:%s - method is a nop and has no effect for this implemntation; please remove from source", USERDATA_TAG, k)
+                hs.luaSkinLog.wf("%s:%s - method is a nop and has no effect for this implemntation", USERDATA_TAG, k)
                 _nops[k] = true
             end
             return self
@@ -587,5 +562,25 @@ for k, v in pairs(_nops) do
 end
 
 -- Return Module Object --------------------------------------------------
+
+turtleMT.__indexLookup = turtleMT.__index
+turtleMT.__index = function(self, key)
+    if turtleMT.__indexLookup[key] then return turtleMT.__indexLookup[key] end
+
+    local lcKey = key:lower()
+    if turtleMT.__indexLookup[lcKey] then return turtleMT.__indexLookup[lcKey] end
+
+    for i,v in ipairs(_wrappedCommands) do
+        if lcKey == v[1] then return turtleMT.__indexLookup[v[1]] end
+        for i2, v2 in ipairs(v[2]) do
+            if lcKey == v2 then return turtleMT.__indexLookup[v[1]] end
+        end
+    end
+    for k,v in pairs(_unwrappedSynonyms) do
+        for i2, v2 in ipairs(v) do
+            if lcKey == v2 then return turtleMT.__indexLookup[k] end
+        end
+    end
+end
 
 return module

@@ -5,7 +5,16 @@
 
 // TODO:
 
-//   add other methods (esp color)
+//   document -- always my bane
+
+//   move colorPalette into object so multiple turtles can have separate palettes
+//       have to make sure resetTurtleView doesn't use it then, since it won't be set
+//           until new wrapper in lua can attach it.
+
+//   should pencolor and background output idx number if that was the most recent way it
+//       has been set? This is in accordance with docs and *would* allow simple calculations
+//       if using colors in palette, e.g. `t:setpencolor(t:pencolor() + 1)`
+
 //   figure out WTF to do about fills
 //       fill uses floodFill algorithm; probably not reasonable unless we can easily build bitmap, but look into
 //       filled takes a list of commands as arguments, so can't implement with method style approach...
@@ -14,19 +23,75 @@
 //           make filled take function which accepts one variable (turtleObject) and then applies actions to that,
 //               closing off and filling combined bezier path?
 
-// + add way to dump/import commandList?
-//   * dump
+//   savepict should allow for type -- raw (default), lua, logo
+//      logo limits colors to 3 numbers (ignore alpha or NSColor tables)
+//   loadpict only parses raw version; other two are for importing elsewhere
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
-static int refTable = LUA_NOREF;
+static int                refTable   = LUA_NOREF ;
+static int                fontMapRef = LUA_NOREF ;
+
 static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-value-observing/
 
-static NSArray *wrappedCommands ;
-static NSArray *penColors ;
+static NSArray        *wrappedCommands ;
+static NSMutableArray *colorPalette ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
+
+NSColor *NScolorFromHexColorString(NSString *colorString) {
+    NSColor      *result   = nil ;
+    unsigned int colorCode = 0 ;
+
+    if (colorString) {
+         colorString = [colorString stringByReplacingOccurrencesOfString:@"#" withString:@"0x"] ;
+         NSScanner* scanner = [NSScanner scannerWithString:colorString] ;
+         [scanner scanHexInt:&colorCode] ;
+    }
+
+    result = [NSColor colorWithCalibratedRed:(CGFloat)(((colorCode >> 16)  & 0xff)) / 0xff
+                                       green:(CGFloat)(((colorCode >>  8)  & 0xff)) / 0xff
+                                        blue:(CGFloat)(( colorCode         & 0xff)) / 0xff
+                                       alpha:1.0 ] ;
+    return result ;
+}
+
+NSColor *NSColorFromArgument(NSObject *argument) {
+    // fallback in case nothing matches, though they *should* already be validated in validatePassFor:expectedType:
+    NSColor *result = colorPalette[0][1] ;
+
+    if ([(NSObject *)argument isKindOfClass:[NSNumber class]]) {
+        NSUInteger paletteColorIdx = [(NSNumber *)argument unsignedIntegerValue] ;
+        if (paletteColorIdx >= colorPalette.count) paletteColorIdx = 0 ;
+        result = colorPalette[paletteColorIdx][1] ;
+    } else if ([(NSObject *)argument isKindOfClass:[NSString class]]) {
+        if ([(NSString *)argument hasPrefix:@"#"]) {
+            result = NScolorFromHexColorString((NSString *)argument) ;
+        } else {
+            for (NSArray *entry in colorPalette) {
+                if ([(NSString *)entry[0] isEqualToString:(NSString *)argument]) {
+                    result = entry[1] ;
+                    break ;
+                }
+            }
+        }
+    } else if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
+        CGFloat red   = [(NSNumber *)(((NSArray *)argument)[0]) doubleValue] ;
+        CGFloat green = [(NSNumber *)(((NSArray *)argument)[1]) doubleValue] ;
+        CGFloat blue  = [(NSNumber *)(((NSArray *)argument)[2]) doubleValue] ;
+        CGFloat alpha = (((NSArray *)argument).count == 4) ? [(NSNumber *)(((NSArray *)argument)[3]) doubleValue] : 100.0 ;
+        result = [NSColor colorWithCalibratedRed:(red   / 100.0)
+                                            green:(green / 100.0)
+                                             blue:(blue  / 100.0)
+                                            alpha:(alpha / 100.0)] ;
+    } else if ([(NSObject *)argument isKindOfClass:[NSColor class]]) {
+        result = (NSColor *)argument ;
+    } else {
+        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@NSColorFromArgument- unrecognized color object type %@ (notify developer); ignoring and using black", USERDATA_TAG, ((NSObject *)argument).className]] ;
+    }
+    return result ;
+}
 
 @interface HSCanvasTurtleView : NSView
 @property            int                    selfRefCount ;
@@ -46,13 +111,15 @@ static NSArray *penColors ;
 @property            CGFloat                tScaleX ;
 @property            CGFloat                tScaleY ;
 
+@property            CGFloat                labelFontSize ;
+@property            NSString               *labelFontName ;
 
-@property            NSUInteger             pColorNumber ;
-@property            NSUInteger             bColorNumber ;
 @property            NSColor                *pColor ;
 @property            NSColor                *bColor ;
 
 @property            BOOL                   renderingPaused ;
+@property            BOOL                   neverYield ;
+@property            lua_Integer            yieldRatio ;
 @end
 
 @implementation HSCanvasTurtleView {
@@ -69,6 +136,8 @@ static NSArray *penColors ;
     CGFloat                _tInitScaleX ;
     CGFloat                _tInitScaleY ;
 
+    CGFloat                _initLabelFontSize ;
+    NSString               *_initLabelFontName ;
     NSColor                *_pInitColor ;
     NSColor                *_bInitColor ;
 }
@@ -83,6 +152,8 @@ static NSArray *penColors ;
         _parentWindow    = nil ;
         _neverRender     = YES ;
         _renderingPaused = NO ;
+        _neverYield      = NO ;
+        _yieldRatio      = 500 ;
 
         self.wantsLayer = YES ;
         [self resetTurtleView] ;
@@ -108,6 +179,7 @@ static NSArray *penColors ;
         [shiftOriginToCenter concat] ;
 
         [_pInitColor setStroke] ;
+        [_pInitColor setFill] ;
         gc.compositingOperation = _tInitPenMode ;
 
         for (NSArray *entry in _commandList) {
@@ -116,8 +188,20 @@ static NSArray *penColors ;
             NSBezierPath *strokePath = properties[@"stroke"] ;
             if (strokePath) [strokePath stroke] ;
 
+            NSBezierPath *fillPath = properties[@"fill"] ;
+            if (fillPath) [fillPath fill] ;
+
             NSNumber *compositeMode = properties[@"penMode"] ;
             if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
+
+            NSColor *penColor = properties[@"penColor"] ;
+            if (penColor) {
+                [penColor setStroke] ;
+                [penColor setFill] ;
+            }
+
+            NSColor *backgroundColor = properties[@"backgroundColor"] ;
+            if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
         }
 
         [gc restoreGraphicsState] ;
@@ -186,24 +270,25 @@ static NSArray *penColors ;
 }
 
 - (void)resetTurtleView {
-    _tX           = 0.0 ;
-    _tY           = 0.0 ;
-    _tHeading     = 0.0 ;
-    _tPenDown     = YES ;
-    _tPenMode     = NSCompositingOperationSourceOver ;
-    _tPenSize     = NSBezierPath.defaultLineWidth ;
-    _tScaleX      = 1.0 ;
-    _tScaleY      = 1.0 ;
+    _tX       = 0.0 ;
+    _tY       = 0.0 ;
+    _tHeading = 0.0 ;
+    _tPenDown = YES ;
+    _tPenMode = NSCompositingOperationSourceOver ;
+    _tPenSize = NSBezierPath.defaultLineWidth ;
+    _tScaleX  = 1.0 ;
+    _tScaleY  = 1.0 ;
+
+    _labelFontSize = 14.0 ;
+    _labelFontName = @"sans-serif" ;
 
     _turtleSize      = 45 ;
     _turtleImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, _turtleSize, _turtleSize)] ;
     [self addSubview:_turtleImageView] ;
     [self defaultTurtleImage] ;
 
-    _pColorNumber = 0 ;
-    _bColorNumber = 7 ;
-    _pColor       = penColors[_pColorNumber][1] ;
-    _bColor       = penColors[_bColorNumber][1] ;
+    _pColor       = colorPalette[0][1] ;
+    _bColor       = colorPalette[7][1] ;
 
     [self resetForClean] ;
 }
@@ -217,6 +302,9 @@ static NSArray *penColors ;
     _tInitPenSize = _tPenSize ;
     _tInitScaleX  = _tScaleX ;
     _tInitScaleY  = _tScaleY ;
+
+    _initLabelFontSize = _labelFontSize ;
+    _initLabelFontName = _labelFontName ;
 
     _pInitColor   = _pColor ;
     _bInitColor   = _bColor ;
@@ -244,6 +332,56 @@ static NSArray *penColors ;
     }
 }
 
+- (NSString *)validatePassFor:(NSObject *)argument expectedType:(NSString *)expectedArgType {
+    NSString *errMsg = nil ;
+
+    if ([expectedArgType isEqualToString:@"number"]) {
+        if (![(NSObject *)argument isKindOfClass:[NSNumber class]]) errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
+        if (!isfinite([(NSNumber *)argument doubleValue]))          errMsg = @"must be a finite number" ;
+    } else if ([expectedArgType isEqualToString:@"string"]) {
+        if (![(NSObject *)argument isKindOfClass:[NSString class]]) errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
+    } else if ([expectedArgType isEqualToString:@"color"]) {
+        if ([(NSObject *)argument isKindOfClass:[NSNumber class]]) {
+            NSInteger idx = [(NSNumber *)argument integerValue] ;
+            if (idx < 0 || idx > 255) errMsg = @"index must be between 0 and 255 inclusive" ;
+        } else if ([(NSObject *)argument isKindOfClass:[NSString class]]) {
+            if (![(NSString *)argument hasPrefix:@"#"]) {
+                BOOL found = NO ;
+                for (NSUInteger i = 0 ; i < 16 ; i++) {
+                    NSString *colorLabel = colorPalette[i][0] ;
+                    if (![colorLabel isEqualToString:@""]) { // colors > 7 can be overwritten which clears their label
+                        if ([(NSString *)argument isEqualToString:colorLabel]) {
+                            found = YES ;
+                            break ;
+                        }
+                    }
+                }
+                if (!found) errMsg = [NSString stringWithFormat:@"%@ is not a recognized color label", argument] ;
+            }
+        } else if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
+            NSArray *list = (NSArray *)argument ;
+            if (list.count < 3 || list.count > 4) {
+                errMsg = @"color array must contain 3 or 4 numbers" ;
+            } else {
+                for (NSUInteger i = 0 ; i < list.count ; i++) {
+                    if (![(NSObject *)list[i] isKindOfClass:[NSNumber class]]) {
+                        errMsg = [NSString stringWithFormat:@"expected number at index %lu of color array", (i + 1)] ;
+                        break ;
+                    }
+                }
+            }
+        } else if ([(NSObject *)argument isKindOfClass:[NSDictionary class]]) {
+            errMsg = @"color table must include key \"__luaSkinType\" set to \"NSColor\". See `hs.drawaing.color`" ;
+        } else if (![(NSObject *)argument isKindOfClass:[NSColor class]]) {
+            errMsg = [NSString stringWithFormat:@"%@ does not specify a recognized color type", [(NSObject *)argument className]] ;
+        }
+    } else {
+        errMsg = [NSString stringWithFormat:@"argument type %@ not implemented yet (notify developer)", expectedArgType] ;
+    }
+
+    return errMsg ;
+}
+
 - (BOOL)validateCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments
                                                 error:(NSError * __autoreleasing *)error {
     NSUInteger cmdCount = wrappedCommands.count ;
@@ -252,88 +390,72 @@ static NSArray *penColors ;
     if (cmd < cmdCount) {
         NSArray    *cmdDetails      = wrappedCommands[cmd] ;
         NSString   *cmdName         = cmdDetails[0] ;
-        NSUInteger expectedArgCount = [(NSNumber *)cmdDetails[3] unsignedIntegerValue] ;
+        NSUInteger expectedArgCount = cmdDetails.count - 3 ;
         NSUInteger actualArgCount   = (arguments) ? arguments.count : 0 ;
 
         if (expectedArgCount == actualArgCount) {
             if (expectedArgCount > 0) {
                 for (NSUInteger i = 0 ; i < expectedArgCount ; i++) {
-                    NSString *expectedArgType = cmdDetails[4 + i] ;
+                    NSString *expectedArgType = cmdDetails[3 + i] ;
                     if ([expectedArgType isKindOfClass:[NSString class]]) {
-                        if ([expectedArgType isEqualToString:@"number"]) {
-                            if (![(NSObject *)arguments[i] isKindOfClass:[NSNumber class]]) {
-                                errMsg = [NSString stringWithFormat:@"expected %@ for argument %lu of %@", expectedArgType, (i + 1), cmdName] ;
-                                break ;
-                            }
-                            if (!isfinite([(NSNumber *)arguments[i] doubleValue])) {
-                                errMsg = [NSString stringWithFormat:@"argument %lu of %@ must be a finite number", (i + 1), cmdName] ;
-                                break ;
-                            }
-                        } else if ([expectedArgType isEqualToString:@"string"]) {
-                            if (![(NSObject *)arguments[i] isKindOfClass:[NSString class]]) {
-                                errMsg = [NSString stringWithFormat:@"expected %@ for argument %lu of %@", expectedArgType, (i + 1), cmdName] ;
-                                break ;
-                            }
-                        } else {
-                            errMsg = [NSString stringWithFormat:@"invalid definition for %@: argument type %@ not supported", cmdName, expectedArgType] ;
+                        errMsg = [self validatePassFor:arguments[i] expectedType:expectedArgType] ;
+                        if (errMsg) {
+                            errMsg = [NSString stringWithFormat:@"%@: %@ for argument %lu", cmdName, errMsg, (i + 1)] ;
                             break ;
                         }
                     } else if ([expectedArgType isKindOfClass:[NSArray class]]) {
-                        NSArray *list = arguments[i] ;
-                        if (![list isKindOfClass:[NSArray class]]) {
-                            errMsg = [NSString stringWithFormat:@"expected table for argument %lu of %@", (i + 1), cmdName] ;
+                        NSArray *argList = arguments[i] ;
+                        if (![argList isKindOfClass:[NSArray class]]) {
+                            errMsg = [NSString stringWithFormat:@"%@: expected table for argument %lu", cmdName, (i + 1)] ;
                             break ;
                         }
-
                         NSArray *expectedTableArgTypes = (NSArray *)expectedArgType ;
-                        for (NSUInteger j = 0 ; i < expectedTableArgTypes.count ; j++) {
-                            expectedArgType = expectedTableArgTypes[j] ;
-                            if ([expectedArgType isKindOfClass:[NSString class]]) {
-                                if ([expectedArgType isEqualToString:@"number"]) {
-                                    if (![(NSObject *)list[j] isKindOfClass:[NSNumber class]]) {
-                                        errMsg = [NSString stringWithFormat:@"expected %@ for index %lu of argument %lu of %@", expectedArgType, (j + 1), (i + 1), cmdName] ;
-                                        break ;
-                                    }
-                                    if (!isfinite([(NSNumber *)list[j] doubleValue])) {
-                                        errMsg = [NSString stringWithFormat:@"index %lu of argument %lu of %@ must be a finite number", (j + 1), (i + 1), cmdName] ;
-                                        break ;
-                                    }
-                                } else if ([expectedArgType isEqualToString:@"string"]) {
-                                    if (![(NSObject *)list[j] isKindOfClass:[NSString class]]) {
-                                        errMsg = [NSString stringWithFormat:@"expected %@ for argument %lu, index %lu of %@", expectedArgType, (i + 1), (j + 1), cmdName] ;
+                        if (expectedTableArgTypes.count == argList.count) {
+                            for (NSUInteger j = 0 ; i < expectedTableArgTypes.count ; j++) {
+                                expectedArgType = expectedTableArgTypes[j] ;
+                                if ([expectedArgType isKindOfClass:[NSString class]]) {
+                                    errMsg = [self validatePassFor:argList[j] expectedType:expectedArgType] ;
+                                    if (errMsg) {
+                                        errMsg = [NSString stringWithFormat:@"%@: %@ for index %lu of argument %lu", cmdName, errMsg, (j + 1), (i + 1)] ;
                                         break ;
                                     }
                                 } else {
-                                    errMsg = [NSString stringWithFormat:@"invalid definition for %@: argument type %@ in table not supported", cmdName, expectedArgType] ;
+                                    errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in table argument of definition table (notify developer)", cmdName, [expectedArgType className]] ;
                                     break ;
                                 }
-                            } else {
-                                errMsg = [NSString stringWithFormat:@"invalid definition for %@: argument type %@ in table not supported", cmdName, [expectedArgType className]] ;
-                                break ;
                             }
+                            if (errMsg) break ;
+                        } else {
+                            errMsg = [NSString stringWithFormat:@"%@: expected %lu arguments in table argument %lu but found %lu", cmdName, expectedTableArgTypes.count, (i + 1), argList.count] ;
+                            break ;
                         }
-                        if (errMsg) break ;
                     } else {
-                        errMsg = [NSString stringWithFormat:@"invalid definition for %@: argument type %@ not supported", cmdName, [expectedArgType className]] ;
+                        errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in definition table (notify developer)", cmdName, [expectedArgType className]] ;
                         break ;
                     }
                 }
 
                 // command specific validataion
                 if (!errMsg) {
-                    if (cmd == 15 || cmd == 16) { // pensize / penwidth
-                        CGFloat number = [(NSNumber *)arguments[0] doubleValue] ;
+                    if (cmd == 15) {        // setpensize
+                        NSArray *list = arguments[0] ;
+                        CGFloat number = [(NSNumber *)list[0] doubleValue] ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
-                    } else if (cmd == 18) { // setscrunch
+                    } else if (cmd == 17) { // setscrunch
                         CGFloat number = [(NSNumber *)arguments[0] doubleValue] ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
                         number = [(NSNumber *)arguments[1] doubleValue] ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
+                    } else if (cmd == 23) { // setpalette
+                        NSInteger idx = [(NSNumber *)arguments[0] integerValue] ;
+                        if (idx < 0 || idx > 255) {
+                            errMsg = [NSString stringWithFormat:@"%@: index must be between 0 and 255 inclusive", cmdName] ;
+                        }
                     }
                 }
             }
         } else {
-            errMsg = [NSString stringWithFormat:@"%@ requires %lu arguments but %lu were provided", cmdName, expectedArgCount, actualArgCount] ;
+            errMsg = [NSString stringWithFormat:@"%@: expected %lu arguments but found %lu", cmdName, expectedArgCount, actualArgCount] ;
         }
     } else {
         errMsg = @"undefined command number specified" ;
@@ -350,7 +472,7 @@ static NSArray *penColors ;
     return YES ;
 }
 
-- (void)updateStateWithCommand:(NSUInteger)cmd andArguments:(nullable NSArray *)arguments {
+- (void)updateStateWithCommand:(NSUInteger)cmd andArguments:(nullable NSArray *)arguments andState:(lua_State *)L {
     NSMutableDictionary *stepAttributes = _commandList.lastObject[1] ;
 
     CGFloat x = _tX ;
@@ -424,11 +546,11 @@ static NSArray *penColors ;
             _tPenDown = YES ;
             stepAttributes[@"penMode"] = @(_tPenMode) ;
         } break ;
-        case 15:   // setpensize
-        case 16: { // setpenwidth
-            _tPenSize = [(NSNumber *)arguments[0] doubleValue] ;
+        case 15: {  // setpensize
+            NSArray *list = (NSArray *)arguments[0] ;
+            _tPenSize = [(NSNumber *)list[0] doubleValue] ;
         } break ;
-        case 17: { // arc
+        case 16: { // arc
             CGFloat angle  = [(NSNumber *)arguments[0] doubleValue] ;
             NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
             strokePath.lineWidth = _tPenSize ;
@@ -443,18 +565,81 @@ static NSArray *penColors ;
             [strokePath transformUsingAffineTransform:scrunch] ;
             stepAttributes[@"stroke"] = strokePath ;
         } break ;
-        case 18: { // setscrunch
+        case 17: { // setscrunch
             _tScaleX = [(NSNumber *)arguments[0] doubleValue] ;
             _tScaleY = [(NSNumber *)arguments[1] doubleValue] ;
         } break ;
+        case 18: { // setlabelheight
+            _labelFontSize = [(NSNumber *)arguments[0] doubleValue] ;
+        } break ;
+        case 19: { // setlabelfont
+            _labelFontName = arguments[0] ;
+        } break ;
+        case 20: { // label
+            NSString *fontName = _labelFontName ;
+            LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+            [skin pushLuaRef:refTable ref:fontMapRef] ;
+            if (lua_getfield(L, -1, _labelFontName.UTF8String) != LUA_TNIL) fontName = [skin toNSObjectAtIndex:-1] ;
+            lua_pop(L, 2) ;
+
+            NSFont *theFont = [NSFont fontWithName:fontName size:_labelFontSize] ;
+            if (!theFont) theFont = [NSFont userFontOfSize:_labelFontSize] ;
+
+            NSBezierPath* strokePath   = [NSBezierPath bezierPath] ;
+            NSTextStorage *storage     = [[NSTextStorage alloc] initWithString:(NSString *)arguments[0]
+                                                                    attributes:@{ NSFontAttributeName : theFont }] ;
+            NSLayoutManager *manager   = [[NSLayoutManager alloc] init] ;
+            NSTextContainer *container = [[NSTextContainer alloc] init] ;
+
+            [storage addLayoutManager:manager] ;
+            [manager addTextContainer:container] ;
+
+            NSRange glyphRange = [manager glyphRangeForTextContainer:container] ;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvla"
+            CGGlyph glyphArray[glyphRange.length + 1] ;
+#pragma clang diagnostic pop
+
+            NSUInteger glyphCount = [manager getGlyphsInRange:glyphRange glyphs:glyphArray
+                                                                     properties:NULL
+                                                               characterIndexes:NULL
+                                                                     bidiLevels:NULL] ;
+
+            [strokePath moveToPoint:NSZeroPoint] ;
+            [strokePath appendBezierPathWithCGGlyphs:glyphArray count:(NSInteger)glyphCount inFont:theFont] ;
+            NSAffineTransform *scrunchAndTurn = [[NSAffineTransform alloc] init] ;
+            [scrunchAndTurn scaleXBy:_tScaleX yBy:_tScaleY] ;
+            [scrunchAndTurn translateXBy:(_tX / _tScaleX) yBy:(_tY / _tScaleY)] ;
+            [scrunchAndTurn rotateByDegrees:((360 - _tHeading) + 90)] ;
+            [strokePath transformUsingAffineTransform:scrunchAndTurn] ;
+//             stepAttributes[@"stroke"] = strokePath ; // I think it looks crisper with just the fill
+            stepAttributes[@"fill"] = strokePath ;
+        } break ;
+        case 21: { // setpencolor
+            _pColor = NSColorFromArgument(arguments[0]) ;
+            stepAttributes[@"penColor"] = _pColor ;
+        } break ;
+        case 22: { // setbackground
+            _bColor = NSColorFromArgument(arguments[0]) ;
+            stepAttributes[@"backgroundColor"] = _bColor ;
+        } break ;
+        case 23: { // setpalette
+            NSUInteger paletteIdx = ((NSNumber *)arguments[0]).unsignedIntegerValue ;
+            if (paletteIdx > 7) { // we ignore changes to the first 8 colors
+                // it's eitehr this or switch to NSDictionary for a "sparse" array
+                while (paletteIdx > colorPalette.count) colorPalette[colorPalette.count] = @[ @"", colorPalette[0][1] ] ;
+                colorPalette[paletteIdx] = @[ @"", NSColorFromArgument(arguments[1])] ;
+            }
+        } break ;
         default: {
-            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments: - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments:andState - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
             return ;
         }
     }
 }
 
-- (BOOL)appendCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments
+- (BOOL)appendCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments andState:(lua_State *)L
                                               error:(NSError * __autoreleasing *)error {
 
     BOOL isGood = [self validateCommand:cmd withArguments:arguments error:error] ;
@@ -462,7 +647,7 @@ static NSArray *penColors ;
         NSArray *newCommand = @[ @(cmd), [NSMutableDictionary dictionary] ] ;
         if (arguments) newCommand[1][@"arguments"] = arguments ;
         [_commandList addObject:newCommand] ;
-        [self updateStateWithCommand:cmd andArguments:arguments] ;
+        [self updateStateWithCommand:cmd andArguments:arguments andState:L] ;
 
         if ([(NSNumber *)(wrappedCommands[cmd][2]) boolValue]) {
             self.needsDisplay = !(_neverRender || _renderingPaused) ;
@@ -490,6 +675,7 @@ static NSArray *penColors ;
         [shiftOriginToCenter concat] ;
 
         [_pInitColor setStroke] ;
+        [_pInitColor setFill] ;
         gc.compositingOperation = _tInitPenMode ;
 
         for (NSArray *entry in _commandList) {
@@ -498,8 +684,21 @@ static NSArray *penColors ;
             NSBezierPath *strokePath = properties[@"stroke"] ;
             if (strokePath) [strokePath stroke] ;
 
+            NSBezierPath *fillPath = properties[@"fill"] ;
+            if (fillPath) [fillPath fill] ;
+
             NSNumber *compositeMode = properties[@"penMode"] ;
             if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
+
+            NSColor *penColor = properties[@"penColor"] ;
+            if (penColor) {
+                [penColor setStroke] ;
+                [penColor setFill] ;
+            }
+
+// Note sure how to get this to take a true background that erase/reverse modes won't screw over
+//             NSColor *backgroundColor = properties[@"backgroundColor"] ;
+//             if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
         }
 
         [gc restoreGraphicsState] ;
@@ -526,7 +725,59 @@ static int turtle_new(lua_State *L) {
     return 1 ;
 }
 
+static int turtle_registerInitialPalette(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    colorPalette = [(NSObject *)[skin toNSObjectAtIndex:1] mutableCopy] ;
+    return 0 ;
+}
+
+static int turtle_registerFontMap(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    lua_pushvalue(L, 1) ;
+    fontMapRef = [skin luaRef:refTable] ;
+    return 0 ;
+}
+
+static int turtle_rawPalette(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+    [skin pushNSObject:colorPalette] ;
+    return 1 ;
+}
+
 #pragma mark - Module Methods
+
+static int turtle_yieldRatio(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushinteger(L, turtleCanvas.yieldRatio) ;
+    } else {
+        lua_Integer newRatio = lua_tointeger(L, 2) ;
+        if (newRatio < 1) newRatio = 1 ;
+        turtleCanvas.yieldRatio = newRatio ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
+
+static int turtle_neverYield(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, turtleCanvas.neverYield) ;
+    } else {
+        turtleCanvas.neverYield = lua_toboolean(L, 2) ;
+        lua_pushvalue(L, 1) ;
+    }
+    return 1 ;
+}
 
 static int turtle_pauseRendering(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
@@ -651,7 +902,7 @@ static int turtle_appendCommand(lua_State *L) {
     }
 
     NSError *errMsg  = nil ;
-    [turtleCanvas appendCommand:(NSUInteger)command withArguments:arguments error:&errMsg] ;
+    [turtleCanvas appendCommand:(NSUInteger)command withArguments:arguments andState:L error:&errMsg] ;
 
     if (errMsg) {
         // error is handled in lua wrapper
@@ -814,28 +1065,98 @@ static int turtle_hideturtle(lua_State *L) {
     return 1 ;
 }
 
+static int turtle_labelsize(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    lua_newtable(L) ;
+    lua_pushnumber(L, turtleCanvas.labelFontSize) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L, turtleCanvas.labelFontSize) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    return 1 ;
+}
+
+static int turtle_labelfont(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    [skin pushNSObject:turtleCanvas.labelFontName] ;
+    return 1 ;
+}
+
+static int turtle_pencolor(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    NSColor *safeColor = [turtleCanvas.pColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+    if (safeColor) {
+        lua_newtable(L) ;
+        lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        CGFloat alpha = safeColor.alphaComponent ;
+        if (alpha < 0.999) {
+            lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+    } else {
+        [skin pushNSObject:turtleCanvas.pColor] ;
+    }
+    return 1 ;
+}
+
+static int turtle_background(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    NSColor *safeColor = [turtleCanvas.bColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+    if (safeColor) {
+        lua_newtable(L) ;
+        lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        CGFloat alpha = safeColor.alphaComponent ;
+        if (alpha < 0.999) {
+            lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+    } else {
+        [skin pushNSObject:turtleCanvas.bColor] ;
+    }
+    return 1 ;
+}
+
+static int turtle_palette(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+    lua_Integer idx = lua_tointeger(L, 2) ;
+
+    if (idx < 0 || idx > 255) {
+        return luaL_argerror(L, 2, "index must be between 0 and 255 inclusive") ;
+    }
+    if ((NSUInteger)idx >= colorPalette.count) idx = 0 ;
+    NSColor *safeColor = [(NSColor *)(colorPalette[(NSUInteger)idx][1]) colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+    if (safeColor) {
+        lua_newtable(L) ;
+        lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        CGFloat alpha = safeColor.alphaComponent ;
+        if (alpha < 0.999) {
+            lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+    } else {
+        [skin pushNSObject:colorPalette[(NSUInteger)idx][1]] ;
+    }
+    return 1 ;
+}
+
 // Probably to be wrapped, if implemented
     // 6.3 Turtle and Window Control
         //   fill
         //   filled
-        //   label
-        //   setlabelheight
-    // 6.5 Pen and Background Control
-        //   setpencolor
-        //   setpalette
-        //   setbackground
-    // suggested by JS logo at https://www.calormen.com/jslogo/#
-        //   setlabelfont ['serif', 'sans-serif', 'cursive', 'fantasy', 'monospace']
-
-// Probably defined in here, if implemented
-    // 6.4 Turtle and Window Queries
-        //   labelsize
-    // 6.6 Pen Queries
-        //   pencolor
-        //   palette
-        //   background
-    // suggested by JS logo at https://www.calormen.com/jslogo/#
-        //   labelfont
 
 // Not Sure Yet
     // 6.5 Pen and Background Control
@@ -851,11 +1172,6 @@ static int turtle_hideturtle(lua_State *L) {
         //   wrap            -- marked as nop
         //   window          -- marked as nop
         //   fence           -- marked as nop
-        //   textscreen      -- marked as nop
-        //   fullscreen      -- marked as nop
-        //   splitscreen     -- marked as nop
-        //   refresh         -- marked as nop
-        //   norefresh       -- marked as nop
     // 6.5 Pen and Background Control
         //   setpenpattern
     // 6.6 Pen Queries
@@ -874,13 +1190,6 @@ static int turtle_CommandsToBeWrapped(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushNSObject:wrappedCommands] ;
     return 1 ;
-}
-
-static int turtle_assignPenColorsFromLua(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
-    penColors = [skin toNSObjectAtIndex:1] ;
-    return 0 ;
 }
 
 #pragma mark - Lua<->NSObject Conversion Functions
@@ -961,41 +1270,50 @@ static int userdata_gc(lua_State* L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"pos",             turtle_pos},
-    {"xcor",            turtle_xcor},
-    {"ycor",            turtle_ycor},
-    {"heading",         turtle_heading},
-    {"clean",           turtle_clean},
-    {"clearscreen",     turtle_clearscreen},
-    {"showturtle",      turtle_showturtle},
-    {"hideturtle",      turtle_hideturtle},
-    {"shownp",          turtle_shownp},
-    {"pendownp",        turtle_pendownp},
-    {"penmode",         turtle_penmode},
-    {"pensize",         turtle_pensize},
-    {"penwidth",        turtle_penwidth},
-    {"scrunch",         turtle_scrunch},
+    {"pos",              turtle_pos},
+    {"xcor",             turtle_xcor},
+    {"ycor",             turtle_ycor},
+    {"heading",          turtle_heading},
+    {"clean",            turtle_clean},
+    {"clearscreen",      turtle_clearscreen},
+    {"showturtle",       turtle_showturtle},
+    {"hideturtle",       turtle_hideturtle},
+    {"shownp",           turtle_shownp},
+    {"pendownp",         turtle_pendownp},
+    {"penmode",          turtle_penmode},
+    {"pensize",          turtle_pensize},
+    {"penwidth",         turtle_penwidth},
+    {"scrunch",          turtle_scrunch},
+    {"labelsize",        turtle_labelsize},
+    {"labelfont",        turtle_labelfont},
+    {"pencolor",         turtle_pencolor},
+    {"background",       turtle_background},
+    {"palette",          turtle_palette},
 
-    {"_pause",          turtle_pauseRendering},
-    {"_image",          turtle_asImage},
-    {"_cmdCount",       turtle_commandCount},
-    {"_appendCommand",  turtle_appendCommand},
-    {"_turtleImage",    turtle_turtleImage},
-    {"_turtleSize",     turtle_turtleSize},
-    {"_canvas",         turtle_parentView},
-    {"_commands",       turtle_commandDump},
+    {"_yieldRatio",      turtle_yieldRatio},
+    {"_neverYield",      turtle_neverYield},
+    {"_pause",           turtle_pauseRendering},
+    {"_image",           turtle_asImage},
+    {"_cmdCount",        turtle_commandCount},
+    {"_appendCommand",   turtle_appendCommand},
+    {"_turtleImage",     turtle_turtleImage},
+    {"_turtleSize",      turtle_turtleSize},
+    {"_canvas",          turtle_parentView},
+    {"_commands",        turtle_commandDump},
 
-    {"__tostring",      userdata_tostring},
-    {"__eq",            userdata_eq},
-    {"__gc",            userdata_gc},
-    {NULL,              NULL}
+    {"__tostring",       userdata_tostring},
+    {"__eq",             userdata_eq},
+    {"__gc",             userdata_gc},
+    {NULL,               NULL}
 };
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new",          turtle_new},
-    {"_shareColors", turtle_assignPenColorsFromLua},
-    {NULL,  NULL}
+    {"new",                     turtle_new},
+    {"_registerFontMap",        turtle_registerFontMap},
+    {"_registerInitialPalette", turtle_registerInitialPalette},
+    {"_rawPalette",             turtle_rawPalette},
+    {NULL,                      NULL}
 };
 
 // // Metatable for module, if needed
@@ -1018,35 +1336,35 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
                                                    withUserdataMapping:USERDATA_TAG];
 
     wrappedCommands = @[
-        // name            synonyms                              visual  #args type(s)
-        @[ @"forward",     @[ @"fd" ],                           @(YES), @(1), @"number" ],
-        @[ @"back",        @[ @"bk" ],                           @(YES), @(1), @"number" ],
-        @[ @"left",        @[ @"lt" ],                           @(NO),  @(1), @"number" ],
-        @[ @"right",       @[ @"rt" ],                           @(NO),  @(1), @"number" ],
-        @[ @"setpos",      @[ @"setPos" ],                       @(YES), @(1), @[ @(2), @"number", @"number" ] ],
-        @[ @"setxy",       @[ @"setXY" ],                        @(YES), @(2), @"number", @"number" ],
-        @[ @"setx",        @[ @"setX" ],                         @(YES), @(1), @"number" ],
-        @[ @"sety",        @[ @"setY" ],                         @(YES), @(1), @"number" ],
-        @[ @"setheading",  @[ @"seth", @"setH", @"setHeading" ], @(NO),  @(1), @"number" ],
-        @[ @"home",        @[],                                  @(YES), @(0) ],
-        @[ @"pendown",     @[ @"pd", @"penDown" ],               @(NO),  @(0) ],
-        @[ @"penup",       @[ @"pu", @"penUp" ],                 @(NO),  @(0) ],
-        @[ @"penpaint",    @[ @"ppt", @"penPaint" ],             @(NO),  @(0) ],
-        @[ @"penerase",    @[ @"pe", @"penErase" ],              @(NO),  @(0) ],
-        @[ @"penreverse",  @[ @"px", @"penReverse" ],            @(NO),  @(0) ],
-        @[ @"setpensize",  @[ @"setPenSize"],                    @(NO),  @(2), @"number", @"number" ],
-        @[ @"setpenwidth", @[ @"setPenWidth"],                   @(NO),  @(1), @"number" ],
-        @[ @"arc",         @[],                                  @(YES), @(2), @"number", @"number" ],
-        @[ @"setscrunch",  @[ @"setScrunch" ],                   @(NO),  @(2), @"number", @"number" ],
+        // name               synonyms       visual  type(s)
+        @[ @"forward",        @[ @"fd" ],    @(YES), @"number" ],
+        @[ @"back",           @[ @"bk" ],    @(YES), @"number" ],
+        @[ @"left",           @[ @"lt" ],    @(NO),  @"number" ],
+        @[ @"right",          @[ @"rt" ],    @(NO),  @"number" ],
+        @[ @"setpos",         @[],           @(YES), @[ @"number", @"number" ] ],
+        @[ @"setxy",          @[],           @(YES), @"number", @"number" ],
+        @[ @"setx",           @[],           @(YES), @"number" ],
+        @[ @"sety",           @[],           @(YES), @"number" ],
+        @[ @"setheading",     @[ @"seth" ],  @(NO),  @"number" ],
+        @[ @"home",           @[],           @(YES), ],
+        @[ @"pendown",        @[ @"pd" ],    @(NO),  ],
+        @[ @"penup",          @[ @"pu" ],    @(NO),  ],
+        @[ @"penpaint",       @[ @"ppt" ],   @(NO),  ],
+        @[ @"penerase",       @[ @"pe" ],    @(NO),  ],
+        @[ @"penreverse",     @[ @"px" ],    @(NO),  ],
+        @[ @"setpensize",     @[],           @(NO),  @[ @"number", @"number" ] ],
+        @[ @"arc",            @[],           @(YES), @"number", @"number" ],
+        @[ @"setscrunch",     @[],           @(NO),  @"number", @"number" ],
+        @[ @"setlabelheight", @[],           @(NO),  @"number" ],
+        @[ @"setlabelfont",   @[],           @(NO),  @"string" ],
+        @[ @"label",          @[],           @(YES), @"string" ],
+        @[ @"setpencolor",    @[ @"setpc" ], @(YES), @"color" ],
+        @[ @"setbackground",  @[ @"setbg" ], @(YES), @"color" ],
+        @[ @"setpalette",     @[],           @(NO),  @"number", @"color" ],
+
     //     @"fill",
     //     @"filled",
-    //     @"label",
-    //     @"setlabelheight",
-    //     @"setpencolor",
-    //     @"setpalette",
-    //     @"setpenpattern",
     //     @"setpen",
-    //     @"setbackground",
 
     ] ;
     turtle_CommandsToBeWrapped(L) ; lua_setfield(L, -2, "_wrappedCommands") ;
