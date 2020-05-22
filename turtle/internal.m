@@ -7,14 +7,6 @@
 
 //   document -- always my bane
 
-//   move colorPalette into object so multiple turtles can have separate palettes
-//       have to make sure resetTurtleView doesn't use it then, since it won't be set
-//           until new wrapper in lua can attach it.
-
-//   should pencolor and background output idx number if that was the most recent way it
-//       has been set? This is in accordance with docs and *would* allow simple calculations
-//       if using colors in palette, e.g. `t:setpencolor(t:pencolor() + 1)`
-
 //   figure out WTF to do about fills
 //       fill uses floodFill algorithm; probably not reasonable unless we can easily build bitmap, but look into
 //       filled takes a list of commands as arguments, so can't implement with method style approach...
@@ -34,13 +26,13 @@ static int                fontMapRef = LUA_NOREF ;
 static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-value-observing/
 
 static NSArray        *wrappedCommands ;
-static NSMutableArray *colorPalette ;
+static NSArray        *defaultColorPalette ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
 
-NSColor *NScolorFromHexColorString(NSString *colorString) {
+NSColor *NSColorFromHexColorString(NSString *colorString) {
     NSColor      *result   = nil ;
     unsigned int colorCode = 0 ;
 
@@ -54,42 +46,6 @@ NSColor *NScolorFromHexColorString(NSString *colorString) {
                                        green:(CGFloat)(((colorCode >>  8)  & 0xff)) / 0xff
                                         blue:(CGFloat)(( colorCode         & 0xff)) / 0xff
                                        alpha:1.0 ] ;
-    return result ;
-}
-
-NSColor *NSColorFromArgument(NSObject *argument) {
-    // fallback in case nothing matches, though they *should* already be validated in validatePassFor:expectedType:
-    NSColor *result = colorPalette[0][1] ;
-
-    if ([(NSObject *)argument isKindOfClass:[NSNumber class]]) {
-        NSUInteger paletteColorIdx = [(NSNumber *)argument unsignedIntegerValue] ;
-        if (paletteColorIdx >= colorPalette.count) paletteColorIdx = 0 ;
-        result = colorPalette[paletteColorIdx][1] ;
-    } else if ([(NSObject *)argument isKindOfClass:[NSString class]]) {
-        if ([(NSString *)argument hasPrefix:@"#"]) {
-            result = NScolorFromHexColorString((NSString *)argument) ;
-        } else {
-            for (NSArray *entry in colorPalette) {
-                if ([(NSString *)entry[0] isEqualToString:(NSString *)argument]) {
-                    result = entry[1] ;
-                    break ;
-                }
-            }
-        }
-    } else if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
-        CGFloat red   = [(NSNumber *)(((NSArray *)argument)[0]) doubleValue] ;
-        CGFloat green = [(NSNumber *)(((NSArray *)argument)[1]) doubleValue] ;
-        CGFloat blue  = [(NSNumber *)(((NSArray *)argument)[2]) doubleValue] ;
-        CGFloat alpha = (((NSArray *)argument).count == 4) ? [(NSNumber *)(((NSArray *)argument)[3]) doubleValue] : 100.0 ;
-        result = [NSColor colorWithCalibratedRed:(red   / 100.0)
-                                            green:(green / 100.0)
-                                             blue:(blue  / 100.0)
-                                            alpha:(alpha / 100.0)] ;
-    } else if ([(NSObject *)argument isKindOfClass:[NSColor class]]) {
-        result = (NSColor *)argument ;
-    } else {
-        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@NSColorFromArgument- unrecognized color object type %@ (notify developer); ignoring and using black", USERDATA_TAG, ((NSObject *)argument).className]] ;
-    }
     return result ;
 }
 
@@ -116,6 +72,10 @@ NSColor *NSColorFromArgument(NSObject *argument) {
 
 @property            NSColor                *pColor ;
 @property            NSColor                *bColor ;
+@property (readonly) NSUInteger             pPaletteIdx ;
+@property (readonly) NSUInteger             bPaletteIdx ;
+
+@property            NSMutableArray         *colorPalette ;
 
 @property            BOOL                   renderingPaused ;
 @property            BOOL                   neverYield ;
@@ -154,6 +114,8 @@ NSColor *NSColorFromArgument(NSObject *argument) {
         _renderingPaused = NO ;
         _neverYield      = NO ;
         _yieldRatio      = 500 ;
+
+        _colorPalette    = [defaultColorPalette mutableCopy] ;
 
         self.wantsLayer = YES ;
         [self resetTurtleView] ;
@@ -287,8 +249,10 @@ NSColor *NSColorFromArgument(NSObject *argument) {
     [self addSubview:_turtleImageView] ;
     [self defaultTurtleImage] ;
 
-    _pColor       = colorPalette[0][1] ;
-    _bColor       = colorPalette[7][1] ;
+    _pPaletteIdx  = 0 ;
+    _bPaletteIdx  = 7 ;
+    _pColor       = _colorPalette[_pPaletteIdx][1] ;
+    _bColor       = _colorPalette[_bPaletteIdx][1] ;
 
     [self resetForClean] ;
 }
@@ -332,25 +296,70 @@ NSColor *NSColorFromArgument(NSObject *argument) {
     }
 }
 
-- (NSString *)validatePassFor:(NSObject *)argument expectedType:(NSString *)expectedArgType {
+- (NSColor *)colorFromArgument:(NSObject *)argument withState:(lua_State *)L {
+    // fallback in case nothing matches, though they *should* already be validated in check:forExpectedType:
+    NSColor *result = _colorPalette[0][1] ;
+
+    if ([argument isKindOfClass:[NSNumber class]]) {
+        NSUInteger paletteColorIdx = ((NSNumber *)argument).unsignedIntegerValue ;
+        if (paletteColorIdx >= _colorPalette.count) paletteColorIdx = 0 ;
+        result = _colorPalette[paletteColorIdx][1] ;
+    } else if ([argument isKindOfClass:[NSString class]]) {
+        NSString *argumentAsString = (NSString *)argument ;
+        if ([argumentAsString hasPrefix:@"#"]) {
+            result = NSColorFromHexColorString(argumentAsString) ;
+        } else {
+            for (NSArray *entry in _colorPalette) {
+                if ([(NSString *)entry[0] isEqualToString:argumentAsString]) {
+                    result = entry[1] ;
+                    break ;
+                }
+            }
+        }
+    } else if ([argument isKindOfClass:[NSArray class]]) {
+        NSArray<NSNumber *> *argumentAsNumericArray = (NSArray *)argument ;
+        CGFloat red   = [argumentAsNumericArray[0] doubleValue] ;
+        CGFloat green = [argumentAsNumericArray[1] doubleValue] ;
+        CGFloat blue  = [argumentAsNumericArray[2] doubleValue] ;
+        CGFloat alpha = (argumentAsNumericArray.count == 4) ? [argumentAsNumericArray[3] doubleValue] : 100.0 ;
+        result = [NSColor colorWithCalibratedRed:(red / 100.0) green:(green / 100.0) blue:(blue / 100.0) alpha:(alpha / 100.0)] ;
+    } else if ([argument isKindOfClass:[NSDictionary class]]) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin pushNSObject:argument] ;
+        result = [skin luaObjectAtIndex:-1 toClass:"NSColor"] ;
+        lua_pop(L, 1) ;
+    } else if ([argument isKindOfClass:[NSColor class]]) {
+        result = (NSColor *)argument ;
+    } else {
+        [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@colorFromArgument:withState: - unrecognized color object type %@ (notify developer); ignoring and using black", USERDATA_TAG, argument.className]] ;
+    }
+    return result ;
+}
+
+- (NSString *)check:(NSObject *)argument forExpectedType:(NSString *)expectedArgType {
     NSString *errMsg = nil ;
+    NSNumber *argumentAsNumber = (NSNumber *)argument ;
 
     if ([expectedArgType isEqualToString:@"number"]) {
-        if (![(NSObject *)argument isKindOfClass:[NSNumber class]]) errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
-        if (!isfinite([(NSNumber *)argument doubleValue]))          errMsg = @"must be a finite number" ;
+        if (![argumentAsNumber isKindOfClass:[NSNumber class]]) {
+            errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
+        } else if (!isfinite(argumentAsNumber.doubleValue)) {
+            errMsg = @"must be a finite number" ;
+        }
     } else if ([expectedArgType isEqualToString:@"string"]) {
-        if (![(NSObject *)argument isKindOfClass:[NSString class]]) errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
+        if (![argument isKindOfClass:[NSString class]]) errMsg = [NSString stringWithFormat:@"expected %@", expectedArgType] ;
     } else if ([expectedArgType isEqualToString:@"color"]) {
-        if ([(NSObject *)argument isKindOfClass:[NSNumber class]]) {
-            NSInteger idx = [(NSNumber *)argument integerValue] ;
+        if ([argument isKindOfClass:[NSNumber class]]) {
+            NSInteger idx = argumentAsNumber.integerValue ;
             if (idx < 0 || idx > 255) errMsg = @"index must be between 0 and 255 inclusive" ;
-        } else if ([(NSObject *)argument isKindOfClass:[NSString class]]) {
-            if (![(NSString *)argument hasPrefix:@"#"]) {
+        } else if ([argument isKindOfClass:[NSString class]]) {
+            NSString *argumentAsString = (NSString *)argument ;
+            if (![argumentAsString hasPrefix:@"#"]) {
                 BOOL found = NO ;
                 for (NSUInteger i = 0 ; i < 16 ; i++) {
-                    NSString *colorLabel = colorPalette[i][0] ;
+                    NSString *colorLabel = _colorPalette[i][0] ;
                     if (![colorLabel isEqualToString:@""]) { // colors > 7 can be overwritten which clears their label
-                        if ([(NSString *)argument isEqualToString:colorLabel]) {
+                        if ([argumentAsString isEqualToString:colorLabel]) {
                             found = YES ;
                             break ;
                         }
@@ -358,22 +367,23 @@ NSColor *NSColorFromArgument(NSObject *argument) {
                 }
                 if (!found) errMsg = [NSString stringWithFormat:@"%@ is not a recognized color label", argument] ;
             }
-        } else if ([(NSObject *)argument isKindOfClass:[NSArray class]]) {
-            NSArray *list = (NSArray *)argument ;
+        } else if ([argument isKindOfClass:[NSArray class]]) {
+            NSArray<NSObject *> *list = (NSArray *)argument ;
             if (list.count < 3 || list.count > 4) {
                 errMsg = @"color array must contain 3 or 4 numbers" ;
             } else {
                 for (NSUInteger i = 0 ; i < list.count ; i++) {
-                    if (![(NSObject *)list[i] isKindOfClass:[NSNumber class]]) {
+                    if (![list[i] isKindOfClass:[NSNumber class]]) {
                         errMsg = [NSString stringWithFormat:@"expected number at index %lu of color array", (i + 1)] ;
                         break ;
                     }
                 }
             }
-        } else if ([(NSObject *)argument isKindOfClass:[NSDictionary class]]) {
-            errMsg = @"color table must include key \"__luaSkinType\" set to \"NSColor\". See `hs.drawaing.color`" ;
-        } else if (![(NSObject *)argument isKindOfClass:[NSColor class]]) {
-            errMsg = [NSString stringWithFormat:@"%@ does not specify a recognized color type", [(NSObject *)argument className]] ;
+//         } else if ([argument isKindOfClass:[NSDictionary class]]) {
+//             errMsg = @"color table must include key \"__luaSkinType\" set to \"NSColor\". See `hs.drawaing.color`" ;
+//         } else if (![argument isKindOfClass:[NSColor class]]) {
+        } else if (!([argument isKindOfClass:[NSColor class]] || [argument isKindOfClass:[NSDictionary class]])) {
+            errMsg = [NSString stringWithFormat:@"%@ does not specify a recognized color type", argument.className] ;
         }
     } else {
         errMsg = [NSString stringWithFormat:@"argument type %@ not implemented yet (notify developer)", expectedArgType] ;
@@ -398,7 +408,7 @@ NSColor *NSColorFromArgument(NSObject *argument) {
                 for (NSUInteger i = 0 ; i < expectedArgCount ; i++) {
                     NSString *expectedArgType = cmdDetails[3 + i] ;
                     if ([expectedArgType isKindOfClass:[NSString class]]) {
-                        errMsg = [self validatePassFor:arguments[i] expectedType:expectedArgType] ;
+                        errMsg = [self check:arguments[i] forExpectedType:expectedArgType] ;
                         if (errMsg) {
                             errMsg = [NSString stringWithFormat:@"%@: %@ for argument %lu", cmdName, errMsg, (i + 1)] ;
                             break ;
@@ -411,16 +421,16 @@ NSColor *NSColorFromArgument(NSObject *argument) {
                         }
                         NSArray *expectedTableArgTypes = (NSArray *)expectedArgType ;
                         if (expectedTableArgTypes.count == argList.count) {
-                            for (NSUInteger j = 0 ; i < expectedTableArgTypes.count ; j++) {
+                            for (NSUInteger j = 0 ; j < expectedTableArgTypes.count ; j++) {
                                 expectedArgType = expectedTableArgTypes[j] ;
                                 if ([expectedArgType isKindOfClass:[NSString class]]) {
-                                    errMsg = [self validatePassFor:argList[j] expectedType:expectedArgType] ;
+                                    errMsg = [self check:argList[j] forExpectedType:expectedArgType] ;
                                     if (errMsg) {
                                         errMsg = [NSString stringWithFormat:@"%@: %@ for index %lu of argument %lu", cmdName, errMsg, (j + 1), (i + 1)] ;
                                         break ;
                                     }
                                 } else {
-                                    errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in table argument of definition table (notify developer)", cmdName, [expectedArgType className]] ;
+                                    errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in table argument of definition table (notify developer)", cmdName, expectedArgType.className] ;
                                     break ;
                                 }
                             }
@@ -430,24 +440,25 @@ NSColor *NSColorFromArgument(NSObject *argument) {
                             break ;
                         }
                     } else {
-                        errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in definition table (notify developer)", cmdName, [expectedArgType className]] ;
+                        errMsg = [NSString stringWithFormat:@"%@: argument type %@ not supported in definition table (notify developer)", cmdName, expectedArgType.className] ;
                         break ;
                     }
                 }
 
                 // command specific validataion
                 if (!errMsg) {
+                    NSArray<NSNumber *> *argumentsAsNumbers = arguments ;
                     if (cmd == 15) {        // setpensize
-                        NSArray *list = arguments[0] ;
-                        CGFloat number = [(NSNumber *)list[0] doubleValue] ;
+                        NSArray<NSNumber *> *list = arguments[0] ;
+                        CGFloat number = list[0].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
                     } else if (cmd == 17) { // setscrunch
-                        CGFloat number = [(NSNumber *)arguments[0] doubleValue] ;
+                        CGFloat number = argumentsAsNumbers[0].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
-                        number = [(NSNumber *)arguments[1] doubleValue] ;
+                        number = argumentsAsNumbers[1].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
                     } else if (cmd == 23) { // setpalette
-                        NSInteger idx = [(NSNumber *)arguments[0] integerValue] ;
+                        NSInteger idx = argumentsAsNumbers[0].integerValue ;
                         if (idx < 0 || idx > 255) {
                             errMsg = [NSString stringWithFormat:@"%@: index must be between 0 and 255 inclusive", cmdName] ;
                         }
@@ -475,6 +486,8 @@ NSColor *NSColorFromArgument(NSObject *argument) {
 - (void)updateStateWithCommand:(NSUInteger)cmd andArguments:(nullable NSArray *)arguments andState:(lua_State *)L {
     NSMutableDictionary *stepAttributes = _commandList.lastObject[1] ;
 
+    NSArray<NSNumber *> *argumentsAsNumbers = (NSArray *)arguments ;
+
     CGFloat x = _tX ;
     CGFloat y = _tY ;
 
@@ -488,21 +501,21 @@ NSColor *NSColorFromArgument(NSObject *argument) {
         case  9: { // home
             if (cmd < 2) {
                 CGFloat headingInRadians = _tHeading * M_PI / 180 ;
-                CGFloat distance = [(NSNumber *)arguments[0] doubleValue] ;
+                CGFloat distance = argumentsAsNumbers[0].doubleValue ;
                 if (cmd == 1) distance = -distance ;
                 _tX = x + distance * sin(headingInRadians) * _tScaleX ;
                 _tY = y + distance * cos(headingInRadians) * _tScaleY ;
             } else if (cmd == 4) {
-                NSArray *list = (NSArray *)arguments[0] ;
-                _tX = [(NSNumber *)list[0] doubleValue] * _tScaleX ;
-                _tY = [(NSNumber *)list[1] doubleValue] * _tScaleY ;
+                NSArray<NSNumber *> *listOfNumbers = arguments[0] ;
+                _tX = listOfNumbers[0].doubleValue * _tScaleX ;
+                _tY = listOfNumbers[1].doubleValue * _tScaleY ;
             } else if (cmd == 5) {
-                _tX = [(NSNumber *)arguments[0] doubleValue] * _tScaleX ;
-                _tY = [(NSNumber *)arguments[1] doubleValue] * _tScaleY ;
+                _tX = argumentsAsNumbers[0].doubleValue * _tScaleX ;
+                _tY = argumentsAsNumbers[1].doubleValue * _tScaleY ;
             } else if (cmd == 6) {
-                _tX = [(NSNumber *)arguments[0] doubleValue] * _tScaleX ;
+                _tX = argumentsAsNumbers[0].doubleValue * _tScaleX ;
             } else if (cmd == 7) {
-                _tY = [(NSNumber *)arguments[0] doubleValue] * _tScaleY ;
+                _tY = argumentsAsNumbers[0].doubleValue * _tScaleY ;
             } else if (cmd == 9) {
                 _tX       = 0.0 ;
                 _tY       = 0.0 ;
@@ -521,7 +534,7 @@ NSColor *NSColorFromArgument(NSObject *argument) {
         case  2:   // left
         case  3:   // right
         case  8: { // setheading
-            CGFloat angle = [(NSNumber *)arguments[0] doubleValue] ;
+            CGFloat angle = argumentsAsNumbers[0].doubleValue ;
             if (cmd == 2) {
                 angle = _tHeading - angle ;
             } else if (cmd == 3) {
@@ -547,15 +560,15 @@ NSColor *NSColorFromArgument(NSObject *argument) {
             stepAttributes[@"penMode"] = @(_tPenMode) ;
         } break ;
         case 15: {  // setpensize
-            NSArray *list = (NSArray *)arguments[0] ;
-            _tPenSize = [(NSNumber *)list[0] doubleValue] ;
+            NSArray<NSNumber *> *list = arguments[0] ;
+            _tPenSize = list[0].doubleValue ;
         } break ;
         case 16: { // arc
-            CGFloat angle  = [(NSNumber *)arguments[0] doubleValue] ;
+            CGFloat angle  = argumentsAsNumbers[0].doubleValue ;
             NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
             strokePath.lineWidth = _tPenSize ;
             [strokePath appendBezierPathWithArcWithCenter:NSMakePoint(0, 0)
-                                                   radius:[(NSNumber *)arguments[1] doubleValue]
+                                                   radius:argumentsAsNumbers[1].doubleValue
                                                startAngle:((360 - _tHeading) + 90)
                                                  endAngle:((360 - (_tHeading + angle)) + 90)
                                                 clockwise:(angle > 0)] ;
@@ -566,14 +579,14 @@ NSColor *NSColorFromArgument(NSObject *argument) {
             stepAttributes[@"stroke"] = strokePath ;
         } break ;
         case 17: { // setscrunch
-            _tScaleX = [(NSNumber *)arguments[0] doubleValue] ;
-            _tScaleY = [(NSNumber *)arguments[1] doubleValue] ;
+            _tScaleX = argumentsAsNumbers[0].doubleValue ;
+            _tScaleY = argumentsAsNumbers[1].doubleValue ;
         } break ;
         case 18: { // setlabelheight
-            _labelFontSize = [(NSNumber *)arguments[0] doubleValue] ;
+            _labelFontSize = argumentsAsNumbers[0].doubleValue ;
         } break ;
         case 19: { // setlabelfont
-            _labelFontName = arguments[0] ;
+            _labelFontName = (NSString *)arguments[0] ;
         } break ;
         case 20: { // label
             NSString *fontName = _labelFontName ;
@@ -617,29 +630,40 @@ NSColor *NSColorFromArgument(NSObject *argument) {
             stepAttributes[@"fill"] = strokePath ;
         } break ;
         case 21: { // setpencolor
-            _pColor = NSColorFromArgument(arguments[0]) ;
+            _pColor = [self colorFromArgument:arguments[0] withState:L] ;
             stepAttributes[@"penColor"] = _pColor ;
+            if ([(NSObject *)arguments[0] isKindOfClass:[NSNumber class]]) {
+                _pPaletteIdx = argumentsAsNumbers[0].unsignedIntegerValue ;
+            } else {
+                _pPaletteIdx = NSUIntegerMax ;
+            }
         } break ;
         case 22: { // setbackground
-            _bColor = NSColorFromArgument(arguments[0]) ;
+            _bColor = [self colorFromArgument:arguments[0] withState:L] ;
             stepAttributes[@"backgroundColor"] = _bColor ;
+            if ([(NSObject *)arguments[0] isKindOfClass:[NSNumber class]]) {
+                _bPaletteIdx = argumentsAsNumbers[0].unsignedIntegerValue ;
+            } else {
+                _bPaletteIdx = NSUIntegerMax ;
+            }
         } break ;
         case 23: { // setpalette
-            NSUInteger paletteIdx = ((NSNumber *)arguments[0]).unsignedIntegerValue ;
+            NSUInteger paletteIdx = argumentsAsNumbers[0].unsignedIntegerValue ;
             if (paletteIdx > 7) { // we ignore changes to the first 8 colors
                 // it's eitehr this or switch to NSDictionary for a "sparse" array
-                while (paletteIdx > colorPalette.count) colorPalette[colorPalette.count] = @[ @"", colorPalette[0][1] ] ;
-                colorPalette[paletteIdx] = @[ @"", NSColorFromArgument(arguments[1])] ;
+                while (paletteIdx > _colorPalette.count) _colorPalette[_colorPalette.count] = @[ @"", _colorPalette[0][1] ] ;
+                _colorPalette[paletteIdx] = @[ @"", [self colorFromArgument:arguments[1] withState:L]] ;
             }
         } break ;
         default: {
-            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments:andState - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
+            [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments:andState: - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
             return ;
         }
     }
 }
 
-- (BOOL)appendCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments andState:(lua_State *)L
+- (BOOL)appendCommand:(NSUInteger)cmd withArguments:(nullable NSArray *)arguments
+                                           andState:(lua_State *)L
                                               error:(NSError * __autoreleasing *)error {
 
     BOOL isGood = [self validateCommand:cmd withArguments:arguments error:error] ;
@@ -649,7 +673,7 @@ NSColor *NSColorFromArgument(NSObject *argument) {
         [_commandList addObject:newCommand] ;
         [self updateStateWithCommand:cmd andArguments:arguments andState:L] ;
 
-        if ([(NSNumber *)(wrappedCommands[cmd][2]) boolValue]) {
+        if (((NSNumber *)wrappedCommands[cmd][2]).boolValue) {
             self.needsDisplay = !(_neverRender || _renderingPaused) ;
         } else {
             [self updateTurtle] ;
@@ -725,13 +749,6 @@ static int turtle_new(lua_State *L) {
     return 1 ;
 }
 
-static int turtle_registerInitialPalette(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
-    colorPalette = [(NSObject *)[skin toNSObjectAtIndex:1] mutableCopy] ;
-    return 0 ;
-}
-
 static int turtle_registerFontMap(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
@@ -740,14 +757,23 @@ static int turtle_registerFontMap(lua_State *L) {
     return 0 ;
 }
 
-static int turtle_rawPalette(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TBREAK] ;
-    [skin pushNSObject:colorPalette] ;
-    return 1 ;
+static int turtle_registerDefaultPalette(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
+    defaultColorPalette = [skin toNSObjectAtIndex:1] ;
+    return 0 ;
 }
 
 #pragma mark - Module Methods
+
+static int turtle_dumpPalette(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    [skin pushNSObject:turtleCanvas.colorPalette] ;
+    return 1 ;
+}
 
 static int turtle_yieldRatio(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
@@ -1090,18 +1116,22 @@ static int turtle_pencolor(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    NSColor *safeColor = [turtleCanvas.pColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
-    if (safeColor) {
-        lua_newtable(L) ;
-        lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        CGFloat alpha = safeColor.alphaComponent ;
-        if (alpha < 0.999) {
-            lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    if (turtleCanvas.pPaletteIdx == NSUIntegerMax) {
+        NSColor *safeColor = [turtleCanvas.pColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+        if (safeColor) {
+            lua_newtable(L) ;
+            lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            CGFloat alpha = safeColor.alphaComponent ;
+            if (alpha < 0.999) {
+                lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            }
+        } else {
+            [skin pushNSObject:turtleCanvas.pColor] ;
         }
     } else {
-        [skin pushNSObject:turtleCanvas.pColor] ;
+        lua_pushinteger(L, (lua_Integer)turtleCanvas.pPaletteIdx) ;
     }
     return 1 ;
 }
@@ -1111,18 +1141,22 @@ static int turtle_background(lua_State *L) {
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    NSColor *safeColor = [turtleCanvas.bColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
-    if (safeColor) {
-        lua_newtable(L) ;
-        lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-        CGFloat alpha = safeColor.alphaComponent ;
-        if (alpha < 0.999) {
-            lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    if (turtleCanvas.bPaletteIdx == NSUIntegerMax) {
+        NSColor *safeColor = [turtleCanvas.bColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+        if (safeColor) {
+            lua_newtable(L) ;
+            lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            CGFloat alpha = safeColor.alphaComponent ;
+            if (alpha < 0.999) {
+                lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+            }
+        } else {
+            [skin pushNSObject:turtleCanvas.bColor] ;
         }
     } else {
-        [skin pushNSObject:turtleCanvas.bColor] ;
+        lua_pushinteger(L, (lua_Integer)turtleCanvas.bPaletteIdx) ;
     }
     return 1 ;
 }
@@ -1136,8 +1170,8 @@ static int turtle_palette(lua_State *L) {
     if (idx < 0 || idx > 255) {
         return luaL_argerror(L, 2, "index must be between 0 and 255 inclusive") ;
     }
-    if ((NSUInteger)idx >= colorPalette.count) idx = 0 ;
-    NSColor *safeColor = [(NSColor *)(colorPalette[(NSUInteger)idx][1]) colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+    if ((NSUInteger)idx >= turtleCanvas.colorPalette.count) idx = 0 ;
+    NSColor *safeColor = [(NSColor *)(turtleCanvas.colorPalette[(NSUInteger)idx][1]) colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
     if (safeColor) {
         lua_newtable(L) ;
         lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
@@ -1148,7 +1182,7 @@ static int turtle_palette(lua_State *L) {
             lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else {
-        [skin pushNSObject:colorPalette[(NSUInteger)idx][1]] ;
+        [skin pushNSObject:turtleCanvas.colorPalette[(NSUInteger)idx][1]] ;
     }
     return 1 ;
 }
@@ -1159,30 +1193,9 @@ static int turtle_palette(lua_State *L) {
         //   filled
 
 // Not Sure Yet
-    // 6.5 Pen and Background Control
-        //   setpen
-    // 6.6 Pen Queries
-        //   pen
     // 6.7 Saving and Loading Pictures
         //   savepict -- could do in lua, leveraging _commands
         //   loadpict -- could do in lua, leveraging _appendCommand after resetting state
-
-// Probably Not
-    // 6.3 Turtle and Window Control
-        //   wrap            -- marked as nop
-        //   window          -- marked as nop
-        //   fence           -- marked as nop
-    // 6.5 Pen and Background Control
-        //   setpenpattern
-    // 6.6 Pen Queries
-        //   penpattern
-    // 6.7 Saving and Loading Pictures
-        //   epspict
-    // 6.8 Mouse Queries
-        //   mousepos
-        //   clickpos
-        //   buttonp
-        //   button
 
 #pragma mark - Module Constants
 
@@ -1300,6 +1313,7 @@ static const luaL_Reg userdata_metaLib[] = {
     {"_turtleSize",      turtle_turtleSize},
     {"_canvas",          turtle_parentView},
     {"_commands",        turtle_commandDump},
+    {"_palette",         turtle_dumpPalette},
 
     {"__tostring",       userdata_tostring},
     {"__eq",             userdata_eq},
@@ -1310,9 +1324,8 @@ static const luaL_Reg userdata_metaLib[] = {
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"new",                     turtle_new},
+    {"_registerDefaultPalette", turtle_registerDefaultPalette},
     {"_registerFontMap",        turtle_registerFontMap},
-    {"_registerInitialPalette", turtle_registerInitialPalette},
-    {"_rawPalette",             turtle_rawPalette},
     {NULL,                      NULL}
 };
 
@@ -1334,6 +1347,18 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
     [skin registerPushNSHelper:pushHSCanvasTurtleView         forClass:"HSCanvasTurtleView"];
     [skin registerLuaObjectHelper:toHSCanvasTurtleViewFromLua forClass:"HSCanvasTurtleView"
                                                    withUserdataMapping:USERDATA_TAG];
+
+    // in case for some reason init.lua doesn't set it, have a minimal backup
+    defaultColorPalette = @[
+        @[ @"black",   [NSColor blackColor] ],
+        @[ @"blue",    [NSColor blueColor] ],
+        @[ @"green",   [NSColor greenColor] ],
+        @[ @"cyan",    [NSColor cyanColor] ],
+        @[ @"red",     [NSColor redColor] ],
+        @[ @"magenta", [NSColor magentaColor] ],
+        @[ @"yellow",  [NSColor yellowColor] ],
+        @[ @"white",   [NSColor whiteColor] ],
+    ] ;
 
     wrappedCommands = @[
         // name               synonyms       visual  type(s)

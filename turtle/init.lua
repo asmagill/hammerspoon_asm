@@ -6,11 +6,16 @@ local USERDATA_TAG = "hs.canvas.turtle"
 local module       = require(USERDATA_TAG..".internal")
 local turtleMT     = hs.getObjectMetatable(USERDATA_TAG)
 
-local image        = require("hs.image")
-local color        = require("hs.drawing.color")
-local inspect      = require("hs.inspect")
-local fnutils      = require("hs.fnutils")
-local canvas       = require("hs.canvas")
+local color    = require("hs.drawing.color")
+local inspect  = require("hs.inspect")
+local fnutils  = require("hs.fnutils")
+local canvas   = require("hs.canvas")
+local screen   = require("hs.screen")
+local eventtap = require("hs.eventtap")
+local mouse    = require("hs.mouse")
+
+-- don't need these directly, just their helpers
+require("hs.image")
 
 local basePath = package.searchpath(USERDATA_TAG, package.path)
 if basePath then
@@ -20,7 +25,7 @@ if basePath then
     end
 end
 
--- local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
+local log = require("hs.logger").new(USERDATA_TAG, require"hs.settings".get(USERDATA_TAG .. ".logLevel") or "warning")
 
 -- private variables and methods -----------------------------------------
 
@@ -96,14 +101,15 @@ local _unwrappedSynonyms = {
 
 -- in case I ever write something to import turtle code directly, don't want these to cause it to break immediately
 local _nops = {
-    wrap        = false, -- boolean indicates whether or not warning has been issued; don't want to spam console
-    window      = false,
-    fence       = false,
-    textscreen  = false,
-    fullscreen  = false,
-    splitscreen = false,
-    refresh     = false,
-    norefresh   = false,
+    wrap          = false, -- boolean indicates whether or not warning has been issued; don't want to spam console
+    window        = false,
+    fence         = false,
+    textscreen    = false,
+    fullscreen    = false,
+    splitscreen   = false,
+    refresh       = false,
+    norefresh     = false,
+    setpenpattern = true,  -- used in setpen, in case I ever actually implement it, so skip warning
 }
 
 local defaultPalette = {
@@ -135,8 +141,8 @@ module._fontMap = {
 --     pictograph     = "Apple Color Emoji",
 }
 
-module._registerInitialPalette(defaultPalette)
-module._registerInitialPalette = nil
+module._registerDefaultPalette(defaultPalette)
+module._registerDefaultPalette = nil
 module._registerFontMap(module._fontMap)
 module._registerFontMap = nil
 
@@ -156,159 +162,10 @@ end
 
 -- Public interface ------------------------------------------------------
 
-local _pos = turtleMT.pos
-turtleMT.pos = function(...)
-    local result = _pos(...)
-    return setmetatable(result, {
-        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
-    })
-end
-
-local _pensize = turtleMT.pensize
-turtleMT.pensize = function(...)
-    local result = _pensize(...)
-    return setmetatable(result, {
-        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
-    })
-end
-
-local _scrunch = turtleMT.scrunch
-turtleMT.scrunch = function(...)
-    local result = _scrunch(...)
-    return setmetatable(result, {
-        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
-    })
-end
-
-local _labelsize = turtleMT.labelsize
-turtleMT.labelsize = function(...)
-    local result = _labelsize(...)
-    return setmetatable(result, {
-        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
-    })
-end
-
-local _pencolor = turtleMT.pencolor
-turtleMT.pencolor = function(...)
-    local result = _pencolor(...)
-    local defaultToString = finspect(result)
-    return setmetatable(result, {
-        __tostring = function(_)
-            if #_ == 3 then
-                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
-            elseif #_ == 4 then
-                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
-            else
-                return defaultToString
-            end
-        end
-    })
-end
-
-local _background = turtleMT.background
-turtleMT.background = function(...)
-    local result = _background(...)
-    local defaultToString = finspect(result)
-    return setmetatable(result, {
-        __tostring = function(_)
-            if #_ == 3 then
-                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
-            elseif #_ == 4 then
-                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
-            else
-                return defaultToString
-            end
-        end
-    })
-end
-
-local _palette = turtleMT.palette
-turtleMT.palette = function(...)
-    local result = _palette(...)
-    local defaultToString = finspect(result)
-    return setmetatable(result, {
-        __tostring = function(_)
-            if #_ == 3 then
-                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
-            elseif #_ == 4 then
-                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
-            else
-                return defaultToString
-            end
-        end
-    })
-end
-
-turtleMT.towards = function(self, x, y)
-    local pos = self:pos()
-    return (90 - math.atan(y - pos[2],x - pos[1]) * 180 / math.pi) % 360
-end
-
-turtleMT.screenmode = function(self, ...) return "FULLSCREEN" end
-
-turtleMT.turtlemode = function(self, ...) return "WINDOW" end
-
-turtleMT._background = function(self, func, ...)
-    if not (type(func) == "function" or (getmetatable(func) or {}).__call) then
-        error("expected function for argument 1", 2)
-    end
-
-    coroutine.wrap(fnutils.partial(func, self, ...))()
-
-    return self
-end
-
 local _new = module.new
 module.new = function(...) return _new(...):_turtleImage(betterTurtle) end
 
-turtleMT.bye = function(self, doItNoMatterWhat)
-    local c = self:_canvas()
-    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
-    if doItNoMatterWhat then
-        if c[#c].canvas == self then
-            c[#c].canvas = nil
-        else
-            for i = 1, #c, 1 do
-                if c[i].canvas == self then
-                    c[i].canvas = nil
-                    break
-                end
-            end
-        end
-        c:delete()
-    else
-        hs.luaSkinLog.f("%s:delete - not a known turtle only canvas; apply delete method to parent canvas, or pass in `true` as argument to this method")
-    end
-end
-
-turtleMT.show = function(self, doItNoMatterWhat)
-    local c = self:_canvas()
-    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
-    if doItNoMatterWhat then
-        c:show()
-    else
-        hs.luaSkinLog.f("%s:show - not a known turtle only canvas; apply show method to parent canvas, or pass in `true` as argument to this method")
-    end
-    return self
-end
-
-turtleMT.hide = function(self, doItNoMatterWhat)
-    local c = self:_canvas()
-    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
-    if doItNoMatterWhat then
-        c:hide()
-    else
-        hs.luaSkinLog.f("%s:hide - not a known turtle only canvas; apply hide method to parent canvas, or pass in `true` as argument to this method")
-    end
-    return self
-end
-
 module.turtleCanvas = function(...)
-    local screen   = require("hs.screen")
-    local canvas   = require("hs.canvas")
-    local eventtap = require("hs.eventtap")
-    local mouse    = require("hs.mouse")
-
     local decorateSize      = 16
     local recalcDecorations = function(nC, decorate)
         if decorate then
@@ -488,6 +345,201 @@ module.turtleCanvas = function(...)
     return turtleViewObject
 end
 
+local _pos = turtleMT.pos
+turtleMT.pos = function(...)
+    local result = _pos(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _pensize = turtleMT.pensize
+turtleMT.pensize = function(...)
+    local result = _pensize(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _scrunch = turtleMT.scrunch
+turtleMT.scrunch = function(...)
+    local result = _scrunch(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _labelsize = turtleMT.labelsize
+turtleMT.labelsize = function(...)
+    local result = _labelsize(...)
+    return setmetatable(result, {
+        __tostring = function(_) return string.format("{ %.2f, %.2f }", _[1], _[2]) end
+    })
+end
+
+local _pencolor = turtleMT.pencolor
+turtleMT.pencolor = function(...)
+    local result = _pencolor(...)
+    if type(result) == "number" then return result end
+
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
+local _background = turtleMT.background
+turtleMT.background = function(...)
+    local result = _background(...)
+    if type(result) == "number" then return result end
+
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
+local _palette = turtleMT.palette
+turtleMT.palette = function(...)
+    local result = _palette(...)
+    local defaultToString = finspect(result)
+    return setmetatable(result, {
+        __tostring = function(_)
+            if #_ == 3 then
+                return string.format("{ %.2f, %.2f, %.2f }", _[1], _[2], _[3])
+            elseif #_ == 4 then
+                return string.format("{ %.2f, %.2f, %.2f, %.2f }", _[1], _[2], _[3], _[4])
+            else
+                return defaultToString
+            end
+        end
+    })
+end
+
+turtleMT.towards = function(self, x, y)
+    local pos = self:pos()
+    return (90 - math.atan(y - pos[2],x - pos[1]) * 180 / math.pi) % 360
+end
+
+turtleMT.screenmode = function(self, ...) return "FULLSCREEN" end
+
+turtleMT.turtlemode = function(self, ...) return "WINDOW" end
+
+turtleMT.pen = function(self, ...)
+    local pendown    = self:pendownp() and "PENDOWN" or "PENUP"
+    local penmode    = self:penmode()
+    local pensize    = self:pensize()
+    local pencolor   = self:pencolor()
+    local penpattern = self:penpattern()
+
+    return setmetatable({ pendown, penmode, pensize, pencolor, penpattern }, {
+        __tostring = function(_)
+            return string.format("{ %s, %s, %s, %s, %s }",
+                pendown,
+                penmode,
+                tostring(pensize),
+                tostring(pencolor),
+                tostring(penpattern)
+            )
+        end
+    })
+end
+
+turtleMT.penpattern = function(self, ...)
+    return nil
+end
+
+turtleMT.setpen = function(self, ...)
+    local args = table.pack(...)
+    assert(args.n == 1, "setpen: expected only one argument")
+    assert(type(args[1]) == "table", "setpen: expected table of pen state values")
+    local details = args[1]
+
+    assert(({ penup = true, pendown = true })[details[1]:lower()],               "setpen: invalid penup/down state at index 1")
+    assert(({ paint = true, erase = true, reverse = true })[details[2]:lower()], "setpen: invalid penmode state at index 2")
+    assert((type(details[3]) == "table") and (#details[3] == 2)
+                                         and (type(details[3][1]) == "number")
+                                         and (type(details[3][2]) == "number"),  "setpen: invalid pensize table at index 3")
+    assert(({ string = true, number = true, table = true })[type(details[4])],   "setpen: invalid pencolor at index 4")
+    assert(true,                                                                 "setpen: invalid penpattern at index 5") -- in case I add it
+
+    turtleMT[details[1]:lower()](self)          -- penup or pendown
+    turtleMT["pen" .. details[2]:lower()](self) -- penpaint, penerase, or penreverse
+    self:setpensize(details[3])
+    self:setpencolor(details[4])
+    self:setpenpattern(details[5])              -- its a nop currently, but we're supressing it's output message
+    return self
+end
+
+
+turtleMT._background = function(self, func, ...)
+    if not (type(func) == "function" or (getmetatable(func) or {}).__call) then
+        error("expected function for argument 1", 2)
+    end
+
+    coroutine.wrap(fnutils.partial(func, self, ...))()
+
+    return self
+end
+
+turtleMT.bye = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        if c[#c].canvas == self then
+            c[#c].canvas = nil
+        else
+            for i = 1, #c, 1 do
+                if c[i].canvas == self then
+                    c[i].canvas = nil
+                    break
+                end
+            end
+        end
+        c:delete()
+    else
+        log.f("%s:delete - not a known turtle only canvas; apply delete method to parent canvas, or pass in `true` as argument to this method")
+    end
+end
+
+turtleMT.show = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        c:show()
+    else
+        log.f("%s:show - not a known turtle only canvas; apply show method to parent canvas, or pass in `true` as argument to this method")
+    end
+    return self
+end
+
+turtleMT.hide = function(self, doItNoMatterWhat)
+    local c = self:_canvas()
+    doItNoMatterWhat = doItNoMatterWhat or (c[#c].canvas == self and c[#c].id == "turtleView")
+    if doItNoMatterWhat then
+        c:hide()
+    else
+        log.f("%s:hide - not a known turtle only canvas; apply hide method to parent canvas, or pass in `true` as argument to this method")
+    end
+    return self
+end
+
 -- reminders for docs
 --   forward
 --   back
@@ -524,7 +576,7 @@ for i, v in ipairs(_wrappedCommands) do
         if cmdLabel == "setpensize" then
             turtleMT[cmdLabel] = function(self, ...)
                 local args = table.pack(...)
-                if type(args[1] ~= "table") then args[1] = { args[1], args[1] } end
+                if type(args[1]) ~= "table" then args[1] = { args[1], args[1] } end
                 local result = self:_appendCommand(cmdNumber, table.unpack(args))
                 if type(result) == "string" then
                     error(result, 2) ;
@@ -543,7 +595,7 @@ for i, v in ipairs(_wrappedCommands) do
             end
         end
     else
-        hs.luaSkinLog.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
+        log.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
     end
 end
 
@@ -551,13 +603,13 @@ for k, v in pairs(_nops) do
     if not turtleMT[k] then
         turtleMT[k] = function(self, ...)
             if not _nops[k] then
-                hs.luaSkinLog.wf("%s:%s - method is a nop and has no effect for this implemntation", USERDATA_TAG, k)
+                log.wf("%s:%s - method is a nop and has no effect for this implemntation", USERDATA_TAG, k)
                 _nops[k] = true
             end
             return self
         end
     else
-        hs.luaSkinLog.wf("%s:%s - method already defined; can't assign as nop", USERDATA_TAG, k)
+        log.wf("%s:%s - method already defined; can't assign as nop", USERDATA_TAG, k)
     end
 end
 
@@ -565,22 +617,33 @@ end
 
 turtleMT.__indexLookup = turtleMT.__index
 turtleMT.__index = function(self, key)
+    -- handle the methods as they are defined
     if turtleMT.__indexLookup[key] then return turtleMT.__indexLookup[key] end
+    -- no "logo like" command will start with an underscore
+    if key:match("^_") then return nil end
 
+    -- all logo commands are defined as lowercase, so convert the passed in key to lower case and...
     local lcKey = key:lower()
+
+    -- check against the defined logo methods again
     if turtleMT.__indexLookup[lcKey] then return turtleMT.__indexLookup[lcKey] end
 
+    -- check against the synonyms for the defined logo methods that wrap _appendCommand
     for i,v in ipairs(_wrappedCommands) do
         if lcKey == v[1] then return turtleMT.__indexLookup[v[1]] end
         for i2, v2 in ipairs(v[2]) do
             if lcKey == v2 then return turtleMT.__indexLookup[v[1]] end
         end
     end
+
+    -- check against the synonyms for the defined logo methods that are defined explicitly
     for k,v in pairs(_unwrappedSynonyms) do
         for i2, v2 in ipairs(v) do
             if lcKey == v2 then return turtleMT.__indexLookup[k] end
         end
     end
+
+    return nil -- not really necessary as none is interpreted as nil, but I like to be explicit
 end
 
 return module
