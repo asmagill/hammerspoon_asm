@@ -770,16 +770,18 @@ static int extras_isMainThreadForState(lua_State *L) {
 
 // added to test hair brained idea that spawned HS issue #2304
 
-// testing confirms invoking this from a coroutine doesn't affect things; callbacks use the original
-// lua_State stored at LuaSkin creation. See inline note at bottom for expected change once
-// LuaSkin becomes coroutine safe.
 static int extras_yield(lua_State *L) {
     // if argument is 0, only 1 queued event will execute before resuming. Ok, if yield is called
     // often, but not as friendly if yield only called infrequently.
     NSTimeInterval interval = (lua_type(L, 1) == LUA_TNUMBER) ? lua_tonumber(L, 1) : 0.000001 ;
     NSDate         *date    = [[NSDate date] dateByAddingTimeInterval:interval] ;
 
-    // a melding of code from gnustep's implementation of NSApplication's run and runUntilDate: methods
+    // a melding of code from gnustep's implementation of NSApplication's run and NSRunLoop's runUntilDate:
+    // methods. Also similar to NSTask's waitUntilExit in gnustep
+    //
+    // FWIW, using Hopper to disassemble 10.15.4 Foundation and Appkit, this looks similar to the
+    // code Apple is using as well (though it's hard to be 100% certain).
+    //
     // this allows acting on events (hs.eventtap) and keys (hs.hotkey) as well as timers, etc.
     BOOL   mayDoMore = YES ;
     while (mayDoMore) {
@@ -791,9 +793,9 @@ static int extras_yield(lua_State *L) {
 
         mayDoMore = !([date timeIntervalSinceNow] <= 0.0) ;
     }
-    // // since callbcaks use the initial lua_State, return it to ours, just in case we're invoked from
-    // // within a co-routine
-    // [LuaSkin sharedWithState:L] ;
+    // since callbcaks use the initial lua_State, return it to ours, just in case we're invoked from
+    // within a co-routine
+    [LuaSkin sharedWithState:L] ;
 
     return 0 ;
 }
@@ -856,6 +858,27 @@ static int extras_yield(lua_State *L) {
         return 1 ;
     }
 
+    static int extras_callstackPaths(lua_State *L) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        [skin checkArgs:LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+
+        NSUInteger startAt = (lua_gettop(L) > 0) ? (NSUInteger)lua_tointeger(L, 1) : 0 ;
+        lua_newtable(L) ;
+
+        NSArray   *csa   = [NSThread callStackReturnAddresses] ;
+        if (startAt >= csa.count) startAt = csa.count - 1 ;
+        for (NSUInteger i = startAt ; i < csa.count ; i++) {
+            NSNumber   *address = csa[i] ;
+            uintptr_t  add      = address ? address.unsignedLongValue : 0ul ;
+            Dl_info    libraryInfo ;
+            const char *fname   = (address && dladdr((const void *)add, &libraryInfo) != 0) ?
+                                libraryInfo.dli_fname : "** unknown **" ;
+            lua_pushstring(L, fname) ;
+            lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+        }
+
+        return 1 ;
+    }
 
 #pragma mark - infrastructure stuffs
 
@@ -920,6 +943,8 @@ static const luaL_Reg extrasLib[] = {
     {"cssr",                 extras_callStackSymbols2},
     {"csa",                  extras_callStackReturnAddresses},
     {"dladdr",               extras_dladdr},
+    {"stackPaths",           extras_callstackPaths},
+
     {"testARCandID",         testARCandID},
 
     {NULL,                   NULL}
