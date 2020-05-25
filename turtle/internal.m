@@ -17,7 +17,38 @@
 
 //   savepict should allow for type -- raw (default), lua, logo
 //      logo limits colors to 3 numbers (ignore alpha or NSColor tables)
+//      logo ignores mark type, converts markfill to filled and inserts it where mark was wrapping everything from mark forward
+//           skips very next command (which resets our penColor)
 //   loadpict only parses raw version; other two are for importing elsewhere
+
+// See if insanely large bezierpath will work and make extreme examples redisplay quicker
+// compress -- breaks loadpict/savepict
+//    create newCmdList
+//    create newPath
+//    cX, cY, cH, cP = _tInitX, _tInitY, _tInitHeading, _tInitPenDown
+//    same with labelHeight and labelFont, pensize, _tScaleX[Y], etc..
+//    iterate from start
+//        if entry has stroke property, add to newPath
+//        else if entry has penMode, penColor or fill property then
+//            if newPath not empty then
+//                add newPath to newCmdList with "special" command and stroke property
+//                add to newCmdList "pu", "setXY", "setH" with current cX, cY, and cH
+//                if cP then add to newCmdList "pd"
+//                reset newPath
+//            endif
+//            add entry to newCmdList
+//        else if entry is setbackground or setpalette
+//            add entry to newCmdList
+//        endif
+//        track cX, etc and all other initial variables captured above
+//    end loop
+//    if newPath not empty then
+//        add newPath to newCmdList with "special" command and stroke property
+//        add to newCmdList "pu", "setXY", "setH" with current cX, cY, and cH
+//        if cP then add to newCmdList "pd"
+//    endif
+//    for each saved initial variable, if tracked value different, add appropriate command to newCmdList
+//    replace _commandList with newCommandList and set needsDisplay = YES
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int                refTable   = LUA_NOREF ;
@@ -147,12 +178,6 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         for (NSArray *entry in _commandList) {
             NSMutableDictionary *properties = entry[1] ;
 
-            NSBezierPath *strokePath = properties[@"stroke"] ;
-            if (strokePath) [strokePath stroke] ;
-
-            NSBezierPath *fillPath = properties[@"fill"] ;
-            if (fillPath) [fillPath fill] ;
-
             NSNumber *compositeMode = properties[@"penMode"] ;
             if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
 
@@ -164,6 +189,12 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
             NSColor *backgroundColor = properties[@"backgroundColor"] ;
             if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
+
+            NSBezierPath *strokePath = properties[@"stroke"] ;
+            if (strokePath) [strokePath stroke] ;
+
+            NSBezierPath *fillPath = properties[@"fill"] ;
+            if (fillPath) [fillPath fill] ;
         }
 
         [gc restoreGraphicsState] ;
@@ -529,6 +560,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 [strokePath lineToPoint:NSMakePoint(_tX, _tY)] ;
                 stepAttributes[@"stroke"] = strokePath ;
             }
+            stepAttributes[@"startPoint"] = [NSValue valueWithPoint:NSMakePoint(x, y)] ;
+            stepAttributes[@"endPoint"]   = [NSValue valueWithPoint:NSMakePoint(_tX, _tY)] ;
         } break ;
 
         case  2:   // left
@@ -655,6 +688,35 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 _colorPalette[paletteIdx] = @[ @"", [self colorFromArgument:arguments[1] withState:L]] ;
             }
         } break ;
+        case 24: { // mark
+            // do nothing -- we're a marker
+        } break ;
+        case 25: { // markfill
+            stepAttributes[@"penColor"] = [self colorFromArgument:arguments[0] withState:L] ;
+            NSBezierPath *fillPath = [NSBezierPath bezierPath] ;
+            NSUInteger startIdx = 0 ;
+            for (NSUInteger i = _commandList.count ; i > 0 ; i--) {
+                NSUInteger currentCmd = ((NSNumber *)_commandList[i - 1][0]).unsignedIntegerValue ;
+                if (currentCmd == 24) {
+                    startIdx = i - 1 ;
+                    break ;
+                }
+            }
+            BOOL hasStartPoint = NO ;
+            for (NSUInteger j = startIdx ; j < _commandList.count ; j++) {
+                NSDictionary *properties = _commandList[j][1] ;
+                if (!hasStartPoint && properties[@"startPoint"]) {
+                    hasStartPoint = YES ;
+                    [fillPath moveToPoint:((NSValue *)properties[@"startPoint"]).pointValue] ;
+                }
+                if (hasStartPoint && properties[@"endPoint"]) {
+                    [fillPath lineToPoint:((NSValue *)properties[@"endPoint"]).pointValue] ;
+                }
+            }
+            [fillPath closePath] ;
+            stepAttributes[@"fill"] = fillPath ;
+            [self appendCommand:21 withArguments:@[ _pColor ] andState:L error:NULL] ; // reset color back to pre-fill color
+        } break ;
         default: {
             [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments:andState: - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
             return ;
@@ -705,12 +767,6 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         for (NSArray *entry in _commandList) {
             NSMutableDictionary *properties = entry[1] ;
 
-            NSBezierPath *strokePath = properties[@"stroke"] ;
-            if (strokePath) [strokePath stroke] ;
-
-            NSBezierPath *fillPath = properties[@"fill"] ;
-            if (fillPath) [fillPath fill] ;
-
             NSNumber *compositeMode = properties[@"penMode"] ;
             if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
 
@@ -723,6 +779,12 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 // Note sure how to get this to take a true background that erase/reverse modes won't screw over
 //             NSColor *backgroundColor = properties[@"backgroundColor"] ;
 //             if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
+
+            NSBezierPath *strokePath = properties[@"stroke"] ;
+            if (strokePath) [strokePath stroke] ;
+
+            NSBezierPath *fillPath = properties[@"fill"] ;
+            if (fillPath) [fillPath fill] ;
         }
 
         [gc restoreGraphicsState] ;
@@ -1386,6 +1448,8 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
         @[ @"setpencolor",    @[ @"setpc" ], @(YES), @"color" ],
         @[ @"setbackground",  @[ @"setbg" ], @(YES), @"color" ],
         @[ @"setpalette",     @[],           @(NO),  @"number", @"color" ],
+        @[ @"fillstart",      @[],           @(NO)   ],
+        @[ @"fillend",        @[],           @(YES), @"color" ],
 
     //     @"fill",
     //     @"filled",
