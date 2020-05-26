@@ -6,7 +6,7 @@
 // these two need to track, so I declare them here to keep them together to simplify
 // remembering to synchronize them
 typedef NS_ENUM( NSUInteger, t_commandTypes ) {
-  c__special = 0,
+  c__special = 0, // was used for tests with compressed strokes into single path; now uncertain about it...
   c_forward,
   c_back,
   c_left,
@@ -67,20 +67,10 @@ typedef NS_ENUM( NSUInteger, t_commandTypes ) {
 ]
 
 //     @"fill",
-//     @"filled",
-//     @"setpen",
 
 // TODO:
 
 //   document -- always my bane
-
-//   figure out WTF to do about fills
-//       fill uses floodFill algorithm; probably not reasonable unless we can easily build bitmap, but look into
-//       filled takes a list of commands as arguments, so can't implement with method style approach...
-//           instead, two methods? 1 to mark begining of filled object, 2 to mark end -- create new path
-//               with intervening paths as appended subpaths, then fill new object?
-//           make filled take function which accepts one variable (turtleObject) and then applies actions to that,
-//               closing off and filling combined bezier path?
 
 //   savepict should allow for type -- raw (default), lua, logo
 //      logo limits colors to 3 numbers (ignore alpha or NSColor tables)
@@ -88,34 +78,10 @@ typedef NS_ENUM( NSUInteger, t_commandTypes ) {
 //           skips very next command (which resets our penColor)
 //   loadpict only parses raw version; other two are for importing elsewhere
 
-// See if insanely large bezierpath will work and make extreme examples redisplay quicker
-// compress -- breaks loadpict/savepict
-//    create newCmdList
-//    create newPath
-//    cX, cY, cH, cP = _tInitX, _tInitY, _tInitHeading, _tInitPenDown
-//    same with labelHeight and labelFont, pensize, _tScaleX[Y], etc..
-//    iterate from start
-//        if entry has stroke property, add to newPath
-//        else if entry has penMode, penColor or fill property then
-//            if newPath not empty then
-//                add newPath to newCmdList with "special" command and stroke property
-//                add to newCmdList "pu", "setXY", "setH" with current cX, cY, and cH
-//                if cP then add to newCmdList "pd"
-//                reset newPath
-//            endif
-//            add entry to newCmdList
-//        else if entry is setbackground or setpalette
-//            add entry to newCmdList
-//        endif
-//        track cX, etc and all other initial variables captured above
-//    end loop
-//    if newPath not empty then
-//        add newPath to newCmdList with "special" command and stroke property
-//        add to newCmdList "pu", "setXY", "setH" with current cX, cY, and cH
-//        if cP then add to newCmdList "pd"
-//    endif
-//    for each saved initial variable, if tracked value different, add appropriate command to newCmdList
-//    replace _commandList with newCommandList and set needsDisplay = YES
+// compressing 300k+ individual strokes into one bezierpath with 300k+ subpaths seems actually slower
+// than this approach. The only reliable way to increase speed of extremely large command sets is to convert
+// to an image, but then we run into issues with resize because drawInRect for NSImage forces image to fit
+// rect by scaling; putting into NSImageView would mean refactoring a bunch of the code...
 
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int                refTable   = LUA_NOREF ;
