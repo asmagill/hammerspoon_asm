@@ -745,8 +745,10 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
     return isGood ;
 }
 
-- (NSImage *)renderToImage {
+- (NSImage *)renderToImageWithBackground:(BOOL)withBackground {
 // NOTE: this should track drawRect, but ignore background color changes as they aren't captured by this
+    NSImage *background = withBackground ? [[NSImage alloc] initWithSize:self.bounds.size] : nil ;
+
     NSImage *newImage = [[NSImage alloc] initWithSize:self.bounds.size] ;
     [newImage lockFocus] ;
         NSGraphicsContext *gc = [NSGraphicsContext currentContext];
@@ -776,7 +778,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 [penColor setFill] ;
             }
 
-// Note sure how to get this to take a true background that erase/reverse modes won't screw over
+// See below for background. It's only the "latest" one we care about anyways
 //             NSColor *backgroundColor = properties[@"backgroundColor"] ;
 //             if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
 
@@ -789,6 +791,21 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
         [gc restoreGraphicsState] ;
     [newImage unlockFocus] ;
+
+    // we have to draw the background separately and draw image over it; otherwise things like
+    // penerase and penreverse will affect background coloring as well
+    if (background) {
+        [background lockFocus] ;
+            gc = [NSGraphicsContext currentContext];
+            [gc saveGraphicsState];
+
+            [_bColor setFill] ;
+            [NSBezierPath fillRect:self.bounds] ;
+
+            [newImage drawInRect:self.bounds] ;
+        [background unlockFocus] ;
+        newImage = background ;
+    }
     return newImage ;
 }
 
@@ -884,10 +901,11 @@ static int turtle_pauseRendering(lua_State *L) {
 
 static int turtle_asImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+    BOOL background = (lua_gettop(L) == 2) ? lua_toboolean(L, 2) : NO ;
 
-    NSImage *image = [turtleCanvas renderToImage] ;
+    NSImage *image = [turtleCanvas renderToImageWithBackground:background] ;
     [skin pushNSObject:image] ;
     return 1;
 }
