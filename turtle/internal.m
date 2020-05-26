@@ -3,6 +3,73 @@
 
 @import Darwin.C.tgmath ;
 
+// these two need to track, so I declare them here to keep them together to simplify
+// remembering to synchronize them
+typedef NS_ENUM( NSUInteger, t_commandTypes ) {
+  c__special = 0,
+  c_forward,
+  c_back,
+  c_left,
+  c_right,
+  c_setpos,
+  c_setxy,
+  c_setx,
+  c_sety,
+  c_setheading,
+  c_home,
+  c_pendown,
+  c_penup,
+  c_penpaint,
+  c_penerase,
+  c_penreverse,
+  c_setpensize,
+  c_arc,
+  c_setscrunch,
+  c_setlabelheight,
+  c_setlabelfont,
+  c_label,
+  c_setpencolor,
+  c_setbackground,
+  c_setpalette,
+  c_fillstart,
+  c_fillend
+} ;
+
+//  name                  synonyms       visual  type(s)
+#define t_wrappedCommands @[ \
+    @[ @"_special",       @[],           @(YES)  ],                           \
+    @[ @"forward",        @[ @"fd" ],    @(YES), @"number" ],                 \
+    @[ @"back",           @[ @"bk" ],    @(YES), @"number" ],                 \
+    @[ @"left",           @[ @"lt" ],    @(NO),  @"number" ],                 \
+    @[ @"right",          @[ @"rt" ],    @(NO),  @"number" ],                 \
+    @[ @"setpos",         @[],           @(YES), @[ @"number", @"number" ] ], \
+    @[ @"setxy",          @[],           @(YES), @"number", @"number" ],      \
+    @[ @"setx",           @[],           @(YES), @"number" ],                 \
+    @[ @"sety",           @[],           @(YES), @"number" ],                 \
+    @[ @"setheading",     @[ @"seth" ],  @(NO),  @"number" ],                 \
+    @[ @"home",           @[],           @(YES), ],                           \
+    @[ @"pendown",        @[ @"pd" ],    @(NO),  ],                           \
+    @[ @"penup",          @[ @"pu" ],    @(NO),  ],                           \
+    @[ @"penpaint",       @[ @"ppt" ],   @(NO),  ],                           \
+    @[ @"penerase",       @[ @"pe" ],    @(NO),  ],                           \
+    @[ @"penreverse",     @[ @"px" ],    @(NO),  ],                           \
+    @[ @"setpensize",     @[],           @(NO),  @[ @"number", @"number" ] ], \
+    @[ @"arc",            @[],           @(YES), @"number", @"number" ],      \
+    @[ @"setscrunch",     @[],           @(NO),  @"number", @"number" ],      \
+    @[ @"setlabelheight", @[],           @(NO),  @"number" ],                 \
+    @[ @"setlabelfont",   @[],           @(NO),  @"string" ],                 \
+    @[ @"label",          @[],           @(YES), @"string" ],                 \
+    @[ @"setpencolor",    @[ @"setpc" ], @(YES), @"color" ],                  \
+    @[ @"setbackground",  @[ @"setbg" ], @(YES), @"color" ],                  \
+    @[ @"setpalette",     @[],           @(NO),  @"number", @"color" ],       \
+    @[ @"fillstart",      @[],           @(NO)   ],                           \
+    @[ @"fillend",        @[],           @(YES), @"color" ],                  \
+]
+
+//     @"fill",
+//     @"filled",
+//     @"setpen",
+
 // TODO:
 
 //   document -- always my bane
@@ -479,16 +546,16 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 // command specific validataion
                 if (!errMsg) {
                     NSArray<NSNumber *> *argumentsAsNumbers = arguments ;
-                    if (cmd == 15) {        // setpensize
+                    if (cmd == c_setpensize) {
                         NSArray<NSNumber *> *list = arguments[0] ;
                         CGFloat number = list[0].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
-                    } else if (cmd == 17) { // setscrunch
+                    } else if (cmd == c_setscrunch) {
                         CGFloat number = argumentsAsNumbers[0].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
                         number = argumentsAsNumbers[1].doubleValue ;
                         if (number < 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
-                    } else if (cmd == 23) { // setpalette
+                    } else if (cmd == c_setpalette) {
                         NSInteger idx = argumentsAsNumbers[0].integerValue ;
                         if (idx < 0 || idx > 255) {
                             errMsg = [NSString stringWithFormat:@"%@: index must be between 0 and 255 inclusive", cmdName] ;
@@ -523,31 +590,31 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
     CGFloat y = _tY ;
 
     switch(cmd) {
-        case  0:   // forward
-        case  1:   // back
-        case  4:   // setpos
-        case  5:   // setxy
-        case  6:   // setx
-        case  7:   // sety
-        case  9: { // home
-            if (cmd < 2) {
+        case c_forward:
+        case c_back:
+        case c_setpos:
+        case c_setxy:
+        case c_setx:
+        case c_sety:
+        case c_home: {
+            if (cmd == c_forward || cmd == c_back) {
                 CGFloat headingInRadians = _tHeading * M_PI / 180 ;
                 CGFloat distance = argumentsAsNumbers[0].doubleValue ;
-                if (cmd == 1) distance = -distance ;
+                if (cmd == c_back) distance = -distance ;
                 _tX = x + distance * sin(headingInRadians) * _tScaleX ;
                 _tY = y + distance * cos(headingInRadians) * _tScaleY ;
-            } else if (cmd == 4) {
+            } else if (cmd == c_setpos) {
                 NSArray<NSNumber *> *listOfNumbers = arguments[0] ;
                 _tX = listOfNumbers[0].doubleValue * _tScaleX ;
                 _tY = listOfNumbers[1].doubleValue * _tScaleY ;
-            } else if (cmd == 5) {
+            } else if (cmd == c_setxy) {
                 _tX = argumentsAsNumbers[0].doubleValue * _tScaleX ;
                 _tY = argumentsAsNumbers[1].doubleValue * _tScaleY ;
-            } else if (cmd == 6) {
+            } else if (cmd == c_setx) {
                 _tX = argumentsAsNumbers[0].doubleValue * _tScaleX ;
-            } else if (cmd == 7) {
+            } else if (cmd == c_sety) {
                 _tY = argumentsAsNumbers[0].doubleValue * _tScaleY ;
-            } else if (cmd == 9) {
+            } else if (cmd == c_home) {
                 _tX       = 0.0 ;
                 _tY       = 0.0 ;
                 _tHeading = 0.0 ;
@@ -564,39 +631,39 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             stepAttributes[@"endPoint"]   = [NSValue valueWithPoint:NSMakePoint(_tX, _tY)] ;
         } break ;
 
-        case  2:   // left
-        case  3:   // right
-        case  8: { // setheading
+        case c_left:
+        case c_right:
+        case c_setheading: {
             CGFloat angle = argumentsAsNumbers[0].doubleValue ;
-            if (cmd == 2) {
+            if (cmd == c_left) {
                 angle = _tHeading - angle ;
-            } else if (cmd == 3) {
+            } else if (cmd == c_right) {
                 angle = _tHeading + angle ;
-         // } else if (cmd == 8) { // NOP since first line in this block does this
+         // } else if (cmd == c_setheading) { // NOP since first line in this block does this
          //     angle = angle ;
             }
             _tHeading = fmod(angle, 360) ;
         } break ;
 
-        case 10:   // pendown
-        case 11: { // penup
-            _tPenDown = (cmd == 10) ;
+        case c_pendown:
+        case c_penup: {
+            _tPenDown = (cmd == c_pendown) ;
         } break ;
 
-        case 12:   // penpaint
-        case 13:   // penerase
-        case 14: { // penreverse
-            _tPenMode = (cmd == 14) ? NSCompositingOperationDifference :
-                        (cmd == 13) ? NSCompositingOperationDestinationOut :
-                                      NSCompositingOperationSourceOver ;
+        case c_penpaint:
+        case c_penerase:
+        case c_penreverse: {
+            _tPenMode = (cmd == c_penreverse) ? NSCompositingOperationDifference :
+                        (cmd == c_penerase)   ? NSCompositingOperationDestinationOut :
+                                                NSCompositingOperationSourceOver ;
             _tPenDown = YES ;
             stepAttributes[@"penMode"] = @(_tPenMode) ;
         } break ;
-        case 15: {  // setpensize
+        case c_setpensize: {
             NSArray<NSNumber *> *list = arguments[0] ;
             _tPenSize = list[0].doubleValue ;
         } break ;
-        case 16: { // arc
+        case c_arc: {
             CGFloat angle  = argumentsAsNumbers[0].doubleValue ;
             NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
             strokePath.lineWidth = _tPenSize ;
@@ -611,17 +678,17 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             [strokePath transformUsingAffineTransform:scrunch] ;
             stepAttributes[@"stroke"] = strokePath ;
         } break ;
-        case 17: { // setscrunch
+        case c_setscrunch: {
             _tScaleX = argumentsAsNumbers[0].doubleValue ;
             _tScaleY = argumentsAsNumbers[1].doubleValue ;
         } break ;
-        case 18: { // setlabelheight
+        case c_setlabelheight: {
             _labelFontSize = argumentsAsNumbers[0].doubleValue ;
         } break ;
-        case 19: { // setlabelfont
+        case c_setlabelfont: {
             _labelFontName = (NSString *)arguments[0] ;
         } break ;
-        case 20: { // label
+        case c_label: {
             NSString *fontName = _labelFontName ;
             LuaSkin *skin = [LuaSkin sharedWithState:L] ;
             [skin pushLuaRef:refTable ref:fontMapRef] ;
@@ -662,7 +729,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 //             stepAttributes[@"stroke"] = strokePath ; // I think it looks crisper with just the fill
             stepAttributes[@"fill"] = strokePath ;
         } break ;
-        case 21: { // setpencolor
+        case c_setpencolor: {
             _pColor = [self colorFromArgument:arguments[0] withState:L] ;
             stepAttributes[@"penColor"] = _pColor ;
             if ([(NSObject *)arguments[0] isKindOfClass:[NSNumber class]]) {
@@ -671,7 +738,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 _pPaletteIdx = NSUIntegerMax ;
             }
         } break ;
-        case 22: { // setbackground
+        case c_setbackground: {
             _bColor = [self colorFromArgument:arguments[0] withState:L] ;
             stepAttributes[@"backgroundColor"] = _bColor ;
             if ([(NSObject *)arguments[0] isKindOfClass:[NSNumber class]]) {
@@ -680,7 +747,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 _bPaletteIdx = NSUIntegerMax ;
             }
         } break ;
-        case 23: { // setpalette
+        case c_setpalette: {
             NSUInteger paletteIdx = argumentsAsNumbers[0].unsignedIntegerValue ;
             if (paletteIdx > 7) { // we ignore changes to the first 8 colors
                 // it's eitehr this or switch to NSDictionary for a "sparse" array
@@ -688,16 +755,16 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 _colorPalette[paletteIdx] = @[ @"", [self colorFromArgument:arguments[1] withState:L]] ;
             }
         } break ;
-        case 24: { // mark
+        case c_fillstart: {
             // do nothing -- we're a marker
         } break ;
-        case 25: { // markfill
+        case c_fillend: {
             stepAttributes[@"penColor"] = [self colorFromArgument:arguments[0] withState:L] ;
             NSBezierPath *fillPath = [NSBezierPath bezierPath] ;
             NSUInteger startIdx = 0 ;
             for (NSUInteger i = _commandList.count ; i > 0 ; i--) {
                 NSUInteger currentCmd = ((NSNumber *)_commandList[i - 1][0]).unsignedIntegerValue ;
-                if (currentCmd == 24) {
+                if (currentCmd == c_fillstart) {
                     startIdx = i - 1 ;
                     break ;
                 }
@@ -1440,40 +1507,7 @@ int luaopen_hs_canvas_turtle_internal(lua_State* L) {
         @[ @"white",   [NSColor whiteColor] ],
     ] ;
 
-    wrappedCommands = @[
-        // name               synonyms       visual  type(s)
-        @[ @"forward",        @[ @"fd" ],    @(YES), @"number" ],
-        @[ @"back",           @[ @"bk" ],    @(YES), @"number" ],
-        @[ @"left",           @[ @"lt" ],    @(NO),  @"number" ],
-        @[ @"right",          @[ @"rt" ],    @(NO),  @"number" ],
-        @[ @"setpos",         @[],           @(YES), @[ @"number", @"number" ] ],
-        @[ @"setxy",          @[],           @(YES), @"number", @"number" ],
-        @[ @"setx",           @[],           @(YES), @"number" ],
-        @[ @"sety",           @[],           @(YES), @"number" ],
-        @[ @"setheading",     @[ @"seth" ],  @(NO),  @"number" ],
-        @[ @"home",           @[],           @(YES), ],
-        @[ @"pendown",        @[ @"pd" ],    @(NO),  ],
-        @[ @"penup",          @[ @"pu" ],    @(NO),  ],
-        @[ @"penpaint",       @[ @"ppt" ],   @(NO),  ],
-        @[ @"penerase",       @[ @"pe" ],    @(NO),  ],
-        @[ @"penreverse",     @[ @"px" ],    @(NO),  ],
-        @[ @"setpensize",     @[],           @(NO),  @[ @"number", @"number" ] ],
-        @[ @"arc",            @[],           @(YES), @"number", @"number" ],
-        @[ @"setscrunch",     @[],           @(NO),  @"number", @"number" ],
-        @[ @"setlabelheight", @[],           @(NO),  @"number" ],
-        @[ @"setlabelfont",   @[],           @(NO),  @"string" ],
-        @[ @"label",          @[],           @(YES), @"string" ],
-        @[ @"setpencolor",    @[ @"setpc" ], @(YES), @"color" ],
-        @[ @"setbackground",  @[ @"setbg" ], @(YES), @"color" ],
-        @[ @"setpalette",     @[],           @(NO),  @"number", @"color" ],
-        @[ @"fillstart",      @[],           @(NO)   ],
-        @[ @"fillend",        @[],           @(YES), @"color" ],
-
-    //     @"fill",
-    //     @"filled",
-    //     @"setpen",
-
-    ] ;
+    wrappedCommands = t_wrappedCommands ;
     turtle_CommandsToBeWrapped(L) ; lua_setfield(L, -2, "_wrappedCommands") ;
 
     return 1;

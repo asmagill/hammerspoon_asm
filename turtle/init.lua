@@ -571,31 +571,33 @@ for i, v in ipairs(_wrappedCommands) do
     local cmdLabel, cmdNumber = v[1], i - 1
 --     local synonyms = v[2] or {}
 
-    if not turtleMT[cmdLabel] then
-        -- this needs "special" help not worth changing the validation code in internal.m for
-        if cmdLabel == "setpensize" then
-            turtleMT[cmdLabel] = function(self, ...)
-                local args = table.pack(...)
-                if type(args[1]) ~= "table" then args[1] = { args[1], args[1] } end
-                local result = self:_appendCommand(cmdNumber, table.unpack(args))
-                if type(result) == "string" then
-                    error(result, 2) ;
+    if not cmdLabel:match("^_") then
+        if not turtleMT[cmdLabel] then
+            -- this needs "special" help not worth changing the validation code in internal.m for
+            if cmdLabel == "setpensize" then
+                turtleMT[cmdLabel] = function(self, ...)
+                    local args = table.pack(...)
+                    if type(args[1]) ~= "table" then args[1] = { args[1], args[1] } end
+                    local result = self:_appendCommand(cmdNumber, table.unpack(args))
+                    if type(result) == "string" then
+                        error(result, 2) ;
+                    end
+                    coroutineFriendlyCheck(self)
+                    return result
                 end
-                coroutineFriendlyCheck(self)
-                return result
+            else
+                turtleMT[cmdLabel] = function(self, ...)
+                    local result = self:_appendCommand(cmdNumber, ...)
+                    if type(result) == "string" then
+                        error(result, 2) ;
+                    end
+                    coroutineFriendlyCheck(self)
+                    return result
+                end
             end
         else
-            turtleMT[cmdLabel] = function(self, ...)
-                local result = self:_appendCommand(cmdNumber, ...)
-                if type(result) == "string" then
-                    error(result, 2) ;
-                end
-                coroutineFriendlyCheck(self)
-                return result
-            end
+            log.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
         end
-    else
-        log.wf("%s:%s - method already defined; can't wrap", USERDATA_TAG, cmdLabel)
     end
 end
 
