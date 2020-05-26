@@ -782,7 +782,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             }
             [fillPath closePath] ;
             stepAttributes[@"fill"] = fillPath ;
-            [self appendCommand:21 withArguments:@[ _pColor ] andState:L error:NULL] ; // reset color back to pre-fill color
+            [self appendCommand:c_setpencolor withArguments:@[ _pColor ] andState:L error:NULL] ; // reset color back to pre-fill color
         } break ;
         default: {
             [LuaSkin logWarn:[NSString stringWithFormat:@"%s:@updateStateWithCommand:andArguments:andState: - command code %lu currently unsupported; ignoring", USERDATA_TAG, cmd]] ;
