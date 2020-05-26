@@ -377,6 +377,16 @@ turtleMT.labelsize = function(...)
     })
 end
 
+local __visibleAxes = turtleMT._visibleAxes
+turtleMT._visibleAxes = function(...)
+    local result = __visibleAxes(...)
+    return setmetatable(result, {
+        __tostring = function(_)
+            return string.format("{ { %.2f, %.2f }, { %.2f, %.2f } }", _[1][1], _[1][2], _[2][1], _[2][2])
+        end
+    })
+end
+
 local _pencolor = turtleMT.pencolor
 turtleMT.pencolor = function(...)
     local result = _pencolor(...)

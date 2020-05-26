@@ -141,6 +141,9 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
 @property            NSMutableArray         *colorPalette ;
 
+@property            CGFloat                translateX ;
+@property            CGFloat                translateY ;
+
 @property            BOOL                   renderingPaused ;
 @property            BOOL                   neverYield ;
 @property            lua_Integer            yieldRatio ;
@@ -181,6 +184,9 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
         _colorPalette    = [defaultColorPalette mutableCopy] ;
 
+        _translateX      = 0.0 ;
+        _translateY      = 0.0 ;
+
         self.wantsLayer = YES ;
         [self resetTurtleView] ;
     }
@@ -196,8 +202,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         NSGraphicsContext *gc = [NSGraphicsContext currentContext];
         [gc saveGraphicsState] ;
 
-        CGFloat xOriginOffset = self.frame.size.width / 2 ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 ;
+        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
 
         // use transform so origin shifted to center of view
         NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
@@ -345,8 +351,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
 - (void)updateTurtle {
     if (!(_neverRender || _renderingPaused)) {
-        CGFloat xOriginOffset = self.frame.size.width / 2 ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 ;
+        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
 
         _turtleImageView.frameCenterRotation = 0 ;
         _turtleImageView.frame = NSMakeRect(
@@ -787,8 +793,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         NSGraphicsContext *gc = [NSGraphicsContext currentContext];
         [gc saveGraphicsState];
 
-        CGFloat xOriginOffset = self.frame.size.width / 2 ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 ;
+        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
+        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
 
         // use transform so origin shifted to center of view
         NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
@@ -1049,6 +1055,52 @@ static int turtle_appendCommand(lua_State *L) {
     } else {
         lua_pushvalue(L, 1) ;
     }
+    return 1 ;
+}
+
+static int turtle_translate(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK | LS_TVARARG] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushnumber(L, turtleCanvas.translateX) ;
+        lua_pushnumber(L, turtleCanvas.translateY) ;
+        return 2 ;
+    } else {
+        [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
+        CGFloat x = lua_tonumber(L, 2) ;
+        CGFloat y = lua_tonumber(L, 3) ;
+        if (!isfinite(x)) return luaL_argerror(L, 2, "x translation must be a finite number") ;
+        if (!isfinite(y)) return luaL_argerror(L, 3, "y translation must be a finite number") ;
+
+        turtleCanvas.translateX = x ;
+        turtleCanvas.translateY = y ;
+        turtleCanvas.needsDisplay = YES ;
+        lua_pushvalue(L, 1) ;
+        return 1 ;
+    }
+}
+
+static int turtle_visibleAxes(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+
+    NSSize viewSize = turtleCanvas.frame.size ;
+    CGFloat maxAbsX = viewSize.width / 2 ;
+    CGFloat maxAbsY = viewSize.height / 2 ;
+
+    lua_newtable(L) ;
+    lua_newtable(L) ;
+    lua_pushnumber(L, -maxAbsX - turtleCanvas.translateX) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L,  maxAbsX - turtleCanvas.translateX) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_newtable(L) ;
+    lua_pushnumber(L, -maxAbsY - turtleCanvas.translateY) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_pushnumber(L,  maxAbsY - turtleCanvas.translateY) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+
     return 1 ;
 }
 
@@ -1354,7 +1406,7 @@ static int userdata_tostring(lua_State* L) {
     CGFloat maxAbsX = viewSize.width / 2 ;
     CGFloat maxAbsY = viewSize.height / 2 ;
     NSString *title = [NSString stringWithFormat:@"X ∈ [%.2f, %.2f], Y ∈ [%.2f, %.2f]",
-        -maxAbsX, maxAbsX, -maxAbsY, maxAbsY] ;
+        -maxAbsX - obj.translateX, maxAbsX - obj.translateX, -maxAbsY - obj.translateY, maxAbsY - obj.translateY] ;
 
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -1427,6 +1479,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"_canvas",          turtle_parentView},
     {"_commands",        turtle_commandDump},
     {"_palette",         turtle_dumpPalette},
+    {"_translate",       turtle_translate},
+    {"_visibleAxes",     turtle_visibleAxes},
 
     {"__tostring",       userdata_tostring},
     {"__eq",             userdata_eq},
