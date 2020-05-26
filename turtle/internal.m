@@ -728,7 +728,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             }
         } break ;
         case c_fillstart: {
-            // do nothing -- we're a marker
+            stepAttributes[@"startPoint"] = [NSValue valueWithPoint:NSMakePoint(_tX, _tY)] ;
         } break ;
         case c_fillend: {
             stepAttributes[@"penColor"] = [self colorFromArgument:arguments[0] withState:L] ;
@@ -753,7 +753,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 }
             }
             [fillPath closePath] ;
-            stepAttributes[@"fill"] = fillPath ;
+            stepAttributes[@"fill"]     = fillPath ;
+            stepAttributes[@"endPoint"] = [NSValue valueWithPoint:NSMakePoint(_tX, _tY)] ;
             [self appendCommand:c_setpencolor withArguments:@[ _pColor ] andState:L error:NULL] ; // reset color back to pre-fill color
         } break ;
         default: {
