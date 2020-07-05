@@ -39,7 +39,7 @@ all: verify $(SOFILE)
 install: verify install-objc install-lua
 
 verify: $(LUAFILE)
-	luac-5.3 -p $(LUAFILE) && echo "Passed"
+	luac -p $(LUAFILE) && echo "Passed"
 
 install-objc: $(SOFILE)
 	mkdir -p $(PREFIX)/hs/_asm/$(MODULE)
