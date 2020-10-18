@@ -1,0 +1,310 @@
+NSWindow
+    Inherits From
+        NSResponder
+            NSObject
+    Conforms To
+        NSAccessibility
+        NSAccessibilityElement
+        NSAnimatablePropertyContainer
+        NSAppearanceCustomization
+        NSUserInterfaceItemIdentification
+        NSMenuItemValidation
+        NSUserInterfaceValidations
+
+NSView
+    Inherits From
+        NSResponder
+            NSObject
+    Conforms To
+        NSAccessibility
+        NSAccessibilityElement
+        NSAnimatablePropertyContainer
+        NSAppearanceCustomization
+        NSDraggingDestination
+        NSUserInterfaceItemIdentification
+
+    - (BOOL)autorecalculatesContentBorderThicknessForEdge:(NSRectEdge)edge;
+    - (BOOL)canRepresentDisplayGamut:(NSDisplayGamut)displayGamut;
+    - (BOOL)makeFirstResponder:(NSResponder *)responder;
+    - (BOOL)tryToPerform:(SEL)action with:(id)object;
+    - (CGFloat)contentBorderThicknessForEdge:(NSRectEdge)edge;
+    - (IBAction)mergeAllWindows:(id)sender;
+    - (IBAction)moveTabToNewWindow:(id)sender;
+    - (IBAction)selectNextTab:(id)sender;
+    - (IBAction)selectPreviousTab:(id)sender;
+    - (IBAction)toggleTabBar:(id)sender;
+    - (IBAction)toggleTabOverview:(id)sender;
+    - (id)handleCloseScriptCommand:(NSCloseCommand *)command;
+    - (id)handlePrintScriptCommand:(NSScriptCommand *)command;
+    - (id)handleSaveScriptCommand:(NSScriptCommand *)command;
+    - (id)validRequestorForSendType:(NSPasteboardType)sendType returnType:(NSPasteboardType)returnType;
+--     - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSWindowStyleMask)style backing:(NSBackingStoreType)backingStoreType defer:(BOOL)flag screen:(NSScreen *)screen;
+--     - (instancetype)initWithContentRect:(NSRect)contentRect styleMask:(NSWindowStyleMask)style backing:(NSBackingStoreType)backingStoreType defer:(BOOL)flag;
+    - (NSButton *)standardWindowButton:(NSWindowButton)b;
+    - (NSData *)dataWithEPSInsideRect:(NSRect)rect;
+    - (NSData *)dataWithPDFInsideRect:(NSRect)rect;
+    - (NSEvent *)nextEventMatchingMask:(NSEventMask)mask untilDate:(NSDate *)expiration inMode:(NSRunLoopMode)mode dequeue:(BOOL)deqFlag;
+    - (NSEvent *)nextEventMatchingMask:(NSEventMask)mask;
+    - (NSLayoutAttribute)anchorAttributeForOrientation:(NSLayoutConstraintOrientation)orientation;
+    - (NSPoint)cascadeTopLeftFromPoint:(NSPoint)topLeftPoint;
+    - (NSPoint)convertPointFromBacking:(NSPoint)point;
+    - (NSPoint)convertPointFromScreen:(NSPoint)point;
+    - (NSPoint)convertPointToBacking:(NSPoint)point;
+    - (NSPoint)convertPointToScreen:(NSPoint)point;
+    - (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
+    - (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen;
+    - (NSRect)contentRectForFrameRect:(NSRect)frameRect;
+    - (NSRect)convertRectFromBacking:(NSRect)rect;
+    - (NSRect)convertRectFromScreen:(NSRect)rect;
+    - (NSRect)convertRectToBacking:(NSRect)rect;
+    - (NSRect)convertRectToScreen:(NSRect)rect;
+    - (NSRect)frameRectForContentRect:(NSRect)contentRect;
+    - (NSText *)fieldEditor:(BOOL)createFlag forObject:(id)object;
+--     - (NSTimeInterval)animationResizeTime:(NSRect)newFrame;
+    - (NSWindow *)initWithWindowRef:(void *)windowRef;
+    - (void)addChildWindow:(NSWindow *)childWin ordered:(NSWindowOrderingMode)place;
+    - (void)addTabbedWindow:(NSWindow *)window ordered:(NSWindowOrderingMode)ordered;
+    - (void)addTitlebarAccessoryViewController:(NSTitlebarAccessoryViewController *)childViewController;
+    - (void)becomeKeyWindow;
+    - (void)becomeMainWindow;
+    - (void)beginCriticalSheet:(NSWindow *)sheetWindow completionHandler:(void (^)(NSModalResponse returnCode))handler;
+    - (void)beginSheet:(NSWindow *)sheetWindow completionHandler:(void (^)(NSModalResponse returnCode))handler;
+    - (void)center;
+    - (void)close;
+    - (void)deminiaturize:(id)sender;
+    - (void)disableCursorRects;
+    - (void)disableKeyEquivalentForDefaultButtonCell;
+    - (void)disableScreenUpdatesUntilFlush;
+    - (void)disableSnapshotRestoration;
+    - (void)discardCursorRects;
+    - (void)discardEventsMatchingMask:(NSEventMask)mask beforeEvent:(NSEvent *)lastEvent;
+    - (void)display;
+    - (void)displayIfNeeded;
+    - (void)dragImage:(NSImage *)image at:(NSPoint)baseLocation offset:(NSSize)initialOffset event:(NSEvent *)event pasteboard:(NSPasteboard *)pboard source:(id)sourceObj slideBack:(BOOL)slideFlag;
+    - (void)enableCursorRects;
+    - (void)enableKeyEquivalentForDefaultButtonCell;
+    - (void)enableSnapshotRestoration;
+    - (void)endEditingFor:(id)object;
+    - (void)endSheet:(NSWindow *)sheetWindow returnCode:(NSModalResponse)returnCode;
+    - (void)endSheet:(NSWindow *)sheetWindow;
+    - (void)insertTitlebarAccessoryViewController:(NSTitlebarAccessoryViewController *)childViewController atIndex:(NSInteger)index;
+    - (void)invalidateCursorRectsForView:(NSView *)view;
+    - (void)invalidateShadow;
+    - (void)keyDown:(NSEvent *)event;
+    - (void)layoutIfNeeded;
+--     - (void)makeKeyAndOrderFront:(id)sender;
+    - (void)makeKeyWindow;
+    - (void)makeMainWindow;
+    - (void)miniaturize:(id)sender;
+--     - (void)orderBack:(id)sender;
+--     - (void)orderFront:(id)sender;
+--     - (void)orderFrontRegardless;
+--     - (void)orderOut:(id)sender;
+    - (void)orderWindow:(NSWindowOrderingMode)place relativeTo:(NSInteger)otherWin;
+    - (void)performClose:(id)sender;
+    - (void)performMiniaturize:(id)sender;
+    - (void)performWindowDragWithEvent:(NSEvent *)event;
+    - (void)performZoom:(id)sender;
+    - (void)postEvent:(NSEvent *)event atStart:(BOOL)flag;
+    - (void)print:(id)sender;
+    - (void)recalculateKeyViewLoop;
+    - (void)registerForDraggedTypes:(NSArray<NSPasteboardType> *)newTypes;
+    - (void)removeChildWindow:(NSWindow *)childWin;
+    - (void)removeTitlebarAccessoryViewControllerAtIndex:(NSInteger)index;
+    - (void)resetCursorRects;
+    - (void)resignKeyWindow;
+    - (void)resignMainWindow;
+    - (void)runToolbarCustomizationPalette:(id)sender;
+    - (void)selectKeyViewFollowingView:(NSView *)view;
+    - (void)selectKeyViewPrecedingView:(NSView *)view;
+    - (void)selectNextKeyView:(id)sender;
+    - (void)selectPreviousKeyView:(id)sender;
+    - (void)sendEvent:(NSEvent *)event;
+    - (void)setAnchorAttribute:(NSLayoutAttribute)attr forOrientation:(NSLayoutConstraintOrientation)orientation;
+    - (void)setAutorecalculatesContentBorderThickness:(BOOL)flag forEdge:(NSRectEdge)edge;
+    - (void)setContentBorderThickness:(CGFloat)thickness forEdge:(NSRectEdge)edge;
+--     - (void)setContentSize:(NSSize)size;
+    - (void)setDynamicDepthLimit:(BOOL)flag;
+--     - (void)setFrame:(NSRect)frameRect display:(BOOL)displayFlag animate:(BOOL)animateFlag;
+--     - (void)setFrame:(NSRect)frameRect display:(BOOL)flag;
+--     - (void)setFrameOrigin:(NSPoint)point;
+--     - (void)setFrameTopLeftPoint:(NSPoint)point;
+    - (void)setIsMiniaturized:(BOOL)flag;
+    - (void)setIsVisible:(BOOL)flag;
+    - (void)setIsZoomed:(BOOL)flag;
+    - (void)setTitleWithRepresentedFilename:(NSString *)filename;
+    - (void)toggleFullScreen:(id)sender;
+    - (void)toggleToolbarShown:(id)sender;
+    - (void)trackEventsMatchingMask:(NSEventMask)mask timeout:(NSTimeInterval)timeout mode:(NSRunLoopMode)mode handler:(void (^)(NSEvent *event, BOOL *stop))trackingHandler;
+    - (void)unregisterDraggedTypes;
+    - (void)update;
+    - (void)updateConstraintsIfNeeded;
+    - (void)visualizeConstraints:(NSArray<NSLayoutConstraint *> *)constraints;
+    - (void)zoom:(id)sender;
+
+--     + (CGFloat)minFrameWidthWithTitle:(NSString *)title styleMask:(NSWindowStyleMask)style;
+--     + (instancetype)windowWithContentViewController:(NSViewController *)contentViewController;
+--     + (NSRect)contentRectForFrameRect:(NSRect)fRect styleMask:(NSWindowStyleMask)style;
+--     + (NSRect)frameRectForContentRect:(NSRect)cRect styleMask:(NSWindowStyleMask)style;
+?    + (NSInteger)windowNumberAtPoint:(NSPoint)point belowWindowWithWindowNumber:(NSInteger)windowNumber;
+?    + (NSArray<NSNumber *> *)windowNumbersWithOptions:(NSWindowNumberListOptions)options;
+?    + (NSButton *)standardWindowButton:(NSWindowButton)b forStyleMask:(NSWindowStyleMask)styleMask;
+
+    BOOL NSPlanarFromDepth(NSWindowDepth depth);
+    const NSWindowDepth * NSAvailableWindowDepths(void);
+    NSColorSpaceName NSColorSpaceFromDepth(NSWindowDepth depth);
+    NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth);
+    NSInteger NSBitsPerSampleFromDepth(NSWindowDepth depth);
+    NSInteger NSNumberOfColorComponents(NSColorSpaceName colorSpaceName);
+    NSWindowDepth NSBestDepth(NSColorSpaceName colorSpace, NSInteger bps, NSInteger bpp, BOOL planar, BOOL *exactMatch);
+
+    @property BOOL acceptsMouseMovedEvents;
+    @property BOOL allowsConcurrentViewDrawing;
+    @property BOOL allowsToolTipsWhenApplicationIsInactive;
+    @property BOOL autorecalculatesKeyViewLoop;
+    @property BOOL canBecomeVisibleWithoutLogin;
+    @property BOOL canHide;
+    @property BOOL displaysWhenScreenProfileChanges;
+--     @property BOOL hasShadow;
+    @property BOOL hidesOnDeactivate;
+--     @property BOOL ignoresMouseEvents;
+    @property BOOL preservesContentDuringLiveResize;
+    @property BOOL preventsApplicationTerminationWhenModal;
+    @property BOOL showsToolbarButton;
+--     @property BOOL titlebarAppearsTransparent;
+    @property BOOL viewsNeedDisplay;
+--     @property CGFloat alphaValue;
+    @property NSBackingStoreType backingType;
+    @property NSInteger orderedIndex;
+    @property NSSize aspectRatio;
+    @property NSSize contentAspectRatio;
+    @property NSSize contentMaxSize;
+    @property NSSize contentMinSize;
+    @property NSSize contentResizeIncrements;
+    @property NSSize maxFullScreenContentSize;
+    @property NSSize maxSize;
+    @property NSSize minFullScreenContentSize;
+    @property NSSize minSize;
+    @property NSSize resizeIncrements;
+--     @property NSWindowAnimationBehavior animationBehavior;
+    @property NSWindowCollectionBehavior collectionBehavior;
+    @property NSWindowDepth depthLimit;
+--     @property NSWindowLevel level;
+    @property NSWindowSharingType sharingType;
+--     @property NSWindowStyleMask styleMask;
+    @property NSWindowTabbingMode tabbingMode;
+--     @property NSWindowTitleVisibility titleVisibility;
+    @property(assign) Class<NSWindowRestoration> restorationClass;
+    @property(class, readonly) NSWindowDepth defaultDepthLimit;
+    @property(class, readonly) NSWindowUserTabbingPreference userTabbingPreference;
+    @property(class) BOOL allowsAutomaticWindowTabbing;
+    @property(copy) NSArray<__kindof NSTitlebarAccessoryViewController *> *titlebarAccessoryViewControllers;
+--     @property(copy) NSColor *backgroundColor;
+    @property(copy) NSString *miniwindowTitle;
+    @property(copy) NSString *representedFilename;
+--     @property(copy) NSString *title;
+    @property(copy) NSURL *representedURL;
+    @property(copy) NSWindowTabbingIdentifier tabbingIdentifier;
+    @property(getter=isDocumentEdited) BOOL documentEdited;
+    @property(getter=isExcludedFromWindowsMenu) BOOL excludedFromWindowsMenu;
+    @property(getter=isFloatingPanel, readonly) BOOL floatingPanel;
+    @property(getter=isKeyWindow, readonly) BOOL keyWindow;
+    @property(getter=isMainWindow, readonly) BOOL mainWindow;
+    @property(getter=isMiniaturizable, readonly) BOOL miniaturizable;
+    @property(getter=isMiniaturized, readonly) BOOL miniaturized;
+    @property(getter=isModalPanel, readonly) BOOL modalPanel;
+    @property(getter=isMovable) BOOL movable;
+    @property(getter=isMovableByWindowBackground) BOOL movableByWindowBackground;
+    @property(getter=isOnActiveSpace, readonly) BOOL onActiveSpace;
+--     @property(getter=isOpaque) BOOL opaque;
+    @property(getter=isReleasedWhenClosed) BOOL releasedWhenClosed;
+    @property(getter=isResizable, readonly) BOOL resizable;
+    @property(getter=isRestorable) BOOL restorable;
+    @property(getter=isSheet, readonly) BOOL sheet;
+    @property(getter=isVisible, readonly) BOOL visible;
+    @property(getter=isZoomable, readonly) BOOL zoomable;
+    @property(getter=isZoomed, readonly) BOOL zoomed;
+    @property(retain) NSButtonCell *defaultButtonCell;
+    @property(strong, readonly) NSWindowTab *tab;
+    @property(strong) __kindof NSView *contentView;
+    @property(strong) NSColorSpace *colorSpace;
+    @property(strong) NSImage *miniwindowImage;
+    @property(strong) NSToolbar *toolbar;
+    @property(strong) NSViewController *contentViewController;
+    @property(weak) __kindof NSWindowController *windowController;
+    @property(weak) id<NSWindowDelegate> delegate;
+--     @property(weak) NSObject<NSAppearanceCustomization> *appearanceSource;
+    @property(weak) NSView *initialFirstResponder;
+    @property(weak) NSWindow *parentWindow;
+
+    @property(readonly, copy) NSArray<__kindof NSWindow *> *childWindows;
+    @property(readonly, copy) NSArray<__kindof NSWindow *> *sheets;
+    @property(readonly, copy) NSArray<NSWindow *> *tabbedWindows;
+    @property(readonly, copy) NSDictionary<NSDeviceDescriptionKey, id> *deviceDescription;
+--     @property(readonly, strong) NSDockTile *dockTile;
+    @property(readonly, strong) NSEvent *currentEvent;
+    @property(readonly, strong) NSScreen *deepestScreen;
+    @property(readonly, strong) NSScreen *screen;
+    @property(readonly, strong) NSWindow *attachedSheet;
+    @property(readonly, strong) NSWindow *sheetParent;
+    @property(readonly, weak) NSResponder *firstResponder;
+    @property(readonly, weak) NSWindowTabGroup *tabGroup;
+    @property(readonly) BOOL areCursorRectsEnabled;
+    @property(readonly) BOOL canBecomeKeyWindow;
+    @property(readonly) BOOL canBecomeMainWindow;
+    @property(readonly) BOOL hasCloseBox;
+    @property(readonly) BOOL hasDynamicDepthLimit;
+    @property(readonly) BOOL hasTitleBar;
+    @property(readonly) BOOL inLiveResize;
+    @property(readonly) BOOL worksWhenModal;
+    @property(readonly) CGFloat backingScaleFactor;
+    @property(readonly) id contentLayoutGuide;
+    @property(readonly) NSEventModifierFlags resizeFlags;
+    @property(readonly) NSInteger windowNumber;
+    @property(readonly) NSPoint mouseLocationOutsideOfEventStream;
+    @property(readonly) NSRect contentLayoutRect;
+--     @property(readonly) NSRect frame;
+    @property(readonly) NSSelectionDirection keyViewSelectionDirection;
+    @property(readonly) NSUserInterfaceLayoutDirection windowTitlebarLayoutDirection;
+    @property(readonly) NSWindowOcclusionState occlusionState;
+    @property(readonly) void *windowRef;
+
+Window Frame in User Preferences
+    + (void)removeFrameUsingName:(NSWindowFrameAutosaveName)name;
+    - (BOOL)setFrameAutosaveName:(NSWindowFrameAutosaveName)name;
+    - (BOOL)setFrameUsingName:(NSWindowFrameAutosaveName)name force:(BOOL)force;
+    - (BOOL)setFrameUsingName:(NSWindowFrameAutosaveName)name;
+    - (void)saveFrameUsingName:(NSWindowFrameAutosaveName)name;
+    @property(readonly, copy) NSWindowFrameAutosaveName frameAutosaveName;
+    @property(readonly, copy) NSWindowPersistableFrameDescriptor stringWithSavedFrame;
+    - (void)setFrameFromString:(NSWindowPersistableFrameDescriptor)string;
+
+-- macOS 11 properties
+--     @property NSWindowToolbarStyle toolbarStyle;
+--     @property NSTitlebarSeparatorStyle titlebarSeparatorStyle;
+--     @property(copy) NSString *subtitle;
+
+Constants
+--     NSWindowStyleMask                                                     These constants specify the style of a window, and can be combined using the C bitwise OR operator.
+    NSSelectionDirection                                                  These constants specify the direction a window is currently using to change the key view. They’re used by keyViewSelectionDirection.
+    NSWindowButton                                                        These constants provide a way to access standard title bar buttons:
+    NSRunLoop—Ordering Modes for NSWindow                                 These constants are passed to NSRunLoop's performSelector:target:argument:order:modes:.
+    NSWindowDepth                                                         This type represents the depth, or amount of memory, devoted to a single pixel in a window or screen. A depth of 0 indicates default depth. Window depths should not be made persistent as they will not be the same across systems.
+--     NSBackingStoreType                                                    These constants specify how the drawing done in a window is buffered by the window device.
+--     NSWindowOrderingMode                                                  These constants let you specify how a window is ordered relative to another window. For more information, see orderWindow:relativeTo:.
+    NSWindowSharingType                                                   The following constants and the related data type represent the access levels other processes can have to a window’s content.
+    NSWindowNumberListOptions                                             The options that may be passed to the windowNumbersWithOptions: method.
+--     NSWindowAnimationBehavior                                             These constants control the automatic window animation behavior used when the orderFront: or orderOut: methods are called.
+--     NSWindowCollectionBehavior                                            Window collection behaviors related to Exposé and Spaces.
+    NSWindowOcclusionState                                                Specifies whether the window is occluded.
+--     NSWindowTitleVisibility                                               Specifies the appearance of the window’s title bar area.
+    NSWindowUserTabbingPreference                                         A value that indicates the user’s preference for window tabbing.
+    NSWindowTabbingMode                                                   The preferred tabbing behavior of a window.
+    Application Kit Version for Deferred Window Display Support           The version of the AppKit.framework containing a specific bug fix or capability.
+    Application Kit Version for Custom Sheet Position                     The version of the AppKit.framework containing a specific bug fix or capability.
+    NSWindowDidChangeBackingPropertiesNotification User Info Properties   These constants are values that are returned in the userInfo dictionary of the NSWindowDidChangeBackingPropertiesNotification.
+
+From NSPanel
+    @property(getter=isFloatingPanel) BOOL floatingPanel;
+    @property BOOL becomesKeyOnlyIfNeeded;
+    @property BOOL worksWhenModal;
