@@ -2,7 +2,7 @@
 ---
 --- Add support for X11 windows to Hamemrspoon. This is a work in progress and will likely be limited in comparison to the full gamut of `hs.window` functions and methods.
 ---
---- Based primarily on the ShiftIt code found at https://github.com/fikovnik/ShiftIt/blob/develop/ShiftIt/X11WindowDriver.m.
+--- Based primarily on the ShiftIt code found at https://github.com/fikovnik/ShiftIt/blob/master/ShiftIt/X11WindowDriver.m
 
 local USERDATA_TAG = "hs.window.x11"
 local module       = require(USERDATA_TAG..".internal")
