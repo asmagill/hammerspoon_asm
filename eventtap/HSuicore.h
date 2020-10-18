@@ -1,0 +1,1 @@
+/opt/amagill/src/hammerspoon/hammerspoon/Hammerspoon/HSuicore.h
