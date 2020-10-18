@@ -1,3 +1,5 @@
+// TODO: See addCursorRect:cursor: for NSView... probably have to modify canvas for this to work
+
 @import Cocoa ;
 @import LuaSkin ;
 
@@ -10,7 +12,7 @@ static const char * const USERDATA_TAG    = "hs.mouse.cursor" ;
 static int                refTable        = LUA_NOREF;
 static BOOL               cursorHidden    = NO ;
 static NSMutableSet       *createdCursors ;
-static NSDictionary       *builtinCursors  ;
+static NSDictionary       *systemCursors  ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
@@ -35,6 +37,35 @@ static NSDictionary       *builtinCursors  ;
 @end
 
 #pragma mark - Module Functions
+
+static int cursor_new(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, "hs.image", LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
+    NSImage *image  = [skin toNSObjectAtIndex:1] ;
+    NSPoint hotSpot = NSMakePoint(image.size.width / 2, image.size.height / 2) ;
+    if (lua_gettop(L) == 2) hotSpot = [skin tableToPointAtIndex:2] ;
+    NSCursor *cursor = [[NSCursor alloc] initWithImage:image hotSpot:hotSpot] ;
+    if (cursor) {
+        HSCursorObject *cursorObject = [[HSCursorObject alloc] initWithCursor:cursor] ;
+        [skin pushNSObject:cursorObject] ;
+    } else {
+        return luaL_argerror(L, 1, "unable to create cursor from image") ;
+    }
+    return 1 ;
+}
+
+static int cursor_systemCursor(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
+    NSString *cursorName = [skin toNSObjectAtIndex:1] ;
+    NSCursor *cursor = systemCursors[cursorName] ;
+    if (cursor) {
+        [skin pushNSObject:cursor] ;
+    } else {
+        return luaL_argerror(L, 1, "unrecognized predefined cursor name specified") ;
+    }
+    return 1 ;
+}
 
 static int cursor_hide(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
@@ -68,33 +99,6 @@ static int cursor_visible(lua_State *L) {
     return 1 ;
 }
 
-static int cursor_new(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    if (lua_type(L, 1) == LUA_TSTRING) {
-        [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-        NSString *cursorName = [skin toNSObjectAtIndex:1] ;
-        NSCursor *cursor = builtinCursors[cursorName] ;
-        if (cursor) {
-            [skin pushNSObject:cursor] ;
-        } else {
-            return luaL_argerror(L, 1, "unrecognized predefined cursor name specified") ;
-        }
-    } else {
-        [skin checkArgs:LS_TUSERDATA, "hs.image", LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-        NSImage *image  = [skin toNSObjectAtIndex:1] ;
-        NSPoint hotSpot = NSMakePoint(image.size.width / 2, image.size.height / 2) ;
-        if (lua_gettop(L) == 2) hotSpot = [skin tableToPointAtIndex:2] ;
-        NSCursor *cursor = [[NSCursor alloc] initWithImage:image hotSpot:hotSpot] ;
-        if (cursor) {
-            HSCursorObject *cursorObject = [[HSCursorObject alloc] initWithCursor:cursor] ;
-            [skin pushNSObject:cursorObject] ;
-        } else {
-            return luaL_argerror(L, 1, "unable to create cursor from image") ;
-        }
-    }
-    return 1 ;
-}
-
 static int cursor_pop(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
@@ -115,6 +119,35 @@ static int cursor_currentCursor(lua_State *L) {
     return 1 ;
 }
 
+static int cursor_canvas_enableRects(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, "hs.canvas", LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    NSView   *canvasView   = [skin toNSObjectAtIndex:1] ;
+    NSWindow *canvasWindow = canvasView.window ;
+
+//    // so we can build without having to link against canvas module itself
+//     NSWindow          *canvasWindow ;
+//     SEL               selector    = NSSelectorFromString(@"window") ;
+//     NSMethodSignature *signature  = [NSView instanceMethodSignatureForSelector:selector] ;
+//     NSInvocation      *invocation = [NSInvocation invocationWithMethodSignature:signature] ;
+//     [invocation setTarget:canvasView] ;
+//     [invocation setSelector:selector] ;
+//     [invocation invoke] ;
+//     [invocation getReturnValue:&canvasWindow] ;
+
+    if (lua_gettop(L) == 1) {
+        lua_pushboolean(L, canvasWindow.areCursorRectsEnabled) ;
+    } else {
+        if (lua_toboolean(L, 2)) {
+            [canvasWindow enableCursorRects] ;
+        } else {
+            [canvasWindow disableCursorRects] ;
+        }
+        [skin pushNSObject:canvasView] ;
+    }
+    return 1 ;
+}
+
 #pragma mark - Module Methods
 
 static int cursor_name(lua_State *L) {
@@ -124,7 +157,7 @@ static int cursor_name(lua_State *L) {
     NSCursor       *cursor       = cursorObject.cursor ;
 
     __block NSString *cursorName = @"custom" ;
-    [builtinCursors enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSCursor *obj, BOOL *stop) {
+    [systemCursors enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSCursor *obj, BOOL *stop) {
         if ([obj isEqualTo:cursor]) {
             cursorName = key ;
             *stop = YES ;
@@ -168,12 +201,37 @@ static int cursor_push(lua_State *L) {
     return 1 ;
 }
 
+static int cursor_canvas_cursorRect(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TUSERDATA, "hs.canvas",
+                    LS_TTABLE,
+                    LS_TBOOLEAN | LS_TOPTIONAL,
+                    LS_TBREAK] ;
+    HSCursorObject *cursorObject = [skin toNSObjectAtIndex:1] ;
+    NSCursor       *cursor       = cursorObject.cursor ;
+    NSView         *canvasView   = [skin toNSObjectAtIndex:2] ;
+    NSRect         cursorRect    = [skin tableToRectAtIndex:3] ;
+    BOOL           add           = (lua_gettop(L) > 3) ? lua_toboolean(L, 4) : YES ;
+
+    if (add) {
+        [canvasView addCursorRect:cursorRect cursor:cursor] ;
+        [cursor setOnMouseEntered:YES] ;
+    } else {
+        [canvasView removeCursorRect:cursorRect cursor:cursor] ;
+        [cursor setOnMouseEntered:NO] ;
+    }
+
+    [skin pushNSObject:canvasView] ;
+    return 1 ;
+}
+
 #pragma mark - Module Constants
 
-static int cursor_pushBuiltInCursorNames(lua_State *L) {
+static int cursor_pushSystemCursorNames(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 
-    builtinCursors = @{
+    systemCursors = @{
         @"arrow"               : [NSCursor arrowCursor],
         @"contextualMenu"      : [NSCursor contextualMenuCursor],
         @"closedHand"          : [NSCursor closedHandCursor],
@@ -194,7 +252,7 @@ static int cursor_pushBuiltInCursorNames(lua_State *L) {
         @"verticalLayoutIBeam" : [NSCursor IBeamCursorForVerticalLayout]
     } ;
 
-    [skin pushNSObject:[builtinCursors allKeys]] ;
+    [skin pushNSObject:[systemCursors allKeys]] ;
     return 1 ;
 }
 
@@ -247,7 +305,7 @@ static int userdata_tostring(lua_State* L) {
     NSCursor       *cursor = obj.cursor ;
 
     __block NSString *title = @"*custom*" ;
-    [builtinCursors enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSCursor *object, BOOL *stop) {
+    [systemCursors enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSCursor *object, BOOL *stop) {
         if ([object isEqualTo:cursor]) {
             title = key ;
             *stop = YES ;
@@ -295,27 +353,33 @@ static int meta_gc(lua_State* __unused L) {
 
 // Metatable for userdata objects
 static const luaL_Reg userdata_metaLib[] = {
-    {"image",      cursor_image},
-    {"hotSpot",    cursor_hotSpot},
-    {"set",        cursor_set},
-    {"push",       cursor_push},
-    {"name",       cursor_name},
+    {"image",               cursor_image},
+    {"hotSpot",             cursor_hotSpot},
+    {"set",                 cursor_set},
+    {"push",                cursor_push},
+    {"name",                cursor_name},
 
-    {"__tostring", userdata_tostring},
-    {"__eq",       userdata_eq},
-    {"__gc",       userdata_gc},
-    {NULL,         NULL}
+    {"cursorRectForCanvas", cursor_canvas_cursorRect},
+
+    {"__tostring",          userdata_tostring},
+    {"__eq",                userdata_eq},
+    {"__gc",                userdata_gc},
+    {NULL,                  NULL}
 };
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"show",          cursor_unhide},
-    {"hide",          cursor_hide},
-    {"visible",       cursor_visible},
-    {"new",           cursor_new},
-    {"pop",           cursor_pop},
-    {"currentCursor", cursor_currentCursor},
-    {NULL,            NULL}
+    {"new",               cursor_new},
+    {"systemCursor",      cursor_systemCursor},
+    {"show",              cursor_unhide},
+    {"hide",              cursor_hide},
+    {"visible",           cursor_visible},
+    {"pop",               cursor_pop},
+    {"currentCursor",     cursor_currentCursor},
+
+    {"canvasCursorRects", cursor_canvas_enableRects},
+
+    {NULL,                NULL}
 };
 
 // Metatable for module, if needed
@@ -334,7 +398,7 @@ int luaopen_hs_mouse_cursor_internal(lua_State* L) {
     createdCursors = [NSMutableSet set] ;
     cursorHidden   = NO ;
 
-    cursor_pushBuiltInCursorNames(L) ; lua_setfield(L, -2, "builtInCursorNames") ;
+    cursor_pushSystemCursorNames(L) ; lua_setfield(L, -2, "systemCursorNames") ;
 
     [skin registerPushNSHelper:pushHSCursorObject         forClass:"HSCursorObject"];
     [skin registerLuaObjectHelper:toHSCursorObjectFromLua forClass:"HSCursorObject"
