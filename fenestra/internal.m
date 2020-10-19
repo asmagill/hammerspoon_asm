@@ -1426,6 +1426,15 @@ static const luaL_Reg userdata_metaLib[] = {
     {"titleVisibility",            window_titleVisibility},
     {"topLeft",                    window_topLeft},
 
+//     {"notificationCallback",       guitk_notificationCallback},
+//     {"notificationMessages",       guitk_notificationWatchFor},
+//     {"accessibilitySubrole",       guitk_accessibilitySubrole},
+//     {"isOccluded",                 window_isOccluded},
+//     {"isShowing",                  window_isShowing},
+//     {"contentManager",             window_contentView},
+//     {"passthroughCallback",        window_passthroughCallback},
+//     {"activeElement",              window_firstResponder},
+
     {"__tostring",                 userdata_tostring},
     {"__eq",                       userdata_eq},
     {"__gc",                       userdata_gc},
