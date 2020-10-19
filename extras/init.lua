@@ -503,6 +503,38 @@ L........1.........3.........5.........7.........M
     [10] = { strokeColor = { white = .25, alpha = 1 }, fillColor = { alpha = 0 }, shouldClose = false },
 })
 
+-- make sure to update paths for LuaSkin and Hammerspoon build locations
+-- or set with hs.settings.set("_asm_extras_buildPath", <path>) in the
+-- console where <path> is the directory containing the "build" directory
+local buildPath = require("hs.settings").get("_asm_extras_buildPath") or "/usr/local/src/hammerspoon/"
+module.dladdrWithLine = function(add)
+    local fs      = require("hs.fs")
+    local inspect = require("hs.inspect")
+
+    local details = _xtras.dladdr(add)
+    local address = string.format("0x%0x", add)
+    if details then
+        print(inspect(details))
+
+        local fn = details.fname .. ".dSYM/Contents/Resources/DWARF/internal.so"
+        if details.fname:match("LuaSkin$") then
+            fn = buildPath .. "/build/LuaSkin.framework.dSYM/Contents/Resources/DWARF/LuaSkin"
+        elseif details.fname:match("Hammerspoon$") then
+            fn = buildPath .. "/build/Hammerspoon.app.dSYM/Contents/Resources/DWARF/Hammerspoon"
+        end
+
+        if (fs.attributes(fn)) then
+            local cmd = "/usr/bin/atos -o " .. fn .. " -l " .. details.fbase .. " " .. address
+            print(cmd)
+            return hs.execute(cmd)
+        else
+            error(string.format("no dsym file found at %s", fn), 2)
+        end
+    else
+        error(string.format("unable to get dladdr details for %s", address), 2)
+    end
+end
+
 -- Return Module Object --------------------------------------------------
 
 return module

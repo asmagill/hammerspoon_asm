@@ -785,7 +785,7 @@ static int extras_yield(lua_State *L) {
     // this allows acting on events (hs.eventtap) and keys (hs.hotkey) as well as timers, etc.
     BOOL   mayDoMore = YES ;
     while (mayDoMore) {
-        NSEvent *e = [NSApp nextEventMatchingMask:NSAnyEventMask
+        NSEvent *e = [NSApp nextEventMatchingMask:NSEventMaskAny
                                         untilDate:date
                                            inMode:NSDefaultRunLoopMode
                                           dequeue:YES] ;
@@ -851,7 +851,13 @@ static int extras_yield(lua_State *L) {
 
         Dl_info info ;
         if (dladdr((const void *)addr, &info) != 0) {
-            lua_pushstring(L, info.dli_fname) ;
+            lua_newtable(L) ;
+            lua_pushstring(L, info.dli_fname) ; lua_setfield(L, -2, "fname") ;
+            lua_pushfstring(L, "%p", info.dli_fbase) ; lua_setfield(L, -2, "fbase") ;
+            lua_pushstring(L, info.dli_sname) ; lua_setfield(L, -2, "sname") ;
+            lua_pushfstring(L, "%p", info.dli_saddr) ; lua_setfield(L, -2, "saddr") ;
+
+
         } else {
             lua_pushnil(L) ;
         }
