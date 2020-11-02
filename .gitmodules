@@ -25,3 +25,6 @@
 [submodule "cfpreferences"]
 	path = cfpreferences
 	url = https://github.com/asmagill/hs._asm.cfpreferences.git
+[submodule "x11"]
+	path = x11
+	url = https://github.com/asmagill/hs.window.x11.git
