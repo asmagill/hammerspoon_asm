@@ -12,7 +12,7 @@
 	url = https://github.com/asmagill/hammerspoon_serial.git
 [submodule "axuielement"]
 	path = axuielement
-	url = ../hs._asm.axuielement
+	url = https://github.com/asmagill/hs._asm.axuielement.git
 [submodule "text"]
 	path = text
 	url = https://github.com/asmagill/hs.text.git
