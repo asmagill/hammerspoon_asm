@@ -31,7 +31,7 @@ static NSDictionary *diskarbitrationTypeLabels = nil ;
 @end
 
 static void commonCallbackNoResponseExpected(NSString *label, DADiskRef disk, CFArrayRef keys, void *context) {
-    LuaSkin                   *skin = [LuaSkin shared] ;
+    LuaSkin                   *skin = [LuaSkin sharedWithState:NULL] ;
     lua_State                 *L    = skin.L ;
     ASMdiskArbitrationWatcher *self = (__bridge ASMdiskArbitrationWatcher *)context ;
     int                       args  = keys ? 4 : 3 ;
@@ -63,7 +63,7 @@ static void diskDisappearedCallback(DADiskRef disk, void *context) {
 
 static DADissenterRef commonCallbackWithDissenter(NSString *label, DADiskRef disk, void *context) {
     DADissenterRef            response = NULL ;
-    LuaSkin                   *skin    = [LuaSkin shared] ;
+    LuaSkin                   *skin    = [LuaSkin sharedWithState:NULL] ;
     lua_State                 *L       = skin.L ;
     ASMdiskArbitrationWatcher *self    = (__bridge ASMdiskArbitrationWatcher *)context ;
     if (self.callbackRef != LUA_NOREF) {
@@ -245,7 +245,7 @@ static CFDictionaryRef CreateDiskArbitrationCFDictionary(NSDictionary *match) {
 #pragma mark - Module Functions
 
 static int diskarbitration_new(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [[ASMdiskArbitrationWatcher alloc] init] ;
     if (watcher) {
@@ -259,7 +259,7 @@ static int diskarbitration_new(lua_State *L) {
 #pragma mark - Module Methods
 
 static int diskarbitration_descriptionKeys(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
 
@@ -292,7 +292,7 @@ static int diskarbitration_descriptionKeys(lua_State *L) {
 }
 
 static int diskarbitration_matchCriteria(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
 
@@ -400,7 +400,7 @@ static int diskarbitration_matchCriteria(lua_State *L) {
 }
 
 static int diskarbitration_callbackFor(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
 
@@ -450,7 +450,7 @@ static int diskarbitration_callbackFor(lua_State *L) {
 
 
 static int diskarbitration_callback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
 
@@ -472,7 +472,7 @@ static int diskarbitration_callback(lua_State *L) {
 }
 
 static int diskarbitration_start(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
     [watcher registerCallbacks] ;
@@ -481,7 +481,7 @@ static int diskarbitration_start(lua_State* L) {
 }
 
 static int diskarbitration_stop(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
     [watcher unregisterCallbacks] ;
@@ -490,7 +490,7 @@ static int diskarbitration_stop(lua_State* L) {
 }
 
 static int diskarbitration_isActive(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMdiskArbitrationWatcher *watcher = [skin toNSObjectAtIndex:1] ;
     lua_pushboolean(L, watcher.active) ;
@@ -500,7 +500,7 @@ static int diskarbitration_isActive(lua_State* L) {
 #pragma mark - Module Constants
 
 static int push_diskarbitrationKeys(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     lua_newtable(L) ;
 
     [skin pushNSObject:(__bridge NSString *)kDADiskDescriptionVolumeKindKey] ;      lua_rawseti(L, -2, luaL_len(L, -2) + 1) ; /* ( CFString     ) */
@@ -559,7 +559,7 @@ static int pushASMdiskArbitrationWatcher(lua_State *L, id obj) {
 }
 
 id toASMdiskArbitrationWatcherFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMdiskArbitrationWatcher *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge ASMdiskArbitrationWatcher, L, idx, USERDATA_TAG) ;
@@ -573,7 +573,7 @@ id toASMdiskArbitrationWatcherFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
 }
@@ -582,7 +582,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         ASMdiskArbitrationWatcher *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMdiskArbitrationWatcher"] ;
         ASMdiskArbitrationWatcher *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMdiskArbitrationWatcher"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -665,7 +665,7 @@ int luaopen_hs__asm_diskarbitration_internal(lua_State* L) {
 //         @"peek"               : @(diskPeek),
     } ;
 
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:module_metaLib

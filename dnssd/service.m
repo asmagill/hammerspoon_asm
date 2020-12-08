@@ -14,7 +14,7 @@ static int helpersRef = LUA_NOREF ;
 #pragma mark - Support Functions and Classes
 
 static int dnssd_registerHelpers(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
 
     lua_pushvalue(L, 1) ;
@@ -24,7 +24,7 @@ static int dnssd_registerHelpers(lua_State *L) {
 }
 
 static int dnssd_error_stringToLuaStack(lua_State *L, DNSServiceErrorType err) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushLuaRef:refTable ref:helpersRef] ;
     lua_getfield(L, -1, "_errorList") ;
     lua_remove(L, -2) ;                             // remove helpersRef
@@ -38,7 +38,7 @@ static int dnssd_error_stringToLuaStack(lua_State *L, DNSServiceErrorType err) {
 }
 
 static int dnssd_interfaceName_stringToLuaStack(lua_State *L, uint32_t iidx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushLuaRef:refTable ref:helpersRef] ;
     lua_getfield(L, -1, "if_indexToName") ;
     lua_remove(L, -2) ;
@@ -59,7 +59,7 @@ static int dnssd_interfaceName_stringToLuaStack(lua_State *L, uint32_t iidx) {
 }
 
 static int dnssd_interfaceIndex_toLuaStack(lua_State *L, const char *name) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushLuaRef:refTable ref:helpersRef] ;
     lua_getfield(L, -1, "if_nameToIndex") ;
     lua_remove(L, -2) ;
@@ -101,7 +101,7 @@ static int dnssd_interfaceIndex_toLuaStack(lua_State *L, const char *name) {
 
 - (void)stop {
     if (_serviceRef) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
         CFRelease(_serviceRef) ;
         DNSServiceRefDeallocate(_serviceRef) ;
         _serviceRef  = NULL ;
@@ -131,7 +131,7 @@ static int pushASMDNSSDService(lua_State *L, id obj) {
 }
 
 id toASMDNSSDServiceFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMDNSSDService *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge ASMDNSSDService, L, idx, USERDATA_TAG) ;
@@ -145,7 +145,7 @@ id toASMDNSSDServiceFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     ASMDNSSDService *obj = [skin luaObjectAtIndex:1 toClass:"ASMDNSSDService"] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -155,7 +155,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         ASMDNSSDService *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMDNSSDService"] ;
         ASMDNSSDService *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMDNSSDService"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -205,8 +205,8 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_dnssd_service(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_dnssd_service(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

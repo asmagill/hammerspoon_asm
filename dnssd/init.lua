@@ -1,4 +1,4 @@
---- === hs._asm.module ===
+--- === hs._asm.dnssd ===
 ---
 --- Stuff about the module
 

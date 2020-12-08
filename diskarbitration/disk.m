@@ -11,7 +11,7 @@ static int refTable = LUA_NOREF;
 // versions of similar code already in Hammerspoon. LuaSkin can't handle CFObjects yet like it can
 // NSObjects... I hope to address this in 2018, but until then, code repetition is necessary...
 static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionary *alreadySeen) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 
     if (!theItem) {
         lua_pushnil(L) ;
@@ -87,7 +87,7 @@ static int pushCFTypeHamster(lua_State *L, CFTypeRef theItem, NSMutableDictionar
 }
 
 static int pushCFTypeToLua(lua_State *L, CFTypeRef theItem) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     NSMutableDictionary *alreadySeen = [[NSMutableDictionary alloc] init] ;
     pushCFTypeHamster(L, theItem, alreadySeen) ;
     for (id entry in alreadySeen) {
@@ -153,7 +153,7 @@ static void disk_callback(DADiskRef disk, DADissenterRef dissenter, void *contex
     NSDictionary *details = (__bridge_transfer NSDictionary *)context ;
     int callbackRef = [(NSNumber *)details[@"callback"] intValue] ;
     if (callbackRef != LUA_NOREF) {
-        LuaSkin   *skin = [LuaSkin shared] ;
+        LuaSkin   *skin = [LuaSkin sharedWithState:NULL] ;
         lua_State *L    = skin.L ;
         int       args  = 2 ;
 
@@ -176,7 +176,7 @@ static void disk_callback(DADiskRef disk, DADissenterRef dissenter, void *contex
 #pragma mark - Module Functions
 
 static int disk_fromBSD(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString  *bsdName   = [skin toNSObjectAtIndex:1] ;
     DADiskRef diskObject = NULL ;
@@ -193,7 +193,7 @@ static int disk_fromBSD(lua_State *L) {
 }
 
 static int disk_fromPath(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString  *path      = [skin toNSObjectAtIndex:1] ;
     NSURL     *pathURL   = nil ;
@@ -217,7 +217,7 @@ static int disk_fromPath(lua_State *L) {
 #pragma mark - Disk Submodule Methods
 
 static int disk_bsdName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     lua_pushstring(L, DADiskGetBSDName(diskObject)) ;
@@ -225,7 +225,7 @@ static int disk_bsdName(lua_State *L) {
 }
 
 static int disk_description(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     CFDictionaryRef description = DADiskCopyDescription(diskObject) ;
@@ -235,7 +235,7 @@ static int disk_description(lua_State *L) {
 }
 
 static int disk_wholeDisk(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     DADiskRef wholeDisk = DADiskCopyWholeDisk(diskObject) ;
@@ -245,7 +245,7 @@ static int disk_wholeDisk(lua_State *L) {
 }
 
 static int disk_isClaimed(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     lua_pushboolean(L, DADiskIsClaimed(diskObject)) ;
@@ -253,7 +253,7 @@ static int disk_isClaimed(lua_State *L) {
 }
 
 static int disk_mount(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL,
                     LS_TTABLE | LS_TOPTIONAL,  // callback required if passing in arguments
@@ -311,7 +311,7 @@ static int disk_mount(lua_State *L) {
 }
 
 static int disk_unmount(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL,
                     LS_TSTRING | LS_TOPTIONAL,    // callback required if passing in options
@@ -343,7 +343,7 @@ static int disk_unmount(lua_State *L) {
 }
 
 static int disk_eject(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
                     LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL,
                     LS_TBREAK] ;
@@ -362,7 +362,7 @@ static int disk_eject(lua_State *L) {
 }
 
 static int disk_ioServiceID(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     io_service_t diskService = DADiskCopyIOMedia(diskObject) ;
@@ -396,7 +396,7 @@ int pushDADiskRef(lua_State *L, DADiskRef disk) {
         lua_setmetatable(L, -2) ;
         return 1 ;
     } else if (disk) {
-        [[LuaSkin shared] logError:[NSString stringWithFormat:@"%s:pushDADiskRef expected DADiskRef object, found %@ (%lu)", USERDATA_TAG, (__bridge_transfer NSString *)CFCopyTypeIDDescription(CFGetTypeID(disk)), CFGetTypeID(disk)]] ;
+        [[LuaSkin sharedWithState:L] logError:[NSString stringWithFormat:@"%s:pushDADiskRef expected DADiskRef object, found %@ (%lu)", USERDATA_TAG, (__bridge_transfer NSString *)CFCopyTypeIDDescription(CFGetTypeID(disk)), CFGetTypeID(disk)]] ;
     }
     lua_pushnil(L) ;
     return 1 ;
@@ -405,7 +405,7 @@ int pushDADiskRef(lua_State *L, DADiskRef disk) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     DADiskRef diskObject = get_cfobjectFromUserdata(DADiskRef, L, 1, USERDATA_TAG) ;
     const char *title = DADiskGetBSDName(diskObject) ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %s (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
@@ -459,8 +459,8 @@ static luaL_Reg moduleLib[] = {
     {NULL,         NULL}
 };
 
-int luaopen_hs__asm_diskarbitration_disk(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_diskarbitration_disk(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:NULL

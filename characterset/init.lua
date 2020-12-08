@@ -8,6 +8,14 @@ local USERDATA_TAG = "hs._asm.characterset"
 local module       = require(USERDATA_TAG..".internal")
 local internal     = hs.getObjectMetatable(USERDATA_TAG)
 
+local basePath = package.searchpath(USERDATA_TAG, package.path)
+if basePath then
+    basePath = basePath:match("^(.+)/init.lua$")
+    if require"hs.fs".attributes(basePath .. "/docs.json") then
+        require"hs.doc".registerJSONFile(basePath .. "/docs.json")
+    end
+end
+
 -- private variables and methods -----------------------------------------
 
 local _kMetaTable = {}

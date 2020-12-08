@@ -18,6 +18,12 @@ end
 
 -- private variables and methods -----------------------------------------
 
+local _planes = {}
+for _, v in pairs(module.root():properties().IORegistryPlanes) do
+    table.insert(_planes, v)
+end
+module.planes = ls.makeConstantsTable(_planes)
+
 -- Public interface ------------------------------------------------------
 
 module.serviceForRegistryID = function(id)

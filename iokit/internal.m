@@ -42,7 +42,7 @@ static int refTable = LUA_NOREF;
 #pragma mark - Module Functions
 
 static int iokit_rootEntry(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
     io_object_t root = IORegistryGetRootEntry(kIOMasterPortDefault) ;
     if (root != MACH_PORT_NULL) {
@@ -58,7 +58,7 @@ static int iokit_rootEntry(lua_State *L) {
 }
 
 static int iokit_serviceMatching(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
     NSDictionary *matchCriteria = [skin toNSObjectAtIndex:1] ;
     if ([matchCriteria isKindOfClass:[NSDictionary class]]) {
@@ -80,7 +80,7 @@ static int iokit_serviceMatching(lua_State *L) {
 }
 
 static int iokit_servicesMatching(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
     NSDictionary *matchCriteria = [skin toNSObjectAtIndex:1] ;
     if ([matchCriteria isKindOfClass:[NSDictionary class]]) {
@@ -113,7 +113,7 @@ static int iokit_servicesMatching(lua_State *L) {
 }
 
 static int iokit_serviceFromPath(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     io_string_t path ;
     strncpy(path, lua_tostring(L, 1), sizeof(io_string_t)) ;
@@ -131,7 +131,7 @@ static int iokit_serviceFromPath(lua_State *L) {
 }
 
 static int iokit_dictionaryMatchingName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     CFDictionaryRef matchingDict = IOServiceNameMatching(lua_tostring(L, 1)) ;
     if (matchingDict) {
@@ -143,7 +143,7 @@ static int iokit_dictionaryMatchingName(lua_State *L) {
 }
 
 static int iokit_dictionaryMatchingClass(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     CFDictionaryRef matchingDict = IOServiceMatching(lua_tostring(L, 1)) ;
     if (matchingDict) {
@@ -155,7 +155,7 @@ static int iokit_dictionaryMatchingClass(lua_State *L) {
 }
 
 static int iokit_dictionaryMatchingEntryID(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
     uint64_t entryID = (uint64_t)lua_tointeger(L, 1) ;
     CFDictionaryRef matchingDict = IORegistryEntryIDMatching(entryID) ;
@@ -168,7 +168,7 @@ static int iokit_dictionaryMatchingEntryID(lua_State *L) {
 }
 
 static int iokit_dictionaryMatchingBSDName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     CFDictionaryRef matchingDict = IOBSDNameMatching(kIOMasterPortDefault, kNilOptions, lua_tostring(L, 1)) ;
     if (matchingDict) {
@@ -180,7 +180,7 @@ static int iokit_dictionaryMatchingBSDName(lua_State *L) {
 }
 
 static int iokit_bundleIdentifierForClass(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *className = [skin toNSObjectAtIndex:1] ;
     CFStringRef bundle = IOObjectCopyBundleIdentifierForClass((__bridge CFStringRef)className) ;
@@ -193,7 +193,7 @@ static int iokit_bundleIdentifierForClass(lua_State *L) {
 }
 
 static int iokit_superclassForClass(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString *className = [skin toNSObjectAtIndex:1] ;
     CFStringRef superclass = IOObjectCopySuperclassForClass((__bridge CFStringRef)className) ;
@@ -208,7 +208,7 @@ static int iokit_superclassForClass(lua_State *L) {
 #pragma mark - Module Methods
 
 static int iokit_name(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t deviceName ;
@@ -223,7 +223,7 @@ static int iokit_name(lua_State *L) {
 }
 
 static int iokit_class(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t className ;
@@ -238,7 +238,7 @@ static int iokit_class(lua_State *L) {
 }
 
 static int iokit_properties(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     BOOL includeNonSerializable = (lua_gettop(L) > 1) ? (BOOL)lua_toboolean(L, 2) : NO ;
@@ -250,7 +250,7 @@ static int iokit_properties(lua_State *L) {
             NSDictionary *properties = (__bridge_transfer NSDictionary *)propertiesDict ;
             [properties enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, __unused BOOL *stop) {
                 // don't bother with properties we can't represent unless asked
-                if (includeNonSerializable || !([value isKindOfClass:[NSString class]] && [(NSString *)value isEqualToString:@"IOCommand is not serializable"])) {
+                if (includeNonSerializable || !([(NSObject *)value isKindOfClass:[NSString class]] && [(NSString *)value hasSuffix:@" is not serializable"])) {
                     [skin pushNSObject:value withOptions:LS_NSDescribeUnknownTypes] ;
                     lua_setfield(L, -2, key.UTF8String) ;
                 }
@@ -264,7 +264,7 @@ static int iokit_properties(lua_State *L) {
 }
 
 static int iokit_entryID(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     uint64_t entryID ;
@@ -279,7 +279,7 @@ static int iokit_entryID(lua_State *L) {
 }
 
 static int iokit_equals(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj1 = [skin toNSObjectAtIndex:1] ;
     ASM_IO_OBJECT_T *obj2 = [skin toNSObjectAtIndex:2] ;
@@ -288,7 +288,7 @@ static int iokit_equals(lua_State *L) {
 }
 
 static int iokit_childrenInPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -319,7 +319,7 @@ static int iokit_childrenInPlane(lua_State *L) {
 }
 
 static int iokit_parentsInPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -350,7 +350,7 @@ static int iokit_parentsInPlane(lua_State *L) {
 }
 
 static int iokit_conformsTo(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t className ;
@@ -360,7 +360,7 @@ static int iokit_conformsTo(lua_State *L) {
 }
 
 static int iokit_locationInPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -378,7 +378,7 @@ static int iokit_locationInPlane(lua_State *L) {
 }
 
 static int iokit_nameInPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -396,7 +396,7 @@ static int iokit_nameInPlane(lua_State *L) {
 }
 
 static int iokit_pathInPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -414,7 +414,7 @@ static int iokit_pathInPlane(lua_State *L) {
 }
 
 static int iokit_inPlane(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
     io_name_t plane = kIOServicePlane ;
@@ -424,7 +424,7 @@ static int iokit_inPlane(lua_State *L) {
 }
 
 static int iokit_searchForProperty(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK | LS_TVARARG] ;
     ASM_IO_OBJECT_T *obj    = [skin toNSObjectAtIndex:1] ;
     NSString        *key    = [skin toNSObjectAtIndex:2] ;
@@ -467,7 +467,7 @@ static int pushASM_IO_OBJECT_T(lua_State *L, id obj) {
 }
 
 id toASM_IO_OBJECT_TFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASM_IO_OBJECT_T *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge ASM_IO_OBJECT_T, L, idx, USERDATA_TAG) ;
@@ -481,7 +481,7 @@ id toASM_IO_OBJECT_TFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASM_IO_OBJECT_T *obj = [skin luaObjectAtIndex:1 toClass:"ASM_IO_OBJECT_T"] ;
     io_name_t name ;
     kern_return_t err = IORegistryEntryGetName(obj.object, name) ;
@@ -501,7 +501,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         ASM_IO_OBJECT_T *obj1 = [skin luaObjectAtIndex:1 toClass:"ASM_IO_OBJECT_T"] ;
         ASM_IO_OBJECT_T *obj2 = [skin luaObjectAtIndex:2 toClass:"ASM_IO_OBJECT_T"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -575,8 +575,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs__asm_iokit_internal(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_iokit_internal(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

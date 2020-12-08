@@ -83,7 +83,7 @@ static void serviceBrowseCallback(DNSServiceRef sdRef, DNSServiceFlags flags, ui
 
 - (void)stop {
     if (_serviceRef) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:NULL] ;
         CFRelease(_serviceRef) ;
         DNSServiceRefDeallocate(_serviceRef) ;
         _serviceRef  = NULL ;
@@ -92,7 +92,7 @@ static void serviceBrowseCallback(DNSServiceRef sdRef, DNSServiceFlags flags, ui
 }
 
 - (BOOL)startFindDomains:(enum t_domainTypes)domainType callbackIndex:(int)callbackIdx {
-    LuaSkin   *skin = [LuaSkin shared] ;
+    LuaSkin   *skin = [LuaSkin sharedWithState:NULL] ;
     if (!_serviceRef) {
         lua_State *L    = skin.L ;
 
@@ -131,7 +131,7 @@ static void serviceBrowseCallback(DNSServiceRef sdRef, DNSServiceFlags flags, ui
 }
 
 - (BOOL)findServices:(NSString *)regtype inDomain:(NSString *)domain callbackIndex:(int)callbackIdx {
-    LuaSkin   *skin = [LuaSkin shared] ;
+    LuaSkin   *skin = [LuaSkin sharedWithState:NULL] ;
     if (!_serviceRef) {
         lua_State *L    = skin.L ;
 
@@ -200,7 +200,7 @@ static void serviceBrowseCallback(DNSServiceRef sdRef, DNSServiceFlags flags, ui
 static void domainBrowseCallback(__unused DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceIndex, DNSServiceErrorType errorCode, const char *replyDomain, void *context) {
     ASMDNSSDBrowser *self = (__bridge ASMDNSSDBrowser *)context ;
     if (self.callbackRef != LUA_NOREF) {
-        LuaSkin   *skin = [LuaSkin shared] ;
+        LuaSkin   *skin = [LuaSkin sharedWithState:NULL] ;
         lua_State *L    = skin.L ;
         _lua_stackguard_entry(L);
 
@@ -238,7 +238,7 @@ static void domainBrowseCallback(__unused DNSServiceRef sdRef, DNSServiceFlags f
 static void serviceBrowseCallback(__unused DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceIndex, DNSServiceErrorType errorCode, const char *serviceName, const char *regtype, const char *replyDomain, void *context) {
     ASMDNSSDBrowser *self = (__bridge ASMDNSSDBrowser *)context ;
     if (self.callbackRef != LUA_NOREF) {
-        LuaSkin   *skin = [LuaSkin shared] ;
+        LuaSkin   *skin = [LuaSkin sharedWithState:NULL] ;
         lua_State *L    = skin.L ;
         _lua_stackguard_entry(L);
 
@@ -268,7 +268,7 @@ static void serviceBrowseCallback(__unused DNSServiceRef sdRef, DNSServiceFlags 
 #pragma mark - Module Functions
 
 static int dnssd_browser_registerHelpers(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TTABLE, LS_TBREAK] ;
 
     lua_pushvalue(L, 1) ;
@@ -277,7 +277,7 @@ static int dnssd_browser_registerHelpers(lua_State *L) {
 }
 
 static int dnssd_browser_new(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [[ASMDNSSDBrowser alloc] init] ;
     if (browser) {
@@ -291,7 +291,7 @@ static int dnssd_browser_new(lua_State *L) {
 #pragma mark - Module Methods
 
 static int dnssd_browser_includesP2P(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
@@ -310,7 +310,7 @@ static int dnssd_browser_includesP2P(lua_State *L) {
 }
 
 static int dnssd_browser_setInterface(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
     if (lua_gettop(L) == 1) {
@@ -343,7 +343,7 @@ static int dnssd_browser_setInterface(lua_State *L) {
 }
 
 static int dnssd_browser_enumerateBrowsableDomains(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION, LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
     if ([browser startFindDomains:forBrowsing callbackIndex:2]) {
@@ -355,7 +355,7 @@ static int dnssd_browser_enumerateBrowsableDomains(lua_State *L) {
 }
 
 static int dnssd_browser_enumerateRegistrationDomains(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION, LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
     if ([browser startFindDomains:forRegistering callbackIndex:2]) {
@@ -367,13 +367,13 @@ static int dnssd_browser_enumerateRegistrationDomains(lua_State *L) {
 }
 
 // static int dnssd_browser_findServices(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
 //     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
 // }
 
 static int dnssd_browser_stop(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASMDNSSDBrowser *browser = [skin toNSObjectAtIndex:1] ;
     [browser stop] ;
@@ -399,7 +399,7 @@ static int pushASMDNSSDBrowser(lua_State *L, id obj) {
 }
 
 id toASMDNSSDBrowserFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMDNSSDBrowser *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge ASMDNSSDBrowser, L, idx, USERDATA_TAG) ;
@@ -413,7 +413,7 @@ id toASMDNSSDBrowserFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     ASMDNSSDBrowser *obj = [skin luaObjectAtIndex:1 toClass:"ASMDNSSDBrowser"] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -423,7 +423,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         ASMDNSSDBrowser *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMDNSSDBrowser"] ;
         ASMDNSSDBrowser *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMDNSSDBrowser"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -483,8 +483,8 @@ static luaL_Reg moduleLib[] = {
 // };
 
 // NOTE: ** Make sure to change luaopen_..._internal **
-int luaopen_hs__asm_dnssd_browser(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_dnssd_browser(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib

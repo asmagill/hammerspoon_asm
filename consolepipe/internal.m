@@ -36,7 +36,7 @@ typedef struct _consolepipe_userdata_t {
 /// Returns:
 ///  * the consolePipe object
 static int newConsolePipe(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
     NSString     *which = [skin toNSObjectAtIndex:1] ;
     const char   *label ;
@@ -72,7 +72,7 @@ static int newConsolePipe(lua_State *L) {
 /// Returns:
 ///  * the consolePipe object
 static int consolePipeCallback(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL, LS_TBREAK];
     consolepipe_userdata_t *userData = get_structFromUserdata(consolepipe_userdata_t, L, 1, USERDATA_TAG) ;
 
@@ -103,7 +103,7 @@ static int consolePipeCallback(lua_State *L) {
 /// Returns:
 ///  * the consolePipe object
 static int consolePipeStart(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
     consolepipe_userdata_t *userData = get_structFromUserdata(consolepipe_userdata_t, L, 1, USERDATA_TAG) ;
 
@@ -131,7 +131,7 @@ static int consolePipeStart(lua_State *L) {
             if (readResult > 0) {
                 dispatch_async(dispatch_get_main_queue(),^{
                     if (userData->callbackRef != LUA_NOREF) {
-                        LuaSkin   *_skin = [LuaSkin shared] ;
+                        LuaSkin   *_skin = [LuaSkin sharedWithState:NULL] ;
                         [_skin pushLuaRef:refTable ref:userData->callbackRef] ;
                         [_skin pushNSObject:[[NSString alloc] initWithBytesNoCopy:data
                                                                            length:(NSUInteger)readResult
@@ -166,7 +166,7 @@ static int consolePipeStart(lua_State *L) {
 /// Returns:
 ///  * the consolePipe object
 static int consolePipeStop(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared];
+    LuaSkin *skin = [LuaSkin sharedWithState:L];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK];
     consolepipe_userdata_t *userData = get_structFromUserdata(consolepipe_userdata_t, L, 1, USERDATA_TAG) ;
 
@@ -183,7 +183,7 @@ static int consolePipeStop(lua_State *L) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     consolepipe_userdata_t *userData = get_structFromUserdata(consolepipe_userdata_t, L, 1, USERDATA_TAG) ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: %s (%p)", USERDATA_TAG, userData->label, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -193,7 +193,7 @@ static int userdata_tostring(lua_State* L) {
 // // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // // so use luaL_testudata before the macro causes a lua error
 //     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-//         LuaSkin *skin = [LuaSkin shared] ;
+//         LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //         <moduleType> *obj1 = [skin luaObjectAtIndex:1 toClass:"<moduleType>"] ;
 //         <moduleType> *obj2 = [skin luaObjectAtIndex:2 toClass:"<moduleType>"] ;
 //         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -213,7 +213,7 @@ static int userdata_tostring(lua_State* L) {
 /// Returns:
 ///  * None
 static int userdata_gc(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     consolepipe_userdata_t  *userData = get_structFromUserdata(consolepipe_userdata_t, L, 1, USERDATA_TAG) ;
 
     userData->selfRef     = [skin luaUnref:refTable ref:userData->selfRef] ;
@@ -260,8 +260,8 @@ static const luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 };
 
-int luaopen_hs__asm_consolepipe_internal(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_consolepipe_internal(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:module_metaLib

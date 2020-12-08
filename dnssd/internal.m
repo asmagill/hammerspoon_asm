@@ -16,7 +16,7 @@ static int refTable = LUA_NOREF;
 #pragma mark - Module Functions
 
 static int dnssd_getApiVersion(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBREAK] ;
 
     uint32_t version ;
@@ -33,7 +33,7 @@ static int dnssd_getApiVersion(lua_State *L) {
 }
 
 static int dnssd_interfaces(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
 
     NSDictionary *specialInterfaceIndexes = @{
@@ -68,8 +68,8 @@ static int dnssd_interfaces(lua_State *L) {
 
 #pragma mark - Module Constants
 
-static int dnssd_errorList(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int dnssd_errorList(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin pushNSObject:@{
         @(kDNSServiceErr_Unknown)                   : @"Unknown error",
         @(kDNSServiceErr_NoSuchName)                : @"No such name",
@@ -121,7 +121,7 @@ static int dnssd_errorList(__unused lua_State *L) {
 // }
 //
 // id to<moduleType>FromLua(lua_State *L, int idx) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     <moduleType> *value ;
 //     if (luaL_testudata(L, idx, USERDATA_TAG)) {
 //         value = get_objectFromUserdata(__bridge <moduleType>, L, idx, USERDATA_TAG) ;
@@ -135,7 +135,7 @@ static int dnssd_errorList(__unused lua_State *L) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 // static int userdata_tostring(lua_State* L) {
-//     LuaSkin *skin = [LuaSkin shared] ;
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     <moduleType> *obj = [skin luaObjectAtIndex:1 toClass:"<moduleType>"] ;
 //     NSString *title = ... ;
 //     [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
@@ -146,7 +146,7 @@ static int dnssd_errorList(__unused lua_State *L) {
 // // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // // so use luaL_testudata before the macro causes a lua error
 //     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-//         LuaSkin *skin = [LuaSkin shared] ;
+//         LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //         <moduleType> *obj1 = [skin luaObjectAtIndex:1 toClass:"<moduleType>"] ;
 //         <moduleType> *obj2 = [skin luaObjectAtIndex:2 toClass:"<moduleType>"] ;
 //         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -197,7 +197,7 @@ static luaL_Reg moduleLib[] = {
 
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_dnssd_internal(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
 
     dnssd_errorList(L) ; lua_setfield(L, -2, "_errorList") ;

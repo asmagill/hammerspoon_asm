@@ -11,7 +11,7 @@ static int refTable = LUA_NOREF;
 #pragma mark - Module Functions
 
 static int characterSetFromName(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     lua_getglobal(L, "hs") ; lua_getfield(L, -1, "cleanUTF8forConsole") ; lua_remove(L, -2) ;
     lua_pushvalue(L, 1) ;
@@ -51,7 +51,7 @@ static int characterSetFromName(lua_State *L) {
 }
 
 static int characterSetWithCharactersInString(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     lua_tostring(L, 1) ; // force number into string
     NSString *setChars = [skin toNSObjectAtIndex:1] ;
@@ -64,7 +64,7 @@ static int characterSetWithCharactersInString(lua_State *L) {
 }
 
 static int characterSetWithRange(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TNUMBER, LS_TNUMBER, LS_TBREAK] ;
     lua_Integer from = luaL_checkinteger(L, 1) ;
     lua_Integer to   = luaL_checkinteger(L, 2) ;
@@ -87,7 +87,7 @@ static int characterSetWithRange(lua_State *L) {
 #pragma mark - Module Methods
 
 static int bitmapRepresentation(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSCharacterSet *charSet = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
     [skin pushNSObject:[charSet bitmapRepresentation]] ;
@@ -95,16 +95,16 @@ static int bitmapRepresentation(__unused lua_State *L) {
 }
 
 static int invertedSet(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSCharacterSet *charSet = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
     [skin pushNSObject:[charSet invertedSet]] ;
     return 1 ;
 }
 
-static int setCharacters(__unused lua_State *L) {
+static int setCharacters(lua_State *L) {
 // tweaked from http://stackoverflow.com/questions/26610931/list-of-characters-in-an-nscharacterset
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSCharacterSet *charSet = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
 
@@ -126,12 +126,12 @@ static int setCharacters(__unused lua_State *L) {
             }
         }
     }
-    [[LuaSkin shared] pushNSObject:array] ;
+    [skin pushNSObject:array] ;
     return 1 ;
 }
 
 static int isSupersetOfSet(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSCharacterSet *superSet = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
     NSCharacterSet *subSet   = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
@@ -139,8 +139,8 @@ static int isSupersetOfSet(lua_State *L) {
     return 1 ;
 }
 
-static int intersectionWithSet(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int intersectionWithSet(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSMutableCharacterSet *charSet1 = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
     NSCharacterSet        *charSet2 = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
@@ -149,8 +149,8 @@ static int intersectionWithSet(__unused lua_State *L) {
     return 1 ;
 }
 
-static int unionWithSet(__unused lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+static int unionWithSet(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     NSMutableCharacterSet *charSet1 = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
     NSCharacterSet        *charSet2 = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
@@ -160,7 +160,7 @@ static int unionWithSet(__unused lua_State *L) {
 }
 
 static int removeCharactersFromSet(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     NSMutableCharacterSet *charSet = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
     if (lua_gettop(L) == 2) {
@@ -183,7 +183,7 @@ static int removeCharactersFromSet(lua_State *L) {
 }
 
 static int addCharactersToSet(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TNUMBER | LS_TOPTIONAL, LS_TBREAK] ;
     NSMutableCharacterSet *charSet = [[skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] mutableCopy];
     if (lua_gettop(L) == 2) {
@@ -206,7 +206,7 @@ static int addCharactersToSet(lua_State *L) {
 }
 
 static int stringIsMemberOfSet(lua_State *L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING | LS_TNUMBER, LS_TBREAK] ;
     luaL_checkstring(L, 2) ;
 
@@ -279,7 +279,7 @@ static int pushNSCharacterSet(lua_State *L, id obj) {
 }
 
 id toNSCharacterSetFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     NSCharacterSet *charSet ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         charSet = get_objectFromUserdata(__bridge NSCharacterSet, L, idx) ;
@@ -293,7 +293,7 @@ id toNSCharacterSetFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     NSCharacterSet *obj = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
     [skin pushNSObject:[NSString stringWithFormat:@"%s: (%p)", USERDATA_TAG, lua_topointer(L, 1)]] ;
     return 1 ;
@@ -303,7 +303,7 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin shared] ;
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         NSCharacterSet *obj1 = [skin luaObjectAtIndex:1 toClass:"NSCharacterSet"] ;
         NSCharacterSet *obj2 = [skin luaObjectAtIndex:2 toClass:"NSCharacterSet"] ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
@@ -358,8 +358,8 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_characterset_internal(lua_State* __unused L) {
-    LuaSkin *skin = [LuaSkin shared] ;
+int luaopen_hs__asm_characterset_internal(lua_State* L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:USERDATA_TAG
                                      functions:moduleLib
                                  metaFunctions:nil    // or module_metaLib
