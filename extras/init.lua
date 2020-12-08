@@ -11,7 +11,17 @@
 -- maybe save some pain, if the shim is installed; otherwise, expect an objc dump to console when this loads on stock Hammerspoon without pull #2308 applied
 
 -- package.loadlib("/System/Library/Frameworks/AddressBook.framework/Versions/A/AddressBook","*")
-local module = require("hs._asm.extras.internal")
+local USERDATA_TAG = "hs._asm.extras"
+local module = require(USERDATA_TAG .. ".internal")
+
+local basePath = package.searchpath(USERDATA_TAG, package.path)
+if basePath then
+    basePath = basePath:match("^(.+)/init.lua$")
+    if require"hs.fs".attributes(basePath .. "/docs.json") then
+        require"hs.doc".registerJSONFile(basePath .. "/docs.json")
+    end
+end
+
 -- local bridge = require("hs._asm.bridging")
 local stext = require("hs.styledtext")
 
