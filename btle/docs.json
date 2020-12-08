@@ -19,25 +19,25 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Hammerspoon module for Core Bluetooth Objects.",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Hammerspoon module for Core Bluetooth Objects.",
     "Constructor" : [
 
     ],
     "doc" : "Hammerspoon module for Core Bluetooth Objects.\n\nThis module provides an interface to the Core Bluetooth OS X Object classes for accessing BTLE devices.\n\nCurrently this module only supports Hammerspoon as a BTLE Manager, not as a BTLE Peripheral.\n\nThis code is still very experimental.",
-    "Method" : [
+    "items" : [
 
     ],
     "Field" : [
 
     ],
-    "items" : [
+    "Command" : [
 
     ],
-    "Command" : [
+    "Method" : [
 
     ],
     "name" : "hs._asm.btle"
@@ -58,25 +58,25 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.",
     "Constructor" : [
 
     ],
     "doc" : "Provides support for objects which represent the characteristics of a remote BTLE peripheral’s service.\n\nA characteristic contains a single value and any number of descriptors describing that value. The properties of a characteristic determine how the value of the characteristic can be used and how the descriptors can be accessed.",
-    "Method" : [
+    "items" : [
 
     ],
     "Field" : [
 
     ],
-    "items" : [
+    "Command" : [
 
     ],
-    "Command" : [
+    "Method" : [
 
     ],
     "name" : "hs._asm.btle.characteristic"
@@ -97,25 +97,25 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.",
     "Constructor" : [
 
     ],
     "doc" : "Provides support for objects which represent the descriptors of a remote BTLE peripheral’s characteristic.\n\n Descriptors provide further information about a characteristic’s value. For example, they may describe the value in human-readable form and describe how the value should be formatted for presentation purposes. Characteristic descriptors also indicate whether a characteristic’s value is configured on a server (a peripheral) to indicate or notify a client (a central) when the value of the characteristic changes.",
-    "Method" : [
+    "items" : [
 
     ],
     "Field" : [
 
     ],
-    "items" : [
+    "Command" : [
 
     ],
-    "Command" : [
+    "Method" : [
 
     ],
     "name" : "hs._asm.btle.descriptor"
@@ -136,11 +136,11 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for managing the discovery of and connections to remote BTLE peripheral devices.",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Provides support for managing the discovery of and connections to remote BTLE peripheral devices.",
     "Constructor" : [
       {
         "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
@@ -166,40 +166,6 @@
       }
     ],
     "doc" : "Provides support for managing the discovery of and connections to remote BTLE peripheral devices.\n\nThis submodule handles scanning for, discovering, and connecting to advertising BTLE peripherals.",
-    "Method" : [
-      {
-        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
-        "stripped_doc" : [
-          "Returns a string indicating the current state of the BTLE manager object.",
-          ""
-        ],
-        "def" : "hs._asm.btle.manager:state() -> string",
-        "desc" : "Returns a string indicating the current state of the BTLE manager object.",
-        "notes" : [
-          " * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message."
-        ],
-        "signature" : "hs._asm.btle.manager:state() -> string",
-        "type" : "Method",
-        "returns" : [
-          " * a string matching one of the following:",
-          "   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.",
-          "   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.",
-          "   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.",
-          "   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.",
-          "   * \"poweredOff\"   - Bluetooth is currently powered off.",
-          "   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.",
-          ""
-        ],
-        "name" : "state",
-        "parameters" : [
-          " * None",
-          ""
-        ]
-      }
-    ],
-    "Field" : [
-
-    ],
     "items" : [
       {
         "doc" : "Creates a BTLE Central Manager object to manage the discovery of and connections to remote BTLE peripheral objects.\n\nParameters:\n * None\n\nReturns:\n * a new btleObject",
@@ -253,8 +219,42 @@
         ]
       }
     ],
+    "Field" : [
+
+    ],
     "Command" : [
 
+    ],
+    "Method" : [
+      {
+        "doc" : "Returns a string indicating the current state of the BTLE manager object.\n\nParameters:\n * None\n\nReturns:\n * a string matching one of the following:\n   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.\n   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.\n   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.\n   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.\n   * \"poweredOff\"   - Bluetooth is currently powered off.\n   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.\n\nNotes:\n * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message.",
+        "stripped_doc" : [
+          "Returns a string indicating the current state of the BTLE manager object.",
+          ""
+        ],
+        "def" : "hs._asm.btle.manager:state() -> string",
+        "desc" : "Returns a string indicating the current state of the BTLE manager object.",
+        "notes" : [
+          " * If you have set a callback with [hs._asm.btle.manager:setCallback](#setCallback), a state change will generate a callback with the \"didUpdateState\" message."
+        ],
+        "signature" : "hs._asm.btle.manager:state() -> string",
+        "type" : "Method",
+        "returns" : [
+          " * a string matching one of the following:",
+          "   * \"unknown\"      - The current state of the central manager is unknown; an update is imminent.",
+          "   * \"resetting\"    - The connection with the system service was momentarily lost; an update is imminent.",
+          "   * \"unsupported\"  - The machine does not support Bluetooth low energy. BTLE requires a mac which supports Bluetooth 4.",
+          "   * \"unauthorized\" - Hammerspoon is not authorized to use Bluetooth low energy.",
+          "   * \"poweredOff\"   - Bluetooth is currently powered off.",
+          "   * \"poweredOn\"    - Bluetooth is currently powered on and available to use.",
+          ""
+        ],
+        "name" : "state",
+        "parameters" : [
+          " * None",
+          ""
+        ]
+      }
     ],
     "name" : "hs._asm.btle.manager"
   },
@@ -274,16 +274,16 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.",
     "Constructor" : [
 
     ],
     "doc" : "Provides support for objects which represent remote BTLE peripheral devices that have been discovered or can be connected to.\n\n Peripherals are identified by universally unique identifiers (UUIDs) and may contain one or more services or provide useful information about their connected signal strength.",
-    "Method" : [
+    "items" : [
       {
         "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
         "stripped_doc" : [
@@ -311,7 +311,10 @@
     "Field" : [
 
     ],
-    "items" : [
+    "Command" : [
+
+    ],
+    "Method" : [
       {
         "doc" : "Returns the maximum amount of data, in bytes, that can be sent to a characteristic in a single write. (Only valid in macOS 10.12 and later)\n\nParameters:\n * withResponse - an optional boolean, default false, indicating whether or not the write will be performed as expecting a response (true) or without expecting a response (false).\n\nReturns:\n * an integer specifying the maximum byte size for the data to be written.\n\nNotes:\n * this method is only supported for macOS 10.12 and later; for earlier macOS versions, this method will return -1.",
         "stripped_doc" : [
@@ -335,9 +338,6 @@
           ""
         ]
       }
-    ],
-    "Command" : [
-
     ],
     "name" : "hs._asm.btle.peripheral"
   },
@@ -357,25 +357,25 @@
     "stripped_doc" : [
 
     ],
-    "desc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).",
-    "type" : "Module",
     "Deprecated" : [
 
     ],
+    "type" : "Module",
+    "desc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).",
     "Constructor" : [
 
     ],
     "doc" : "Provides support for objects which represent a BTLE peripheral’s service — a collection of data and associated behaviors for accomplishing a function or feature of a device (or portions of that device).\n\nServices are either primary or secondary and may contain a number of characteristics or included services (references to other services).",
-    "Method" : [
+    "items" : [
 
     ],
     "Field" : [
 
     ],
-    "items" : [
+    "Command" : [
 
     ],
-    "Command" : [
+    "Method" : [
 
     ],
     "name" : "hs._asm.btle.service"

@@ -1,22 +1,34 @@
 In progress Hammerspoon modules
 ===============================
 
-This repository contains modules I am in the process of working on or testing out for Hammerspoon.  I am no longer attempting to maintain compatibility with Mjolnir as the environments have diverged to a point where attempting to do so was taking more time than actual work on these modules usually does.
+This repository contains modules I am in the process of working on or testing out for Hammerspoon.
 
-The last commit where I paid much attention to compatibility between the two is probably found at https://github.com/asmagill/hammerspoon_asm/tree/270924f390a50fda9c2ae0e1910efaf588ffbac6, if there is still an interest.  Everything after this has been Hammerspoon focused and it's time for me to make a clean break.
+### Universal Builds
 
-### Sub Modules (See folder README.md)
-The modules which have not already been supplanted or removed or deemed dead ends can presently be found in 'wip/' -- this will be undergoing a reorganization and I'm not sure yet what the final layout will be.  I am moving towards a model where you can clone this repository and then just type `make install` in the directory of any module you want to try out (and conversely, `make uninstall` to remove any you find you don't use or that later get added into something else or the Hammerspoon core).
+Apple computers now come in two flavors -- Intel and Arm (M1). Because of this, there is a push to create Universal applications, applications which contain code for both architectures and are capable of running on both types of systems.
 
-### Documentation
+As of version 0.9.82, Hammerspoon is now a universal application, but when running on the M1 architecture, external libraries (modules) which are compiled for the Intel architecture will no longer work unless you run Hammerspoon in Rosetta2 mode. To that end, I am in the process of modifying these modules to also be Universal builds. The Makefile template found at this level of the repository, supports the following targets which can be used to craft modules to best suit your requirements:
 
-The json files provided in some of the directories is in a format suitable for use with Hammerspoon's `hs.doc.fromJSONFile(file)` function.  In the near future, I hope to provide documentation on how to create these files yourself and make them available within the Hammerspoon console's help command.
+* `make` - will make the module for the architecture of the machine the build is being performed on.
+* `make x86_64` - makes the module specifically for the Intel architecture.
+* `make arm64` - makes the module specifically for the Arm (M1) architecture.
+* `make universal` - makes a universal library combining both the Intel and the Arm (M1) architectures.
+
+For the install targets, you can actually skip the build step above -- the correct build step will be performed automatically.
+* `[PREFIX=~/.hs] make install` - installs the module for the current machine architecture.
+* `[PREFIX=~/.hs] make install-x86_64` - installs the module built for the Intel architecture.
+* `[PREFIX=~/.hs] make install-arm64` - installs the module built for the Arm (M1) architecture.
+* `[PREFIX=~/.hs] make install-universal` - installs the module built as a universal library (i.e. for both architectures).
+
+For modules which have precompiled binaries, the provided pre-built module is a universal build. This does make them (very slightly) larger then a module built for your specific architecture, but simplifies releases and means that the module will continue to work even if you run Hammerspoon with Rosetta2 enabled.
+
+I have confirmed that these modules will load on both Intel and M1 architectures, but I have not fully tested all of the functionality on the M1 architecture -- no architecture specific changes have been added yet. While most of the modules *should* work as expected, there may be some edge cases that will be fixed in future updates updates.
 
 ### License
 
 > Released under MIT license.
 >
-> Copyright (c) 2015 Aaron Magill
+> Copyright (c) 2020 Aaron Magill
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 >
