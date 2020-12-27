@@ -1,3 +1,9 @@
+-- Note: I need to break these out into explicit examples.
+--
+-- Right now its more of a dumping ground for things I'm using to test various aspects.
+-- But since the module isn't even really "released" yet and is more for my amusement than
+-- anything else, doing so is a low priority ATM.
+
 -- TO fern :size :sign
 --   if :size < 1 [ stop ]
 --   fd :size
@@ -114,3 +120,91 @@ tree2 = function(i, yr)
         print(os.time() - t)
     end)()
 end
+
+
+
+
+
+tc = require("hs.canvas.turtle")
+
+fern = function(self, size, sign)
+    if (size >= 1) then
+        self:forward(size):right(70 * sign)
+        fern(self, size * 0.5, sign * -1)
+        self:left(70 * sign):forward(size):left(70 * sign)
+        fern(self, size * 0.5, sign)
+        self:right(70 * sign):right(7 * sign)
+        fern(self, size - 1, sign)
+        self:left(7 * sign):back(size * 2)
+    end
+end
+
+t = os.time()
+tc1 = tc.turtleCanvas()
+tc1:penup():back(150):pendown()
+fern(tc1, 25, 1)
+fern(tc1, 25, -1)
+print("Blocked for", os.time() - t)
+
+t = os.time()
+tc2 = tc.turtleCanvas()
+tc2:penup():back(150):pendown():_background(fern, 25, 1):_background(fern, 25, -1):_background(function(self) self:show() ; print("Completed in", os.time() - t) end)
+print("Blocked for", os.time() - t)
+
+
+
+
+
+tc = require("hs.canvas.turtle")
+
+fern = function(self, size, sign)
+    if (size >= 1) then
+        self:forward(size):right(70 * sign)
+        fern(self, size * 0.5, sign * -1)
+        self:left(70 * sign):forward(size):left(70 * sign)
+        fern(self, size * 0.5, sign)
+        self:right(70 * sign):right(7 * sign)
+        fern(self, size - 1, sign)
+        self:left(7 * sign):back(size * 2)
+    end
+end
+
+wheel = function(self, _step)
+    local t = os.time()
+    for i = 0, 359, (_step or 90) do
+        self:penup():home():setheading(i):back(150):pendown()
+        fern(self, 25, 1)
+        fern(self, 25, -1)
+    end
+    self:show()
+    print("Completed in", os.time() - t)
+end
+
+-- Blocks Hammerspoon (and possibly makes other apps less responsive as well), but is
+-- the fastest. I've seen this as high as 7 in my tests, but it's usually around 5.
+-- Completed in	5
+-- Blocked for	5
+local t = os.time()
+tc1 = tc.turtleCanvas()
+wheel(tc1, _step)
+print("Blocked for", os.time() - t)
+
+
+-- Hammerspoon remains responsive, but does take longer (I've seen as low as 9 in my
+-- tests, but 12 is about average -- other HS and macOS applications *will* affect
+-- this, but if you know it's going to noticeably block HS or slow other apps down,
+-- it's probably worth it and is considered "good application behavior".)
+-- Blocked for	0
+-- Completed in	12
+local t = os.time()
+tc2 = tc.turtleCanvas():_background(wheel, _step):hide()
+print("Blocked for", os.time() - t)
+
+-- Even slower, but visually like what you may remember if you had a Logo class at
+-- some point in your past. Ah memories...
+-- Blocked for	0
+-- Completed in	24
+local t = os.time()
+tc3 = tc.turtleCanvas():_background(wheel, _step)
+print("Blocked for", os.time() - t)
+

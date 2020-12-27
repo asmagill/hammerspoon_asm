@@ -78,14 +78,11 @@ typedef NS_ENUM( NSUInteger, t_commandTypes ) {
 //           skips very next command (which resets our penColor)
 //   loadpict only parses raw version; other two are for importing elsewhere
 
-// compressing 300k+ individual strokes into one bezierpath with 300k+ subpaths seems actually slower
-// than this approach. The only reliable way to increase speed of extremely large command sets is to convert
-// to an image, but then we run into issues with resize because drawInRect for NSImage forces image to fit
-// rect by scaling; putting into NSImageView would mean refactoring a bunch of the code...
-
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int                refTable   = LUA_NOREF ;
 static int                fontMapRef = LUA_NOREF ;
+
+static const CGFloat      offScreenPadding = 0.01 ; // keep 1% space around actual content
 
 static void *myKVOContext = &myKVOContext ; // See http://nshipster.com/key-value-observing/
 
@@ -114,39 +111,40 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 }
 
 @interface HSCanvasTurtleView : NSView
-@property            int                    selfRefCount ;
+@property (nonatomic)           int                    selfRefCount ;
 
-@property (readonly) NSMutableArray         *commandList ;
+@property (nonatomic, readonly) NSMutableArray         *commandList ;
 
-@property            NSUInteger             turtleSize ;
-@property            NSImageView            *turtleImageView ;
+@property (nonatomic)           NSSize                 turtleSize ;
+@property (nonatomic)           NSImage                *turtleImage ;
+@property (nonatomic)           BOOL                   turtleVisible ;
 
 // current turtle state -- should be updated as commands appended
-@property            CGFloat                tX ;
-@property            CGFloat                tY ;
-@property            CGFloat                tHeading ;
-@property            BOOL                   tPenDown ;
-@property            NSCompositingOperation tPenMode ;
-@property            CGFloat                tPenSize ;
-@property            CGFloat                tScaleX ;
-@property            CGFloat                tScaleY ;
+@property (nonatomic)           CGFloat                tX ;
+@property (nonatomic)           CGFloat                tY ;
+@property (nonatomic)           CGFloat                tHeading ;
+@property (nonatomic, readonly) BOOL                   tPenDown ;
+@property (nonatomic, readonly) NSCompositingOperation tPenMode ;
+@property (nonatomic, readonly) CGFloat                tPenSize ;
+@property (nonatomic, readonly) CGFloat                tScaleX ;
+@property (nonatomic, readonly) CGFloat                tScaleY ;
 
-@property            CGFloat                labelFontSize ;
-@property            NSString               *labelFontName ;
+@property (nonatomic, readonly) CGFloat                labelFontSize ;
+@property (nonatomic, readonly) NSString               *labelFontName ;
 
-@property            NSColor                *pColor ;
-@property            NSColor                *bColor ;
-@property (readonly) NSUInteger             pPaletteIdx ;
-@property (readonly) NSUInteger             bPaletteIdx ;
+@property (nonatomic, readonly) NSColor                *pColor ;
+@property (nonatomic, readonly) NSColor                *bColor ;
+@property (nonatomic, readonly) NSUInteger             pPaletteIdx ;
+@property (nonatomic, readonly) NSUInteger             bPaletteIdx ;
 
-@property            NSMutableArray         *colorPalette ;
+@property (nonatomic, readonly) NSMutableArray         *colorPalette ;
 
-@property            CGFloat                translateX ;
-@property            CGFloat                translateY ;
+@property (nonatomic)           CGFloat                translateX ;
+@property (nonatomic)           CGFloat                translateY ;
 
-@property            BOOL                   renderingPaused ;
-@property            BOOL                   neverYield ;
-@property            lua_Integer            yieldRatio ;
+@property (nonatomic)           BOOL                   renderingPaused ;
+@property (nonatomic)           BOOL                   neverYield ;
+@property (nonatomic)           lua_Integer            yieldRatio ;
 @end
 
 @implementation HSCanvasTurtleView {
@@ -167,6 +165,11 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
     NSString               *_initLabelFontName ;
     NSColor                *_pInitColor ;
     NSColor                *_bInitColor ;
+
+    NSImage                *_offScreen ;
+    CGFloat                _offScreenWidth ;
+    CGFloat                _offScreenHeight ;
+    NSUInteger             _offScreenIdx ;
 }
 
 #pragma mark - Required for Canvas compatible view -
@@ -199,45 +202,54 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
 - (void)drawRect:(__unused NSRect)dirtyRect {
     if (!(_neverRender || _renderingPaused)) {
+        [self updateOffScreenImage] ;
+        self.layer.backgroundColor = _bColor.CGColor ;
+
         NSGraphicsContext *gc = [NSGraphicsContext currentContext];
         [gc saveGraphicsState] ;
 
-        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
+// // Shows boundary of _offScreen image for debugging purposes
+//         [_pInitColor setStroke] ;
+//         [[NSBezierPath bezierPathWithRect:NSMakeRect(
+//             (self.frame.size.width - _offScreenWidth)   / 2.0 + _translateX,
+//             (self.frame.size.height - _offScreenHeight) / 2.0 + _translateY,
+//             _offScreenWidth,
+//             _offScreenHeight
+//         )] stroke] ;
 
-        // use transform so origin shifted to center of view
-        NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
-        [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
-        [shiftOriginToCenter concat] ;
+        NSRect fromRect = NSMakeRect(
+            (_offScreenWidth  - self.frame.size.width)  / 2.0 - _translateX,
+            (_offScreenHeight - self.frame.size.height) / 2.0 - _translateY,
+            self.frame.size.width,
+            self.frame.size.height
+        ) ;
 
-        [_pInitColor setStroke] ;
-        [_pInitColor setFill] ;
-        gc.compositingOperation = _tInitPenMode ;
+        [_offScreen drawAtPoint:NSZeroPoint
+                        fromRect:fromRect
+                       operation:NSCompositingOperationSourceOver
+                        fraction:1.0] ;
 
-        for (NSArray *entry in _commandList) {
-            NSMutableDictionary *properties = entry[1] ;
+        if (_turtleVisible) {
+            NSPoint location = NSMakePoint(
+                _tX + self.frame.size.width  / 2.0 + _translateX,
+                _tY + self.frame.size.height / 2.0 + _translateY
+            ) ;
+            NSAffineTransform *turtleRotation = [[NSAffineTransform alloc] init] ;
+            [turtleRotation translateXBy:location.x yBy:location.y] ;
+            [turtleRotation rotateByDegrees:(360 - _tHeading)] ;
 
-            NSNumber *compositeMode = properties[@"penMode"] ;
-            if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
+            [gc saveGraphicsState];
 
-            NSColor *penColor = properties[@"penColor"] ;
-            if (penColor) {
-                [penColor setStroke] ;
-                [penColor setFill] ;
-            }
+            [turtleRotation concat] ;
+            [_turtleImage drawAtPoint:NSMakePoint((_turtleSize.width / -2.0), (_turtleSize.height / -2.0))
+                             fromRect:NSZeroRect
+                            operation:NSCompositingOperationSourceOver
+                             fraction:1.0] ;
 
-            NSColor *backgroundColor = properties[@"backgroundColor"] ;
-            if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
-
-            NSBezierPath *strokePath = properties[@"stroke"] ;
-            if (strokePath) [strokePath stroke] ;
-
-            NSBezierPath *fillPath = properties[@"fill"] ;
-            if (fillPath) [fillPath fill] ;
+            [gc restoreGraphicsState] ;
         }
 
         [gc restoreGraphicsState] ;
-        [self updateTurtle] ;
     }
 }
 
@@ -295,10 +307,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
 #pragma mark - HSTurtleView Specific Methods -
 
-- (void)defaultTurtleImage {
-    _turtleImageView.image          = [NSImage imageNamed:NSImageNameTouchBarColorPickerFont] ;
-    _turtleImageView.imageScaling   = NSImageScaleProportionallyUpOrDown ;
-    _turtleImageView.imageAlignment =  NSImageAlignCenter ;
+- (NSImage *)defaultTurtleImage {
+    return [NSImage imageNamed:NSImageNameTouchBarColorPickerFont] ;
 }
 
 - (void)resetTurtleView {
@@ -314,10 +324,9 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
     _labelFontSize = 14.0 ;
     _labelFontName = @"sans-serif" ;
 
-    _turtleSize      = 45 ;
-    _turtleImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, 0, _turtleSize, _turtleSize)] ;
-    [self addSubview:_turtleImageView] ;
-    [self defaultTurtleImage] ;
+    _turtleVisible = YES ;
+    _turtleSize    = NSMakeSize(45, 45) ;
+    _turtleImage   = [self defaultTurtleImage] ;
 
     _pPaletteIdx  = 0 ;
     _bPaletteIdx  = 7 ;
@@ -345,25 +354,13 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
     _commandList  = [NSMutableArray array] ;
 
+    _offScreenWidth  = _turtleSize.width  * (1.0 + offScreenPadding * 2.0) ;
+    _offScreenHeight = _turtleSize.height * (1.0 + offScreenPadding * 2.0) ;
+    _offScreenIdx    = 0 ;
+    _offScreen       = [[NSImage alloc] initWithSize:NSMakeSize(_offScreenWidth, _offScreenHeight)] ;
+
     self.layer.backgroundColor = _bColor.CGColor ;
     self.needsDisplay = !(_neverRender || _renderingPaused) ;
-}
-
-- (void)updateTurtle {
-    if (!(_neverRender || _renderingPaused)) {
-        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
-
-        _turtleImageView.frameCenterRotation = 0 ;
-        _turtleImageView.frame = NSMakeRect(
-            xOriginOffset + _tX - _turtleSize / 2,
-            yOriginOffset + _tY - _turtleSize / 2,
-            _turtleSize,
-            _turtleSize
-        ) ;
-        _turtleImageView.frameCenterRotation = -_tHeading ;
-        _turtleImageView.needsDisplay = YES ;
-    }
 }
 
 - (NSColor *)colorFromArgument:(NSObject *)argument withState:(lua_State *)L {
@@ -521,12 +518,12 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                     if (cmd == c_setpensize) {
                         NSArray<NSNumber *> *list = arguments[0] ;
                         CGFloat number = list[0].doubleValue ;
-                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
+                        if (number <= 0) errMsg = [NSString stringWithFormat:@"%@: width must be positive", cmdName] ;
                     } else if (cmd == c_setscrunch) {
                         CGFloat number = argumentsAsNumbers[0].doubleValue ;
-                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
+                        if (number <= 0) errMsg = [NSString stringWithFormat:@"%@: xscale must be positive", cmdName] ;
                         number = argumentsAsNumbers[1].doubleValue ;
-                        if (number < 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
+                        if (number <= 0) errMsg = [NSString stringWithFormat:@"%@: yscale must be positive", cmdName] ;
                     } else if (cmd == c_setpalette) {
                         NSInteger idx = argumentsAsNumbers[0].integerValue ;
                         if (idx < 0 || idx > 255) {
@@ -560,6 +557,8 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
 
     CGFloat x = _tX ;
     CGFloat y = _tY ;
+
+    CGFloat withPadding = 1.0 + offScreenPadding * 2.0 ;
 
     switch(cmd) {
         case c_forward:
@@ -598,6 +597,16 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
                 [strokePath moveToPoint:NSMakePoint(x, y)] ;
                 [strokePath lineToPoint:NSMakePoint(_tX, _tY)] ;
                 stepAttributes[@"stroke"] = strokePath ;
+
+                NSRect strokeBounds = strokePath.bounds ;
+                _offScreenWidth  = fmax(
+                    (fabs(strokeBounds.origin.x) * 2 + strokeBounds.size.width) * withPadding,
+                    _offScreenWidth
+                ) ;
+                _offScreenHeight = fmax(
+                    (fabs(strokeBounds.origin.y) * 2 + strokeBounds.size.height) * withPadding,
+                    _offScreenHeight
+                ) ;
             }
             stepAttributes[@"startPoint"] = [NSValue valueWithPoint:NSMakePoint(x, y)] ;
             stepAttributes[@"endPoint"]   = [NSValue valueWithPoint:NSMakePoint(_tX, _tY)] ;
@@ -625,7 +634,7 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         case c_penpaint:
         case c_penerase:
         case c_penreverse: {
-            _tPenMode = (cmd == c_penreverse) ? NSCompositingOperationDifference :
+            _tPenMode = (cmd == c_penreverse) ? NSCompositingOperationXOR :
                         (cmd == c_penerase)   ? NSCompositingOperationDestinationOut :
                                                 NSCompositingOperationSourceOver ;
             _tPenDown = YES ;
@@ -637,10 +646,11 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         } break ;
         case c_arc: {
             CGFloat angle  = argumentsAsNumbers[0].doubleValue ;
+            CGFloat radius = argumentsAsNumbers[1].doubleValue ;
             NSBezierPath *strokePath = [NSBezierPath bezierPath] ;
             strokePath.lineWidth = _tPenSize ;
             [strokePath appendBezierPathWithArcWithCenter:NSMakePoint(0, 0)
-                                                   radius:argumentsAsNumbers[1].doubleValue
+                                                   radius:radius
                                                startAngle:((360 - _tHeading) + 90)
                                                  endAngle:((360 - (_tHeading + angle)) + 90)
                                                 clockwise:(angle > 0)] ;
@@ -649,6 +659,16 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             [scrunch translateXBy:(_tX / _tScaleX) yBy:(_tY / _tScaleY)] ;
             [strokePath transformUsingAffineTransform:scrunch] ;
             stepAttributes[@"stroke"] = strokePath ;
+
+            NSRect strokeBounds = strokePath.bounds ;
+            _offScreenWidth  = fmax(
+                (fabs(strokeBounds.origin.x) * 2 + strokeBounds.size.width) * withPadding,
+                _offScreenWidth
+            ) ;
+            _offScreenHeight = fmax(
+                (fabs(strokeBounds.origin.y) * 2 + strokeBounds.size.height) * withPadding,
+                _offScreenHeight
+            ) ;
         } break ;
         case c_setscrunch: {
             _tScaleX = argumentsAsNumbers[0].doubleValue ;
@@ -700,6 +720,16 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
             [strokePath transformUsingAffineTransform:scrunchAndTurn] ;
 //             stepAttributes[@"stroke"] = strokePath ; // I think it looks crisper with just the fill
             stepAttributes[@"fill"] = strokePath ;
+
+            NSRect strokeBounds = strokePath.bounds ;
+            _offScreenWidth  = fmax(
+                (fabs(strokeBounds.origin.x) * 2 + strokeBounds.size.width) * withPadding,
+                _offScreenWidth
+            ) ;
+            _offScreenHeight = fmax(
+                (fabs(strokeBounds.origin.y) * 2 + strokeBounds.size.height) * withPadding,
+                _offScreenHeight
+            ) ;
         } break ;
         case c_setpencolor: {
             _pColor = [self colorFromArgument:arguments[0] withState:L] ;
@@ -775,78 +805,133 @@ NSColor *NSColorFromHexColorString(NSString *colorString) {
         [_commandList addObject:newCommand] ;
         [self updateStateWithCommand:cmd andArguments:arguments andState:L] ;
 
-        if (((NSNumber *)wrappedCommands[cmd][2]).boolValue) {
-            self.needsDisplay = !(_neverRender || _renderingPaused) ;
-        } else {
-            [self updateTurtle] ;
-        }
+        self.needsDisplay = !(_neverRender || _renderingPaused) ;
     }
 
     return isGood ;
 }
 
-- (NSImage *)renderToImageWithBackground:(BOOL)withBackground {
-// NOTE: this should track drawRect, but ignore background color changes as they aren't captured by this
-    NSImage *background = withBackground ? [[NSImage alloc] initWithSize:self.bounds.size] : nil ;
+- (NSImage *)generateImageFromVisible:(BOOL)onlyVisible
+                       withBackground:(BOOL)withBackground
+                            andTurtle:(BOOL)withTurtle {
 
-    NSImage *newImage = [[NSImage alloc] initWithSize:self.bounds.size] ;
+    [self updateOffScreenImage] ;
+    NSImage *newImage = [[NSImage alloc] initWithSize:(onlyVisible ? self.frame.size : _offScreen.size)] ;
+
     [newImage lockFocus] ;
         NSGraphicsContext *gc = [NSGraphicsContext currentContext];
         [gc saveGraphicsState];
 
-        CGFloat xOriginOffset = self.frame.size.width / 2 + _translateX ;
-        CGFloat yOriginOffset = self.frame.size.height / 2 + _translateY ;
+        if (withBackground) {
+            [_bColor setFill] ;
+            [NSBezierPath fillRect:NSMakeRect(0, 0, newImage.size.width, newImage.size.height)] ;
+        }
 
-        // use transform so origin shifted to center of view
-        NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
-        [shiftOriginToCenter translateXBy:xOriginOffset yBy:yOriginOffset] ;
-        [shiftOriginToCenter concat] ;
+        NSRect fromRect = NSZeroRect ;
+        if (onlyVisible) {
+            fromRect = NSMakeRect(
+                (_offScreenWidth  - self.frame.size.width)  / 2.0 - _translateX,
+                (_offScreenHeight - self.frame.size.height) / 2.0 - _translateY,
+                self.frame.size.width,
+                self.frame.size.height
+            ) ;
+        }
+        [_offScreen drawAtPoint:NSZeroPoint
+                        fromRect:fromRect
+                       operation:NSCompositingOperationSourceOver
+                        fraction:1.0] ;
 
-        [_pInitColor setStroke] ;
-        [_pInitColor setFill] ;
-        gc.compositingOperation = _tInitPenMode ;
-
-        for (NSArray *entry in _commandList) {
-            NSMutableDictionary *properties = entry[1] ;
-
-            NSNumber *compositeMode = properties[@"penMode"] ;
-            if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
-
-            NSColor *penColor = properties[@"penColor"] ;
-            if (penColor) {
-                [penColor setStroke] ;
-                [penColor setFill] ;
+        if (withTurtle) {
+            NSPoint location = NSMakePoint(
+                _tX + (onlyVisible ? self.frame.size.width  : _offScreenWidth)  / 2.0,
+                _tY + (onlyVisible ? self.frame.size.height : _offScreenHeight) / 2.0
+            ) ;
+            if (onlyVisible) {
+                location.x = location.x + _translateX ;
+                location.y = location.y + _translateY ;
             }
+            NSAffineTransform *turtleRotation = [[NSAffineTransform alloc] init] ;
+            [turtleRotation translateXBy:location.x yBy:location.y] ;
+            [turtleRotation rotateByDegrees:(360 - _tHeading)] ;
 
-// See below for background. It's only the "latest" one we care about anyways
-//             NSColor *backgroundColor = properties[@"backgroundColor"] ;
-//             if (backgroundColor) self.layer.backgroundColor = backgroundColor.CGColor ;
+            [gc saveGraphicsState];
 
-            NSBezierPath *strokePath = properties[@"stroke"] ;
-            if (strokePath) [strokePath stroke] ;
+            [turtleRotation concat] ;
+            [_turtleImage drawAtPoint:NSMakePoint((_turtleSize.width / -2.0), (_turtleSize.height / -2.0))
+                             fromRect:NSZeroRect
+                            operation:NSCompositingOperationSourceOver
+                             fraction:1.0] ;
 
-            NSBezierPath *fillPath = properties[@"fill"] ;
-            if (fillPath) [fillPath fill] ;
+            [gc restoreGraphicsState] ;
         }
 
         [gc restoreGraphicsState] ;
     [newImage unlockFocus] ;
 
-    // we have to draw the background separately and draw image over it; otherwise things like
-    // penerase and penreverse will affect background coloring as well
-    if (background) {
-        [background lockFocus] ;
-            gc = [NSGraphicsContext currentContext];
-            [gc saveGraphicsState];
-
-            [_bColor setFill] ;
-            [NSBezierPath fillRect:self.bounds] ;
-
-            [newImage drawInRect:self.bounds] ;
-        [background unlockFocus] ;
-        newImage = background ;
-    }
     return newImage ;
+}
+
+- (void)updateOffScreenImage {
+    BOOL resizeImage = (_offScreenWidth  > _offScreen.size.width) ||
+                       (_offScreenHeight > _offScreen.size.height) ;
+    if (resizeImage) {
+        @autoreleasepool {
+            NSImage *oldImage = _offScreen ;
+            NSSize  newSize   = NSMakeSize(_offScreenWidth, _offScreenHeight) ;
+            _offScreen = [[NSImage alloc] initWithSize:newSize] ;
+            [_offScreen lockFocus] ;
+                NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+                [gc saveGraphicsState] ;
+                [oldImage drawInRect:NSMakeRect(
+                    (newSize.width  - oldImage.size.width)  / 2.0,
+                    (newSize.height - oldImage.size.height) / 2.0,
+                    oldImage.size.width,
+                    oldImage.size.height
+                )] ;
+                [gc restoreGraphicsState] ;
+            [_offScreen unlockFocus] ;
+        }
+    }
+
+    if (_offScreenIdx < _commandList.count) {
+        [_offScreen lockFocus] ;
+            NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+            [gc saveGraphicsState] ;
+
+            // use transform so origin shifted to center of image
+            NSAffineTransform *shiftOriginToCenter = [[NSAffineTransform alloc] init] ;
+            [shiftOriginToCenter translateXBy:(_offScreenWidth  / 2.0)
+                                          yBy:(_offScreenHeight / 2.0)] ;
+            [shiftOriginToCenter concat] ;
+
+            [_pInitColor setStroke] ;
+            [_pInitColor setFill] ;
+            gc.compositingOperation = _tPenMode ;
+
+            for (NSUInteger i = _offScreenIdx ; i < _commandList.count ; i++) {
+                NSArray *entry = _commandList[i] ;
+                NSMutableDictionary *properties = entry[1] ;
+
+                NSNumber *compositeMode = properties[@"penMode"] ;
+                if (compositeMode) gc.compositingOperation = compositeMode.unsignedIntegerValue ;
+
+                NSColor *penColor = properties[@"penColor"] ;
+                if (penColor) {
+                    [penColor setStroke] ;
+                    [penColor setFill] ;
+                }
+
+                NSBezierPath *strokePath = properties[@"stroke"] ;
+                if (strokePath) [strokePath stroke] ;
+
+                NSBezierPath *fillPath = properties[@"fill"] ;
+                if (fillPath) [fillPath fill] ;
+            }
+
+            [gc restoreGraphicsState] ;
+        [_offScreen unlockFocus] ;
+        _offScreenIdx = _commandList.count ;
+    }
 }
 
 @end
@@ -894,6 +979,18 @@ static int turtle_dumpPalette(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:_yieldRatio([count]) -> turtleViewObject | int
+/// Method
+/// Get or set the number of turtle drawing commands that will be performed between yields when using [hs.canvas.turtle:_background](#_background).
+///
+/// Parameters:
+///  * `count` - an optional integer specifying the number of drawing commands to perform between yields.
+///
+/// Returns:
+///  * if an argument is provided, returns the turtleViewObject; otherwise returns the current value.
+///
+/// Notes:
+///  * when you background a drawing function with [hs.canvas.turtle:_background](#_background), a coroutine is created which will yield after a certain number of drawing commands have occurred. This method allows you to adjust this number so you can balance speed of rendering and Hammerspoon responsiveness to your specific needs.
 static int turtle_yieldRatio(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -910,6 +1007,18 @@ static int turtle_yieldRatio(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:_neverYield([state]) -> turtleViewObject | boolean
+/// Method
+/// Get or set the whether or not [hs.canvas.turtle:_background](#_background) actually yields.
+///
+/// Parameters:
+///  * `state` - an optional boolean specifying whether or not backgrounded functions should actually yield.
+///
+/// Returns:
+///  * if an argument is provided, returns the turtleViewObject; otherwise returns the current value.
+///
+/// Notes:
+///  * Setting this to false before using [hs.canvas.turtle:_background](#_background) essentially causes the `_background` method to block until completion, as if you had gone ahead and run the function yourself. Setting it to false while a function is already running will cause it (and any additionally queued background functions) to run to completion after it next resumes without further yields.
 static int turtle_neverYield(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
@@ -918,7 +1027,7 @@ static int turtle_neverYield(lua_State *L) {
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, turtleCanvas.neverYield) ;
     } else {
-        turtleCanvas.neverYield = lua_toboolean(L, 2) ;
+        turtleCanvas.neverYield = (BOOL)(lua_toboolean(L, 2)) ;
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -932,7 +1041,7 @@ static int turtle_pauseRendering(lua_State *L) {
     if (lua_gettop(L) == 1) {
         lua_pushboolean(L, turtleCanvas.renderingPaused) ;
     } else {
-        turtleCanvas.renderingPaused = lua_toboolean(L, 2) ;
+        turtleCanvas.renderingPaused = (BOOL)(lua_toboolean(L, 2)) ;
         turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
         lua_pushvalue(L, 1) ;
     }
@@ -941,11 +1050,19 @@ static int turtle_pauseRendering(lua_State *L) {
 
 static int turtle_asImage(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L];
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
-    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
-    BOOL background = (lua_gettop(L) == 2) ? lua_toboolean(L, 2) : NO ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                                                LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                                                LS_TBOOLEAN | LS_TNIL | LS_TOPTIONAL,
+                                                LS_TBREAK] ;
 
-    NSImage *image = [turtleCanvas renderToImageWithBackground:background] ;
+    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
+    BOOL withBackground = (lua_gettop(L) > 1 && lua_isboolean(L, 2)) ? (BOOL)(lua_toboolean(L, 2)) : NO ;
+    BOOL withTurtle     = (lua_gettop(L) > 2 && lua_isboolean(L, 3)) ? (BOOL)(lua_toboolean(L, 3)) : NO ;
+    BOOL onlyVisible    = (lua_gettop(L) > 3 && lua_isboolean(L, 4)) ? (BOOL)(lua_toboolean(L, 4)) : YES ;
+
+    NSImage *image = [turtleCanvas generateImageFromVisible:onlyVisible
+                                             withBackground:withBackground
+                                                  andTurtle:withTurtle] ;
     [skin pushNSObject:image] ;
     return 1;
 }
@@ -965,14 +1082,14 @@ static int turtle_turtleImage(lua_State *L) {
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        [skin pushNSObject:turtleCanvas.turtleImageView.image] ;
+        [skin pushNSObject:turtleCanvas.turtleImage] ;
     } else {
         if (lua_type(L, 2) == LUA_TNIL) {
-            [turtleCanvas defaultTurtleImage] ;
+            turtleCanvas.turtleImage = [turtleCanvas defaultTurtleImage] ;
         } else {
             NSImage *newTurtle = [skin toNSObjectAtIndex:2] ;
-            turtleCanvas.turtleImageView.image = newTurtle ;
-            [turtleCanvas updateTurtle] ;
+            turtleCanvas.turtleImage = newTurtle ;
+            turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
         }
         lua_pushvalue(L, 1) ;
     }
@@ -981,16 +1098,25 @@ static int turtle_turtleImage(lua_State *L) {
 
 static int turtle_turtleSize(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG,
+                    LS_TNUMBER | LS_TTABLE | LS_TOPTIONAL,
+                    LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     if (lua_gettop(L) == 1) {
-        lua_pushinteger(L, (lua_Integer)turtleCanvas.turtleSize) ;
+        [skin pushNSSize:turtleCanvas.turtleSize] ;
     } else {
-        lua_Integer newSize = lua_tointeger(L, 2) ;
-        if (newSize < 1) newSize = 1 ;
-        turtleCanvas.turtleSize = (NSUInteger)newSize ;
-        [turtleCanvas updateTurtle] ;
+        if (lua_type(L, 2) == LUA_TTABLE) {
+            NSSize newSize = [skin tableToSizeAtIndex:2] ;
+            if (newSize.height < 1) newSize.height = 1 ;
+            if (newSize.width < 1)  newSize.width = 1 ;
+            turtleCanvas.turtleSize = newSize ;
+        } else {
+            lua_Number newSize = lua_tonumber(L, 2) ;
+            if (newSize < 1) newSize = 1 ;
+            turtleCanvas.turtleSize = NSMakeSize(newSize, newSize) ;
+        }
+        turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
         lua_pushvalue(L, 1) ;
     }
     return 1 ;
@@ -1009,7 +1135,7 @@ static int turtle_commandDump(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
-    BOOL raw = (lua_gettop(L) == 1) ? NO : (BOOL)lua_toboolean(L, 2) ;
+    BOOL raw = (lua_gettop(L) == 1) ? NO : (BOOL)(lua_toboolean(L, 2)) ;
 
     if (raw) {
         [skin pushNSObject:turtleCanvas.commandList withOptions:LS_NSDescribeUnknownTypes] ;
@@ -1077,20 +1203,21 @@ static int turtle_translate(lua_State *L) {
 
         turtleCanvas.translateX = x ;
         turtleCanvas.translateY = y ;
-        turtleCanvas.needsDisplay = YES ;
+        turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
         lua_pushvalue(L, 1) ;
         return 1 ;
     }
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_visibleAxes(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     NSSize viewSize = turtleCanvas.frame.size ;
-    CGFloat maxAbsX = viewSize.width / 2 ;
-    CGFloat maxAbsY = viewSize.height / 2 ;
+    CGFloat maxAbsX = viewSize.width / 2.0 ;
+    CGFloat maxAbsY = viewSize.height / 2.0 ;
 
     lua_newtable(L) ;
     lua_newtable(L) ;
@@ -1105,6 +1232,7 @@ static int turtle_visibleAxes(lua_State *L) {
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_pos(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1116,6 +1244,15 @@ static int turtle_pos(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:xcor() -> number
+/// Method
+/// Returns the X coordinate of the turtle's current position.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a number representing the X coordinate of the turtle's current position
 static int turtle_xcor(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1125,6 +1262,15 @@ static int turtle_xcor(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:ycor() -> number
+/// Method
+/// Returns the Y coordinate of the turtle's current position.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a number representing the Y coordinate of the turtle's current position
 static int turtle_ycor(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1134,6 +1280,15 @@ static int turtle_ycor(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:heading() -> number
+/// Method
+/// Returns the current heading of the turtle in degrees.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a number representing the current heading of the turtle in degrees clockwise from the positive Y axis
 static int turtle_heading(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1143,6 +1298,18 @@ static int turtle_heading(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:clean() -> turtleViewObject
+/// Method
+/// Clears the turtle view, effectively erasing all lines that the turtle has drawn on the graphics window.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the turtleViewObject
+///
+/// Notes:
+///  * The turtle’s state (position, heading, pen mode, etc.) is not changed.
 static int turtle_clean(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1154,6 +1321,20 @@ static int turtle_clean(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:clearscreen() -> turtleViewObject
+/// Method
+/// Erases the graphics window and send the turtle to its initial position and heading.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the turtleViewObject
+///
+/// Notes:
+///  * Synonym: `hs.canvas.turtle:cs()`
+///
+///  * This method is equivalent to  `hs.canvas.turtle:home():clean()`.
 static int turtle_clearscreen(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1165,15 +1346,33 @@ static int turtle_clearscreen(lua_State *L) {
     return turtle_clean(L) ;
 }
 
+/// hs.canvas.turtle:shownp() -> boolean
+/// Method
+/// Returns whether or not the turtle is currently visible within the turtle view.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean specifying whether the turtle is currently visible (true) or not (false).
 static int turtle_shownp(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    lua_pushboolean(L, !turtleCanvas.turtleImageView.hidden) ;
+    lua_pushboolean(L, turtleCanvas.turtleVisible) ;
     return 1 ;
 }
 
+/// hs.canvas.turtle:pendownp() -> boolean
+/// Method
+/// Returns whether or not the pen is in the down position.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a boolean value specifying whether the pen is down (true) or up (false).
 static int turtle_pendownp(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1183,6 +1382,15 @@ static int turtle_pendownp(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:penmode() -> string
+/// Method
+/// Returns the current pen drawing mode.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * a string specifying the current drawing mode. Possible values are "PAINT", "ERASE", or "REVERSE", corresponding to [hs.canvas.turtle:penpaint](#penpaint), [hs.canvas.turtle:penerase](#penerase), or [hs.canvas.turtle:penreverse](#penreverse) respectively.
 static int turtle_penmode(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1195,7 +1403,7 @@ static int turtle_penmode(lua_State *L) {
     switch(turtleCanvas.tPenMode) {
         case NSCompositingOperationSourceOver:     lua_pushstring(L, "PAINT") ; break ;
         case NSCompositingOperationDestinationOut: lua_pushstring(L, "ERASE") ; break ;
-        case NSCompositingOperationDifference:     lua_pushstring(L, "REVERSE") ; break ;
+        case NSCompositingOperationXOR:            lua_pushstring(L, "REVERSE") ; break ;
         default:
             [skin pushNSObject:[NSString stringWithFormat:@"** unknown compositing mode: %lu", turtleCanvas.tPenMode]] ;
     }
@@ -1204,6 +1412,7 @@ static int turtle_penmode(lua_State *L) {
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_pensize(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1215,15 +1424,7 @@ static int turtle_pensize(lua_State *L) {
     return 1 ;
 }
 
-static int turtle_penwidth(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
-
-    lua_pushnumber(L, turtleCanvas.tPenSize) ;
-    return 1 ;
-}
-
+// since it's wrapped in init.lua, document it there
 static int turtle_scrunch(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1235,28 +1436,55 @@ static int turtle_scrunch(lua_State *L) {
     return 1 ;
 }
 
+/// hs.canvas.turtle:hideturtle() -> turtleViewObject
+/// Method
+/// Hides the turtle in the turtle view.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the turtleViewObject
+///
+/// Notes:
+///  * Synonym: `hs.canvas.turtle:ht()`
 static int turtle_showturtle(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    turtleCanvas.turtleImageView.hidden = NO ;
+    turtleCanvas.turtleVisible = YES ;
+    turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
 
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
+/// hs.canvas.turtle:showturtle() -> turtleViewObject
+/// Method
+/// Makes the turtle visible in the turtle view.
+///
+/// Parameters:
+///  * None
+///
+/// Returns:
+///  * the turtleViewObject
+///
+/// Notes:
+///  * Synonym: `hs.canvas.turtle:st()`
 static int turtle_hideturtle(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
-    turtleCanvas.turtleImageView.hidden = YES ;
+    turtleCanvas.turtleVisible = NO ;
+    turtleCanvas.needsDisplay = !turtleCanvas.renderingPaused ;
 
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_labelsize(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
@@ -1277,20 +1505,21 @@ static int turtle_labelfont(lua_State *L) {
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_pencolor(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     if (turtleCanvas.pPaletteIdx == NSUIntegerMax) {
-        NSColor *safeColor = [turtleCanvas.pColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+        NSColor *safeColor = [turtleCanvas.pColor colorUsingColorSpace:NSColorSpace.genericRGBColorSpace] ;
         if (safeColor) {
             lua_newtable(L) ;
             lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             CGFloat alpha = safeColor.alphaComponent ;
-            if (alpha < 0.999) {
+            if (alpha < 0.9999) {
                 lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             }
         } else {
@@ -1302,20 +1531,21 @@ static int turtle_pencolor(lua_State *L) {
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_background(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     HSCanvasTurtleView *turtleCanvas = [skin toNSObjectAtIndex:1] ;
 
     if (turtleCanvas.bPaletteIdx == NSUIntegerMax) {
-        NSColor *safeColor = [turtleCanvas.bColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+        NSColor *safeColor = [turtleCanvas.bColor colorUsingColorSpace:NSColorSpace.genericRGBColorSpace] ;
         if (safeColor) {
             lua_newtable(L) ;
             lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             CGFloat alpha = safeColor.alphaComponent ;
-            if (alpha < 0.999) {
+            if (alpha < 0.9999) {
                 lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
             }
         } else {
@@ -1327,6 +1557,7 @@ static int turtle_background(lua_State *L) {
     return 1 ;
 }
 
+// since it's wrapped in init.lua, document it there
 static int turtle_palette(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
@@ -1337,14 +1568,14 @@ static int turtle_palette(lua_State *L) {
         return luaL_argerror(L, 2, "index must be between 0 and 255 inclusive") ;
     }
     if ((NSUInteger)idx >= turtleCanvas.colorPalette.count) idx = 0 ;
-    NSColor *safeColor = [(NSColor *)(turtleCanvas.colorPalette[(NSUInteger)idx][1]) colorUsingColorSpaceName:NSCalibratedRGBColorSpace] ;
+    NSColor *safeColor = [(NSColor *)(turtleCanvas.colorPalette[(NSUInteger)idx][1]) colorUsingColorSpace:NSColorSpace.genericRGBColorSpace] ;
     if (safeColor) {
         lua_newtable(L) ;
         lua_pushnumber(L, safeColor.redComponent) ;   lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         lua_pushnumber(L, safeColor.greenComponent) ; lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         lua_pushnumber(L, safeColor.blueComponent) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         CGFloat alpha = safeColor.alphaComponent ;
-        if (alpha < 0.999) {
+        if (alpha < 0.9999) {
             lua_pushnumber(L, alpha) ;  lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
     } else {
@@ -1404,8 +1635,8 @@ static int userdata_tostring(lua_State* L) {
     HSCanvasTurtleView *obj = [skin luaObjectAtIndex:1 toClass:"HSCanvasTurtleView"] ;
 
     NSSize viewSize = obj.frame.size ;
-    CGFloat maxAbsX = viewSize.width / 2 ;
-    CGFloat maxAbsY = viewSize.height / 2 ;
+    CGFloat maxAbsX = viewSize.width / 2.0 ;
+    CGFloat maxAbsY = viewSize.height / 2.0 ;
     NSString *title = [NSString stringWithFormat:@"X ∈ [%.2f, %.2f], Y ∈ [%.2f, %.2f]",
         -maxAbsX - obj.translateX, maxAbsX - obj.translateX, -maxAbsY - obj.translateY, maxAbsY - obj.translateY] ;
 
@@ -1461,7 +1692,6 @@ static const luaL_Reg userdata_metaLib[] = {
     {"pendownp",         turtle_pendownp},
     {"penmode",          turtle_penmode},
     {"pensize",          turtle_pensize},
-    {"penwidth",         turtle_penwidth},
     {"scrunch",          turtle_scrunch},
     {"labelsize",        turtle_labelsize},
     {"labelfont",        turtle_labelfont},
