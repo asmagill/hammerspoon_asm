@@ -531,6 +531,8 @@ module.dladdrWithLine = function(add)
             fn = buildPath .. "/build/LuaSkin.framework.dSYM/Contents/Resources/DWARF/LuaSkin"
         elseif details.fname:match("Hammerspoon$") then
             fn = buildPath .. "/build/Hammerspoon.app.dSYM/Contents/Resources/DWARF/Hammerspoon"
+        elseif details.fname:match("/Hammerspoon.app/Contents/Resources/extensions/") then
+            fn = details.fname
         end
 
         if (fs.attributes(fn)) then
