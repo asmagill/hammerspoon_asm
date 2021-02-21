@@ -226,12 +226,10 @@ static int iokit_class(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
-    io_name_t className ;
-    kern_return_t err = IOObjectGetClass(obj.object, className) ;
-    if (err == KERN_SUCCESS) {
-        lua_pushstring(L, className) ;
+    CFStringRef className = IOObjectCopyClass(obj.object) ;
+    if (className) {
+        [skin pushNSObject:(__bridge_transfer NSString *)className] ;
     } else {
-        [LuaSkin logDebug:[NSString stringWithFormat:@"%s:class -- unable to retrieve IOObject class (Kernel Error #%d)", USERDATA_TAG, err]] ;
         lua_pushnil(L) ;
     }
     return 1 ;
@@ -241,7 +239,7 @@ static int iokit_properties(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     ASM_IO_OBJECT_T *obj = [skin toNSObjectAtIndex:1] ;
-    BOOL includeNonSerializable = (lua_gettop(L) > 1) ? (BOOL)lua_toboolean(L, 2) : NO ;
+    BOOL includeNonSerializable = (lua_gettop(L) > 1) ? (BOOL)(lua_toboolean(L, 2)) : NO ;
     CFMutableDictionaryRef propertiesDict ;
     kern_return_t err = IORegistryEntryCreateCFProperties(obj.object, &propertiesDict, kCFAllocatorDefault, kNilOptions) ;
     if (err == KERN_SUCCESS) {
@@ -504,7 +502,8 @@ static int userdata_eq(lua_State* L) {
         LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         ASM_IO_OBJECT_T *obj1 = [skin luaObjectAtIndex:1 toClass:"ASM_IO_OBJECT_T"] ;
         ASM_IO_OBJECT_T *obj2 = [skin luaObjectAtIndex:2 toClass:"ASM_IO_OBJECT_T"] ;
-        lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
+//         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
+        lua_pushboolean(L, (Boolean)IOObjectIsEqualTo(obj1.object, obj2.object)) ;
     } else {
         lua_pushboolean(L, NO) ;
     }
@@ -551,6 +550,19 @@ static const luaL_Reg userdata_metaLib[] = {
     {NULL,                NULL}
 };
 
+#if defined(SOURCE_PATH) && ! defined(RELEASE_VERSION)
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+static int source_path(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushstring(L, TOSTRING(SOURCE_PATH)) ;
+    return 1 ;
+}
+#undef TOSTRING
+#undef STRINGIFY
+#endif
+
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
     {"root",                         iokit_rootEntry},
@@ -565,6 +577,9 @@ static luaL_Reg moduleLib[] = {
 
     {"bundleIDForClass",             iokit_bundleIdentifierForClass},
     {"superclassForClass",           iokit_superclassForClass},
+#if defined(SOURCE_PATH) && ! defined(RELEASE_VERSION)
+    {"_source_path",                 source_path},
+#endif
     {NULL,                           NULL}
 };
 

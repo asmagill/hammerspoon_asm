@@ -1,0 +1,82 @@
+root                          IORegistryGetRootEntry                Return a handle to the registry root.
+serviceMatching               IOServiceGetMatchingService           Look up a registered IOService object that matches a matching dictionary.
+servicesMatching              IOServiceGetMatchingServices          Look up registered IOService objects that match a matching dictionary.
+serviceForPath                IORegistryEntryFromPath               Looks up a registry entry by path.
+bundleIDForClass              IOObjectCopyBundleIdentifierForClass  Return the bundle identifier of the given class.
+superclassForClass            IOObjectCopySuperclassForClass        Return the superclass name of the given class.
+dictionaryMatchingBSDName     IOBSDNameMatching                     Create a matching dictionary that specifies an IOService match based on BSD device name.
+dictionaryMatchingRegistryID  IORegistryEntryIDMatching             Create a matching dictionary that specifies an IOService match based on a registry entry ID.
+dictionaryMatchingClass       IOServiceMatching                     Create a matching dictionary that specifies an IOService class match.
+dictionaryMatchingName        IOServiceNameMatching                 Create a matching dictionary that specifies an IOService name match.
+
+conformsTo                    IOObjectConformsTo                    Performs an OSDynamicCast operation on an IOKit object.
+class                         IOObjectCopyClass                     Return the class name of an IOKit object.
+sameAs                        IOObjectIsEqualTo                     Checks two object handles to see if they represent the same kernel object.
+properties                    IORegistryEntryCreateCFProperties     Create a CF dictionary representation of a registry entry's property table.
+childrenInPlane               IORegistryEntryGetChildIterator       Returns an iterator over a registry entry’s child entries in a plane.
+locationInPlane               IORegistryEntryGetLocationInPlane     Returns a C-string location assigned to a registry entry, in a specified plane.
+name                          IORegistryEntryGetName                Returns a C-string name assigned to a registry entry.
+nameInPlane                   IORegistryEntryGetNameInPlane         Returns a C-string name assigned to a registry entry, in a specified plane.
+parentsInPlane                IORegistryEntryGetParentIterator      Returns an iterator over a registry entry’s parent entries in a plane.
+pathInPlane                   IORegistryEntryGetPath                Create a path for a registry entry.
+registryID                    IORegistryEntryGetRegistryEntryID     Returns an ID for the registry entry that is global to all tasks.
+inPlane                       IORegistryEntryInPlane                Determines if the registry entry is attached in a plane.
+searchForProperty             IORegistryEntrySearchCFProperty       Create a CF representation of a registry entry's property.
+
+
+MAYBE
+                              IOKitGetBusyState                     Returns the busyState of all IOServices.
+                              IOKitWaitQuiet                        Wait for a all IOServices' busyState to be zero.
+                              IOServiceWaitQuiet                    Wait for an IOService's busyState to be zero.
+                              IOServiceGetBusyState                 Returns the busyState of an IOService.
+                              IOServiceRequestProbe                 A request to rescan a bus for device changes.
+
+                              IONotificationPortCreate              Creates and returns a notification object for receiving IOKit notifications of new devices or state changes.
+                              IONotificationPortDestroy             Destroys a notification object created with IONotificationPortCreate. Also destroys any mach_port's or CFRunLoopSources obatined from IONotificationPortGetRunLoopSource or IONotificationPortGetMachPort
+                              IONotificationPortGetMachPort         Returns a mach_port to be used to listen for notifications.
+                              IONotificationPortGetRunLoopSource    Returns a CFRunLoopSource to be used to listen for notifications.
+                              IONotificationPortSetDispatchQueue    Sets a dispatch queue to be used to listen for notifications.
+                              IOServiceAddInterestNotification      Register for notification of state changes in an IOService.
+                              IOServiceAddMatchingNotification      Look up registered IOService objects that match a matching dictionary, and install a notification request of new IOServices that match.
+
+                              IORegistryEntryCreateCFProperty       Create a CF representation of a registry entry's property.
+
+                              IOServiceMatchPropertyTable           Match an IOService objects with matching dictionary.
+
+                              IOIteratorIsValid                     Checks an iterator is still valid.
+                              IOIteratorNext                        Returns the next object in an iteration.
+                              IOIteratorReset                       Resets an iteration back to the beginning.
+                              IORegistryCreateIterator              Create an iterator rooted at the registry root.
+                              IORegistryEntryCreateIterator         Create an iterator rooted at a given registry entry.
+                              IORegistryIteratorEnterEntry          Recurse into the current entry in the registry iteration.
+                              IORegistryIteratorExitEntry           Exits a level of recursion, restoring the current entry.
+
+                              IOObjectGetKernelRetainCount          Returns kernel retain count of an IOKit object.
+                              IOObjectGetRetainCount                Returns kernel retain count of an IOKit object. Identical to IOObjectGetKernelRetainCount() but available prior to Mac OS 10.6.
+                              IOObjectGetUserRetainCount            Returns the retain count for the current process of an IOKit object.
+
+PROBABLY NOT (or at least not directly)
+                              IOConnectAddClient                    Inform a connection of a second connection.
+                              IOConnectAddRef                       Adds a reference to the connect handle.
+                              IOConnectGetService                   Returns the IOService a connect handle was opened on.
+                              IOConnectMapMemory                    Map hardware or shared memory into the caller's task.
+                              IOConnectMapMemory64                  Map hardware or shared memory into the caller's task.
+                              IOConnectRelease                      Remove a reference to the connect handle.
+                              IOConnectSetCFProperties              Set CF container based properties on a connection.
+                              IOConnectSetCFProperty                Set a CF container based property on a connection.
+                              IOConnectSetNotificationPort          Set a port to receive family specific notifications.
+                              IOConnectUnmapMemory                  Remove a mapping made with IOConnectMapMemory.
+                              IOConnectUnmapMemory64                Remove a mapping made with IOConnectMapMemory64.
+                              IOServiceClose                        Close a connection to an IOService and destroy the connect handle.
+                              IOServiceOpen                         A request to create a connection to an IOService.
+                              IOCreateReceivePort                   Creates and returns a mach port suitable for receiving IOKit messages of the specified type.
+                              IODispatchCalloutFromMessage          Dispatches callback notifications from a mach message.
+                              IOMasterPort                          Returns the mach port used to initiate communication with IOKit.
+        *IOObjectCopyClass*   IOObjectGetClass                      Return the class name of an IOKit object.
+                              IOObjectRelease                       Releases an object handle previously returned by IOKitLib.
+                              IOObjectRetain                        Retains an object handle previously returned by IOKitLib.
+                              IORegistryEntryGetChildEntry          Returns the first child of a registry entry in a plane.
+                              IORegistryEntryGetParentEntry         Returns the first parent of a registry entry in a plane.
+                              IORegistryEntrySetCFProperties        Set CF container based properties in a registry entry.
+                              IORegistryEntrySetCFProperty          Set a CF container based property in a registry entry.
+
