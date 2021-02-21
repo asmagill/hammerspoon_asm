@@ -155,8 +155,24 @@ static int refTable = LUA_NOREF;
 //     {NULL,         NULL}
 // };
 
+#if defined(SOURCE_PATH) && ! defined(RELEASE_VERSION)
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+static int source_path(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+    lua_pushstring(L, TOSTRING(SOURCE_PATH)) ;
+    return 1 ;
+}
+#undef TOSTRING
+#undef STRINGIFY
+#endif
+
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
+#if defined(SOURCE_PATH) && ! defined(RELEASE_VERSION)
+    {"_source_path", source_path},
+#endif
     {NULL, NULL}
 };
 
@@ -178,11 +194,8 @@ int luaopen_hs__asm_module_internal(lua_State* L) {
 //                                objectFunctions:userdata_metaLib];
 
 //     [skin registerPushNSHelper:push<moduleType>         forClass:"<moduleType>"];
-
-// // one, but not both, of...
 //     [skin registerLuaObjectHelper:to<moduleType>FromLua forClass:"<moduleType>"
 //                                              withUserdataMapping:USERDATA_TAG];
-//     [skin registerLuaObjectHelper:to<moduleType>FromLua forClass:"<moduleType>"];
 
     return 1;
 }

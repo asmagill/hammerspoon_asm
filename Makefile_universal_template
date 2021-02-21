@@ -46,11 +46,13 @@ ALLFILES += $(SOFILES)
 # CC=clang
 CC=@clang
 WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration -Wno-documentation-unknown-command -Wno-poison-system-directories
-EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks
+EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -DSOURCE_PATH="$(mkfile_path)"
 MIN_intel_VERSION ?= -mmacosx-version-min=10.13
 MIN_arm64_VERSION ?= -mmacosx-version-min=11
 
 CFLAGS  += $(DEBUG_CFLAGS) -fmodules -fobjc-arc -DHS_EXTERNAL_MODULE $(WARNINGS) $(EXTRA_CFLAGS)
+release: CFLAGS  += -DRELEASE_VERSION=$(VERSION)
+releaseWithDocs: CFLAGS  += -DRELEASE_VERSION=$(VERSION)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
 all: verify $(shell uname -m)
