@@ -22,6 +22,8 @@ if basePath then
     end
 end
 
+local fnutils = require("hs.fnutils")
+
 -- local bridge = require("hs._asm.bridging")
 local stext = require("hs.styledtext")
 
@@ -51,7 +53,7 @@ _kMetaTable.__tostring = function(obj)
         if _kMetaTable._k[obj] then
             local width = 0
             for k,v in pairs(_kMetaTable._k[obj]) do width = width < #k and #k or width end
-            for k,v in require("hs.fnutils").sortByKeys(_kMetaTable._k[obj]) do
+            for k,v in fnutils.sortByKeys(_kMetaTable._k[obj]) do
                 result = result..string.format("%-"..tostring(width).."s %s\n", k, tostring(v))
             end
         else
@@ -422,7 +424,7 @@ module.isnan = function(x) return x ~= x end
 ---  * None.  Displays the list of colors in a colored background to match each name in the console.
 module.colorsFor = function(name)
     local a = stext.new("")
-    for i,v in require"hs.fnutils".sortByKeys(require"hs.drawing.color".colorsFor(name)) do
+    for i,v in fnutils.sortByKeys(require"hs.drawing.color".colorsFor(name)) do
         a = a..stext.new(i.."\n", { color = { white = .5 }, backgroundColor = v })
     end
     require"hs.console".printStyledtext(a)
@@ -438,7 +440,7 @@ end
 --- Returns:
 ---  * None.  Displays the list of colors in a colored background to match each name in the console.
 module.colorDump = function()
-    for i,v in require"hs.fnutils".sortByKeys(require"hs.drawing.color".lists()) do
+    for i,v in fnutils.sortByKeys(require"hs.drawing.color".lists()) do
         print(i)
         module.colorsFor(i)
     end
@@ -545,6 +547,47 @@ module.dladdrWithLine = function(add)
     else
         error(string.format("unable to get dladdr details for %s", address), 2)
     end
+end
+
+
+--- hs._asm.extras.detabOutput(string) -> string
+--- Function
+--- Converts tabs in multi-line string to tabs such that each field lines up like a report.
+---
+--- Parameters:
+---  * `string` -- text to detab
+---
+--- Returns:
+---  * the cleaned up report like input as a string
+---
+--- Notes:
+---  * if pasting in text copied from the console that is likely to contain quotes, use block-quotes, e.g. `detabOutput([==[ ... pasted value ... ]==])`
+module.detabOutput = function(output)
+    local lines = fnutils.split(output, "[\r\n]")
+
+    local widths, outputTable = {}, {}
+
+    for i = 1, #lines, 1 do
+        outputTable[i] = fnutils.split(lines[i], "\t")
+        for n, v in ipairs(outputTable[i]) do
+            widths[n] = math.max((widths[n] or 0), #(v or ""))
+            if widths[n] > 99 then
+                widths[n] = 99
+                print(string.format("WARNING: width for '%s' too long", v))
+            end
+        end
+    end
+
+    local result = ""
+    for i = 1, #lines, 1 do
+        local fmtStr = ""
+        for n, v in ipairs(outputTable[i]) do
+            fmtStr = fmtStr .. "%-" .. tostring(widths[n]) .. "s  "
+        end
+        fmtStr = fmtStr:sub(1, -3) .. "\n"
+        result = result .. string.format(fmtStr, table.unpack(outputTable[i]))
+    end
+    return result
 end
 
 -- Return Module Object --------------------------------------------------
