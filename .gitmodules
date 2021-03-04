@@ -28,3 +28,6 @@
 [submodule "x11"]
 	path = x11
 	url = https://github.com/asmagill/hs.window.x11.git
+[submodule "sysctl"]
+	path = sysctl
+	url = https://github.com/asmagill/hs.host.sysctl.git
