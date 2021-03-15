@@ -1,7 +1,7 @@
 #import "eventtap_event.h"
 
 #define USERDATA_TAG        "hs.eventtap"
-static int refTable;
+static LSRefTable refTable;
 
 typedef struct _eventtap_t {
     int fn;

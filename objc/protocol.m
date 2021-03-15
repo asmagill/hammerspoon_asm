@@ -4,7 +4,7 @@
 
 #import "objc.h"
 
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #pragma mark - Module Functions
 
@@ -116,8 +116,8 @@ static int objc_protocol_getProperty(lua_State *L) {
                     LS_TBOOLEAN, LS_TBREAK] ;
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     push_property(L, protocol_getProperty(prot, luaL_checkstring(L, 2),
-                                             (BOOL)lua_toboolean(L, 3),
-                                             (BOOL)lua_toboolean(L, 4))) ;
+                                             (BOOL)(lua_toboolean(L, 3)),
+                                             (BOOL)(lua_toboolean(L, 4)))) ;
     return 1 ;
 }
 
@@ -183,8 +183,8 @@ static int objc_protocol_getMethodDescriptionList(lua_State* L) {
     Protocol *prot = get_objectFromUserdata(__bridge Protocol *, L, 1, PROTOCOL_USERDATA_TAG) ;
     UInt count ;
     struct objc_method_description *results = protocol_copyMethodDescriptionList(prot,
-                                                                (BOOL)lua_toboolean(L, 2),
-                                                                (BOOL)lua_toboolean(L, 3),
+                                                                (BOOL)(lua_toboolean(L, 2)),
+                                                                (BOOL)(lua_toboolean(L, 3)),
                                                                       &count) ;
     lua_newtable(L) ;
     for(UInt i = 0 ; i < count ; i++) {
@@ -222,8 +222,8 @@ static int objc_protocol_getMethodDescription(lua_State* L) {
     SEL      sel   = get_objectFromUserdata(SEL, L, 2, SEL_USERDATA_TAG) ;
 
     struct objc_method_description  result = protocol_getMethodDescription(prot, sel,
-                                                                (BOOL)lua_toboolean(L, 3),
-                                                                (BOOL)lua_toboolean(L, 4)) ;
+                                                                (BOOL)(lua_toboolean(L, 3)),
+                                                                (BOOL)(lua_toboolean(L, 4))) ;
     if (result.types == NULL || result.name == NULL) {
         lua_pushnil(L) ;
     } else {

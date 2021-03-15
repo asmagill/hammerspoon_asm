@@ -9,7 +9,7 @@
 -(void)invokeSuper ;
 @end
 
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 
@@ -548,7 +548,7 @@ static luaL_Reg moduleLib[] = {
 int luaopen_hs__asm_objc_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 
-    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ;
+    refTable = [skin registerLibrary:ROOT_USERDATA_TAG functions:moduleLib metaFunctions:nil] ;
 
     [skin registerPushNSHelper:NSMethodSignature_toLua forClass:"NSMethodSignature"] ;
     [skin registerPushNSHelper:NSException_toLua       forClass:"NSException"] ;

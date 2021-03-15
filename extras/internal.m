@@ -9,7 +9,7 @@
 @import OSAKit ;
 @import Darwin.POSIX.dlfcn ;
 
-static int refTable = LUA_NOREF ;
+static LSRefTable refTable = LUA_NOREF ;
 
 static NSMutableSet *backgroundCallbacks ;
 
@@ -963,7 +963,7 @@ static const luaL_Reg module_metaLib[] = {
 
 int luaopen_hs__asm_extras_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    refTable = [skin registerLibrary:extrasLib metaFunctions:module_metaLib] ;
+    refTable = [skin registerLibrary:"hs._asm.extras" functions:extrasLib metaFunctions:module_metaLib] ;
 //     luaL_newlib(L, extrasLib);
 
     backgroundCallbacks = [NSMutableSet set] ;

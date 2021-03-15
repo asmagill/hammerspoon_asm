@@ -7,7 +7,7 @@ static const char * const USERDATA_TAG = "hs._asm.consolepipe" ;
 static const char * const stdout_label = "<stdout>" ;
 static const char * const stderr_label = "<stderr>" ;
 
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 static dispatch_queue_t consolepipeQueue = nil ;
 
 static NSPipe *stdOutPipe ;

@@ -3,7 +3,7 @@
 @import CoreBluetooth;
 
 static const char * const UD_PERIPHERAL_TAG = "hs._asm.btle.peripheral" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 /// === hs._asm.btle.peripheral ===
 ///

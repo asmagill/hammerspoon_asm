@@ -2,7 +2,7 @@
 #import <LuaSkin/LuaSkin.h>
 
 #define USERDATA_TAG "hs._asm.liguistictagger"
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 static int logFnRef = LUA_NOREF;
 
 // #define get_objectFromUserdata(objType, L, idx) (objType*)*((void**)luaL_checkudata(L, idx, USERDATA_TAG))
@@ -198,7 +198,7 @@ static luaL_Reg moduleLib[] = {
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_linguistictagger_internal(lua_State* __unused L) {
 // Use this if your module doesn't have a module specific object that it returns.
-//    refTable = [[LuaSkin shared] registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+//    refTable = [[LuaSkin shared] registerLibrary:USERDATA_TAG functions:moduleLib metaFunctions:nil] ; // or module_metaLib
 // Use this some of your functions return or act on a specific object unique to this module
     refTable = [[LuaSkin shared] registerLibraryWithObject:USERDATA_TAG
                                                  functions:moduleLib

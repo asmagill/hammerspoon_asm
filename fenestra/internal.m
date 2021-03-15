@@ -6,7 +6,7 @@
 @import LuaSkin ;
 
 static const char * const USERDATA_TAG = "hs.fenestra" ;
-static int refTable = LUA_NOREF ;
+static LSRefTable refTable = LUA_NOREF ;
 
 static NSArray *fenestraNotifications ;
 

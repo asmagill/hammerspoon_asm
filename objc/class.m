@@ -4,7 +4,7 @@
 
 #import "objc.h"
 
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #pragma mark - Support Functions and Classes
 

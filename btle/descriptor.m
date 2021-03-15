@@ -9,7 +9,7 @@
 ///  Descriptors provide further information about a characteristic’s value. For example, they may describe the value in human-readable form and describe how the value should be formatted for presentation purposes. Characteristic descriptors also indicate whether a characteristic’s value is configured on a server (a peripheral) to indicate or notify a client (a central) when the value of the characteristic changes.
 
 static const char * const UD_DESCRIPTOR_TAG = "hs._asm.btle.descriptor" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 

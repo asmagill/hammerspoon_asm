@@ -9,7 +9,7 @@
 /// Services are either primary or secondary and may contain a number of characteristics or included services (references to other services).
 
 static const char * const UD_SERVICE_TAG = "hs._asm.btle.service" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 

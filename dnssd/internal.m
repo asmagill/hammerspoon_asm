@@ -5,7 +5,7 @@
 @import Darwin.POSIX.net ;
 
 static const char * const USERDATA_TAG = "hs._asm.dnssd" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 // #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
@@ -198,7 +198,7 @@ static luaL_Reg moduleLib[] = {
 // NOTE: ** Make sure to change luaopen_..._internal **
 int luaopen_hs__asm_dnssd_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+    refTable = [skin registerLibrary:USERDATA_TAG functions:moduleLib metaFunctions:nil] ; // or module_metaLib
 
     dnssd_errorList(L) ; lua_setfield(L, -2, "_errorList") ;
 

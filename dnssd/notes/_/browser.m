@@ -5,7 +5,7 @@
 @import Darwin.POSIX.net ;
 
 static const char * const USERDATA_TAG = "hs._asm.dnssd.browser" ;
-static int refTable   = LUA_NOREF;
+static LSRefTable refTable   = LUA_NOREF;
 static int helpersRef = LUA_NOREF ;
 
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))

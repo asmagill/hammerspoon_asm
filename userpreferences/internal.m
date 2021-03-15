@@ -2,7 +2,7 @@
 @import LuaSkin ;
 
 // static const char * const USERDATA_TAG = "hs.module" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 // #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
@@ -170,7 +170,7 @@ static luaL_Reg moduleLib[] = {
 int luaopen_hs_module_internal(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 // Use this if your module doesn't have a module specific object that it returns.
-   refTable = [skin registerLibrary:moduleLib metaFunctions:nil] ; // or module_metaLib
+   refTable = [skin registerLibrary:USERDATA_TAG functions:moduleLib metaFunctions:nil] ; // or module_metaLib
 // Use this some of your functions return or act on a specific object unique to this module
 //     refTable = [skin registerLibraryWithObject:USERDATA_TAG
 //                                      functions:moduleLib

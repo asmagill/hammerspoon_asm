@@ -7,7 +7,7 @@
 #define CIIMAGE_UD_TAG  "hs._asm.ciimage"
 #define IKUIVIEW_UD_TAG "hs._asm.ikfilteruiview"
 
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 // #define get_structFromUserdata(objType, L, idx) ((objType *)luaL_checkudata(L, idx, USERDATA_TAG))

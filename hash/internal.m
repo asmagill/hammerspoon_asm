@@ -403,7 +403,7 @@ static const luaL_Reg hashlib[] = {
 int luaopen_hs_hash_internal(lua_State *L) {
     // Table for luaopen
     LuaSkin *skin = [LuaSkin sharedWithState:L];
-    [skin registerLibrary:hashlib metaFunctions:nil];
+    [skin registerLibrary:USERDATA_TAG functions:hashlib metaFunctions:nil];
 
     return 1;
 }

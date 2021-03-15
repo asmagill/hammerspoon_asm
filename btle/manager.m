@@ -10,7 +10,7 @@
 
 static const char * const UD_MANAGER_TAG    = "hs._asm.btle.manager" ;
 static const char * const UD_PERIPHERAL_TAG = "hs._asm.btle.peripheral" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 

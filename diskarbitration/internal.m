@@ -1,7 +1,7 @@
 #import "diskarbitration.h"
 
 static const char * const USERDATA_TAG = "hs._asm.diskarbitration" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 DASessionRef arbitrationSession = NULL ;
 

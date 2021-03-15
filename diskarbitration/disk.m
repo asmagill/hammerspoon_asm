@@ -1,7 +1,7 @@
 #import "diskarbitration.h"
 
 static const char * const USERDATA_TAG = "hs._asm.diskarbitration.disk" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 

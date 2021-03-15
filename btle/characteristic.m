@@ -9,7 +9,7 @@
 /// A characteristic contains a single value and any number of descriptors describing that value. The properties of a characteristic determine how the value of the characteristic can be used and how the descriptors can be accessed.
 
 static const char * const UD_CHARACTERISTIC_TAG = "hs._asm.btle.characteristic" ;
-static int refTable = LUA_NOREF;
+static LSRefTable refTable = LUA_NOREF;
 
 #define get_objectFromUserdata(objType, L, idx, TAG) (objType*)*((void**)luaL_checkudata(L, idx, TAG))
 
