@@ -3,6 +3,8 @@
 @import CommonCrypto.CommonHMAC ;
 @import LuaSkin ;
 
+static const char *USERDATA_TAG = "hs.hash" ;
+
 static int doHash(lua_State *L, CC_LONG length, unsigned char *(*hashFunc)(const void *, CC_LONG, unsigned char *)) {
     unsigned char digest[length + 1];
     size_t sourceLength;
