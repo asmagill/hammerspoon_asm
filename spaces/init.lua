@@ -15,11 +15,12 @@
 -- TODO:
 -- +  fully document
 -- +  goto, add, remove need update screen identification handling
---    goto and remove should allow spaceID and convert to missionControlNameForSpace
 -- +  displayForSpace should allow mission control name and convert to spaceID
---        moveWindowToSpace, windowsForSpace should be wrapped to support the same
+-- +      moveWindowToSpace, windowsForSpace should be wrapped to support the same
 --    add optional callback fn to gotoSpaceOnScreen and removeSpaceFromScreen
+--    goto and remove should allow spaceID and convert to missionControlNameForSpace
 -- *  allow screenID argument to be hs.screen object?
+--    wrap displayIsAnimating?
 --
 --    does this work if "Displays have Separate Spaces" isn't checked in System Preferences ->
 --        Mission Control? What changes, and can we work around it?
@@ -291,7 +292,7 @@ module.closeMissionControl = closeMissionControl
 ---      * `hs.inspect(hs.host.locale.details())`
 module.missionControlNameForSpaceID = function(...)
     local args, spaceID = { ... }, nil
-    assert(#args ~= 1, "expected 1 argument")
+    assert(#args == 1, "expected 1 argument")
     spaceID = args[1]
     assert(math.type(spaceID) == "integer", "expected integer specifying spaces ID")
 
@@ -351,7 +352,7 @@ end
 ---      * `hs.inspect(hs.host.locale.details())`
 module.spaceIDForMissionControlName = function(...)
     local args, name = { ... }, nil
-    assert(#args ~= 1, "expected 1 argument")
+    assert(#args == 1, "expected 1 argument")
     name = args[1]
     assert(type(name) == "string", "expected string specifying space by its Mission Control Name")
 
@@ -543,7 +544,7 @@ end
 ---  * the space does not have to be currently active (visible) to determine which screen the space belongs to.
 module.displayForSpace = function(...)
     local args, spaceID = { ... }, nil
-    assert(#args ~= 1, "expected 1 argument")
+    assert(#args == 1, "expected 1 argument")
     spaceID = args[1]
     if type(spaceID) == "string" then spaceID = module.spaceIDForMissionControlName(spaceID) or spaceID end
     assert(math.type(spaceID) == "integer", "expected integer specifying spaces ID")
