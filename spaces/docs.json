@@ -8,12 +8,12 @@
     ],
     "Function" : [
       {
-        "doc" : "Toggles moving all windows on\/off screen to display the desktop underneath.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers).",
+        "desc" : "Toggles moving all windows on\/off screen to display the desktop underneath.",
         "stripped_doc" : [
           "Toggles moving all windows on\/off screen to display the desktop underneath.",
           ""
         ],
-        "desc" : "Toggles moving all windows on\/off screen to display the desktop underneath.",
+        "doc" : "Toggles moving all windows on\/off screen to display the desktop underneath.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers).",
         "def" : "hs.spaces.toggleShowDesktop() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers)."
@@ -31,12 +31,12 @@
         ]
       },
       {
-        "doc" : "Toggles the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up).",
+        "desc" : "Toggles the Mission Control display",
         "stripped_doc" : [
           "Toggles the Mission Control display",
           ""
         ],
-        "desc" : "Toggles the Mission Control display",
+        "doc" : "Toggles the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up).",
         "def" : "hs.spaces.toggleMissionControl() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up)."
@@ -54,12 +54,12 @@
         ]
       },
       {
-        "doc" : "Toggles the current applications Exposé display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down).",
+        "desc" : "Toggles the current applications Exposé display",
         "stripped_doc" : [
           "Toggles the current applications Exposé display",
           ""
         ],
-        "desc" : "Toggles the current applications Exposé display",
+        "doc" : "Toggles the current applications Exposé display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down).",
         "def" : "hs.spaces.toggleAppExpose() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down)."
@@ -77,12 +77,12 @@
         ]
       },
       {
-        "doc" : "Toggles the Launch Pad display.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers).",
+        "desc" : "Toggles the Launch Pad display.",
         "stripped_doc" : [
           "Toggles the Launch Pad display.",
           ""
         ],
-        "desc" : "Toggles the Launch Pad display.",
+        "doc" : "Toggles the Launch Pad display.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers).",
         "def" : "hs.spaces.toggleLaunchPad() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers)."
@@ -100,12 +100,12 @@
         ]
       },
       {
-        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is already visible.\n * This function uses Accessibility features provided by the Dock to open up Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is unlikely you will need to invoke this by hand, and the public interface to this function may go away in the future.",
+        "desc" : "Opens the Mission Control display",
         "stripped_doc" : [
           "Opens the Mission Control display",
           ""
         ],
-        "desc" : "Opens the Mission Control display",
+        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is already visible.\n * This function uses Accessibility features provided by the Dock to open up Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is unlikely you will need to invoke this by hand, and the public interface to this function may go away in the future.",
         "def" : "hs.spaces.openMissionControl() -> None",
         "notes" : [
           " * Does nothing if the Mission Control display is already visible.",
@@ -125,17 +125,17 @@
         ]
       },
       {
-        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is not currently visible.\n * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is possible to invoke the above mentioned functions and prevent them from autoclosing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this method when you are done.",
+        "desc" : "Opens the Mission Control display",
         "stripped_doc" : [
           "Opens the Mission Control display",
           ""
         ],
-        "desc" : "Opens the Mission Control display",
+        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is not currently visible.\n * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is possible to invoke the above mentioned functions and prevent them from auto-closing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this function when you are done.",
         "def" : "hs.spaces.closeMissionControl() -> None",
         "notes" : [
           " * Does nothing if the Mission Control display is not currently visible.",
           " * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.",
-          " * It is possible to invoke the above mentioned functions and prevent them from autoclosing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this method when you are done."
+          " * It is possible to invoke the above mentioned functions and prevent them from auto-closing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this function when you are done."
         ],
         "signature" : "hs.spaces.closeMissionControl() -> None",
         "type" : "Function",
@@ -150,20 +150,26 @@
         ]
       },
       {
-        "doc" : "Returns the string specifying the Mission Control name for the spaceID provided\n\nParameters:\n * `spaceID` - an integer specifying the ID of a space.\n\nReturns:\n * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.",
+        "desc" : "Returns the string specifying the Mission Control name for the spaceID provided",
         "stripped_doc" : [
           "Returns the string specifying the Mission Control name for the spaceID provided",
           ""
         ],
-        "desc" : "Returns the string specifying the Mission Control name for the spaceID provided",
+        "doc" : "Returns the string specifying the Mission Control name for the spaceID provided\n\nParameters:\n * `spaceID` - an integer specifying the ID of a space.\n\nReturns:\n * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.\n\nNotes:\n * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:\n   * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.\n   * the output from the following commands, issued in the Hammerspoon console:\n     * `hs.host.locale.current()`\n     * `hs.inspect(hs.host.locale.preferredLanguages())`\n     * `hs.inspect(hs.host.locale.details())`",
         "def" : "hs.spaces.missionControlNameForSpace(spaceID) -> string | nil, errorMessage",
         "notes" : [
-
+          " * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:",
+          "   * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.",
+          "   * the output from the following commands, issued in the Hammerspoon console:",
+          "     * `hs.host.locale.current()`",
+          "     * `hs.inspect(hs.host.locale.preferredLanguages())`",
+          "     * `hs.inspect(hs.host.locale.details())`"
         ],
         "signature" : "hs.spaces.missionControlNameForSpace(spaceID) -> string | nil, errorMessage",
         "type" : "Function",
         "returns" : [
-          " * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space."
+          " * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.",
+          ""
         ],
         "name" : "missionControlNameForSpace",
         "parameters" : [
@@ -172,12 +178,12 @@
         ]
       },
       {
-        "doc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the space array for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * a table containing spaceIDs for the spaces for the screen, or nil and an error message if there is an error.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
         "stripped_doc" : [
           "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
           ""
         ],
-        "desc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
+        "doc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the space array for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * a table containing spaceIDs for the spaces for the screen, or nil and an error message if there is an error.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.spacesForScreen([screen]) -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -195,12 +201,12 @@
         ]
       },
       {
-        "doc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of spaceIDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
         "stripped_doc" : [
           "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
           ""
         ],
-        "desc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
+        "doc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of spaceIDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.allSpaces() -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -218,12 +224,12 @@
         ]
       },
       {
-        "doc" : "Returns the currently visible (active) space for the specified screen.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the active space for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * an integer specifying the ID of the space displayed, or nil and an error message if an error occurs.",
+        "desc" : "Returns the currently visible (active) space for the specified screen.",
         "stripped_doc" : [
           "Returns the currently visible (active) space for the specified screen.",
           ""
         ],
-        "desc" : "Returns the currently visible (active) space for the specified screen.",
+        "doc" : "Returns the currently visible (active) space for the specified screen.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the active space for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * an integer specifying the ID of the space displayed, or nil and an error message if an error occurs.",
         "def" : "hs.spaces.activeSpaceOnScreen([screen]) -> integer | nil, error",
         "notes" : [
 
@@ -240,12 +246,12 @@
         ]
       },
       {
-        "doc" : "Returns a key-value table specifying the active spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is the space ID of the active space for that display.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a key-value table specifying the active spaces for all screens.",
         "stripped_doc" : [
           "Returns a key-value table specifying the active spaces for all screens.",
           ""
         ],
-        "desc" : "Returns a key-value table specifying the active spaces for all screens.",
+        "doc" : "Returns a key-value table specifying the active spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is the space ID of the active space for that display.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.activeSpaces() -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -263,12 +269,12 @@
         ]
       },
       {
-        "doc" : "Returns the screen UUID for the screen that the specified space is on.\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space\n\nReturns:\n * a string specifying the UUID of the display the space is on, or nil and error message if an error occurs.\n\nNotes:\n * the space does not have to be currently active (visible) to determine which screen the space belongs to.",
+        "desc" : "Returns the screen UUID for the screen that the specified space is on.",
         "stripped_doc" : [
           "Returns the screen UUID for the screen that the specified space is on.",
           ""
         ],
-        "desc" : "Returns the screen UUID for the screen that the specified space is on.",
+        "doc" : "Returns the screen UUID for the screen that the specified space is on.\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space\n\nReturns:\n * a string specifying the UUID of the display the space is on, or nil and error message if an error occurs.\n\nNotes:\n * the space does not have to be currently active (visible) to determine which screen the space belongs to.",
         "def" : "hs.spaces.displayForSpace(spaceID) -> string | nil, error",
         "notes" : [
           " * the space does not have to be currently active (visible) to determine which screen the space belongs to."
@@ -286,12 +292,12 @@
         ]
       },
       {
-        "doc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.\n\nParameters:\n * None\n\nReturns:\n * true or false representing the status of the \"Displays Have Separate Spaces\" option within Mission Control.",
+        "desc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
         "stripped_doc" : [
           "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
           ""
         ],
-        "desc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
+        "doc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.\n\nParameters:\n * None\n\nReturns:\n * true or false representing the status of the \"Displays Have Separate Spaces\" option within Mission Control.",
         "def" : "hs.spaces.screensHaveSeparateSpaces() -> bool",
         "notes" : [
 
@@ -308,12 +314,12 @@
         ]
       },
       {
-        "doc" : "Returns a table containing information about the managed display spaces\n\nParameters:\n * None\n\nReturns:\n * a table containing information about all of the displays and spaces managed by the OS.\n\nNotes:\n * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module.",
+        "desc" : "Returns a table containing information about the managed display spaces",
         "stripped_doc" : [
           "Returns a table containing information about the managed display spaces",
           ""
         ],
-        "desc" : "Returns a table containing information about the managed display spaces",
+        "doc" : "Returns a table containing information about the managed display spaces\n\nParameters:\n * None\n\nReturns:\n * a table containing information about all of the displays and spaces managed by the OS.\n\nNotes:\n * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module.",
         "def" : "hs.spaces.managedDisplaySpaces() -> table | nil, error",
         "notes" : [
           " * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module."
@@ -331,12 +337,12 @@
         ]
       },
       {
-        "doc" : "Returns the space ID of the currently focused space\n\nParameters:\n * None\n\nReturns:\n * the space ID for the currently focused space. The focused space is the currently active space on the currently active screen (i.e. that the user is working on)\n\nNotes:\n * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required.",
+        "desc" : "Returns the space ID of the currently focused space",
         "stripped_doc" : [
           "Returns the space ID of the currently focused space",
           ""
         ],
-        "desc" : "Returns the space ID of the currently focused space",
+        "doc" : "Returns the space ID of the currently focused space\n\nParameters:\n * None\n\nReturns:\n * the space ID for the currently focused space. The focused space is the currently active space on the currently active screen (i.e. that the user is working on)\n\nNotes:\n * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required.",
         "def" : "hs.spaces.focusedSpace() -> integer",
         "notes" : [
           " * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required."
@@ -354,12 +360,12 @@
         ]
       },
       {
-        "doc" : "Returns whether or not the specified screen is currently undergoing space change animation\n\nParameters:\n * `screenUUID` - a string specifying the UUID for the screen to check for animation\n\nReturns:\n * true if the screen is currently in the process of animating a space change, or false if it is not\n\nNotes:\n * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays.",
+        "desc" : "Returns whether or not the specified screen is currently undergoing space change animation",
         "stripped_doc" : [
           "Returns whether or not the specified screen is currently undergoing space change animation",
           ""
         ],
-        "desc" : "Returns whether or not the specified screen is currently undergoing space change animation",
+        "doc" : "Returns whether or not the specified screen is currently undergoing space change animation\n\nParameters:\n * `screenUUID` - a string specifying the UUID for the screen to check for animation\n\nReturns:\n * true if the screen is currently in the process of animating a space change, or false if it is not\n\nNotes:\n * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays.",
         "def" : "hs.spaces.displayIsAnimating(screenUUID) -> boolean | nil, error",
         "notes" : [
           " * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays."
@@ -377,14 +383,16 @@
         ]
       },
       {
-        "doc" : "Returns a table containing the window IDs of *all* windows on the specified space\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space to return the window list for\n\nReturns:\n * a table containing the window IDs for *all* windows on the specified space\n\nNotes:\n * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.\n * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.\n * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.\n   * as `hs.window.filter` is scheduled to undergo a re-write soon to (hopefully) dramatically speed it up, I am providing this function *as is* at present for those who wish to experiment with it; however, I hope to make it more useful in the coming months and the contents may change in the future (the format won't, but hopefully the useless extras will disappear requiring less pruning logic on your end).",
+        "desc" : "Returns a table containing the window IDs of *all* windows on the specified space",
         "stripped_doc" : [
           "Returns a table containing the window IDs of *all* windows on the specified space",
           ""
         ],
-        "desc" : "Returns a table containing the window IDs of *all* windows on the specified space",
+        "doc" : "Returns a table containing the window IDs of *all* windows on the specified space\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space to return the window list for\n\nReturns:\n * a table containing the window IDs for *all* windows on the specified space\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.\n\n * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.\n * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.\n * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.\n   * as `hs.window.filter` is scheduled to undergo a re-write soon to (hopefully) dramatically speed it up, I am providing this function *as is* at present for those who wish to experiment with it; however, I hope to make it more useful in the coming months and the contents may change in the future (the format won't, but hopefully the useless extras will disappear requiring less pruning logic on your end).",
         "def" : "hs.spaces.windowsForSpace(spaceID) -> table | nil, error",
         "notes" : [
+          " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+          "",
           " * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.",
           " * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.",
           " * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.",
@@ -405,12 +413,12 @@
     ],
     "Variable" : [
       {
-        "doc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)\n\nNotes:\n * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions.",
+        "desc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
         "stripped_doc" : [
           "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
           ""
         ],
-        "desc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
+        "doc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)\n\nNotes:\n * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions.",
         "def" : "hs.spaces.queueTime",
         "notes" : [
           " * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions."
@@ -429,29 +437,22 @@
     "stripped_doc" : [
 
     ],
+    "desc" : "This module provides some basic functions for controlling macOS Spaces.",
+    "type" : "Module",
     "Deprecated" : [
 
     ],
-    "type" : "Module",
-    "desc" : "This module provides some basic functions for controlling macOS Spaces.",
     "Constructor" : [
-
-    ],
-    "doc" : "This module provides some basic functions for controlling macOS Spaces.\n\nThe functionality provided by this module is considered experimental and subject to change. By using a combination of private APIs and Accessibility hacks (via hs.axuielement), some basic functions for controlling the use of Spaces is possible with Hammerspoon, but there are some limitations and caveats.\n\nIt should be noted that while the functions provided by this module have worked for some time in third party applications and in a previous experimental module that has received limited testing over the last few years, they do utilize some private APIs which means that Apple could change them at any time.\n\nThe functions which allow you to create new spaes, remove spaces, and jump to a specific space utilize `hs.axuielement` and perform accessibility actions through the Dock application to manipulate Mission Control. Because we are essentially directing the Dock to perform User Interactions, there is some visual feedback which we cannot entirely suppress. You can minimize, but not entirely remove, this by enabling \"Reduce motion\" in System Preferences -> Accessibility -> Display.\n\nIt is recommended that you also enable \"Displays have separate Spaces\" in System Preferences -> Mission Control.\n\nThis module is a simplification of my previous `hs._asm.undocumented.spaces` module, changes inspired by reviewing the `Yabai` source, and some experimentation with `hs.axuielement`. If you require more sophisticated control, I encourage you to check out https:\/\/github.com\/koekeishiya\/yabai -- it does require some additional setup (changes to SIP, possibly edits to `sudoers`, etc.) but may be worth the extra steps for some power users. A Spoon supporting direct socket communication with Yabai from Hammerspoon is also being considered.",
-    "Method" : [
-
-    ],
-    "Command" : [
 
     ],
     "items" : [
       {
-        "doc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)\n\nNotes:\n * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions.",
+        "desc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
         "stripped_doc" : [
           "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
           ""
         ],
-        "desc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)",
+        "doc" : "Specifies how long to delay completing the accessibility actions for [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen) and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen)\n\nNotes:\n * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions.",
         "def" : "hs.spaces.queueTime",
         "notes" : [
           " * this is provided as a variable so that it can be adjusted if it is determined that some configurations require significant delay. You should not need to adjust this unless you find that you are consistently getting errors when trying to use these functions."
@@ -467,12 +468,12 @@
         ]
       },
       {
-        "doc" : "Returns the currently visible (active) space for the specified screen.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the active space for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * an integer specifying the ID of the space displayed, or nil and an error message if an error occurs.",
+        "desc" : "Returns the currently visible (active) space for the specified screen.",
         "stripped_doc" : [
           "Returns the currently visible (active) space for the specified screen.",
           ""
         ],
-        "desc" : "Returns the currently visible (active) space for the specified screen.",
+        "doc" : "Returns the currently visible (active) space for the specified screen.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the active space for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * an integer specifying the ID of the space displayed, or nil and an error message if an error occurs.",
         "def" : "hs.spaces.activeSpaceOnScreen([screen]) -> integer | nil, error",
         "notes" : [
 
@@ -489,12 +490,12 @@
         ]
       },
       {
-        "doc" : "Returns a key-value table specifying the active spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is the space ID of the active space for that display.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a key-value table specifying the active spaces for all screens.",
         "stripped_doc" : [
           "Returns a key-value table specifying the active spaces for all screens.",
           ""
         ],
-        "desc" : "Returns a key-value table specifying the active spaces for all screens.",
+        "doc" : "Returns a key-value table specifying the active spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is the space ID of the active space for that display.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.activeSpaces() -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -512,12 +513,12 @@
         ]
       },
       {
-        "doc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of spaceIDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
         "stripped_doc" : [
           "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
           ""
         ],
-        "desc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.",
+        "doc" : "Returns a Kay-Value table contining the IDs of all spaces for all screens.\n\nParameters:\n * None\n\nReturns:\n * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of spaceIDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.allSpaces() -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -535,17 +536,17 @@
         ]
       },
       {
-        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is not currently visible.\n * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is possible to invoke the above mentioned functions and prevent them from autoclosing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this method when you are done.",
+        "desc" : "Opens the Mission Control display",
         "stripped_doc" : [
           "Opens the Mission Control display",
           ""
         ],
-        "desc" : "Opens the Mission Control display",
+        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is not currently visible.\n * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is possible to invoke the above mentioned functions and prevent them from auto-closing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this function when you are done.",
         "def" : "hs.spaces.closeMissionControl() -> None",
         "notes" : [
           " * Does nothing if the Mission Control display is not currently visible.",
           " * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.",
-          " * It is possible to invoke the above mentioned functions and prevent them from autoclosing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this method when you are done."
+          " * It is possible to invoke the above mentioned functions and prevent them from auto-closing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this function when you are done."
         ],
         "signature" : "hs.spaces.closeMissionControl() -> None",
         "type" : "Function",
@@ -560,12 +561,12 @@
         ]
       },
       {
-        "doc" : "Returns the screen UUID for the screen that the specified space is on.\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space\n\nReturns:\n * a string specifying the UUID of the display the space is on, or nil and error message if an error occurs.\n\nNotes:\n * the space does not have to be currently active (visible) to determine which screen the space belongs to.",
+        "desc" : "Returns the screen UUID for the screen that the specified space is on.",
         "stripped_doc" : [
           "Returns the screen UUID for the screen that the specified space is on.",
           ""
         ],
-        "desc" : "Returns the screen UUID for the screen that the specified space is on.",
+        "doc" : "Returns the screen UUID for the screen that the specified space is on.\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space\n\nReturns:\n * a string specifying the UUID of the display the space is on, or nil and error message if an error occurs.\n\nNotes:\n * the space does not have to be currently active (visible) to determine which screen the space belongs to.",
         "def" : "hs.spaces.displayForSpace(spaceID) -> string | nil, error",
         "notes" : [
           " * the space does not have to be currently active (visible) to determine which screen the space belongs to."
@@ -583,12 +584,12 @@
         ]
       },
       {
-        "doc" : "Returns whether or not the specified screen is currently undergoing space change animation\n\nParameters:\n * `screenUUID` - a string specifying the UUID for the screen to check for animation\n\nReturns:\n * true if the screen is currently in the process of animating a space change, or false if it is not\n\nNotes:\n * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays.",
+        "desc" : "Returns whether or not the specified screen is currently undergoing space change animation",
         "stripped_doc" : [
           "Returns whether or not the specified screen is currently undergoing space change animation",
           ""
         ],
-        "desc" : "Returns whether or not the specified screen is currently undergoing space change animation",
+        "doc" : "Returns whether or not the specified screen is currently undergoing space change animation\n\nParameters:\n * `screenUUID` - a string specifying the UUID for the screen to check for animation\n\nReturns:\n * true if the screen is currently in the process of animating a space change, or false if it is not\n\nNotes:\n * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays.",
         "def" : "hs.spaces.displayIsAnimating(screenUUID) -> boolean | nil, error",
         "notes" : [
           " * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays."
@@ -606,12 +607,12 @@
         ]
       },
       {
-        "doc" : "Returns the space ID of the currently focused space\n\nParameters:\n * None\n\nReturns:\n * the space ID for the currently focused space. The focused space is the currently active space on the currently active screen (i.e. that the user is working on)\n\nNotes:\n * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required.",
+        "desc" : "Returns the space ID of the currently focused space",
         "stripped_doc" : [
           "Returns the space ID of the currently focused space",
           ""
         ],
-        "desc" : "Returns the space ID of the currently focused space",
+        "doc" : "Returns the space ID of the currently focused space\n\nParameters:\n * None\n\nReturns:\n * the space ID for the currently focused space. The focused space is the currently active space on the currently active screen (i.e. that the user is working on)\n\nNotes:\n * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required.",
         "def" : "hs.spaces.focusedSpace() -> integer",
         "notes" : [
           " * *usually* the currently active screen will be returned by `hs.screen.mainScreen()`; however some full screen applications may have focus without updating which screen is considered \"main\". You can use this function, and look up the screen UUID with [hs.spaces.displayForSpace](#displayForSpace) to determine the \"true\" focused screen if required."
@@ -629,12 +630,12 @@
         ]
       },
       {
-        "doc" : "Returns a table containing information about the managed display spaces\n\nParameters:\n * None\n\nReturns:\n * a table containing information about all of the displays and spaces managed by the OS.\n\nNotes:\n * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module.",
+        "desc" : "Returns a table containing information about the managed display spaces",
         "stripped_doc" : [
           "Returns a table containing information about the managed display spaces",
           ""
         ],
-        "desc" : "Returns a table containing information about the managed display spaces",
+        "doc" : "Returns a table containing information about the managed display spaces\n\nParameters:\n * None\n\nReturns:\n * a table containing information about all of the displays and spaces managed by the OS.\n\nNotes:\n * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module.",
         "def" : "hs.spaces.managedDisplaySpaces() -> table | nil, error",
         "notes" : [
           " * the format and detail of this table is too complex and varied to describe here; suffice it to say this is the workhorse for this module and a careful examination of this table may be informative, but is not required in the normal course of using this module."
@@ -652,20 +653,26 @@
         ]
       },
       {
-        "doc" : "Returns the string specifying the Mission Control name for the spaceID provided\n\nParameters:\n * `spaceID` - an integer specifying the ID of a space.\n\nReturns:\n * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.",
+        "desc" : "Returns the string specifying the Mission Control name for the spaceID provided",
         "stripped_doc" : [
           "Returns the string specifying the Mission Control name for the spaceID provided",
           ""
         ],
-        "desc" : "Returns the string specifying the Mission Control name for the spaceID provided",
+        "doc" : "Returns the string specifying the Mission Control name for the spaceID provided\n\nParameters:\n * `spaceID` - an integer specifying the ID of a space.\n\nReturns:\n * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.\n\nNotes:\n * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:\n   * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.\n   * the output from the following commands, issued in the Hammerspoon console:\n     * `hs.host.locale.current()`\n     * `hs.inspect(hs.host.locale.preferredLanguages())`\n     * `hs.inspect(hs.host.locale.details())`",
         "def" : "hs.spaces.missionControlNameForSpace(spaceID) -> string | nil, errorMessage",
         "notes" : [
-
+          " * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:",
+          "   * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.",
+          "   * the output from the following commands, issued in the Hammerspoon console:",
+          "     * `hs.host.locale.current()`",
+          "     * `hs.inspect(hs.host.locale.preferredLanguages())`",
+          "     * `hs.inspect(hs.host.locale.details())`"
         ],
         "signature" : "hs.spaces.missionControlNameForSpace(spaceID) -> string | nil, errorMessage",
         "type" : "Function",
         "returns" : [
-          " * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space."
+          " * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.",
+          ""
         ],
         "name" : "missionControlNameForSpace",
         "parameters" : [
@@ -674,12 +681,12 @@
         ]
       },
       {
-        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is already visible.\n * This function uses Accessibility features provided by the Dock to open up Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is unlikely you will need to invoke this by hand, and the public interface to this function may go away in the future.",
+        "desc" : "Opens the Mission Control display",
         "stripped_doc" : [
           "Opens the Mission Control display",
           ""
         ],
-        "desc" : "Opens the Mission Control display",
+        "doc" : "Opens the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * Does nothing if the Mission Control display is already visible.\n * This function uses Accessibility features provided by the Dock to open up Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.\n * It is unlikely you will need to invoke this by hand, and the public interface to this function may go away in the future.",
         "def" : "hs.spaces.openMissionControl() -> None",
         "notes" : [
           " * Does nothing if the Mission Control display is already visible.",
@@ -699,12 +706,12 @@
         ]
       },
       {
-        "doc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.\n\nParameters:\n * None\n\nReturns:\n * true or false representing the status of the \"Displays Have Separate Spaces\" option within Mission Control.",
+        "desc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
         "stripped_doc" : [
           "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
           ""
         ],
-        "desc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.",
+        "doc" : "Determine if the user has enabled the \"Displays Have Separate Spaces\" option within Mission Control.\n\nParameters:\n * None\n\nReturns:\n * true or false representing the status of the \"Displays Have Separate Spaces\" option within Mission Control.",
         "def" : "hs.spaces.screensHaveSeparateSpaces() -> bool",
         "notes" : [
 
@@ -721,12 +728,12 @@
         ]
       },
       {
-        "doc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the space array for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * a table containing spaceIDs for the spaces for the screen, or nil and an error message if there is an error.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+        "desc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
         "stripped_doc" : [
           "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
           ""
         ],
-        "desc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.",
+        "doc" : "Returns a table containing the IDs of the spaces for the specified screen in their current order.\n\nParameters:\n * `screen` - an optional screen specification identifying the screen to return the space array for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.\n\nReturns:\n * a table containing spaceIDs for the spaces for the screen, or nil and an error message if there is an error.\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
         "def" : "hs.spaces.spacesForScreen([screen]) -> table | nil, error",
         "notes" : [
           " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console."
@@ -744,12 +751,12 @@
         ]
       },
       {
-        "doc" : "Toggles the current applications Exposé display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down).",
+        "desc" : "Toggles the current applications Exposé display",
         "stripped_doc" : [
           "Toggles the current applications Exposé display",
           ""
         ],
-        "desc" : "Toggles the current applications Exposé display",
+        "doc" : "Toggles the current applications Exposé display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down).",
         "def" : "hs.spaces.toggleAppExpose() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down)."
@@ -767,12 +774,12 @@
         ]
       },
       {
-        "doc" : "Toggles the Launch Pad display.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers).",
+        "desc" : "Toggles the Launch Pad display.",
         "stripped_doc" : [
           "Toggles the Launch Pad display.",
           ""
         ],
-        "desc" : "Toggles the Launch Pad display.",
+        "doc" : "Toggles the Launch Pad display.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers).",
         "def" : "hs.spaces.toggleLaunchPad() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers)."
@@ -790,12 +797,12 @@
         ]
       },
       {
-        "doc" : "Toggles the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up).",
+        "desc" : "Toggles the Mission Control display",
         "stripped_doc" : [
           "Toggles the Mission Control display",
           ""
         ],
-        "desc" : "Toggles the Mission Control display",
+        "doc" : "Toggles the Mission Control display\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up).",
         "def" : "hs.spaces.toggleMissionControl() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Mission Control setting, the Mission Control touchbar icon, or the Mission Control trackpad swipe gesture (3 or 4 fingers up)."
@@ -813,12 +820,12 @@
         ]
       },
       {
-        "doc" : "Toggles moving all windows on\/off screen to display the desktop underneath.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers).",
+        "desc" : "Toggles moving all windows on\/off screen to display the desktop underneath.",
         "stripped_doc" : [
           "Toggles moving all windows on\/off screen to display the desktop underneath.",
           ""
         ],
-        "desc" : "Toggles moving all windows on\/off screen to display the desktop underneath.",
+        "doc" : "Toggles moving all windows on\/off screen to display the desktop underneath.\n\nParameters:\n * None\n\nReturns:\n * None\n\nNotes:\n * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers).",
         "def" : "hs.spaces.toggleShowDesktop() -> None",
         "notes" : [
           " * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers)."
@@ -836,14 +843,16 @@
         ]
       },
       {
-        "doc" : "Returns a table containing the window IDs of *all* windows on the specified space\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space to return the window list for\n\nReturns:\n * a table containing the window IDs for *all* windows on the specified space\n\nNotes:\n * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.\n * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.\n * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.\n   * as `hs.window.filter` is scheduled to undergo a re-write soon to (hopefully) dramatically speed it up, I am providing this function *as is* at present for those who wish to experiment with it; however, I hope to make it more useful in the coming months and the contents may change in the future (the format won't, but hopefully the useless extras will disappear requiring less pruning logic on your end).",
+        "desc" : "Returns a table containing the window IDs of *all* windows on the specified space",
         "stripped_doc" : [
           "Returns a table containing the window IDs of *all* windows on the specified space",
           ""
         ],
-        "desc" : "Returns a table containing the window IDs of *all* windows on the specified space",
+        "doc" : "Returns a table containing the window IDs of *all* windows on the specified space\n\nParameters:\n * `spaceID` - an integer specifying the ID of the space to return the window list for\n\nReturns:\n * a table containing the window IDs for *all* windows on the specified space\n\nNotes:\n * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.\n\n * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.\n * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.\n * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.\n   * as `hs.window.filter` is scheduled to undergo a re-write soon to (hopefully) dramatically speed it up, I am providing this function *as is* at present for those who wish to experiment with it; however, I hope to make it more useful in the coming months and the contents may change in the future (the format won't, but hopefully the useless extras will disappear requiring less pruning logic on your end).",
         "def" : "hs.spaces.windowsForSpace(spaceID) -> table | nil, error",
         "notes" : [
+          " * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.",
+          "",
           " * The list of windows includes all items which are considered \"windows\" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.",
           " * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.",
           " * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.",
@@ -862,7 +871,14 @@
         ]
       }
     ],
+    "Method" : [
+
+    ],
     "Field" : [
+
+    ],
+    "doc" : "This module provides some basic functions for controlling macOS Spaces.\n\nThe functionality provided by this module is considered experimental and subject to change. By using a combination of private APIs and Accessibility hacks (via hs.axuielement), some basic functions for controlling the use of Spaces is possible with Hammerspoon, but there are some limitations and caveats.\n\nIt should be noted that while the functions provided by this module have worked for some time in third party applications and in a previous experimental module that has received limited testing over the last few years, they do utilize some private APIs which means that Apple could change them at any time.\n\nThe functions which allow you to create new spaes, remove spaces, and jump to a specific space utilize `hs.axuielement` and perform accessibility actions through the Dock application to manipulate Mission Control. Because we are essentially directing the Dock to perform User Interactions, there is some visual feedback which we cannot entirely suppress. You can minimize, but not entirely remove, this by enabling \"Reduce motion\" in System Preferences -> Accessibility -> Display.\n\nIt is recommended that you also enable \"Displays have separate Spaces\" in System Preferences -> Mission Control.\n\nThis module is a simplification of my previous `hs._asm.undocumented.spaces` module, changes inspired by reviewing the `Yabai` source, and some experimentation with `hs.axuielement`. If you require more sophisticated control, I encourage you to check out https:\/\/github.com\/koekeishiya\/yabai -- it does require some additional setup (changes to SIP, possibly edits to `sudoers`, etc.) but may be worth the extra steps for some power users. A Spoon supporting direct socket communication with Yabai from Hammerspoon is also being considered.",
+    "Command" : [
 
     ],
     "name" : "hs.spaces"

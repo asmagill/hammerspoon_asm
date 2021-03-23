@@ -58,27 +58,6 @@ static int spaces_managedDisplaySpaces(lua_State *L) {
 }
 
 
-// static int spaces_managedDisplayGetCurrentSpace(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-//     [skin checkArgs:LS_TSTRING, LS_TBREAK] ;
-//     NSString *screenUUID = [skin toNSObjectAtIndex:1] ;
-//
-//     if (regEx_UUID) {
-//         if ([regEx_UUID numberOfMatchesInString:screenUUID options:NSMatchingAnchored range:NSMakeRange(0, screenUUID.length)] != 1) {
-//             lua_pushnil(L) ;
-//             lua_pushstring(L, "not a valid UUID string") ;
-//             return 2 ;
-//         }
-//     } else {
-//         lua_pushnil(L) ;
-//         lua_pushstring(L, "unable to verify UUID") ;
-//         return 2 ;
-//     }
-//
-//     lua_pushinteger(L, (lua_Integer)SLSManagedDisplayGetCurrentSpace(g_connection, (__bridge CFStringRef)screenUUID)) ;
-//     return 1 ;
-// }
-
 /// hs.spaces.focusedSpace() -> integer
 /// Function
 /// Returns the space ID of the currently focused space
@@ -97,46 +76,6 @@ static int spaces_getActiveSpace(lua_State* L) {
     lua_pushinteger(L, (lua_Integer)SLSGetActiveSpace(g_connection)) ;
     return 1 ;
 }
-
-// static int spaces_managedDisplayForSpace(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-//     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
-//     uint64_t sid = (uint64_t)lua_tointeger(L, 1) ;
-//     CFStringRef display = SLSCopyManagedDisplayForSpace(g_connection, sid) ;
-//     if (display) {
-//         [skin pushNSObject:(__bridge NSString *)display] ;
-//         CFRelease(display) ;
-//     } else {
-//         lua_pushnil(L) ;
-//         lua_pushfstring(L, "SLSCopyManagedDisplayForSpace returned NULL for %d", sid) ;
-//         return 2 ;
-//     }
-//     return 1 ;
-// }
-
-// static int spaces_getType(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-//     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
-//     uint64_t sid = (uint64_t)lua_tointeger(L, 1) ;
-//     lua_pushinteger(L, (lua_Integer)SLSSpaceGetType(g_connection, sid)) ;
-//     return 1 ;
-// }
-
-// static int spaces_name(lua_State *L) {
-//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-//     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
-//     uint64_t sid = (uint64_t)lua_tointeger(L, 1) ;
-//     CFStringRef spaceName = SLSSpaceCopyName(g_connection, sid) ;
-//     if (spaceName) {
-//         [skin pushNSObject:(__bridge NSString *)spaceName] ;
-//         CFRelease(spaceName) ;
-//     } else {
-//         lua_pushnil(L) ;
-//         lua_pushfstring(L, "SLSSpaceCopyName returned NULL for %d", sid) ;
-//         return 2 ;
-//     }
-//     return 1 ;
-// }
 
 /// hs.spaces.displayIsAnimating(screenUUID) -> boolean | nil, error
 /// Function
@@ -171,22 +110,24 @@ static int spaces_managedDisplayIsAnimating(lua_State *L) {
     return 1 ;
 }
 
-/// hs.spaces.windowsForSpace(spaceID) -> table | nil, error
+/// hs.spaces.windowsForSpace(space) -> table | nil, error
 /// Function
 /// Returns a table containing the window IDs of *all* windows on the specified space
 ///
 /// Parameters:
-///  * `spaceID` - an integer specifying the ID of the space to return the window list for
+///  * `space` - an integer specifying the ID of the space, or a string specifying the Mission Control name for the space
 ///
 /// Returns:
 ///  * a table containing the window IDs for *all* windows on the specified space
 ///
 /// Notes:
+///  * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.
+///
 ///  * The list of windows includes all items which are considered "windows" by macOS -- this includes visual elements usually considered unimportant like overlays, tooltips, graphics, off-screen windows, etc. so expect a lot of false positives in the results.
 ///  * In addition, due to the way Accessibility objects work, only those window IDs that are present on the currently visible spaces will be finable with `hs.window` or exist within `hs.window.allWindows()`.
 ///  * Reviewing how third-party applications have generally pruned this list, I believe it will be necessary to use `hs.window.filter` to prune the list and access `hs.window` objects that are on the non-visible spaces.
 ///    * as `hs.window.filter` is scheduled to undergo a re-write soon to (hopefully) dramatically speed it up, I am providing this function *as is* at present for those who wish to experiment with it; however, I hope to make it more useful in the coming months and the contents may change in the future (the format won't, but hopefully the useless extras will disappear requiring less pruning logic on your end).
-static int spaces_windowsForSpace(lua_State *L) {
+static int spaces_windowsForSpace(lua_State *L) { // NOTE: wrapped in init.lua
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     uint64_t sid              = (uint64_t)lua_tointeger(L, 1) ;
@@ -203,10 +144,103 @@ static int spaces_windowsForSpace(lua_State *L) {
 
     if (windowListRef) {
         [skin pushNSObject:(__bridge NSArray *)windowListRef] ;
+        lua_newtable(L) ;
+        [skin requireModule:"hs.inspect"] ; lua_setfield(L, -2, "__tostring") ;
+        lua_setmetatable(L, -2) ;
+
         CFRelease(windowListRef) ;
     } else {
         lua_pushnil(L) ;
         lua_pushfstring(L, "SLSCopyWindowsWithOptionsAndTags returned NULL for %d", sid) ;
+        return 2 ;
+    }
+    return 1 ;
+}
+
+/// hs.spaces.moveWindowToSpace(window, space) -> true | nil, error
+/// Function
+/// Moves the window with the specified windowID to the space specified by spaceID.
+///
+/// Parameters:
+///  * `window` - an integer specifying the ID of the window, or an `hs.window` object
+///  * `space`  - an integer specifying the ID of the space, or a string specifying the Mission Control name for the space
+///
+/// Returns:
+///  * true if the window was moved; otherwise nil and an error message.
+///
+/// Notes:
+///  * a window can only be moved from a user space to another user space -- you cannot move the window of a full screen (or tiled) application to another space and you cannot move a window *to* the same space as a full screen application.
+static int spaces_moveWindowToSpace(lua_State *L) { // NOTE: wrapped in init.lua
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    uint32_t wid = (uint32_t)lua_tointeger(L, 1) ;
+    uint64_t sid = (uint64_t)lua_tointeger(L, 2) ;
+
+    if (SLSSpaceGetType(g_connection, sid) != 0) {
+        lua_pushnil(L) ;
+        lua_pushfstring(L, "target space ID %d does not refer to a user space", sid) ;
+        return 2 ;
+    }
+
+    NSArray *windows = @[ [NSNumber numberWithUnsignedLong:wid] ] ;
+    // 0x7 : kCGSAllSpacesMask = CGSSpaceIncludesUser | CGSSpaceIncludesOthers |  CGSSpaceIncludesCurrent
+    //       from https://github.com/NUIKit/CGSInternal/blob/master/CGSSpace.h
+    CFArrayRef spacesList = SLSCopySpacesForWindows(g_connection, 0x7, (__bridge CFArrayRef)windows) ;
+    if (spacesList) {
+        if (![(__bridge NSArray *)spacesList containsObject:[NSNumber numberWithUnsignedLongLong:sid]]) {
+            NSNumber *sourceSpace = [(__bridge NSArray *)spacesList firstObject] ;
+            if (SLSSpaceGetType(g_connection, sourceSpace.unsignedLongLongValue) != 0) {
+                lua_pushnil(L) ;
+                lua_pushfstring(L, "source space for windowID %d is not a user space", wid) ;
+                return 2 ;
+            }
+            SLSMoveWindowsToManagedSpace(g_connection, (__bridge CFArrayRef)windows, sid) ;
+        }
+        lua_pushboolean(L, true) ;
+        CFRelease(spacesList) ;
+    } else {
+        lua_pushnil(L) ;
+        lua_pushfstring(L, "SLSCopySpacesForWindows returned NULL for window ID %d", wid) ;
+        return 2 ;
+    }
+    return 1 ;
+}
+
+/// hs.spaces.windowSpaces(window) -> table | nil, error
+/// Function
+/// Returns a table containing the space IDs for all spaces that the specified window is on.
+///
+/// Parameters:
+///  * `window` - an integer specifying the ID of the window, or an `hs.window` object
+///
+/// Returns:
+///  * a table containing the space IDs of all spaces the window is on, or nil and an error message if an error occurs.
+///
+/// Notes:
+///  * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.
+///
+///  * If the window ID does not specify a valid window, then an empty array will be returned.
+///  * For most windows, this will be a single element table; however some applications may create "sticky" windows that may appear on more than one space.
+///    * For example, the container windows for `hs.canvas` objects which have the `canJoinAllSpaces` behavior set will appear on all spaces and the table returned by this function will contain all spaceIDs for the screen which displays the canvas.
+static int spaces_windowSpaces(lua_State *L) { // NOTE: wrapped in init.lua
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    uint32_t wid = (uint32_t)lua_tointeger(L, 1) ;
+
+    NSArray *windows = @[ [NSNumber numberWithUnsignedLong:wid] ] ;
+    // 0x7 : kCGSAllSpacesMask = CGSSpaceIncludesUser | CGSSpaceIncludesOthers |  CGSSpaceIncludesCurrent
+    //       from https://github.com/NUIKit/CGSInternal/blob/master/CGSSpace.h
+    CFArrayRef spacesList = SLSCopySpacesForWindows(g_connection, 0x7, (__bridge CFArrayRef)windows) ;
+    if (spacesList) {
+        [skin pushNSObject:(__bridge NSArray *)spacesList] ;
+        lua_newtable(L) ;
+        [skin requireModule:"hs.inspect"] ; lua_setfield(L, -2, "__tostring") ;
+        lua_setmetatable(L, -2) ;
+
+        CFRelease(spacesList) ;
+    } else {
+        lua_pushnil(L) ;
+        lua_pushfstring(L, "SLSCopySpacesForWindows returned NULL for window ID %d", wid) ;
         return 2 ;
     }
     return 1 ;
@@ -234,14 +268,11 @@ static luaL_Reg moduleLib[] = {
     // hs.spaces.activeSpaceOnScreen(hs.screen.mainScreen()) wrong for full screen apps, so keep
     {"focusedSpace",              spaces_getActiveSpace},
 
+    {"moveWindowToSpace",         spaces_moveWindowToSpace},
     {"windowsForSpace",           spaces_windowsForSpace},
+    {"windowSpaces",              spaces_windowSpaces},
 
     {"_coreDesktopNotification",  spaces_coreDesktopSendNotification},
-
-//     {"currentSpaceForDisplay",    spaces_managedDisplayGetCurrentSpace}, -- hs.spaces.activeSpaceOnScreen
-//     {"displayForSpace",           spaces_managedDisplayForSpace},        -- can get from managedDisplaySpaces if there's a need
-//     {"spaceType",                 spaces_getType},                       -- can get from managedDisplaySpaces if there's a need
-//     {"spaceName",                 spaces_name},                          -- can get from managedDisplaySpaces if there's a need
 
     {NULL, NULL}
 };

@@ -8,17 +8,14 @@ extern int SLSMainConnectionID(void) ;
 extern CGError CoreDockSendNotification(CFStringRef notification, int unknown);
 
 extern CFArrayRef SLSCopyManagedDisplaySpaces(int cid) ;
-extern uint64_t SLSManagedDisplayGetCurrentSpace(int cid, CFStringRef uuid) ;
-extern CFStringRef SLSCopyManagedDisplayForSpace(int cid, uint64_t sid);
 extern int SLSSpaceGetType(int cid, uint64_t sid);
-extern CFStringRef SLSSpaceCopyName(int cid, uint64_t sid);
 extern CFArrayRef SLSCopyWindowsWithOptionsAndTags(int cid, uint32_t owner, CFArrayRef spaces, uint32_t options, uint64_t *set_tags, uint64_t *clear_tags);
-
-
 extern void SLSMoveWindowsToManagedSpace(int cid, CFArrayRef window_list, uint64_t sid);
-
 extern CFArrayRef SLSCopySpacesForWindows(int cid, int selector, CFArrayRef window_list);
 
+// extern uint64_t SLSManagedDisplayGetCurrentSpace(int cid, CFStringRef uuid) ;
+// extern CFStringRef SLSCopyManagedDisplayForSpace(int cid, uint64_t sid);
+// extern CFStringRef SLSSpaceCopyName(int cid, uint64_t sid);
 // extern CGError SLSProcessAssignToSpace(int cid, pid_t pid, uint64_t sid);
 // extern CGError SLSProcessAssignToAllSpaces(int cid, pid_t pid);
 

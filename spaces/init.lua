@@ -13,19 +13,24 @@
 --- This module is a simplification of my previous `hs._asm.undocumented.spaces` module, changes inspired by reviewing the `Yabai` source, and some experimentation with `hs.axuielement`. If you require more sophisticated control, I encourage you to check out https://github.com/koekeishiya/yabai -- it does require some additional setup (changes to SIP, possibly edits to `sudoers`, etc.) but may be worth the extra steps for some power users. A Spoon supporting direct socket communication with Yabai from Hammerspoon is also being considered.
 
 -- TODO:
+-- +  fully document
 -- +  goto, add, remove need update screen identification handling
 --    goto and remove should allow spaceID and convert to missionControlNameForSpace
---    need working hs.window.filter (or replacement) for pruning windows list and making use of other space windows
---
---    yabai supports *some* stuff on M1 without injection... investigate
---        move window to space               -- according to M1 tracking issue
--- +      ids of windows on other spaces     -- partial; see hs.window.filter comment above
---        move window from space to current? -- check, not sure
--- +  fully document
+-- +  displayForSpace should allow mission control name and convert to spaceID
+--        moveWindowToSpace, windowsForSpace should be wrapped to support the same
 --    add optional callback fn to gotoSpaceOnScreen and removeSpaceFromScreen
 -- *  allow screenID argument to be hs.screen object?
+--
 --    does this work if "Displays have Separate Spaces" isn't checked in System Preferences ->
 --        Mission Control? What changes, and can we work around it?
+--
+--    need working hs.window.filter (or replacement) for pruning windows list and making use of other space windows
+
+
+-- I think we're probably done with Yabai duplication -- basic functionality desired is present, minus window id pruning
+-- +  yabai supports *some* stuff on M1 without injection... investigate
+-- *      move window to space               -- according to M1 tracking issue
+-- +      ids of windows on other spaces     -- partial; see hs.window.filter comment above
 
 local USERDATA_TAG = "hs.spaces"
 local module       = require(USERDATA_TAG..".spacesObjc")
@@ -58,7 +63,7 @@ local plist       = require("hs.plist")
 
 -- locale handling for buttons representing spaces in Mission Control
 
-local AXExitToDesktop, AXExitToFullscreenDesktop, DesktopNum
+local AXExitToDesktop, AXExitToFullscreenDesktop, DesktopNum, DesktopConcat
 local getDockExitTemplates = function()
     local localesToSearch = host.locale.preferredLanguages() or {}
     -- make a copy since preferredLanguages uses ls.makeConstantsTable for "friendly" display in console
@@ -84,6 +89,7 @@ local getDockExitTemplates = function()
 
     contents = plist.read(path .. "/" .. locale .. ".lproj/Localizable.strings")
     DesktopNum = contents.DesktopNum
+    DesktopConcat = contents["2_APP_TILED_SPACE"]
 end
 
 local localeChange_identifier = host.locale.registerCallback(getDockExitTemplates)
@@ -190,7 +196,7 @@ module.queueTime = require("hs.math").minFloat
 ---
 --- Notes:
 ---  * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Desktop setting, the Show Desktop touchbar icon, or the Show Desktop trackpad swipe gesture (Spread with thumb and three fingers).
-module.toggleShowDesktop    = function() module._coreDesktopNotification("com.apple.showdesktop.awake") end
+module.toggleShowDesktop = function() module._coreDesktopNotification("com.apple.showdesktop.awake") end
 
 --- hs.spaces.toggleMissionControl() -> None
 --- Function
@@ -218,7 +224,7 @@ module.toggleMissionControl = function() module._coreDesktopNotification("com.ap
 ---
 --- Notes:
 ---  * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Application Windows setting or the App Exposé trackpad swipe gesture (3 or 4 fingers down).
-module.toggleAppExpose      = function() module._coreDesktopNotification("com.apple.expose.front.awake") end
+module.toggleAppExpose = function() module._coreDesktopNotification("com.apple.expose.front.awake") end
 
 --- hs.spaces.toggleLaunchPad() -> None
 --- Function
@@ -232,7 +238,7 @@ module.toggleAppExpose      = function() module._coreDesktopNotification("com.ap
 ---
 --- Notes:
 ---  * this is the same functionality as provided by the System Preferences -> Mission Control -> Hot Corners... -> Launch Pad setting, the Launch Pad touchbar icon, or the Launch Pad trackpad swipe gesture (Pinch with thumb and three fingers).
-module.toggleLaunchPad      = function() module._coreDesktopNotification("com.apple.launchpad.toggle") end
+module.toggleLaunchPad = function() module._coreDesktopNotification("com.apple.launchpad.toggle") end
 
 --- hs.spaces.openMissionControl() -> None
 --- Function
@@ -263,10 +269,10 @@ module.openMissionControl = openMissionControl
 --- Notes:
 ---  * Does nothing if the Mission Control display is not currently visible.
 ---  * This function uses Accessibility features provided by the Dock to close Mission Control and is used internally when performing the [hs.spaces.gotoSpaceOnScreen](#gotoSpaceOnScreen), [hs.spaces.addSpaceToScreen](#addSpaceToScreen), and [hs.spaces.removeSpaceFromScreen](#removeSpaceFromScreen) functions.
----  * It is possible to invoke the above mentioned functions and prevent them from autoclosing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this method when you are done.
+---  * It is possible to invoke the above mentioned functions and prevent them from auto-closing Mission Control -- this may be useful if you wish to perform multiple actions and want to minimize the visual side-effects. You can then use this function when you are done.
 module.closeMissionControl = closeMissionControl
 
---- hs.spaces.missionControlNameForSpace(spaceID) -> string | nil, errorMessage
+--- hs.spaces.missionControlNameForSpaceID(spaceID) -> string | nil, errorMessage
 --- Function
 --- Returns the string specifying the Mission Control name for the spaceID provided
 ---
@@ -275,9 +281,17 @@ module.closeMissionControl = closeMissionControl
 ---
 --- Returns:
 ---  * a string specifying the name used by Mission Control for the given space, or nil and an error string if the ID could not be matched to an existing space.
-module.missionControlNameForSpace = function(...)
+---
+--- Notes:
+---  * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:
+---    * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.
+---    * the output from the following commands, issued in the Hammerspoon console:
+---      * `hs.host.locale.current()`
+---      * `hs.inspect(hs.host.locale.preferredLanguages())`
+---      * `hs.inspect(hs.host.locale.details())`
+module.missionControlNameForSpaceID = function(...)
     local args, spaceID = { ... }, nil
-    assert(#args <= 1, "expected no more than 1 argument")
+    assert(#args ~= 1, "expected 1 argument")
     spaceID = args[1]
     assert(math.type(spaceID) == "integer", "expected integer specifying spaces ID")
 
@@ -294,16 +308,82 @@ module.missionControlNameForSpace = function(...)
                     return (DesktopNum:gsub("%%@", tostring(spaceCounter)))
                 elseif space.type == 4 then
                     local pid = space.pid
-                    if type(pid) ~= "table" then pid = { pid } end
-                    local names = {}
-                    for _, app in ipairs(pid) do
-                        table.insert(names, application.applicationForPID(app):title())
+                    if type(pid) ~= "table" then
+                        return application.applicationForPID(pid):title()
+                    else
+                        local names = {}
+                        local answer = DesktopConcat
+                        for i, app in ipairs(pid) do
+                            table.insert(names, application.applicationForPID(app):title())
+                            -- take care of placeholders with index
+                            answer = answer:gsub("%%" .. tostring(i) .. "%$@", names[i])
+                        end
+                        -- take care of non-indexed placeholders
+                        local idx = 0
+                        answer = answer:gsub("%%@", function(_) idx = idx + 1 ; return names[idx] end)
+                        return answer
                     end
-                    return table.concat(names, " & ")
                 else
                     return nil, "unknown space type or no Mission Control representation"
                 end
             end
+        end
+    end
+    return nil, "space not found in managed displays"
+end
+
+--- hs.spaces.spaceIDForMissionControlName(name) -> integer | nil, errorMessage
+--- Function
+--- Returns the spaceID for the space with the specified Mission Control name
+---
+--- Parameters:
+---  * `name` - a string specifying the Mission Control name of the space
+---
+--- Returns:
+---  * an integer specifying the ID for the space corresponding to the space with the specified Mission Control name, or nil and an error string if the name could not be matched to an existing space.
+---
+--- Notes:
+---  * this function attempts to use the localization strings for the Dock application to properly determine the Mission Control name. If you find that it doesn't provide the correct values for your system, please provide the following information when submitting an issue:
+---    * the desktop or application name(s) as they appear at the top of the Mission Control screen when you invoke it manually (or with `hs.spaces.toggleMissionControl()` entered into the Hammerspoon console.
+---    * the output from the following commands, issued in the Hammerspoon console:
+---      * `hs.host.locale.current()`
+---      * `hs.inspect(hs.host.locale.preferredLanguages())`
+---      * `hs.inspect(hs.host.locale.details())`
+module.spaceIDForMissionControlName = function(...)
+    local args, name = { ... }, nil
+    assert(#args ~= 1, "expected 1 argument")
+    name = args[1]
+    assert(type(name) == "string", "expected string specifying space by its Mission Control Name")
+
+    local spaceCounter = 0
+    local managedDisplayData, errMsg = module.managedDisplaySpaces()
+    if managedDisplayData == nil then return nil, errMsg end
+    for _, managedDisplay in ipairs(managedDisplayData) do
+        for _, space in ipairs(managedDisplay.Spaces) do
+            local possibleName
+            if space.type == 0 then
+                spaceCounter = spaceCounter + 1
+                possibleName = (DesktopNum:gsub("%%@", tostring(spaceCounter)))
+            elseif space.type == 4 then
+                local pid = space.pid
+                if type(pid) ~= "table" then
+                    possibleName = application.applicationForPID(pid):title()
+                else
+                    local names = {}
+                    local answer = DesktopConcat
+                    for i, app in ipairs(pid) do
+                        table.insert(names, application.applicationForPID(app):title())
+                        -- take care of placeholders with index
+                        answer = answer:gsub("%%" .. tostring(i) .. "%$@", names[i])
+                    end
+                    -- take care of non-indexed placeholders
+                    local idx = 0
+                    answer = answer:gsub("%%@", function(_) idx = idx + 1 ; return names[idx] end)
+                    possibleName = answer
+                end
+            end
+
+            if possibleName and possibleName == name then return space.ManagedSpaceID end
         end
     end
     return nil, "space not found in managed displays"
@@ -317,7 +397,7 @@ end
 ---  * `screen` - an optional screen specification identifying the screen to return the space array for. The screen may be specified by it's ID (`hs.screen:id()`), it's UUID (`hs.screen:getUUID()`), or as an `hs.screen` object. If no screen is specified, the screen returned by `hs.screen.mainScreen()` is used.
 ---
 --- Returns:
----  * a table containing spaceIDs for the spaces for the screen, or nil and an error message if there is an error.
+---  * a table containing space IDs for the spaces for the screen, or nil and an error message if there is an error.
 ---
 --- Notes:
 ---  * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.
@@ -363,7 +443,7 @@ end
 ---  * None
 ---
 --- Returns:
----  * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of spaceIDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.
+---  * a key-value table in which the keys are the UUIDs for the current screens and the value for each key is a table of space IDs corresponding to the spaces for that screen. Returns nil and an error message if an error occurs.
 ---
 --- Notes:
 ---  * the table returned has its __tostring metamethod set to `hs.inspect` to simplify inspecting the results when using the Hammerspoon Console.
@@ -449,12 +529,12 @@ module.activeSpaces = function(...)
     return setmetatable(results, { __tostring = inspect })
 end
 
---- hs.spaces.displayForSpace(spaceID) -> string | nil, error
+--- hs.spaces.displayForSpace(space) -> string | nil, error
 --- Function
 --- Returns the screen UUID for the screen that the specified space is on.
 ---
 --- Parameters:
----  * `spaceID` - an integer specifying the ID of the space
+---  * `space` - an integer specifying the ID of the space, or a string specifying the Mission Control name for the space
 ---
 --- Returns:
 ---  * a string specifying the UUID of the display the space is on, or nil and error message if an error occurs.
@@ -463,8 +543,9 @@ end
 ---  * the space does not have to be currently active (visible) to determine which screen the space belongs to.
 module.displayForSpace = function(...)
     local args, spaceID = { ... }, nil
-    assert(#args <= 1, "expected no more than 1 argument")
+    assert(#args ~= 1, "expected 1 argument")
     spaceID = args[1]
+    if type(spaceID) == "string" then spaceID = module.spaceIDForMissionControlName(spaceID) or spaceID end
     assert(math.type(spaceID) == "integer", "expected integer specifying spaces ID")
 
     local managedDisplayData, errMsg = module.managedDisplaySpaces()
@@ -479,7 +560,40 @@ module.displayForSpace = function(...)
     return nil, "space not found in managed displays"
 end
 
+-- documented in spacesObjc.m where the core logic of the function resides
+local _moveWindowToSpace = module.moveWindowToSpace
+module.moveWindowToSpace = function(...)
+    local args = { ... }
+    if #args == 2 then
+        if type(args[1]) == "userdata" and getmetatable(args[1]) == hs.getObjectMetatable("hs.window") then
+            args[1] = args[1]:id()
+        end
+        if type(args[2]) == "string" then
+            args[2] = module.spaceIDForMissionControlName(args[2]) or args[2]
+        end
+    end
+    return _moveWindowToSpace(table.unpack(args))
+end
 
+-- documented in spacesObjc.m where the core logic of the function resides
+local _windowsForSpace = module.windowsForSpace
+module.windowsForSpace = function(...)
+    local args = { ... }
+    if #args == 1 and type(args[1]) == "string" then
+        args[1] = module.spaceIDForMissionControlName(args[1]) or args[1]
+    end
+    return _windowsForSpace(table.unpack(args))
+end
+
+-- documented in spacesObjc.m where the core logic of the function resides
+local _windowSpaces = module.windowSpaces
+module.windowSpaces = function(...)
+    local args = { ... }
+    if #args == 1 and type(args[1]) == "userdata" and getmetatable(args[1]) == hs.getObjectMetatable("hs.window") then
+        args[1] = args[1]:id()
+    end
+    return _windowSpaces(table.unpack(args))
+end
 
 -- addSpaceToScreen([screenID], [closeMCOnCompletion]) -> true | nil, errMsg
 -- adds space to specified (or main) screen
