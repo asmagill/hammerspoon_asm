@@ -13,23 +13,10 @@
 --- This module is a distillation of my previous `hs._asm.undocumented.spaces` module, changes inspired by reviewing the `Yabai` source, and some experimentation with `hs.axuielement`. If you require more sophisticated control, I encourage you to check out https://github.com/koekeishiya/yabai -- it does require some additional setup (changes to SIP, possibly edits to `sudoers`, etc.) but may be worth the extra steps for some power users. A Spoon supporting direct socket communication with Yabai from Hammerspoon is also being considered.
 
 -- TODO:
---
---    F*ck trying to programmatically determine Mission Control Names
---        If an app has fullscreen windows in more than one display, they have the same name
---        If an app has multiple fullscreen windows in the *same* display, the are given their window names
---            But remove one, and it reverts *while still in Mission Control*
---        Add a desktop to screen 1 and all user desktops on screen 2 change names
---        What other nuances are being missed? Or will Apple change in the future?
---    Revert most (all?) functions (and docs) to just using spaceID
---    Add MissionControl version of spaceIDForMissionControlName that iterates through and matches
---        ids to names for informational (but not programmatic) use
---    Change gotoSpace and removeSpace to use ID and position within list for display
---
 --    does this work if "Displays have Separate Spaces" isn't checked in System Preferences ->
 --        Mission Control? What changes, and can we work around it?
 --
 --    need working hs.window.filter (or replacement) for pruning windows list and making use of other space windows
-
 
 -- I think we're probably done with Yabai duplication -- basic functionality desired is present, minus window id pruning
 -- +  yabai supports *some* stuff on M1 without injection... investigate
@@ -197,7 +184,7 @@ end
 ---
 ---  * Getting Accessibility elements for Mission Control is somewhat tricky -- they only exist when the Mission Control display is visible, which is the exact time that you can't examine them. What this function does is trigger Mission Control and then builds a tree of the elements, capturing all of the properties and property values while the elements are valid, closes Mission Control, and then returns the results in a table by invoking the provided callback function.
 ---    * Note that the `hs.axuielement` objects within the table returned will be invalid by the time you can examine them -- this is why the attributes and values will also be contained in the resulting tree.
----    * Example usage: hs.spaces.data_missionControlAXUIElementData(function(results) hs.console.clearConsole() ; print(hs.inspect(results)) end)
+---    * Example usage: `hs.spaces.data_missionControlAXUIElementData(function(results) hs.console.clearConsole() ; print(hs.inspect(results)) end)`
 module.data_missionControlAXUIElementData = function(callback)
     assert(
         type(callback) == "nil" or type(callback) == "function" or (getmetatable(callback) or {}).__call,
