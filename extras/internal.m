@@ -886,6 +886,34 @@ static int extras_yield(lua_State *L) {
         return 1 ;
     }
 
+
+CG_EXTERN bool CGDisplayUsesInvertedPolarity(void);
+CG_EXTERN void CGDisplaySetInvertedPolarity(bool invertedPolarity);
+CG_EXTERN bool CGDisplayUsesForceToGray(void);
+CG_EXTERN void CGDisplayForceToGray(bool forceToGray);
+
+static int extras_invert(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+
+    if (lua_gettop(L) == 1) {
+        CGDisplaySetInvertedPolarity(lua_toboolean(L, 1)) ;
+    }
+    lua_pushboolean(L, CGDisplayUsesInvertedPolarity()) ;
+    return 1 ;
+}
+
+static int extras_gray(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+
+    if (lua_gettop(L) == 1) {
+        CGDisplayForceToGray(lua_toboolean(L, 1)) ;
+    }
+    lua_pushboolean(L, CGDisplayUsesForceToGray()) ;
+    return 1 ;
+}
+
 #pragma mark - infrastructure stuffs
 
 static int meta_gc(lua_State* L) {
@@ -898,6 +926,8 @@ static int meta_gc(lua_State* L) {
 }
 
 static const luaL_Reg extrasLib[] = {
+    {"invertPolarity",      extras_invert},
+    {"grayScale",           extras_gray},
     {"avcapturedevices",    avcapturedevices},
     {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
