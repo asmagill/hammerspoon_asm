@@ -580,6 +580,33 @@ module.displayIsAnimating = function(...)
     return _displayIsAnimating(table.unpack(args))
 end
 
+-- documented in spacesObjc.m where the core logic of the function resides
+local _windowsForSpace = module.windowsForSpace
+module.windowsForSpace = function(...)
+    local results = { _windowsForSpace(...) }
+    local actual = results[1]
+    if actual then
+        -- prune known Hammerspoon "non-windows" (e.g. canvas)
+        local HS = application.applicationsForBundleID(hs.processInfo.bundleID)[1]
+        for _, vElement in ipairs(axuielement.applicationElement(HS)) do
+            if vElement.AXRole == "AXWindow" and vElement.AXSubrole:match("^AXUnknown") then
+                local asHSWindow = vElement:asHSWindow()
+                if asHSWindow then
+                    local badID = asHSWindow:id()
+                    for idx, vID in ipairs(actual) do
+                        if vID == badID then
+                            table.remove(actual, idx)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return table.unpack(results)
+end
+
 --- hs.spaces.missionControlSpaceNames([closeMC]) -> table | nil, error
 --- Function
 --- Returns a table containing the space names as they appear in Mission Control associated with their space ID. This is provided for informational purposes only -- all of the functions of this module use the spaceID to insure accuracy.
