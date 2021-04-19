@@ -398,7 +398,7 @@ static int pushASMDNSSDBrowser(lua_State *L, id obj) {
     return 1;
 }
 
-id toASMDNSSDBrowserFromLua(lua_State *L, int idx) {
+static id toASMDNSSDBrowserFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMDNSSDBrowser *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

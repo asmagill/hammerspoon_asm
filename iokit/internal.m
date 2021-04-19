@@ -464,7 +464,7 @@ static int pushASM_IO_OBJECT_T(lua_State *L, id obj) {
     return 1;
 }
 
-id toASM_IO_OBJECT_TFromLua(lua_State *L, int idx) {
+static id toASM_IO_OBJECT_TFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASM_IO_OBJECT_T *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

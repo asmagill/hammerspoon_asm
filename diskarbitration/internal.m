@@ -558,7 +558,7 @@ static int pushASMdiskArbitrationWatcher(lua_State *L, id obj) {
     return 1;
 }
 
-id toASMdiskArbitrationWatcherFromLua(lua_State *L, int idx) {
+static id toASMdiskArbitrationWatcherFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMdiskArbitrationWatcher *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

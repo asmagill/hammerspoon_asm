@@ -1333,7 +1333,7 @@ static int pushHSFenestra(lua_State *L, id obj) {
     return 1 ;
 }
 
-id toHSFenestraFromLua(lua_State *L, int idx) {
+static id toHSFenestraFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     HSFenestra *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

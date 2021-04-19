@@ -252,7 +252,7 @@ static int pushHSASMPreferencesObject(lua_State *L, id obj) {
     return 1 ;
 }
 
-id toHSASMPreferencesObjectFromLua(lua_State *L, int idx) {
+static id toHSASMPreferencesObjectFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSASMPreferencesObject *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

@@ -503,7 +503,7 @@ static int pushHSCanvasGesture(lua_State *L, id obj) {
     return 1;
 }
 
-id toHSCanvasGestureFromLua(lua_State *L, int idx) {
+static id toHSCanvasGestureFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin shared] ;
     HSCanvasGesture *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {

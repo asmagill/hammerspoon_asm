@@ -83,7 +83,7 @@ static LSRefTable         refTable     = LUA_NOREF ;
 //     return 1;
 // }
 //
-// id to<moduleType>FromLua(lua_State *L, int idx) {
+// static id to<moduleType>FromLua(lua_State *L, int idx) {
 //     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 //     <moduleType> *value ;
 //     if (luaL_testudata(L, idx, USERDATA_TAG)) {

@@ -1616,7 +1616,7 @@ static int pushHSCanvasTurtleView(lua_State *L, id obj) {
     return 1;
 }
 
-id toHSCanvasTurtleViewFromLua(lua_State *L, int idx) {
+static id toHSCanvasTurtleViewFromLua(lua_State *L, int idx) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     HSCanvasTurtleView *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
