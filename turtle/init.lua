@@ -349,7 +349,7 @@ module.turtleCanvas = function(...)
                           if inMoveArea then
                               _cMouseAction = coroutine.wrap(function()
                                   while _cMouseAction do
-                                      local pos = mouse.getAbsolutePosition()
+                                      local pos = mouse.absolutePosition()
                                       local frame = _c:frame()
                                       frame.x = pos.x - _x
                                       frame.y = pos.y - _y
@@ -363,7 +363,7 @@ module.turtleCanvas = function(...)
 
                               _cMouseAction = coroutine.wrap(function()
                                   while _cMouseAction do
-                                      local pos = mouse.getAbsolutePosition()
+                                      local pos = mouse.absolutePosition()
                                       local frame = _c:frame()
                                       if inResizeX then
                                           local newW = pos.x + cframe.w - _x - frame.x
