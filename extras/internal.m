@@ -914,6 +914,144 @@ static int extras_gray(lua_State *L) {
     return 1 ;
 }
 
+static int extras_finderSearch(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    CFStringRef inSearchString = (lua_gettop(L) > 0) ? (__bridge_retained CFStringRef)[skin toNSObjectAtIndex:1] : NULL ;
+    lua_pushinteger(L, HISearchWindowShow(inSearchString, kNilOptions)) ;
+    if (inSearchString) CFRelease(inSearchString) ;
+    return 1 ;
+}
+
+// Not working... maybe because we're not calling from context menu? Since we're not passing in a view
+// not sure how it would know, but whatever...
+//
+// static int extras_dictionaryWindow(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+//     [skin checkArgs:LS_TSTRING, LS_TTABLE | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+//     NSString  *textString    = [skin toNSObjectAtIndex:1] ;
+//     CFRange   selectionRange = DCSGetTermRangeInString(NULL, (__bridge CFStringRef)textString, 0) ;
+//     NSFont    *systemFont    = [NSFont systemFontOfSize:0.0] ;
+//     CTFontRef textFont       = CTFontCreateWithName((__bridge CFStringRef)systemFont.fontName, systemFont.pointSize, NULL) ;
+//     CGPoint   textOrigin     = (lua_type(L, 2) == LUA_TTABLE) ? NSPointToCGPoint([skin tableToPointAtIndex:2]) : CGPointZero ;
+//     Boolean   verticalText   = (lua_type(L, lua_gettop(L)) == LUA_TBOOLEAN) ? (Boolean)(lua_toboolean(L, lua_gettop(L))) : false ;
+//
+//     HIDictionaryWindowShow(NULL, (__bridge CFStringRef)textString, selectionRange, textFont, textOrigin, verticalText, NULL) ;
+//
+//     CFRelease(textFont) ;
+//     return 0 ;
+// }
+
+static int extras_fontTag(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
+    NSString *fontName = [skin toNSObjectAtIndex:1] ;
+    NSString *tag      = (lua_gettop(L) > 1) ? [skin toNSObjectAtIndex:2] : nil ;
+
+    CGFontRef font = CGFontCreateWithFontName((__bridge CFStringRef)fontName) ;
+    NSString  *errString = nil ;
+
+// crap; forgot mac is little-endian, so the tags are backwards when pulled/pushed from lua...
+// if I go back to this, replace memcpy in both places... guess we have to build it byte-by-byte?
+    if (font) {
+        if (tag) {
+            const char *tagCString = tag.UTF8String ;
+            if (strnlen(tagCString, 5) == 4) {
+                uint32_t tagUInt32 ;
+                tagUInt32 = (uint32_t) tagCString[3]        +
+                            (uint32_t)(tagCString[2] <<  8) +
+                            (uint32_t)(tagCString[1] << 16) +
+                            (uint32_t)(tagCString[0] << 24) ;
+//                 memcpy(&tagUInt32, tagCString, 4) ;
+                CFDataRef data = CGFontCopyTableForTag(font, tagUInt32) ;
+                if (data) {
+                    [skin pushNSObject:(__bridge_transfer NSData *)data] ;
+                } else {
+                    errString = [NSString stringWithFormat:@"table %@ not found in font %@", tag, font] ;
+                }
+            } else {
+                errString = @"tag must be 4 characters long" ;
+            }
+        } else {
+            CFArrayRef tags = CGFontCopyTableTags(font) ;
+            if (tags) {
+                lua_newtable(L) ;
+                CFIndex count = CFArrayGetCount(tags) ;
+                for (CFIndex i = 0 ; i < count ; i++) {
+                    uint32_t entry = (uint32_t)(uintptr_t)(CFArrayGetValueAtIndex(tags, i)) ;
+                    char entryC[4] ;
+                    entryC[0] = (char)((entry >> 24) & 0xff) ;
+                    entryC[1] = (char)((entry >> 16) & 0xff) ;
+                    entryC[2] = (char)((entry >>  8) & 0xff) ;
+                    entryC[3] = (char)( entry        & 0xff) ;
+//                     memcpy(entryC, &entry, 4) ;
+                    lua_pushlstring(L, entryC, 4) ;
+                    lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+                }
+                CFRelease(tags) ;
+            } else {
+                errString = [NSString stringWithFormat:@"unable to get tags for font %@", fontName] ;
+            }
+        }
+
+        CGFontRelease(font) ;
+    } else {
+        errString = [NSString stringWithFormat:@"unrecognized font name %@", fontName] ;
+    }
+
+    if (errString) {
+        lua_pushnil(L) ;
+        [skin pushNSObject:errString] ;
+        return 2 ;
+    } else {
+        return 1 ;
+    }
+}
+
+static int extras_glyphForName(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING, LS_TNUMBER, LS_TSTRING, LS_TBREAK] ;
+
+    NSString *fontName = [skin toNSObjectAtIndex:1] ;
+    CGFloat  fontSize  = lua_tonumber(L, 2) ;
+    NSString *tagName  = [skin toNSObjectAtIndex:3] ;
+
+    NSFont *font = [NSFont fontWithName:fontName size:fontSize] ;
+
+    if (!font) {
+        lua_pushnil(L) ;
+        lua_pushstring(L, "unrecognized font") ;
+        return 2 ;
+    }
+
+    CGGlyph glyphNumber = CTFontGetGlyphWithName((__bridge CTFontRef)font, (__bridge CFStringRef)tagName) ;
+    if (glyphNumber == 0) {
+        lua_pushnil(L) ;
+        lua_pushstring(L, "unrecognized glyph") ;
+        return 2 ;
+    }
+
+    CGPathRef glyphPath   = CTFontCreatePathForGlyph((__bridge CTFontRef)font, glyphNumber, NULL) ;
+    CGRect    glyphRect = CGPathGetBoundingBox(glyphPath) ;
+
+    NSImage   *glyphImage = [[NSImage alloc] initWithSize:NSSizeFromCGSize(glyphRect.size)] ;
+    [glyphImage lockFocus] ;
+        NSGraphicsContext *gc = [NSGraphicsContext currentContext] ;
+        [gc saveGraphicsState] ;
+        [NSColor.blackColor setFill] ;
+        [NSColor.blackColor setStroke] ;
+
+        CGContextRef cgContext = gc.CGContext ;
+        CGContextAddPath(cgContext, glyphPath) ;
+        CGContextDrawPath(cgContext, kCGPathFillStroke) ;
+
+        [gc restoreGraphicsState] ;
+    [glyphImage unlockFocus] ;
+
+    [skin pushNSObject:glyphImage] ;
+    return 1 ;
+}
+
 #pragma mark - infrastructure stuffs
 
 static int meta_gc(lua_State* L) {
@@ -926,9 +1064,11 @@ static int meta_gc(lua_State* L) {
 }
 
 static const luaL_Reg extrasLib[] = {
-    {"invertPolarity",      extras_invert},
-    {"grayScale",           extras_gray},
-    {"avcapturedevices",    avcapturedevices},
+//     {"dictionaryWindow",     extras_dictionaryWindow},
+    {"finderSearch",         extras_finderSearch},
+    {"invertPolarity",       extras_invert},
+    {"grayScale",            extras_gray},
+    {"avcapturedevices",     avcapturedevices},
     {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
@@ -982,6 +1122,8 @@ static const luaL_Reg extrasLib[] = {
     {"stackPaths",           extras_callstackPaths},
 
     {"testARCandID",         testARCandID},
+    {"fontTag",              extras_fontTag},
+    {"glyphImage",           extras_glyphForName},
 
     {NULL,                   NULL}
 };
