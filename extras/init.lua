@@ -361,6 +361,8 @@ module.caseInsensitivePattern = function(pattern)
     return p
 end
 
+local maxBits = 0 ; while (1 << maxBits) ~= 0 do maxBits = maxBits + 1 end
+
 --- hs._asm.extras.tobits(integer, [width]) -> bitmask
 --- Function
 --- Returns the specified integer as a bitmask (boolean).
@@ -376,7 +378,8 @@ end
 ---  * May be added to the Hammerspoon core somewhere at some point.
 module.tobits = function(num, bits)
     bits = bits or (math.floor(math.log(num,2) / 8) + 1) * 8
-    if bits == -(1/0) then bits = 8 end
+    if bits == -(1/0) then bits = 8 end     -- when num == 0
+    if bits ~= bits then bits = maxBits end -- when num < 0
     local value = ""
     for i = (bits - 1), 0, -1 do
         value = value..tostring((num >> i) & 0x1)
