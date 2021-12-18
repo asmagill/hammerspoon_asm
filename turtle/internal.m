@@ -78,6 +78,13 @@ typedef NS_ENUM( NSUInteger, t_commandTypes ) {
 //           skips very next command (which resets our penColor)
 //   loadpict only parses raw version; other two are for importing elsewhere
 
+//   rethink _background
+//       does it need a rename?
+//       no way to tell if _background function is active -- subsequent calls to _background are queued, but other turtle actions aren't
+//       queue other actions as well? queries are ok, but anything that changes state isn't safe during run
+//       no way to cancel running function or depth of queue
+//   revisit fill/filled
+
 static const char * const USERDATA_TAG = "hs.canvas.turtle" ;
 static int                refTable   = LUA_NOREF ;
 static int                fontMapRef = LUA_NOREF ;

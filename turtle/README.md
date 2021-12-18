@@ -17,7 +17,7 @@ Todo:
 * finish documentation -- it's started, but not done yet
 * rethink _background
   * does it need a rename?
-  * no way to tell if _backup function is active -- subsequent calls to _backup are queued, but other turtle actions aren't
+  * no way to tell if _background function is active -- subsequent calls to _background are queued, but other turtle actions aren't
   * queue other actions as well? queries are ok, but anything that changes state isn't safe during run
   * no way to cancel running function or depth of queue
 * decide on savepict/loadpict and logo conversion
