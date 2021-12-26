@@ -75,7 +75,11 @@ local getDockExitTemplates = function()
 
     if #locale == 0 then locale = "en" end -- fallback to english
 
-    local contents = plist.read(path .. "/" .. locale .. ".lproj/Accessibility.strings")
+    local stringsPath = path .. "/" .. locale .. ".lproj/Accessibility.strings"
+    if hs.fs.displayName(stringsPath) == nil then
+        return
+    end
+    local contents = plist.read(stringsPath)
     AXExitToDesktop           = "^" .. contents.AXExitToDesktop:gsub("%%@", "(.-)") .. "$"
     AXExitToFullscreenDesktop = "^" .. contents.AXExitToFullscreenDesktop:gsub("%%@", "(.-)") .. "$"
 end
