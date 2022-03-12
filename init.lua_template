@@ -17,6 +17,10 @@
                 require"hs.doc".registerJSONFile(docsFileName)
             end
         end
+
+        -- setup loaders for submodules (if any)
+        --     copy into Hammerspoon/setup.lua before removing
+
     until true -- executes once and hides any local variables we create
 -- END REMOVE IF ADDED TO CORE APPLICATION
 

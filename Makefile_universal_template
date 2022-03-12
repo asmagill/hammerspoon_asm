@@ -23,7 +23,7 @@ LUAFILES  = ${wildcard src/*.lua}
 HEADERS   = ${wildcard src/*.h}
 
 # for compiling each source file into a separate library (see also obj_x86_64/%.s and obj_arm64/%.s below)
-DYLIBS  := $(OBJCFILES:.m=.dylib)
+DYLIBS  := $(notdir $(OBJCFILES:.m=.dylib))
 
 # for compiling all source files into one library (see also obj_x86_64/%.s and obj_arm64/%.s below)
 # DYLIBS  := $(join lib, $(join ${MODULE}, .dylib))
@@ -56,6 +56,8 @@ release: CFLAGS  += -DRELEASE_VERSION=$(VERSION)
 releaseWithDocs: CFLAGS  += -DRELEASE_VERSION=$(VERSION)
 LDFLAGS += -dynamiclib -undefined dynamic_lookup $(EXTRA_LDFLAGS)
 
+all: verify $(shell uname -m)
+
 echo:
 	@echo mkfile_path     = ${mkfile_path}
 	@echo current_dir     = ${current_dir}
@@ -75,8 +77,6 @@ echo:
 	@echo CFLAGS          = ${CFLAGS}
 	@echo LDFLAGS         = ${LDFLAGS}
 
-all: verify $(shell uname -m)
-
 x86_64: $(DYLIBS_x86_64)
 
 arm64: $(DYLIBS_arm64)
@@ -86,10 +86,10 @@ universal: verify x86_64 arm64 $(DYLIBS_univeral)
 # for compiling each source file into a separate library
 #     (see also DYLIBS above)
 
-obj_x86_64/%.dylib: %.m $(HEADERS)
+obj_x86_64/%.dylib: src/%.m $(HEADERS)
 	$(CC) $< $(CFLAGS) $(INTEL_CFLAGS) $(LDFLAGS) -o $@
 
-obj_arm64/%.dylib: %.m $(HEADERS)
+obj_arm64/%.dylib: src/%.m $(HEADERS)
 	$(CC) $< $(CFLAGS) $(ARM64_CFLAGS) $(LDFLAGS) -o $@
 
 # for compiling all source files into one library
