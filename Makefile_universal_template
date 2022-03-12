@@ -132,8 +132,7 @@ install: install-$(shell uname -m)
 install-lua: $(LUAFILES)
 	mkdir -p $(PREFIX)/$(MODPATH)
 	install -m 0644 $(LUAFILES) $(PREFIX)/$(MODPATH)
-# Not sure about 3rd party docs yet...
-# 	test -f docs.json && install -m 0644 docs.json $(PREFIX)/$(MODPATH)/$(MODULE) || echo "No docs.json file to install"
+	test -f $(MODULE).docs.json && install -m 0644 $(MODULE).docs.json $(PREFIX)/$(MODPATH) || echo "No $(MODULE).docs.json file to install"
 # 	mkdir -p $(PREFIX)/$(MODPATH)/$(MODULE)
 # 	install -m 0644 $(LUAFILES) $(PREFIX)/$(MODPATH)/$(MODULE)
 # 	test -f docs.json && install -m 0644 docs.json $(PREFIX)/$(MODPATH)/$(MODULE) || echo "No docs.json file to install"
@@ -165,7 +164,7 @@ install-universal: verify install-lua $(DYLIBS_univeral)
 uninstall:
 	rm -v -f $(PREFIX)/$(MODPATH)/{$(subst $(space),$(comma),$(notdir $(ALLFILES)))}
 	(pushd $(PREFIX)/$(MODPATH)/ ; rm -v -fr $(DYLIBS:.dylib=.dylib.dSYM) ; popd)
-# 	rm -v -f $(PREFIX)/$(MODPATH)/docs.json
+	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE).docs.json
 	rmdir -p $(PREFIX)/$(MODPATH) ; exit 0
 # 	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
 # 	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(DYLIBS:.dylib=.dylib.dSYM) ; popd)
@@ -173,10 +172,10 @@ uninstall:
 # 	rmdir -p $(PREFIX)/$(MODPATH)/$(MODULE) ; exit 0
 
 clean:
-	rm -rf obj_x86_64 obj_arm64 obj_universal tmp docs.json
+	rm -rf obj_x86_64 obj_arm64 obj_universal tmp $(MODULE).docs.json
 
 docs:
-	hs -c "require(\"hs.doc\").builder.genJSON([[$(join $(dir $(mkfile_path)), /src)]])" > docs.json
+	hs -c "require(\"hs.doc\").builder.genJSON([[$(join $(dir $(mkfile_path)), /src)]])" > $(MODULE).docs.json
 
 markdown:
 	hs -c "dofile(\"$(MARKDOWNMAKER)\").genMarkdown([[$(join $(dir $(mkfile_path)), /src)]])" > README.tmp.md
