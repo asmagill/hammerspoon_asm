@@ -28,3 +28,6 @@
 [submodule "sysctl"]
 	path = sysctl
 	url = https://github.com/asmagill/hs.host.sysctl.git
+[submodule "spaces"]
+	path = spaces
+	url = https://github.com/asmagill/hs._asm.spaces.git
