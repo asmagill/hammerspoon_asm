@@ -10,7 +10,7 @@
 //     Document
 //     All files in table to individual line-by-line report wrapper
 //     All files in table to one combined hash?
-//     Add SHA-3
+//  *  Add SHA-3
 //     Add others?
 
 @import Cocoa ;
@@ -19,8 +19,8 @@
 @import zlib ;
 @import LuaSkin ;
 
-// When adding a new hash type, you need to update a few areas... they will be labeled
-// with ADD_NEW_HASH_HERE
+// When adding a new hash type, you should only need to update a couple of areas...
+// they are labeled with ADD_NEW_HASH_HERE
 
 // uncomment to include deprecated/less-common hash types (see hashLookupTable below)
 // #define INCLUDE_HISTORICAL
@@ -42,8 +42,8 @@ static const hashEntry_t hashLookupTable[] = {
     { "MD4",        init_MD4,        append_MD4,        finish_MD4        },
     { "SHA224",     init_SHA224,     append_SHA224,     finish_SHA224     },
     { "SHA384",     init_SHA384,     append_SHA384,     finish_SHA384     },
-    { "hmacSHA224", init_hmacSHA224, append_hmacSHA224, finish_hmacSHA224 },
-    { "hmacSHA384", init_hmacSHA384, append_hmacSHA384, finish_hmacSHA384 },
+    { "hmacSHA224", init_hmacSHA224, append_hmac,       finish_hmacSHA224 },
+    { "hmacSHA384", init_hmacSHA384, append_hmac,       finish_hmacSHA384 },
 #endif
 
     { "CRC32",      init_CRC32,      append_CRC32,      finish_CRC32      },
@@ -51,15 +51,15 @@ static const hashEntry_t hashLookupTable[] = {
     { "SHA1",       init_SHA1,       append_SHA1,       finish_SHA1       },
     { "SHA256",     init_SHA256,     append_SHA256,     finish_SHA256     },
     { "SHA512",     init_SHA512,     append_SHA512,     finish_SHA512     },
-    { "hmacMD5",    init_hmacMD5,    append_hmacMD5,    finish_hmacMD5    },
-    { "hmacSHA1",   init_hmacSHA1,   append_hmacSHA1,   finish_hmacSHA1   },
-    { "hmacSHA256", init_hmacSHA256, append_hmacSHA256, finish_hmacSHA256 },
-    { "hmacSHA512", init_hmacSHA512, append_hmacSHA512, finish_hmacSHA512 },
+    { "hmacMD5",    init_hmacMD5,    append_hmac,       finish_hmacMD5    },
+    { "hmacSHA1",   init_hmacSHA1,   append_hmac,       finish_hmacSHA1   },
+    { "hmacSHA256", init_hmacSHA256, append_hmac,       finish_hmacSHA256 },
+    { "hmacSHA512", init_hmacSHA512, append_hmac,       finish_hmacSHA512 },
 
-    { "SHA3_224",   init_SHA3_224,   append_SHA3_224,   finish_SHA3_224   },
-    { "SHA3_256",   init_SHA3_256,   append_SHA3_256,   finish_SHA3_256   },
-    { "SHA3_384",   init_SHA3_384,   append_SHA3_384,   finish_SHA3_384   },
-    { "SHA3_512",   init_SHA3_512,   append_SHA3_512,   finish_SHA3_512   },
+    { "SHA3_224",   init_SHA3_224,   append_SHA3,       finish_SHA3_224   },
+    { "SHA3_256",   init_SHA3_256,   append_SHA3,       finish_SHA3_256   },
+    { "SHA3_384",   init_SHA3_384,   append_SHA3,       finish_SHA3_384   },
+    { "SHA3_512",   init_SHA3_512,   append_SHA3,       finish_SHA3_512   },
 // ADD_NEW_HASH_HERE -- label(s) for Hammerspoon and functions for initializing, appending to, and finishing
 } ;
 
@@ -98,6 +98,16 @@ static const NSUInteger knownHashCount = sizeof(hashLookupTable) / sizeof(hashEn
 
 #pragma mark - Module Functions
 
+/// hs.hash.new(hash, [secret]) -> hashObject
+/// Constructor
+/// Creates a new context for the specified hash function.
+///
+/// Parameters:
+///  * `hash`    - a string specifying the name of the hash function to use. This must be one of the string values found in the [hs.hash.types](#types) constant.
+///  * `secret`  - an optional string specifying the shared secret to prepare the hmac hash function with. For all other hash types this field is ignored. Leaving this parameter off when specifying an hmac hash function is equivalent to specifying an empty secret or a secret composed solely of null values.
+///
+/// Returns:
+///  * the new hash object
 static int hash_new(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING, LS_TSTRING | LS_TOPTIONAL, LS_TBREAK] ;
@@ -126,6 +136,27 @@ static int hash_new(lua_State *L) {
     return 1 ;
 }
 
+/// hs.fs.fileListForPath(path, [options]) -> table
+/// Function
+/// Returns a table containing the paths to all of the files located at the specified path.
+///
+/// Parameters:
+///  * `path`    - a string specifying the path to gather the files from. If this path specifies a file, then the return value is a table containing only this path. If the path specifies a directory, then the table contains the paths of all of the files found in the specified directory.
+///  * `options` - an optional table with one or more key-value pairs determining how and what files are to be included in the table returned.
+///    * The following keys are recognized:
+///      * `subdirs`        - a boolean, default false, indicating whether or not subdirectories should be descended into and examined for files as well.
+///      * `followSymlinks` - a boolean, default false, indicating whether or not symbolic links should be followed
+///      * `expandSymlinks` - a boolean, default false, specifying whether or not the real path of any files discovered after following a symbolic link should be included in the list (true) or whether the path added to the list should remain relative to the starting path (false).
+///      * `relativePath`   - a boolean, default false, specifying whether paths included in the result list should be relative to the starting path (true) or the full and complete path to the file (false).
+///      * `ignore`         - a table of strings, specifying regular expression matches for files to exclude from the result list. If not provided, this value will be inherited from the module's variable [hs.fs.defaultPathListExcludes](#defaultPathListExcludes) which, by defualt, is set to ignore all files beginning with a period (often called dot-files). To include all files, set this option equal to the empty table (i.e. `{}`).
+///      * `except`         - a table of strings, default empty, specifying regular expression matches for files that match an `ignore` rule, but should be included anyways. For example, if this option is set to `{ "^\\.gitignore$" }`, then a file named `.gitignore` would be included, even though it would normally be excluded by the default `ignore` ruleset.
+///
+/// Returns:
+///  * a table containing the paths to the files discovered at the specified path. Only files will be included -- directory names are not included in the resulting list. The table will be sorted as per the Objective-C NSString's `compare:` method.
+///
+/// Notes:
+///  * `ignore` and `except` options require the use of actual regular expressions, not the simplified pattern matching used by Lua. More details about the proper syntax for the strings to use in the tables of these options can be found at https://unicode-org.github.io/icu/userguide/strings/regexp.html.
+///    * note that this function only checks to see if the regular expression returns a match for each filename found (not the path, just the filename component of the path). Any captures are ignored.
 static int hash_filesInPath(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TSTRING,
@@ -138,7 +169,7 @@ static int hash_filesInPath(lua_State *L) {
     BOOL    followSymlinks = NO ;
     BOOL    expandSymlinks = NO ;
     BOOL    relativePath   = NO ;
-    BOOL    objectWrapper  = NO ;
+//     BOOL    objectWrapper  = NO ;
     NSArray *ignore        = nil ;
     NSArray *except        = nil ;
 
@@ -171,12 +202,14 @@ static int hash_filesInPath(lua_State *L) {
                     } else {
                         return luaL_argerror(L, 2, "relativePath option expects boolean value") ;
                     }
-                } else if (!strcmp(keyName, "objectWrapper")) {
-                    if (lua_type(L, -1) == LUA_TBOOLEAN) {
-                        objectWrapper = (BOOL)(lua_toboolean(L, -1)) ;
-                    } else {
-                        return luaL_argerror(L, 2, "objectWrapper option expects boolean value") ;
-                    }
+// The speedup hoped for by this wasn't as impressive as desired; leaving the code in, though, in case we
+// decide we need it later anyways. Also see the return section at the bottom
+//                 } else if (!strcmp(keyName, "objectWrapper")) {
+//                     if (lua_type(L, -1) == LUA_TBOOLEAN) {
+//                         objectWrapper = (BOOL)(lua_toboolean(L, -1)) ;
+//                     } else {
+//                         return luaL_argerror(L, 2, "objectWrapper option expects boolean value") ;
+//                     }
                 } else if (!strcmp(keyName, "ignore")) {
                     ignore = [skin toNSObjectAtIndex:-1] ;
                     if ([ignore isKindOfClass:[NSArray class]]) {
@@ -359,11 +392,11 @@ static int hash_filesInPath(lua_State *L) {
     // ensure consistent order
     [foundPaths sortUsingSelector:@selector(compare:)] ;
 
-    if (objectWrapper) {
-        [skin pushNSObject:foundPaths withOptions:LS_WithObjectWrapper | LS_OW_ReadWrite] ;
-    } else {
+//     if (objectWrapper) {
+//         [skin pushNSObject:foundPaths withOptions:LS_WithObjectWrapper | LS_OW_ReadWrite] ;
+//     } else {
         [skin pushNSObject:foundPaths] ;
-    }
+//     }
     lua_pushinteger(L, (lua_Integer)foundPaths.count) ;
     lua_pushinteger(L, dirCount) ;
     return 3;
@@ -371,6 +404,15 @@ static int hash_filesInPath(lua_State *L) {
 
 #pragma mark - Module Methods
 
+/// hs.hash:append(data) -> hashObject
+/// Method
+/// Adds the provided data to the input of the hash function currently in progress for the hashObject.
+///
+/// Parameters:
+///  * `data` - a string containing the data to add to the hash functions input.
+///
+/// Returns:
+///  * the hash object
 static int hash_append(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
@@ -388,6 +430,7 @@ static int hash_append(lua_State *L) {
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
+
 
 static int hash_appendFile(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;

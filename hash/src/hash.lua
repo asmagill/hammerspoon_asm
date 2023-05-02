@@ -1,13 +1,6 @@
 --- === hs.hash ===
 ---
---- Various hashing algorithms
----
---- This module provides access to various hashing algorithms and functions for use within Hammerspoon. The following hash protocols are supported:
----
---- CRC32
---- MD2, MD4, MD5
---- SHA1, SHA224, SHA256, SHA384, SHA512
---- hmacMD5, hmacSHA1, hmacSHA256, hmacSHA384, hmacSHA224, hmacSHA512
+--- This module provides various hashing algorithms for use within Hammerspoon.
 
 local USERDATA_TAG = "hs.hash"
 local module       = require(table.concat({ USERDATA_TAG:match("^([%w%._]+%.)([%w_]+)$") }, "lib"))
@@ -24,6 +17,185 @@ local log          = require("hs.logger").new(USERDATA_TAG, settings.get(SETTING
 
 -- Public interface ------------------------------------------------------
 
+--- hs.hash.SHA1(data) -> string
+--- Function
+--- Calculates an SHA1 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data, encoded as hexadecimal
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("SHA1"):append(data):finish():value())`
+
+--- hs.hash.SHA256(data) -> string
+--- Function
+--- Calculates an SHA256 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data, encoded as hexadecimal
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("SHA256"):append(data):finish():value())`
+
+--- hs.hash.SHA512(data) -> string
+--- Function
+--- Calculates an SHA512 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data, encoded as hexadecimal
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("SHA512"):append(data):finish():value())`
+
+--- hs.hash.MD5(data) -> string
+--- Function
+--- Calculates an MD5 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data, encoded as hexadecimal
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("MD5"):append(data):finish():value())`
+
+--- hs.hash.bSHA1(data) -> data
+--- Function
+--- Calculates a binary SHA1 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the binary hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.new("SHA1"):append(data):finish():value()`
+
+--- hs.hash.bSHA256(data) -> data
+--- Function
+--- Calculates a binary SHA256 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the binary hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.new("SHA256"):append(data):finish():value()`
+
+--- hs.hash.bSHA512(data) -> data
+--- Function
+--- Calculates a binary SHA512 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the binary hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.new("SHA512"):append(data):finish():value()`
+
+--- hs.hash.bMD5(data) -> data
+--- Function
+--- Calculates a binary MD5 hash
+---
+--- Parameters:
+---  * data - A string containing some data to hash
+---
+--- Returns:
+---  * A string containing the binary hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.new("MD5"):append(data):finish():value()`
+
+--- hs.hash.hmacSHA1(key, data) -> string
+--- Function
+--- Calculates an HMAC using a key and a SHA1 hash
+---
+--- Parameters:
+---  * key - A string containing a secret key to use
+---  * data - A string containing the data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("hmacSHA1", key):append(data):finish():value())`
+
+--- hs.hash.hmacSHA256(key, data) -> string
+--- Function
+--- Calculates an HMAC using a key and a SHA256 hash
+---
+--- Parameters:
+---  * key - A string containing a secret key to use
+---  * data - A string containing the data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("hmacSHA256", key):append(data):finish():value())`
+
+--- hs.hash.hmacSHA512(key, data) -> string
+--- Function
+--- Calculates an HMAC using a key and a SHA512 hash
+---
+--- Parameters:
+---  * key - A string containing a secret key to use
+---  * data - A string containing the data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("hmacSHA512", key):append(data):finish():value())`
+
+--- hs.hash.hmacMD5(key, data) -> string
+--- Function
+--- Calculates an HMAC using a key and an MD5 hash
+---
+--- Parameters:
+---  * key - A string containing a secret key to use
+---  * data - A string containing the data to hash
+---
+--- Returns:
+---  * A string containing the hash of the supplied data
+---
+--- Notes:
+---  * this function is provided for backwards compatibility with a previous version of this module and is functionally equivalent to: `hs.hash.convertBinaryHashToHex(hs.hash.new("hmacMD5", key):append(data):finish():value())`
+
+--- hs.hash.types
+--- Constant
+--- A tale containing the names of the hashing algorithms supported by this module.
+---
+--- At present, this module supports the following hash functions:
+---
+--- * CRC32      - Technically a checksum, not a hash, but often used for verifying file integrity. Produces a 32bit value.
+--- * MD5        - A message digest algorithm producing a 128bit hash value. MD5 is no longer consider secure for cryptographic purposes, but is still widely used to verify file integrity and other non cryptographic uses.
+--- * SHA1       - A message digest algorithm producing a 160bit hash value. SHA-1 is no longer consider secure for cryptographic purposes, but is still widely used to verify file integrity and other non cryptographic uses.
+--- * SHA256     - A cryptographic hash function that produces a 256bit hash value. While there has been some research into attack vectors on the SHA-2 family of algorithms, this is still considered sufficiently secure for most cryptographic purposes and for data validation and verification.
+--- * SHA512     - A cryptographic hash function that produces a 512bit hash value. While there has been some research into attack vectors on the SHA-2 family of algorithms, this is still considered sufficiently secure for most cryptographic purposes and for data validation and verification.
+--- * hmacMD5    - Combines the MD5 hash algorithm with a hash-based message authentication code, or pre-shared secret.
+--- * hmacSHA1   - Combines the SHA1 hash algorithm with a hash-based message authentication code, or pre-shared secret.
+--- * hmacSHA256 - Combines the SHA-2 256bit hash algorithm with a hash-based message authentication code, or pre-shared secret.
+--- * hmacSHA512 - Combines the SHA-2 512bit hash algorithm with a hash-based message authentication code, or pre-shared secret.
+--- * SHA3_224   - A SHA3 based cryptographic hash function that produces a 224bit hash value. The SHA3 family of algorithms use a different process than that which is used in the MD5, SHA1 and SHA2 families of algorithms and is considered the most cryptographically secure at present, though at the cost of additional computational complexity.
+--- * SHA3_256   - A SHA3 based cryptographic hash function that produces a 256bit hash value. The SHA3 family of algorithms use a different process than that which is used in the MD5, SHA1 and SHA2 families of algorithms and is considered the most cryptographically secure at present, though at the cost of additional computational complexity.
+--- * SHA3_384   - A SHA3 based cryptographic hash function that produces a 384bit hash value. The SHA3 family of algorithms use a different process than that which is used in the MD5, SHA1 and SHA2 families of algorithms and is considered the most cryptographically secure at present, though at the cost of additional computational complexity.
+--- * SHA3_512   - A SHA3 based cryptographic hash function that produces a 512bit hash value. The SHA3 family of algorithms use a different process than that which is used in the MD5, SHA1 and SHA2 families of algorithms and is considered the most cryptographically secure at present, though at the cost of additional computational complexity.
 table.sort(module.types)
 module.types = ls.makeConstantsTable(module.types)
 
@@ -81,15 +253,13 @@ module.forFile = function(...)
     return object:appendFile(path):finish():value()
 end
 
+--- hs.fs.defaultPathListExcludes -> table
+--- Variable
+--- A table containing the default list of patterns to ignore when using the [hs.fs.fileListForPath](#fileListForPath).
+---
+--- By default this table contains the single entry `{ "^\..*$" }` which is a regular expression matching all files that begin with a period.
 module.defaultPathListExcludes = {
     "^\\..*$",
---     "^\\.git",
---     "^\\.DS_Store$",
---     "^\\.metadata_never_index$",
---     "^\\.fseventsd$",
---     "^\\.Trashes$",
---     "^\\.luarc.json$",
---     "^\\._",
 }
 
 -- Return Module Object --------------------------------------------------
