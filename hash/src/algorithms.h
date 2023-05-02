@@ -50,26 +50,22 @@ extern void append_SHA512(void *_context, NSData *data) ;
 extern NSData *finish_SHA512(void *_context) ;
 
 extern void *init_hmacMD5(NSData *key) ;
-extern void append_hmacMD5(void *_context, NSData *data) ;
 extern NSData *finish_hmacMD5(void *_context) ;
 
 extern void *init_hmacSHA1(NSData *key) ;
-extern void append_hmacSHA1(void *_context, NSData *data) ;
 extern NSData *finish_hmacSHA1(void *_context) ;
 
 extern void *init_hmacSHA224(NSData *key) ;
-extern void append_hmacSHA224(void *_context, NSData *data) ;
 extern NSData *finish_hmacSHA224(void *_context) ;
 
 extern void *init_hmacSHA256(NSData *key) ;
-extern void append_hmacSHA256(void *_context, NSData *data) ;
 extern NSData *finish_hmacSHA256(void *_context) ;
 
 extern void *init_hmacSHA384(NSData *key) ;
-extern void append_hmacSHA384(void *_context, NSData *data) ;
 extern NSData *finish_hmacSHA384(void *_context) ;
 
 extern void *init_hmacSHA512(NSData *key) ;
-extern void append_hmacSHA512(void *_context, NSData *data) ;
 extern NSData *finish_hmacSHA512(void *_context) ;
+
+extern void append_hmac(void *_context, NSData *data) ;
 

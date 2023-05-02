@@ -209,10 +209,6 @@ void *init_hmacMD5(NSData *_key) {
     return _context ;
 }
 
-void append_hmacMD5(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_hmacMD5(void *_context) {
     unsigned char *md = malloc(CC_MD5_DIGEST_LENGTH) ;
     CCHmacFinal((CCHmacContext *)_context, md) ;
@@ -227,10 +223,6 @@ void *init_hmacSHA1(NSData *_key) {
     CCHmacContext *_context = malloc(sizeof(CCHmacContext)) ;
     CCHmacInit(_context, kCCHmacAlgSHA1, _key.bytes, _key.length) ;
     return _context ;
-}
-
-void append_hmacSHA1(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
 }
 
 NSData *finish_hmacSHA1(void *_context) {
@@ -249,10 +241,6 @@ void *init_hmacSHA224(NSData *_key) {
     return _context ;
 }
 
-void append_hmacSHA224(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_hmacSHA224(void *_context) {
     unsigned char *md = malloc(CC_SHA224_DIGEST_LENGTH) ;
     CCHmacFinal((CCHmacContext *)_context, md) ;
@@ -267,10 +255,6 @@ void *init_hmacSHA256(NSData *_key) {
     CCHmacContext *_context = malloc(sizeof(CCHmacContext)) ;
     CCHmacInit(_context, kCCHmacAlgSHA256, _key.bytes, _key.length) ;
     return _context ;
-}
-
-void append_hmacSHA256(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
 }
 
 NSData *finish_hmacSHA256(void *_context) {
@@ -289,10 +273,6 @@ void *init_hmacSHA384(NSData *_key) {
     return _context ;
 }
 
-void append_hmacSHA384(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_hmacSHA384(void *_context) {
     unsigned char *md = malloc(CC_SHA384_DIGEST_LENGTH) ;
     CCHmacFinal((CCHmacContext *)_context, md) ;
@@ -309,10 +289,6 @@ void *init_hmacSHA512(NSData *_key) {
     return _context ;
 }
 
-void append_hmacSHA512(void *_context, NSData *data) {
-    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_hmacSHA512(void *_context) {
     unsigned char *md = malloc(CC_SHA512_DIGEST_LENGTH) ;
     CCHmacFinal((CCHmacContext *)_context, md) ;
@@ -320,3 +296,10 @@ NSData *finish_hmacSHA512(void *_context) {
     _context = NULL ;
     return [NSData dataWithBytesNoCopy:md length:CC_SHA512_DIGEST_LENGTH] ;
 }
+
+#pragma mark - hmac common
+
+void append_hmac(void *_context, NSData *data) {
+    CCHmacUpdate((CCHmacContext *)_context, data.bytes, data.length) ;
+}
+
