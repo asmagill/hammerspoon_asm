@@ -334,14 +334,41 @@ void rhash_sha3_final(sha3_ctx* ctx, unsigned char* result)
     if (result) me64_to_le_str(result, ctx->hash, digest_length);
 }
 
+#ifdef USE_KECCAK
+/**
+* Store calculated hash into the given array.
+*
+* @param ctx the algorithm context containing current hashing state
+* @param result calculated hash in binary form
+*/
+void rhash_keccak_final(sha3_ctx* ctx, unsigned char* result)
+{
+    size_t digest_length = 100 - ctx->block_size / 2;
+    const size_t block_size = ctx->block_size;
+
+    if (!(ctx->rest & SHA3_FINALIZED))
+    {
+        /* clear the rest of the data queue */
+        memset((char*)ctx->message + ctx->rest, 0, block_size - ctx->rest);
+        ((char*)ctx->message)[ctx->rest] |= 0x01;
+        ((char*)ctx->message)[block_size - 1] |= 0x80;
+
+        /* process final block */
+        rhash_sha3_process_block(ctx->hash, ctx->message, block_size);
+        ctx->rest = SHA3_FINALIZED; /* mark context as finalized */
+    }
+
+    assert(block_size > digest_length);
+    if (result) me64_to_le_str(result, ctx->hash, digest_length);
+}
+#endif /* USE_KECCAK */
+
+#pragma mark - Interface functions for Hammerspoon's hs.hash module
+
 void *init_SHA3_224(__unused NSData *key) {
     sha3_ctx *_context = malloc(sizeof(sha3_ctx)) ;
     rhash_sha3_224_init(_context) ;
     return _context ;
-}
-
-void append_SHA3_224(void *_context, NSData *data) {
-    rhash_sha3_update((sha3_ctx *)_context, data.bytes, data.length) ;
 }
 
 NSData *finish_SHA3_224(void *_context) {
@@ -358,10 +385,6 @@ void *init_SHA3_256(__unused NSData *key) {
     return _context ;
 }
 
-void append_SHA3_256(void *_context, NSData *data) {
-    rhash_sha3_update((sha3_ctx *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_SHA3_256(void *_context) {
     unsigned char *md = malloc(sha3_256_hash_size) ;
     rhash_sha3_final((sha3_ctx *)_context, md) ;
@@ -374,10 +397,6 @@ void *init_SHA3_384(__unused NSData *key) {
     sha3_ctx *_context = malloc(sizeof(sha3_ctx)) ;
     rhash_sha3_384_init(_context) ;
     return _context ;
-}
-
-void append_SHA3_384(void *_context, NSData *data) {
-    rhash_sha3_update((sha3_ctx *)_context, data.bytes, data.length) ;
 }
 
 NSData *finish_SHA3_384(void *_context) {
@@ -394,10 +413,6 @@ void *init_SHA3_512(__unused NSData *key) {
     return _context ;
 }
 
-void append_SHA3_512(void *_context, NSData *data) {
-    rhash_sha3_update((sha3_ctx *)_context, data.bytes, data.length) ;
-}
-
 NSData *finish_SHA3_512(void *_context) {
     unsigned char *md = malloc(sha3_512_hash_size) ;
     rhash_sha3_final((sha3_ctx *)_context, md) ;
@@ -405,3 +420,10 @@ NSData *finish_SHA3_512(void *_context) {
     _context = NULL ;
     return [NSData dataWithBytesNoCopy:md length:sha3_512_hash_size] ;
 }
+
+#pragma mark * SHA3 Common
+
+void append_SHA3(void *_context, NSData *data) {
+    rhash_sha3_update((sha3_ctx *)_context, data.bytes, data.length) ;
+}
+
