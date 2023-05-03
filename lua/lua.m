@@ -1,6 +1,9 @@
 //   remove LuaSkin dependency in this specific module so it can be used by itself?
 //       add way to safely fail if LS accessed? Would allow simpler path consolidation
 
+//   add test for being on main thread to module functions
+//
+
 //   move data conversion into recursive function
 //       handle tables (can we do without recursion?)
 //       handle functions (see lua src lstr.c)?
@@ -19,7 +22,8 @@
 @import LuaSkin ;
 
 static const char * const USERDATA_TAG = "hs._asm.lua" ;
-static LSRefTable         refTable     = LUA_NOREF ;
+
+static NSMutableDictionary *refTable = nil ;
 
 static NSArray          *defaultColors ;
 static NSUInteger       currentColorIdx = 0 ;
@@ -28,6 +32,9 @@ static dispatch_queue_t lua_queue ;
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
+
+static int pushASMLuaInstance(lua_State *L, id obj) ;
+static id  toASMLuaInstanceFromLua(lua_State *L, int idx) ;
 
 static int msghandler (lua_State *L) {
   const char *msg = lua_tostring(L, 1);
@@ -84,13 +91,12 @@ static int msghandler (lua_State *L) {
     return (_selfRef != LUA_NOREF) ;
 }
 
-- (void)run {
-    LuaSkin  *skin = [LuaSkin sharedWithState:NULL] ;
-
+- (void)runWithState:(lua_State *)L {
     if (!self.isActive) {
-        [skin pushNSObject:self] ;
-        _selfRef = [skin luaRef:refTable] ;
-        _selfRefCount++ ;
+        // store on stack so we're not collected while running something
+        // uses registry directly to minimize dependance upon LuaSkin
+        pushASMLuaInstance(L, self) ;
+        _selfRef = luaL_ref(L, LUA_REGISTRYINDEX) ;
     }
 
     NSData *cmd  = _queuedCommands.firstObject ;
@@ -165,18 +171,19 @@ static int msghandler (lua_State *L) {
 
             // now get next command
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self run] ;
+                [self runWithState:L] ;
             }) ;
         }) ;
     } else {
-        _selfRef = [skin luaUnref:refTable ref:_selfRef] ;
+        luaL_unref(L, LUA_REGISTRYINDEX, selfRef) ;
+        _selfRef = LUA_NOREF ;
         _selfRefCount-- ;
     }
 }
 
-- (void)enqueue:(NSData *)cmd {
+- (void)enqueue:(NSData *)cmd withState:(lua_State *)L {
     [_queuedCommands addObject:cmd] ;
-    if (!self.isActive) [self run] ;
+    if (!self.isActive) [self runWithState:L] ;
 }
 
 - (void)interrupt {
@@ -208,23 +215,27 @@ static int asm_lua_new(lua_State *L) {
     return 1 ;
 }
 
+static int asm_lua_onMainThread(lua_State *L) {
+    lua_pushboolean(L, NSThread.isMainThread) ;
+    return 1 ;
+}
+
 #pragma mark - Module Methods
 
 static int asm_lua_enqueue(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TSTRING, LS_TBREAK] ;
-    ASMLuaInstance *obj = [skin toNSObjectAtIndex:1] ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
     NSData         *cmd = [skin toNSObjectAtIndex:2 withOptions:LS_NSLuaStringAsDataOnly] ;
-    [obj enqueue:cmd] ;
+    [obj enqueue:cmd withState:L] ;
 
     lua_pushvalue(L, 1) ;
     return 1 ;
 }
 
 static int asm_lua_isActive(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMLuaInstance *obj = [skin toNSObjectAtIndex:1] ;
+    if (lua_gettop(L) != 1) return luaL_error(L, "no arguments expected") ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
 
     lua_pushboolean(L, (obj.isActive)) ;
     return 1 ;
@@ -233,7 +244,7 @@ static int asm_lua_isActive(lua_State *L) {
 static int asm_lua_callback(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TFUNCTION | LS_TNIL | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMLuaInstance *obj = [skin toNSObjectAtIndex:1] ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
 
     if (lua_gettop(L) == 1) {
         if (obj.callbackRef != LUA_NOREF) {
@@ -255,7 +266,7 @@ static int asm_lua_callback(lua_State *L) {
 static int asm_lua_printColor(lua_State *L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TTABLE | LS_TOPTIONAL, LS_TBREAK] ;
-    ASMLuaInstance *obj = [skin toNSObjectAtIndex:1] ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
 
     if (lua_gettop(L) == 1) {
         [skin pushNSObject:obj.printColor] ;
@@ -272,13 +283,20 @@ static int asm_lua_printColor(lua_State *L) {
 }
 
 static int asm_lua_break(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TUSERDATA, USERDATA_TAG, LS_TBREAK] ;
-    ASMLuaInstance *obj = [skin toNSObjectAtIndex:1] ;
+    if (lua_gettop(L) != 1) return luaL_error(L, "no arguments expected") ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
 
     [obj interrupt] ;
 
     lua_pushvalue(L, 1) ;
+    return 1 ;
+}
+
+static int asm_lua_refCount(lua_State *L) {
+    if (lua_gettop(L) != 1) return luaL_error(L, "no arguments expected") ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge ASMLuaInstance, L, 1, USERDATA_TAG) ;
+
+    lua_pushinteger(L, obj.selfRefCount) ;
     return 1 ;
 }
 
@@ -300,13 +318,12 @@ static int pushASMLuaInstance(lua_State *L, id obj) {
 }
 
 static id toASMLuaInstanceFromLua(lua_State *L, int idx) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     ASMLuaInstance *value ;
     if (luaL_testudata(L, idx, USERDATA_TAG)) {
         value = get_objectFromUserdata(__bridge ASMLuaInstance, L, idx, USERDATA_TAG) ;
     } else {
-        [skin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
-                                                   lua_typename(L, lua_type(L, idx))]] ;
+        [LuaSkin logError:[NSString stringWithFormat:@"expected %s object, found %s", USERDATA_TAG,
+                                                      lua_typename(L, lua_type(L, idx))]] ;
     }
     return value ;
 }
@@ -314,12 +331,11 @@ static id toASMLuaInstanceFromLua(lua_State *L, int idx) {
 #pragma mark - Hammerspoon/Lua Infrastructure
 
 static int userdata_tostring(lua_State* L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    ASMLuaInstance *obj = [skin luaObjectAtIndex:1 toClass:"ASMLuaInstance"] ;
+    ASMLuaInstance *obj = get_objectFromUserdata(__bridge_transfer ASMLuaInstance, L, 1, USERDATA_TAG) ;
     NSString *title = [NSString stringWithFormat:@"%@ (%lu queued)",
                                                  (obj.isActive ? @"active" : @"idle"),
                                                  obj.queuedCommands.count] ;
-    [skin pushNSObject:[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)]] ;
+    lua_pushstring(L, [[NSString stringWithFormat:@"%s: %@ (%p)", USERDATA_TAG, title, lua_topointer(L, 1)] UTF8String]) ;
     return 1 ;
 }
 
@@ -327,9 +343,8 @@ static int userdata_eq(lua_State* L) {
 // can't get here if at least one of us isn't a userdata type, and we only care if both types are ours,
 // so use luaL_testudata before the macro causes a lua error
     if (luaL_testudata(L, 1, USERDATA_TAG) && luaL_testudata(L, 2, USERDATA_TAG)) {
-        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-        ASMLuaInstance *obj1 = [skin luaObjectAtIndex:1 toClass:"ASMLuaInstance"] ;
-        ASMLuaInstance *obj2 = [skin luaObjectAtIndex:2 toClass:"ASMLuaInstance"] ;
+        ASMLuaInstance *obj1 = get_objectFromUserdata(__bridge_transfer ASMLuaInstance, L, 1, USERDATA_TAG) ;
+        ASMLuaInstance *obj2 = get_objectFromUserdata(__bridge_transfer ASMLuaInstance, L, 2, USERDATA_TAG) ;
         lua_pushboolean(L, [obj1 isEqualTo:obj2]) ;
     } else {
         lua_pushboolean(L, NO) ;
@@ -342,13 +357,15 @@ static int userdata_gc(lua_State* L) {
     if (obj) {
         obj. selfRefCount-- ;
         if (obj.selfRefCount == 0) {
-            LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-            obj.callbackRef = [skin luaUnref:refTable ref:obj.callbackRef] ;
-
+            if (obj.callbackRef != LUA_NOREF) {
+                lua_rawgeti(L, LUA_REGISTRYINDEX, refTable[@(L)]) ;
+                luaL_unref(L, -1, obj.callbackRef) ;
+                lua_remove(L, -1) ;
+                obj.callbackRef = LUA_NOREF ;
+            }
             [obj close] ;
             obj = nil ;
         }
-
     }
     // Remove the Metatable so future use of the variable in Lua won't think its valid
     lua_pushnil(L) ;
@@ -357,9 +374,7 @@ static int userdata_gc(lua_State* L) {
 }
 
 static int meta_gc(lua_State* __unused L) {
-//     dispatch_release(lua_queue) ; // Not needed with ARC
-    lua_queue = nil ;
-    defaultColors = nil ;
+    refTable[@(L)] = nil ;
     return 0 ;
 }
 
@@ -372,6 +387,8 @@ static const luaL_Reg userdata_metaLib[] = {
     {"printColor", asm_lua_printColor},
     {"break",      asm_lua_break},
 
+    {"refCount",   asm_lua_refCount},
+
     {"__tostring", userdata_tostring},
     {"__eq",       userdata_eq},
     {"__gc",       userdata_gc},
@@ -380,58 +397,90 @@ static const luaL_Reg userdata_metaLib[] = {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"new", asm_lua_new},
+    {"new",          asm_lua_new},
+    {"onMainThread", asm_lua_onMainThread},
 
     {NULL, NULL}
 };
 
 // Metatable for module, if needed
+// static const luaL_Reg module_metaLib[] = NULL ;
 static const luaL_Reg module_metaLib[] = {
     {"__gc", meta_gc},
     {NULL,   NULL}
 };
 
 int luaopen_hs__asm_lua_lua(lua_State* L) {
-    lua_queue = dispatch_queue_create_with_target(USERDATA_TAG, DISPATCH_QUEUE_CONCURRENT, dispatch_get_global_queue(QOS_CLASS_BACKGROUND ,0)) ;
+    static dispatch_once_t onceToken ;
+    dispatch_once(&onceToken, ^{
+        lua_queue = dispatch_queue_create_with_target(USERDATA_TAG, DISPATCH_QUEUE_CONCURRENT, dispatch_get_global_queue(QOS_CLASS_BACKGROUND ,0)) ;
 
-    if (@available(macOS 10.15, *)) {
-        defaultColors = @[
-            NSColor.systemBlueColor,
-            NSColor.systemBrownColor,
-            NSColor.systemGrayColor,
-            NSColor.systemGreenColor,
-            NSColor.systemIndigoColor,
-            NSColor.systemOrangeColor,
-            NSColor.systemPinkColor,
-            NSColor.systemPurpleColor,
-            NSColor.systemRedColor,
-            NSColor.systemTealColor,
-            NSColor.systemYellowColor
-        ] ;
-    } else {
-        defaultColors = @[
-            NSColor.systemBlueColor,
-            NSColor.systemBrownColor,
-            NSColor.systemGrayColor,
-            NSColor.systemGreenColor,
-            NSColor.systemOrangeColor,
-            NSColor.systemPinkColor,
-            NSColor.systemPurpleColor,
-            NSColor.systemRedColor,
-            NSColor.systemTealColor,
-            NSColor.systemYellowColor
-        ] ;
+        refTable = [NSMutableDictionary dictionary] ;
+
+        if (@available(macOS 10.15, *)) {
+            defaultColors = @[
+                NSColor.systemBlueColor,
+                NSColor.systemBrownColor,
+                NSColor.systemGrayColor,
+                NSColor.systemGreenColor,
+                NSColor.systemIndigoColor,
+                NSColor.systemOrangeColor,
+                NSColor.systemPinkColor,
+                NSColor.systemPurpleColor,
+                NSColor.systemRedColor,
+                NSColor.systemTealColor,
+                NSColor.systemYellowColor
+            ] ;
+        } else {
+            defaultColors = @[
+                NSColor.systemBlueColor,
+                NSColor.systemBrownColor,
+                NSColor.systemGrayColor,
+                NSColor.systemGreenColor,
+                NSColor.systemOrangeColor,
+                NSColor.systemPinkColor,
+                NSColor.systemPurpleColor,
+                NSColor.systemRedColor,
+                NSColor.systemTealColor,
+                NSColor.systemYellowColor
+            ] ;
+        }
+    }) ;
+
+    luaL_newlib(L, userdata_metaLib) ;
+    lua_pushvalue(L, -1) ;
+    lua_setfield(L, -2, "__index") ;
+    lua_pushstring(L, USERDATA_TAG) ;
+    lua_setfield(L, -2, "__type") ;
+    // used by some error functions in Lua
+    lua_pushstring(L, USERDATA_TAG) ;
+    lua_setfield(L, -2, "__name") ;
+    lua_setfield(L, LUA_REGISTRYINDEX, USERDATA_TAG) ;
+
+    luaL_newlib(L, moduleLib) ;
+    if (module_metaLib != NULL) {
+        luaL_newlib(L, module_metaLib) ;
+        lua_setmetatable(L, -2) ;
     }
+    lua_newtable(L) ;
+    lua_pushstring(L, USERDATA_TAG) ;
+    lua_setfield(L, -2, "__type") ;
+    int tmpRefTable = luaL_ref(L, LUA_REGISTRYINDEX) ;
+    lua_pushinteger(L, tmpRefTable) ;
+    lua_setfield(L, -2, "__refTable") ;
 
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    refTable = [skin registerLibraryWithObject:USERDATA_TAG
-                                     functions:moduleLib
-                                 metaFunctions:module_metaLib
-                               objectFunctions:userdata_metaLib];
+// FIXME: need to figure out how best to do this
+//        will probably require Meta_gc to clear
+    refTable[@(L)] = @(tmpRefTable) ;
 
-    [skin registerPushNSHelper:pushASMLuaInstance         forClass:"ASMLuaInstance"];
-    [skin registerLuaObjectHelper:toASMLuaInstanceFromLua forClass:"ASMLuaInstance"
-                                               withUserdataMapping:USERDATA_TAG];
+    if (NSThread.isMainThread) {
+        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+        if (L == skin.L) {
+            [skin registerPushNSHelper:pushASMLuaInstance         forClass:"ASMLuaInstance"] ;
+            [skin registerLuaObjectHelper:toASMLuaInstanceFromLua forClass:"ASMLuaInstance"
+                                                       withUserdataMapping:USERDATA_TAG] ;
+        }
+    }
 
     return 1;
 }
