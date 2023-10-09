@@ -31,3 +31,6 @@
 [submodule "spaces"]
 	path = spaces
 	url = https://github.com/asmagill/hs._asm.spaces.git
+[submodule "uitk"]
+	path = uitk
+	url = https://github.com/asmagill/hs._asm.uitk.git
