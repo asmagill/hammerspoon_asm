@@ -8,7 +8,7 @@ static LSRefTable         refTable     = LUA_NOREF ;
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
-#pragma mark - Support Functions and Classes
+#pragma mark - Support Functions and Classes -
 
 // @interface <moduleType> : NSObject
 // @property int selfRef ;      -- one of these, but probably not both
@@ -26,9 +26,9 @@ static LSRefTable         refTable     = LUA_NOREF ;
 // }
 // @end
 
-#pragma mark - Module Functions
+#pragma mark - Module Functions -
 
-#pragma mark - Module Methods
+#pragma mark - Module Methods -
 
 // // if using selfRef (not selfRefCount, unless you're using a hybrid)
 // static int userdata_gc(lua_State *L) ; // forward ref for delete method
@@ -43,9 +43,9 @@ static LSRefTable         refTable     = LUA_NOREF ;
 // }
 // // or just move userdata_gc into this method and change the functionref in module_metatable below.
 
-#pragma mark - Module Constants
+#pragma mark - Module Constants -
 
-#pragma mark - Lua<->NSObject Conversion Functions
+#pragma mark - Lua<->NSObject Conversion Functions -
 // These must not throw a lua error to ensure LuaSkin can safely be used from Objective-C
 // delegates and blocks.
 
@@ -95,7 +95,7 @@ static LSRefTable         refTable     = LUA_NOREF ;
 //     return value ;
 // }
 
-#pragma mark - Hammerspoon/Lua Infrastructure
+#pragma mark - Hammerspoon/Lua Infrastructure -
 
 // static int userdata_tostring(lua_State* L) {
 //     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
