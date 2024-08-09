@@ -162,14 +162,11 @@ install-universal: verify install-lua $(DYLIBS_univeral)
 # 	cp -vpR $(DYLIBS_univeral:.dylib=.dylib.dSYM) $(PREFIX)/$(MODPATH)/$(MODULE)
 
 uninstall:
-	rm -v -f $(PREFIX)/$(MODPATH)/{$(subst $(space),$(comma),$(notdir $(ALLFILES)))}
-	(pushd $(PREFIX)/$(MODPATH)/ ; rm -v -fr $(DYLIBS:.dylib=.dylib.dSYM) ; popd)
-	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE).docs.json
-	rmdir -p $(PREFIX)/$(MODPATH) ; exit 0
-# 	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE)/{$(subst $(space),$(comma),$(ALLFILES))}
-# 	(pushd $(PREFIX)/$(MODPATH)/$(MODULE)/ ; rm -v -fr $(DYLIBS:.dylib=.dylib.dSYM) ; popd)
-# 	rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE)/docs.json
-# 	rmdir -p $(PREFIX)/$(MODPATH)/$(MODULE) ; exit 0
+	-rm -v -f $(PREFIX)/$(MODPATH)/{$(subst $(space),$(comma),$(notdir $(ALLFILES)))}
+	-(pushd $(PREFIX)/$(MODPATH)/ ; rm -v -fr $(DYLIBS:.dylib=.dylib.dSYM) ; popd)
+	-rm -v -f $(PREFIX)/$(MODPATH)/$(MODULE).docs.json
+	-rm -v -fr $(PREFIX)/$(MODPATH)/$(MODULE)
+	-rmdir -p $(PREFIX)/$(MODPATH)
 
 clean:
 	rm -rf obj_x86_64 obj_arm64 obj_universal tmp $(MODULE).docs.json
