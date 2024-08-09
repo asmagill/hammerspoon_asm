@@ -317,7 +317,7 @@ static luaL_Reg protocol_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_protocol(lua_State* L) {
+int luaopen_hs__asm_libobjc_protocol(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:PROTOCOL_USERDATA_TAG
                                      functions:protocol_moduleLib

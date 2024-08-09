@@ -1,4 +1,28 @@
--- maybe save some pain, if the shim is installed; otherwise, expect an objc dump to console when this loads on stock Hammerspoon without pull #2308 applied
+-- REMOVE IF ADDED TO CORE APPLICATION
+    repeat
+        -- add proper user dylib path if it doesn't already exist
+        if not package.cpath:match(hs.configdir .. "/%?.dylib") then
+            package.cpath = hs.configdir .. "/?.dylib;" .. package.cpath
+        end
+
+        -- load docs file if provided
+        local basePath, moduleName = debug.getinfo(1, "S").source:match("^@(.*)/([%w_]+).lua$")
+        if basePath and moduleName then
+            if moduleName == "init" then
+                moduleName = moduleName:match("/([%w_]+)$")
+            end
+
+            local docsFileName = basePath .. "/" .. moduleName .. ".docs.json"
+            if require"hs.fs".attributes(docsFileName) then
+                require"hs.doc".registerJSONFile(docsFileName)
+            end
+        end
+
+        -- setup loaders for submodules (if any)
+        --     copy into Hammerspoon/setup.lua before removing
+
+    until true -- executes once and hides any local variables we create
+-- END REMOVE IF ADDED TO CORE APPLICATION
 
 --- === hs._asm.objc ===
 ---
@@ -34,15 +58,7 @@
 ---   * Creating an Objective-C class at run-time with Hammerspoon/Lua as the language/environment of the class methods.  An interesting idea, but not one I have had the time to play with yet.  I don't know if this will be added or not because even if it is feasible to do so, it will still be significantly slower than anything coded directly in Objective-C or Swift.  Still, since this module is for playing around, who knows if the bug will bite hard enough to make a go at it :-]
 
 local USERDATA_TAG = "hs._asm.objc"
-local module       = require(USERDATA_TAG..".internal")
-
-local basePath = package.searchpath(USERDATA_TAG, package.path)
-if basePath then
-    basePath = basePath:match("^(.+)/init.lua$")
-    if require"hs.fs".attributes(basePath .. "/docs.json") then
-        require"hs.doc".registerJSONFile(basePath .. "/docs.json")
-    end
-end
+local module       = require(table.concat({ USERDATA_TAG:match("^([%w%._]+%.)([%w_]+)$") }, "lib"))
 
 -- private variables and methods -----------------------------------------
 
@@ -382,10 +398,10 @@ objectMT.methodList = function(self, ...) return self:class():methodList(...) en
 objectMT.__call = function(obj, ...) return objectMT.msgSend(obj, ...) end
 classMT.__call  = function(obj, ...) return classMT.msgSend(obj, ...) end
 
-module.class    = setmetatable(module.class,    { __call = function(_, ...) return module.class.fromString(...) end})
-module.protocol = setmetatable(module.protocol, { __call = function(_, ...) return module.protocol.fromString(...) end})
-module.selector = setmetatable(module.selector, { __call = function(_, ...) return module.selector.fromString(...) end})
+module.class    = setmetatable(module.class,    { __call = function(_, ...) return module.class.fromString(...) end })
+module.protocol = setmetatable(module.protocol, { __call = function(_, ...) return module.protocol.fromString(...) end })
+module.selector = setmetatable(module.selector, { __call = function(_, ...) return module.selector.fromString(...) end })
 
 -- Return Module Object --------------------------------------------------
 
-return module
+return setmetatable(module, { __call = function(...) return module.class.fromString(...) end })

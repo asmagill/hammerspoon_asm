@@ -163,8 +163,9 @@ static int invocator(lua_State *L) {
         return luaL_error(L, "invalid number of arguments") ;
 
     const char *returnType = [signature methodReturnType] ;
-    UInt typePos ;
+    UInt returnTypePos ;
     switch(returnType[0]) {
+// ??? what can we do to better support these? do we need/want to?
         case 'r':   // const
         case 'n':   // in
         case 'N':   // inout
@@ -172,9 +173,9 @@ static int invocator(lua_State *L) {
         case 'O':   // bycopy
         case 'R':   // byref
         case 'V':   // oneway
-            typePos = 1 ; break ;
+            returnTypePos = 1 ; break ;
         default:
-            typePos = 0 ; break ;
+            returnTypePos = 0 ; break ;
     }
 
 #if defined(DEBUG_msgSend)
@@ -199,6 +200,7 @@ static int invocator(lua_State *L) {
         const char *argumentType = [signature getArgumentTypeAtIndex:(NSUInteger)invocationIndex] ;
         UInt argTypePos ;
         switch(argumentType[0]) {
+// ??? what can we do to better support these? do we need/want to?
             case 'r':   // const
             case 'n':   // in
             case 'N':   // inout
@@ -322,10 +324,12 @@ static int invocator(lua_State *L) {
                         return luaL_error(L, "wrong structure:found %s, expected %s", [val objCType], argumentType) ;
                     }
                 } else {
+// ??? what can we do to better support these? do we need/want to?
                     return luaL_error(L, "argument is not a recognized structure") ;
                 }
             }   break ;
 
+// ??? what can we do to better support these? do we need/want to?
             // partial support, for when it's NULL
             case '^': {
                 if (lua_type(L, luaIndex) == LUA_TNIL) {
@@ -343,7 +347,7 @@ static int invocator(lua_State *L) {
 
             default:
                 return luaL_error(L, "unsupported argument type %s for position %d", argumentType, idx + 1) ;
-                break ;
+//                 break ;
         }
     }
 
@@ -360,7 +364,7 @@ static int invocator(lua_State *L) {
     }
 
     NSUInteger length = [signature methodReturnLength] ;
-    switch(returnType[typePos]) {
+    switch(returnType[returnTypePos]) {
         case 'c': { // char
             char result ;
             [invocation getReturnValue:&result] ;
@@ -545,7 +549,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_internal(lua_State* L) {
+int luaopen_hs__asm_libobjc(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
 
     refTable = [skin registerLibrary:ROOT_USERDATA_TAG functions:moduleLib metaFunctions:nil] ;
@@ -553,13 +557,13 @@ int luaopen_hs__asm_objc_internal(lua_State* L) {
     [skin registerPushNSHelper:NSMethodSignature_toLua forClass:"NSMethodSignature"] ;
     [skin registerPushNSHelper:NSException_toLua       forClass:"NSException"] ;
 
-    luaopen_hs__asm_objc_class(L) ;    lua_setfield(L, -2, "class") ;
-    luaopen_hs__asm_objc_ivar(L) ;     lua_setfield(L, -2, "ivar") ;
-    luaopen_hs__asm_objc_method(L) ;   lua_setfield(L, -2, "method") ;
-    luaopen_hs__asm_objc_object(L) ;   lua_setfield(L, -2, "object") ;
-    luaopen_hs__asm_objc_property(L) ; lua_setfield(L, -2, "property") ;
-    luaopen_hs__asm_objc_protocol(L) ; lua_setfield(L, -2, "protocol") ;
-    luaopen_hs__asm_objc_selector(L) ; lua_setfield(L, -2, "selector") ;
+    luaopen_hs__asm_libobjc_class(L) ;    lua_setfield(L, -2, "class") ;
+    luaopen_hs__asm_libobjc_ivar(L) ;     lua_setfield(L, -2, "ivar") ;
+    luaopen_hs__asm_libobjc_method(L) ;   lua_setfield(L, -2, "method") ;
+    luaopen_hs__asm_libobjc_object(L) ;   lua_setfield(L, -2, "object") ;
+    luaopen_hs__asm_libobjc_property(L) ; lua_setfield(L, -2, "property") ;
+    luaopen_hs__asm_libobjc_protocol(L) ; lua_setfield(L, -2, "protocol") ;
+    luaopen_hs__asm_libobjc_selector(L) ; lua_setfield(L, -2, "selector") ;
 
     return 1;
 }

@@ -22,13 +22,13 @@
 
 #define get_objectFromUserdata(objType, L, idx, tag) ((objType)(*((void**)luaL_checkudata(L, idx, tag))))
 
-int luaopen_hs__asm_objc_class(lua_State* L) ;
-int luaopen_hs__asm_objc_ivar(lua_State* L) ;
-int luaopen_hs__asm_objc_method(lua_State* L) ;
-int luaopen_hs__asm_objc_object(lua_State* L) ;
-int luaopen_hs__asm_objc_property(lua_State* L) ;
-int luaopen_hs__asm_objc_protocol(lua_State* L) ;
-int luaopen_hs__asm_objc_selector(lua_State* L) ;
+int luaopen_hs__asm_libobjc_class(lua_State* L) ;
+int luaopen_hs__asm_libobjc_ivar(lua_State* L) ;
+int luaopen_hs__asm_libobjc_method(lua_State* L) ;
+int luaopen_hs__asm_libobjc_object(lua_State* L) ;
+int luaopen_hs__asm_libobjc_property(lua_State* L) ;
+int luaopen_hs__asm_libobjc_protocol(lua_State* L) ;
+int luaopen_hs__asm_libobjc_selector(lua_State* L) ;
 
 int push_class(lua_State *L, Class cls) ;
 int push_ivar(lua_State *L, Ivar iv) ;

@@ -1,0 +1,1 @@
+It might be possible to resolve *all* (at least public) symbols at runtime with a combination of parsing the bridgesupport files and `dlsym` -- need to explore.

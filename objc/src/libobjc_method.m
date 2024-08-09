@@ -226,7 +226,7 @@ static luaL_Reg method_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_method(lua_State* L) {
+int luaopen_hs__asm_libobjc_method(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:METHOD_USERDATA_TAG
                                      functions:method_moduleLib

@@ -128,7 +128,7 @@ static luaL_Reg selector_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_selector(lua_State* L) {
+int luaopen_hs__asm_libobjc_selector(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:SEL_USERDATA_TAG
                                      functions:selector_moduleLib

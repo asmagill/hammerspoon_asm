@@ -174,7 +174,7 @@ static luaL_Reg object_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_object(lua_State* L) {
+int luaopen_hs__asm_libobjc_object(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:ID_USERDATA_TAG
                                      functions:object_moduleLib

@@ -143,7 +143,7 @@ static luaL_Reg ivar_moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs__asm_objc_ivar(lua_State* L) {
+int luaopen_hs__asm_libobjc_ivar(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibraryWithObject:IVAR_USERDATA_TAG
                                      functions:ivar_moduleLib
