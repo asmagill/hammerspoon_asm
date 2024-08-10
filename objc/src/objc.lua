@@ -404,4 +404,4 @@ module.selector = setmetatable(module.selector, { __call = function(_, ...) retu
 
 -- Return Module Object --------------------------------------------------
 
-return setmetatable(module, { __call = function(...) return module.class.fromString(...) end })
+return setmetatable(module, { __call = function(self, ...) return self.class.fromString(...) end })

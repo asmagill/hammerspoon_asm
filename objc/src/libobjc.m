@@ -166,13 +166,14 @@ static int invocator(lua_State *L) {
     UInt returnTypePos ;
     switch(returnType[0]) {
 // ??? what can we do to better support these? do we need/want to?
-        case 'r':   // const
-        case 'n':   // in
-        case 'N':   // inout
-        case 'o':   // out
-        case 'O':   // bycopy
-        case 'R':   // byref
-        case 'V':   // oneway
+        case _C_CONST:
+        case _C_IN:
+        case _C_INOUT:
+        case _C_OUT:
+        case _C_BYCOPY:
+        case _C_BYREF:
+        case _C_ONEWAY:
+// ??? what are _C_COMPLEX ('j'), _C_ATOMIC ('A'), _C_GNUREGISTER ('*')
             returnTypePos = 1 ; break ;
         default:
             returnTypePos = 0 ; break ;
@@ -201,20 +202,21 @@ static int invocator(lua_State *L) {
         UInt argTypePos ;
         switch(argumentType[0]) {
 // ??? what can we do to better support these? do we need/want to?
-            case 'r':   // const
-            case 'n':   // in
-            case 'N':   // inout
-            case 'o':   // out
-            case 'O':   // bycopy
-            case 'R':   // byref
-            case 'V':   // oneway
+            case _C_CONST:
+            case _C_IN:
+            case _C_INOUT:
+            case _C_OUT:
+            case _C_BYCOPY:
+            case _C_BYREF:
+            case _C_ONEWAY:
+// ??? what are _C_COMPLEX ('j'), _C_ATOMIC ('A'), _C_GNUREGISTER ('*')
                 argTypePos = 1 ; break ;
             default:
                 argTypePos = 0 ; break ;
         }
 
         switch(argumentType[argTypePos]) {
-            case 'c': { // char
+            case _C_CHR: { // char
                 char val ;
                 if (lua_type(L, luaIndex) == LUA_TBOOLEAN) {
                     val = (char)lua_toboolean(L, luaIndex) ;
@@ -224,74 +226,74 @@ static int invocator(lua_State *L) {
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 's': { // short
+            case _C_SHT: { // short
                 short val = (short)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'i': { // int
+            case _C_INT: { // int
                 int val = (int)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'l': { // long
+            case _C_LNG: { // long
                 long val = (long)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'q': { // long long
+            case _C_LNG_LNG: { // long long
                 long long val = (long long)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'Q': { // unsigned long long
+            case _C_ULNG_LNG: { // unsigned long long
                 unsigned long long val = (unsigned long long)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'L': { // unsigned long
+            case _C_ULNG: { // unsigned long
                 unsigned long val = (unsigned long)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'I': { // unsigned int
+            case _C_UINT: { // unsigned int
                 unsigned int val = (unsigned int)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'S': { // unsigned short
+            case _C_USHT: { // unsigned short
                 unsigned short val = (unsigned short)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'C': { // unsigned char
+            case _C_UCHR: { // unsigned char
                 unsigned char val = (unsigned char)luaL_checkinteger(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'B': { // C++ bool or a C99 _Bool
+            case _C_BOOL: { // C++ bool or a C99 _Bool
                 Boolean val = (Boolean)lua_toboolean(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-//             case 'v':   // void
+//             case _C_VOID:   // void
 //                 break ;
-            case '*': { // char *
+            case _C_CHARPTR: { // char *
                 const char *val = lua_tostring(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'f': { // float
+            case _C_FLT: { // float
                 float val = (float)luaL_checknumber(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case 'd': { // double
+            case _C_DBL: { // double
                 double val = (double)luaL_checknumber(L, luaIndex) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case '@': { // ID
+            case _C_ID: { // ID
                 id val ;
                 if (lua_type(L, luaIndex) != LUA_TNIL) {
                     val = get_objectFromUserdata(__bridge id, L, luaIndex, ID_USERDATA_TAG) ;
@@ -299,17 +301,17 @@ static int invocator(lua_State *L) {
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case '#': { // Class
+            case _C_CLASS: { // Class
                 Class val = get_objectFromUserdata(__bridge Class, L, luaIndex, CLASS_USERDATA_TAG) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case ':': { // SEL
+            case _C_SEL: { // SEL
                 SEL val = get_objectFromUserdata(SEL, L, luaIndex, SEL_USERDATA_TAG) ;
                 [invocation setArgument:&val atIndex:invocationIndex] ;
                 [invocation retainArguments] ;
             }   break ;
-            case '{': { // struct
+            case _C_STRUCT_B: { // struct
                 NSValue *val = [skin toNSObjectAtIndex:luaIndex] ;
                 if ([val isKindOfClass:[NSValue class]]) {
                     if (!strcmp(argumentType, [val objCType])) {
@@ -325,13 +327,13 @@ static int invocator(lua_State *L) {
                     }
                 } else {
 // ??? what can we do to better support these? do we need/want to?
-                    return luaL_error(L, "argument is not a recognized structure") ;
+                    return luaL_error(L, "argument is not recognized as a structure") ;
                 }
             }   break ;
 
 // ??? what can we do to better support these? do we need/want to?
             // partial support, for when it's NULL
-            case '^': {
+            case _C_PTR: {
                 if (lua_type(L, luaIndex) == LUA_TNIL) {
                     id val ;
                     [invocation setArgument:&val atIndex:invocationIndex] ;
@@ -339,11 +341,16 @@ static int invocator(lua_State *L) {
                     break ;
                 }
             }
-    //     [array type]    An array
-    //     (name=type...)  A union
-    //     bnum            A bit field of num bits
-    //     ^type           A pointer to type
-    //     ?               An unknown type (among other things, this code is used for function pointers)
+//     _C_ARY_B/E   [array type]    An array
+//     _C_UNION_B/E (name=type...)  A union
+//     _C_BFLD      bnum            A bit field of num bits
+//     _C_PTR       ^type           A pointer to type
+//     _C_UNDEF     ?               An unknown type (among other things, this code is used for function pointers)
+//     _C_INT128      't'
+//     _C_UINT128     'T'
+//     _C_LNG_DBL     'D'
+//     _C_ATOM        '%'
+//     _C_VECTOR      '!'
 
             default:
                 return luaL_error(L, "unsupported argument type %s for position %d", argumentType, idx + 1) ;
@@ -365,7 +372,7 @@ static int invocator(lua_State *L) {
 
     NSUInteger length = [signature methodReturnLength] ;
     switch(returnType[returnTypePos]) {
-        case 'c': { // char
+        case _C_CHR: { // char
             char result ;
             [invocation getReturnValue:&result] ;
             // this type sucks because if 0 or 1, it's *usually* boolean... except when it's not.
@@ -376,75 +383,75 @@ static int invocator(lua_State *L) {
             else
                 lua_pushinteger(L, result) ;
         }   break ;
-        case 's': { // short
+        case _C_SHT: { // short
             short result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'i': { // int
+        case _C_INT: { // int
             int result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'l': { // long
+        case _C_LNG: { // long
             long result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'q': { // long long
+        case _C_LNG_LNG: { // long long
             long long result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'Q': { // unsigned long long
+        case _C_ULNG_LNG: { // unsigned long long
             unsigned long long result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, (long long)result) ; // lua can't do unsigned long long
         }   break ;
-        case 'L': { // unsigned long
+        case _C_ULNG: { // unsigned long
             unsigned long result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, (long long)result) ; // lua can't do unsigned long
         }   break ;
-        case 'I': { // unsigned int
+        case _C_UINT: { // unsigned int
             unsigned int result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'S': { // unsigned short
+        case _C_USHT: { // unsigned short
             unsigned short result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'C': { // unsigned char
+        case _C_UCHR: { // unsigned char
             unsigned char result ;
             [invocation getReturnValue:&result] ;
             lua_pushinteger(L, result) ;
         }   break ;
-        case 'B': { // C++ bool or a C99 _Bool
+        case _C_BOOL: { // C++ bool or a C99 _Bool
             _Bool result ;
             [invocation getReturnValue:&result] ;
             lua_pushboolean(L, result) ;
         }   break ;
-        case 'v':   // void
+        case _C_VOID:   // void
             lua_pushnil(L) ;
             break ;
-        case '*': { // char *
+        case _C_CHARPTR: { // char *
             char *result ;
             [invocation getReturnValue:&result] ;
             lua_pushstring(L, result) ;
         }   break ;
-        case 'f': { // float
+        case _C_FLT: { // float
             float result ;
             [invocation getReturnValue:&result] ;
             lua_pushnumber(L, (lua_Number)result) ;
         }   break ;
-        case 'd': { // double
+        case _C_DBL: { // double
             double result ;
             [invocation getReturnValue:&result] ;
             lua_pushnumber(L, result) ;
         }   break ;
-        case '@': { // ID
+        case _C_ID: { // ID
         // NSInvocation's return of an ID object confusels ARC...
         // see http://stackoverflow.com/a/11569236
             CFTypeRef result;
@@ -452,31 +459,73 @@ static int invocator(lua_State *L) {
             if (result) CFRetain(result);
             push_object(L, (__bridge_transfer id)result) ;
         }   break ;
-        case '#': { // Class
+        case _C_CLASS: { // Class
             Class result ;
             [invocation getReturnValue:&result] ;
             push_class(L, result) ;
         }   break ;
-        case ':': { // SEL
+        case _C_SEL: { // SEL
             SEL result ;
             [invocation getReturnValue:&result] ;
             push_selector(L, result) ;
         }   break ;
-        case '{': { // struct
+        case _C_STRUCT_B: { // struct
             NSUInteger actualSize ;
             NSGetSizeAndAlignment(returnType, &actualSize, NULL) ;
             void* ptr = malloc(actualSize) ;
             [invocation getReturnValue:ptr] ;
             NSValue *val = [NSValue valueWithBytes:ptr objCType:returnType] ;
             [skin pushNSObject:val] ;
+            // alignedSize is irrelevant and distracting; should be removed in LuaSkin,
+            // but given talk of move to Swift not sure if it's the time for that now
+            if (lua_type(L, -1) == LUA_TTABLE) {
+                lua_pushnil(L) ;
+                lua_setfield(L, -2, "alignedSize") ;
+            }
+
+// a real mess; lets do the conversions in lua -- should work fine unless we come across
+// something where the alignment and the data size don't match -- we'll deal with that if
+// it comes up
+//
+//             lua_newtable(L) ;
+//             lua_pushstring(L, returnType) ; lua_setfield(L, -2, "objCType") ;
+//             [skin pushNSObject:[NSData dataWithBytes:ptr length:actualSize]] ;
+//             lua_setfield(L, -2, "data") ;
+//
+//             lua_newtable(L) ;
+//             void*      data  = ptr ;
+//             const char *type = returnType + 3 ; // need better way to identify '{.*=' at begining
+//             NSUInteger size, align ;
+//             while(*type != 0) {
+//                 lua_newtable(L) ;
+//                 lua_pushstring(L, type) ; lua_setfield(L, -2, "type") ;
+//                 @try {
+//                     type = NSGetSizeAndAlignment(type, &size, &align) ;
+//                     lua_pushinteger(L, (lua_Integer)size) ;  lua_setfield(L, -2, "size") ;
+//                     lua_pushinteger(L, (lua_Integer)align) ; lua_setfield(L, -2, "align") ;
+//                 } @catch (NSException *exception) {
+//                     [skin pushNSObject:exception.reason] ;
+//                     type++ ;
+//                 } @finally {
+// //                     lua_pushstring(L, type) ; lua_setfield(L, -2, "typeAfter") ;
+//                     lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+//                 }
+//             }
+//             lua_setfield(L, -2, "breakdown") ;
+
             free(ptr) ;
         }   break ;
 
-//     [array type]    An array
-//     (name=type...)  A union
-//     bnum            A bit field of num bits
-//     ^type           A pointer to type
-//     ?               An unknown type (among other things, this code is used for function pointers)
+//     _C_ARY_B/E   [array type]    An array
+//     _C_UNION_B/E (name=type...)  A union
+//     _C_BFLD      bnum            A bit field of num bits
+//     _C_PTR       ^type           A pointer to type
+//     _C_UNDEF     ?               An unknown type (among other things, this code is used for function pointers)
+//     _C_INT128      't'
+//     _C_UINT128     'T'
+//     _C_LNG_DBL     'D'
+//     _C_ATOM        '%'
+//     _C_VECTOR      '!'
 
         default:
             [skin logWarn:[NSString stringWithFormat:@"%s return type not supported yet", returnType]] ;
