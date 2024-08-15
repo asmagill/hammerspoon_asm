@@ -1052,6 +1052,29 @@ static int extras_glyphForName(lua_State *L) {
     return 1 ;
 }
 
+@interface NSObject (hsDebug)
+- (int)selfRefCount ;
+@end
+
+static int debug_selfRefCount(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    NSObject *object = (lua_type(L, 1) == LUA_TUSERDATA) ? [skin toNSObjectAtIndex:1] : nil ;
+
+    if (!object) {
+        return luaL_argerror(L, 1, "not representing an object") ;
+    }
+
+    SEL action = NSSelectorFromString(@"selfRefCount") ;
+
+    if ([object respondsToSelector:action]) {
+        lua_pushinteger(L, object.selfRefCount) ;
+    } else {
+        return luaL_argerror(L, 1, "does not respond to selector selfRefCount") ;
+    }
+    return 1 ;
+}
+
+
 #pragma mark - infrastructure stuffs
 
 static int meta_gc(lua_State* L) {
@@ -1125,6 +1148,8 @@ static const luaL_Reg extrasLib[] = {
     {"fontTag",              extras_fontTag},
     {"glyphImage",           extras_glyphForName},
 
+    {"selfRefCount",         debug_selfRefCount},
+
     {NULL,                   NULL}
 };
 
@@ -1133,7 +1158,7 @@ static const luaL_Reg module_metaLib[] = {
     {NULL,   NULL}
 };
 
-int luaopen_hs__asm_extras_internal(lua_State* L) {
+int luaopen_hs__asm_libextras(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibrary:"hs._asm.extras" functions:extrasLib metaFunctions:module_metaLib] ;
 //     luaL_newlib(L, extrasLib);
