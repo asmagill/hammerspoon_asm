@@ -1,0 +1,5 @@
+Some of this should be moved to _objc
+
+Some of this should be removed as "embarrassing"
+
+Some of this should probably just be removed.

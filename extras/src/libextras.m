@@ -8,6 +8,7 @@
 @import AVFoundation;
 @import OSAKit ;
 @import Darwin.POSIX.dlfcn ;
+@import Darwin.POSIX.sys.utsname ;
 
 static LSRefTable refTable = LUA_NOREF ;
 
@@ -25,6 +26,24 @@ static NSMutableSet *backgroundCallbacks ;
 
 @import Darwin.POSIX.netdb ;
 @import Darwin.Mach ;
+
+#import "isObjcObject.h"
+
+// assumes -1 is the index of the table/object to add the metatable to
+static int inspectAsToString(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+
+    if ([skin requireModule:"hs.inspect"]) {
+        lua_newtable(L) ;
+        lua_insert(L, -2) ;
+        lua_setfield(L, -2, "__tostring") ;
+        lua_setmetatable(L, -2) ;
+    } else {
+        [skin logWarn:@"unable to load hs.inspect: %s", lua_tostring(L, -1)] ;
+        lua_pop(L, 1) ;
+    }
+    return 1 ;
+}
 
 @interface ASM_RETAIN_TEST : NSObject
 @end
@@ -169,6 +188,8 @@ static int threadInfo(lua_State *L) {
         lua_setfield(L, -2, "name") ;
       lua_pushinteger(L, (lua_Integer)[[NSThread currentThread] stackSize]) ; lua_setfield(L, -2, "stackSize") ;
       lua_pushnumber(L, [[NSThread currentThread] threadPriority]) ; lua_setfield(L, -2, "threadPriority") ;
+
+      inspectAsToString(L) ;
     return 1 ;
 }
 
@@ -236,6 +257,8 @@ static int addressParserTesting(lua_State *L) {
             lua_pushstring(L, current->ai_canonname) ; lua_setfield(L, -2, "canonname") ;
             current = current->ai_next ;
         }
+
+        inspectAsToString(L) ;
     }
     if (results) freeaddrinfo(results) ;
     if (ecode != 0) return luaL_error(L, "address parse error: %s", gai_strerror(ecode)) ;
@@ -291,6 +314,7 @@ static int networkUserPreferences(lua_State *L) {
         [skin pushNSObject:(__bridge NSDictionary *)userOptions] ; lua_setfield(L, -2, "userOptions") ;
 //         CFRelease(serviceID) ;   // I know the function says "copy", but it's returning a reference, and
 //         CFRelease(userOptions) ; // including these causes a crash, so...
+        inspectAsToString(L) ;
     } else {
         lua_pushnil(L) ; // no dial-able (i.e. PPP or PPPOE) service
     }
@@ -360,10 +384,12 @@ static int sizeAndAlignment(lua_State *L) {
         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         objCType = next ;
     }
-    if (luaL_len(L, -1) == 1) {
-        lua_rawgeti(L, -1, 1) ;
-        lua_remove(L, -2) ;
-    }
+    inspectAsToString(L) ;
+
+//     if (luaL_len(L, -1) == 1) {
+//         lua_rawgeti(L, -1, 1) ;
+//         lua_remove(L, -2) ;
+//     }
     return 1 ;
 }
 
@@ -481,19 +507,21 @@ static int boolTest(lua_State *L) {
     lua_pushstring(L, [(NSNumber *)yesObject objCType]) ;   lua_setfield(L, -2, "yesObjectObjCType") ;
     lua_pushstring(L, [(NSNumber *)noObject objCType]) ;    lua_setfield(L, -2, "noObjectObjCType") ;
 
+    inspectAsToString(L) ;
     return 1 ;
 }
 
-static int avcapturedevices(lua_State *L) {
-    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TBREAK] ;
-    lua_newtable(L) ;
-    for (AVCaptureDevice *dev in [AVCaptureDevice devices]) {
-        [skin pushNSObject:[dev localizedName]] ;
-        lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
-    }
-    return 1 ;
-}
+// static int avcapturedevices(lua_State *L) {
+//     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+//     [skin checkArgs:LS_TBREAK] ;
+//     lua_newtable(L) ;
+//     for (AVCaptureDevice *dev in [AVCaptureDevice devices]) {
+//         [skin pushNSObject:[dev localizedName]] ;
+//         lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
+//     }
+//     inspectAsToString(L) ;
+//     return 1 ;
+// }
 
 static int absoluteTime(lua_State *L) {
     lua_pushinteger(L, (lua_Integer)mach_absolute_time()) ;
@@ -523,7 +551,7 @@ static int mach_stuff(lua_State *L) {
         lua_setfield(L, -2, "continuousApproximate") ;
     }
 #pragma clang diagnostic pop
-
+    inspectAsToString(L) ;
     return 1 ;
 }
 
@@ -579,6 +607,7 @@ static int CmathNumbers(lua_State *L) {
     lua_pushnumber(L, M_2_SQRTPI) ; lua_setfield(L, -2, "M_2_SQRTPI") ;
     lua_pushnumber(L, M_SQRT2) ; lua_setfield(L, -2, "M_SQRT2") ;
     lua_pushnumber(L, M_SQRT1_2) ; lua_setfield(L, -2, "M_SQRT1_2") ;
+    inspectAsToString(L) ;
     return 1 ;
 }
 
@@ -844,26 +873,6 @@ static int extras_yield(lua_State *L) {
         return 1 ;
     }
 
-    static int extras_dladdr(lua_State *L) {
-        LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-        [skin checkArgs:LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
-        uintptr_t addr = (uintptr_t)lua_tointeger(L, 1) ;
-
-        Dl_info info ;
-        if (dladdr((const void *)addr, &info) != 0) {
-            lua_newtable(L) ;
-            lua_pushstring(L, info.dli_fname) ; lua_setfield(L, -2, "fname") ;
-            lua_pushfstring(L, "%p", info.dli_fbase) ; lua_setfield(L, -2, "fbase") ;
-            lua_pushstring(L, info.dli_sname) ; lua_setfield(L, -2, "sname") ;
-            lua_pushfstring(L, "%p", info.dli_saddr) ; lua_setfield(L, -2, "saddr") ;
-
-
-        } else {
-            lua_pushnil(L) ;
-        }
-        return 1 ;
-    }
-
     static int extras_callstackPaths(lua_State *L) {
         LuaSkin *skin = [LuaSkin sharedWithState:L] ;
         [skin checkArgs:LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
@@ -882,7 +891,7 @@ static int extras_yield(lua_State *L) {
             lua_pushstring(L, fname) ;
             lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
         }
-
+        inspectAsToString(L) ;
         return 1 ;
     }
 
@@ -989,6 +998,8 @@ static int extras_fontTag(lua_State *L) {
                     lua_rawseti(L, -2, luaL_len(L, -2) + 1) ;
                 }
                 CFRelease(tags) ;
+
+                inspectAsToString(L) ;
             } else {
                 errString = [NSString stringWithFormat:@"unable to get tags for font %@", fontName] ;
             }
@@ -1074,6 +1085,131 @@ static int debug_selfRefCount(lua_State *L) {
     return 1 ;
 }
 
+// NOTE: *** THIS CAN CRASH HAMMERSPOON ***
+static int debug_dlsym(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING, LS_TNUMBER | LS_TINTEGER | LS_TBOOLEAN | LS_TOPTIONAL, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+
+    static BOOL dlsymSeenWarning = NO ;
+
+    const char  *symbol     = lua_tostring(L, 1) ;
+    BOOL        decipher    = (lua_gettop(L) > 1) ? (BOOL)(lua_toboolean(L, 2))
+                                                  : (BOOL)(lua_isnumber(L, 2)) ;
+    BOOL        ignoreTests = (lua_gettop(L) > 2) ? (BOOL)(lua_toboolean(L, 3)) : NO ;
+
+    uintptr_t   *result = dlsym(RTLD_DEFAULT, symbol) ;
+
+    if (result) {
+        if (decipher) {
+
+            if (!dlsymSeenWarning) {
+                dlsymSeenWarning = YES ;
+                return luaL_error(L, "WARNING: If this is not a pointer to an Objective-C object or valid memory address, this will CRASH Hammerspoon. Repeat to proceed.") ;
+            }
+
+            uintptr_t ptr = *result ;
+
+            if (lua_type(L, 2) == LUA_TBOOLEAN) {
+                if (ignoreTests || IsObjcObject((const void *)ptr)) {
+                    CFTypeRef ref = (CFTypeRef)ptr ;
+                    [skin pushNSObject:(__bridge NSObject *)ref withOptions:LS_NSDescribeUnknownTypes] ;
+                } else {
+                    lua_pushnil(L) ;
+                    lua_pushstring(L, "not a pointer to an object") ;
+                    return 2 ;
+                }
+            } else if (lua_type(L, 2) == LUA_TNUMBER) {
+                if (ignoreTests || IsValidReadableMemory((const void *)ptr)) {
+                    NSUInteger length = (NSUInteger)(lua_tointeger(L, 2)) ;
+                    void *bytes ;
+                    bytes = (void *)ptr ;
+                    lua_pushlstring (L, bytes, length) ;
+                } else {
+                    lua_pushnil(L) ;
+                    lua_pushstring(L, "not a pointer to a valid memory address") ;
+                    return 2 ;
+                }
+            }
+        } else {
+            lua_pushinteger(L, (lua_Integer)result) ;
+        }
+    } else {
+        lua_pushnil(L) ;
+        lua_pushstring(L, "symbol not found") ;
+        return 2 ;
+    }
+    return 1 ;
+}
+
+static int debug_dladdr(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    uintptr_t addr = (uintptr_t)lua_tointeger(L, 1) ;
+
+    Dl_info info ;
+    if (dladdr((const void *)addr, &info) != 0) {
+        lua_newtable(L) ;
+        lua_pushstring(L, info.dli_fname) ; lua_setfield(L, -2, "fname") ;
+        lua_pushfstring(L, "%p", info.dli_fbase) ; lua_setfield(L, -2, "fbase") ;
+        lua_pushstring(L, info.dli_sname) ; lua_setfield(L, -2, "sname") ;
+        lua_pushfstring(L, "%p", info.dli_saddr) ; lua_setfield(L, -2, "saddr") ;
+
+        inspectAsToString(L) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int debug_addressDetails(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
+    uintptr_t addr = (uintptr_t)lua_tointeger(L, 1) ;
+
+    if (lua_gettop(L) == 2 && lua_toboolean(L, 2)) {
+        uintptr_t *indirect = (uintptr_t *)addr ;
+        addr = *indirect ;
+    }
+
+    lua_newtable(L) ;
+    lua_pushinteger(L, (lua_Integer)addr) ; lua_setfield(L, -2, "address") ;
+    Class outClass = NULL ;
+
+    BOOL isTagged = IsObjcTaggedPointer((const void *)addr, &outClass) ;
+    BOOL isValid  = IsValidReadableMemory((const void *)addr) ;
+    BOOL isObject = IsObjcObject((const void *)addr) ;
+
+    lua_pushboolean(L, isTagged) ; lua_setfield(L, -2, "tagged") ;
+    lua_pushboolean(L, isValid) ;  lua_setfield(L, -2, "valid") ;
+    lua_pushboolean(L, isObject) ; lua_setfield(L, -2, "object") ;
+
+    if (outClass) {
+        lua_pushstring(L, class_getName(outClass)) ; lua_setfield(L, -2, "class") ;
+    }
+
+    inspectAsToString(L) ;
+    return 1 ;
+}
+
+static int extras_uname(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    struct utsname utsname;
+    if (uname(&utsname) == 0) {
+        lua_newtable(L) ;
+        lua_pushstring(L, utsname.sysname) ;  lua_setfield(L, -2, "sysname") ;
+        lua_pushstring(L, utsname.nodename) ; lua_setfield(L, -2, "nodename") ;
+        lua_pushstring(L, utsname.release) ;  lua_setfield(L, -2, "release") ;
+        lua_pushstring(L, utsname.version) ;  lua_setfield(L, -2, "version") ;
+        lua_pushstring(L, utsname.machine) ;  lua_setfield(L, -2, "machine") ;
+
+        inspectAsToString(L) ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
 
 #pragma mark - infrastructure stuffs
 
@@ -1091,7 +1227,7 @@ static const luaL_Reg extrasLib[] = {
     {"finderSearch",         extras_finderSearch},
     {"invertPolarity",       extras_invert},
     {"grayScale",            extras_gray},
-    {"avcapturedevices",     avcapturedevices},
+//     {"avcapturedevices",     avcapturedevices},
     {"boolTest",             boolTest},
     {"testLabeledTable1",    testLabeledTable1},
     {"testLabeledTable2",    testLabeledTable2},
@@ -1141,7 +1277,6 @@ static const luaL_Reg extrasLib[] = {
     {"css",                  extras_callStackSymbols},
     {"cssr",                 extras_callStackSymbols2},
     {"csa",                  extras_callStackReturnAddresses},
-    {"dladdr",               extras_dladdr},
     {"stackPaths",           extras_callstackPaths},
 
     {"testARCandID",         testARCandID},
@@ -1149,6 +1284,12 @@ static const luaL_Reg extrasLib[] = {
     {"glyphImage",           extras_glyphForName},
 
     {"selfRefCount",         debug_selfRefCount},
+
+    {"dladdr",               debug_dladdr},
+    {"dlsym",                debug_dlsym},
+    {"addressDetails",       debug_addressDetails},
+
+    {"uname",                extras_uname},
 
     {NULL,                   NULL}
 };
