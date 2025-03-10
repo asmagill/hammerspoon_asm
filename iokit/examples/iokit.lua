@@ -13,15 +13,15 @@ module.vramSize = function()
     local results = {}
     local pci = iokit.servicesForClass("IOPCIDevice")
     for i,v in ipairs(pci) do
-        local ioname = v:searchForProperty("IOName")
+        local ioname = v:propertySearch("IOName")
         if ioname and ioname == "display" then
-            local model = v:searchForProperty("model")
+            local model = v:propertySearch("model")
             if model then
                 local inBytes = true
-                local vramSize = v:searchForProperty("VRAM,totalsize")
+                local vramSize = v:propertySearch("VRAM,totalsize")
                 if not vramSize then
                     inBytes = false
-                    vramSize = v:searchForProperty("VRAM,totalMB")
+                    vramSize = v:propertySearch("VRAM,totalMB")
                 end
                 if vramSize then
                     if type(vramSize) == "string" then vramSize = string.unpack("J", vramSize) end
