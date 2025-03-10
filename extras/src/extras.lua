@@ -556,7 +556,8 @@ module.dladdrWithLine = function(add)
     if details then
         print(inspect(details))
 
-        local fn = details.fname .. ".dSYM/Contents/Resources/DWARF/internal.so"
+        --local fn = details.fname .. ".dSYM/Contents/Resources/DWARF/internal.so"
+        local fn = details.fname .. ".dSYM/Contents/Resources/DWARF/" .. details.fname:match("^.+/(.+)$")
         if details.fname:match("LuaSkin$") then
             fn = buildPath .. "/build/LuaSkin.framework.dSYM/Contents/Resources/DWARF/LuaSkin"
         elseif details.fname:match("Hammerspoon$") then
