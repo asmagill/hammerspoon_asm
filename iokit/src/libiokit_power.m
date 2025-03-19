@@ -1,6 +1,6 @@
 // not sure how useful some of this is if we can't gert past the "not published" state
 // battery stuff should be good though
-// add watchers
+// add watchers, assertions
 
 @import Cocoa ;
 @import LuaSkin ;
@@ -11,21 +11,15 @@
 static const char * const USERDATA_TAG = "hs._asm.iokit.power" ;
 static LSRefTable         refTable     = LUA_NOREF ;
 
+#import "iokit_error.h" // needs USERDATA_TAG defined
+
+static NSDictionary *aggressivenessMap ;
+
 // #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 // #define get_structFromUserdata(objType, L, idx, tag) ((objType *)luaL_checkudata(L, idx, tag))
 // #define get_cfobjectFromUserdata(objType, L, idx, tag) *((objType *)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes -
-
-// in case I ever decide to expand upon what the kernel error numbers actually are, consolidate
-// the reporting
-static void logError(BOOL debug, const char *func, kern_return_t err, NSString *message) {
-    if (debug) {
-        [LuaSkin logDebug:@"%s.%s -- %@ (Kernel Error %d)", USERDATA_TAG, func, message, err] ;
-    } else {
-        [LuaSkin  logWarn:@"%s.%s -- %@ (Kernel Error %d)", USERDATA_TAG, func, message, err] ;
-    }
-}
 
 #pragma mark - Module Functions -
 
@@ -119,7 +113,7 @@ static int iopm_sleepSystem(lua_State *L) {
     }
     err = IOServiceClose(rootDomain) ;
     if (err != kIOReturnSuccess) {
-        logError(YES, "systemSleep", err, @"unable to close connection to rootDomain") ;
+        logError(NO, "systemSleep", err, @"unable to close connection to rootDomain") ;
         lua_pop(L, 1) ;
         lua_pushnil(L) ;
     }
@@ -239,18 +233,114 @@ static int iopm_getThermalWarningLevel(lua_State *L) {
     return 1 ;
 }
 
-// IOReturn IOPMGetAggressiveness(io_connect_t fb, unsigned long type, unsigned long *aggressiveness);
-// IOReturn IOPMSetAggressiveness(io_connect_t fb, unsigned long type, unsigned long aggressiveness);
-//
-// io_connect_t IOPMFindPowerManagement(mach_port_t master_device_port);
+static int iopm_copyAssertionsByProcess(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef assertions = NULL ;
+    IOReturn err = IOPMCopyAssertionsByProcess(&assertions) ;
+    if (err == kIOReturnSuccess) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions] ;
+    } else {
+        logError(YES, "assertionsByProcess", err, @"error querying assertions") ;
+        lua_pushnil(L) ;
+        lua_pushstring(L, "unable to get assertions") ;
+        return 2 ;
+    }
+    return 1 ;
+}
+
+static int iopm_copyAssertionsStatus(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef assertions = NULL ;
+    IOReturn err = IOPMCopyAssertionsStatus(&assertions) ;
+    if (err == kIOReturnSuccess) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions] ;
+    } else {
+        logError(YES, "assertionsStatus", err, @"error querying assertions") ;
+        lua_pushnil(L) ;
+        lua_pushstring(L, "unable to get assertions") ;
+        return 2 ;
+    }
+    return 1 ;
+}
+
+static int iopm_aggressiveness(lua_State *L) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^ {
+        aggressivenessMap = @{
+            @"generalAggressiveness" : @(kPMGeneralAggressiveness),
+            @"minutesToDim"          : @(kPMMinutesToDim),
+            @"minutesToSpinDown"     : @(kPMMinutesToSpinDown),
+            @"minutesToSleep"        : @(kPMMinutesToSleep),
+            @"ethernetWOL"           : @(kPMEthernetWakeOnLANSettings),
+            @"setProcessorSpeed"     : @(kPMSetProcessorSpeed),
+            @"powerSource"           : @(kPMPowerSource),
+            @"motionSensor"          : @(kPMMotionSensor),
+        } ;
+    }) ;
+
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TSTRING | LS_TOPTIONAL, LS_TNUMBER | LS_TINTEGER | LS_TOPTIONAL, LS_TBREAK] ;
+
+    io_connect_t          rootDomain ;
+    __block IOReturn      err            = kIOReturnSuccess ;
+    __block unsigned long aggressiveness = 0 ;
+
+    if (lua_gettop(L) == 0) {
+        rootDomain = IOPMFindPowerManagement(MACH_PORT_NULL) ;
+        lua_newtable(L) ;
+        [aggressivenessMap enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSNumber *val, __unused BOOL *stop) {
+            err = IOPMGetAggressiveness(rootDomain, val.unsignedLongValue, &aggressiveness) ;
+            if (err == kIOReturnSuccess) {
+                lua_pushinteger(L, (lua_Integer)aggressiveness) ;
+                lua_setfield(L, -2, key.UTF8String) ;
+            } else if (err != kIOReturnError) {
+                logError(YES, "aggressiveness", err, [NSString stringWithFormat:@"unable to get aggressiveness for %@", key]) ;
+            }
+        }] ;
+    } else {
+        NSString *key     = [skin toNSObjectAtIndex:1] ;
+        NSNumber *keyEnum = aggressivenessMap[key] ;
+        if (!keyEnum) {
+            return luaL_argerror(L, 1, [[NSString stringWithFormat:@"unrecognized key; expected one of %@", [aggressivenessMap.allKeys componentsJoinedByString:@", "]] UTF8String]) ;
+        }
+
+        unsigned long type = keyEnum.unsignedLongValue ;
+
+        rootDomain = IOPMFindPowerManagement(MACH_PORT_NULL) ;
+
+        if (lua_gettop(L) == 2) {
+            aggressiveness = (unsigned long)lua_tointeger(L, 2) ;
+            err = IOPMSetAggressiveness(rootDomain, type, aggressiveness) ;
+            if (err != kIOReturnSuccess && err != kIOReturnError) {
+                logError(NO, "aggressiveness", err, [NSString stringWithFormat:@"unable to set aggressiveness for %@", key]) ;
+            }
+        }
+        err = IOPMGetAggressiveness(rootDomain, type, &aggressiveness) ;
+        if (err == kIOReturnSuccess) {
+            lua_pushinteger(L, (lua_Integer)aggressiveness) ;
+        } else if (err == kIOReturnError) {
+            lua_pushnil(L) ;
+        } else {
+            logError(NO, "aggressiveness", err, [NSString stringWithFormat:@"unable to get aggressiveness for %@", key]) ;
+            lua_pushnil(L) ;
+        }
+    }
+    err = IOServiceClose(rootDomain) ;
+    if (err != kIOReturnSuccess) {
+        logError(NO, "aggressiveness", err, @"unable to close connection to rootDomain") ;
+    }
+    return 1 ;
+}
+
 // io_connect_t IORegisterForSystemPower(void *refcon, IONotificationPortRef *thePortRef, IOServiceInterestCallback callback, io_object_t *notifier);
 // IOReturn IOAllowPowerChange(io_connect_t kernelPort, intptr_t notificationID);
 // IOReturn IOCancelPowerChange(io_connect_t kernelPort, intptr_t notificationID);
 // IOReturn IODeregisterApp(io_object_t *notifier);
 // IOReturn IODeregisterForSystemPower(io_object_t *notifier);
-//
-// IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID);
-// IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus);
 //
 // CFDictionaryRef IOPMAssertionCopyProperties(IOPMAssertionID theAssertion);
 // IOReturn IOPMAssertionCreateWithDescription(CFStringRef AssertionType, CFStringRef Name, CFStringRef Details, CFStringRef HumanReadableReason, CFStringRef LocalizationBundlePath, CFTimeInterval Timeout, CFStringRef TimeoutAction, IOPMAssertionID *AssertionID);
@@ -260,7 +350,7 @@ static int iopm_getThermalWarningLevel(lua_State *L) {
 // IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID);
 // IOReturn IOPMAssertionSetProperty(IOPMAssertionID theAssertion, CFStringRef theProperty, CFTypeRef theValue);
 // void IOPMAssertionRetain(IOPMAssertionID theAssertion);
-//
+
 // // require root
 // IOReturn IOPMCancelScheduledPowerEvent(CFDateRef time_to_wake, CFStringRef my_id, CFStringRef type);
 // IOReturn IOPMSchedulePowerEvent(CFDateRef time_to_wake, CFStringRef my_id, CFStringRef type);
@@ -305,6 +395,11 @@ static luaL_Reg moduleLib[] = {
     {"scheduledPowerEvents",   iopm_copyScheduledPowerEvents},
     {"systemLoadAdvisory",     iopm_getSystemLoadAdvisory},
     {"thermalWarningLevel",    iopm_getThermalWarningLevel},
+
+    {"assertionsByProcess",    iopm_copyAssertionsByProcess},
+    {"assertionsStatus",       iopm_copyAssertionsStatus},
+
+    {"aggressiveness",         iopm_aggressiveness},
 
     {NULL,                     NULL}
 };

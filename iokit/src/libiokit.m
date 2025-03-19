@@ -16,19 +16,11 @@
 static const char * const USERDATA_TAG = "hs._asm.iokit" ;
 static LSRefTable         refTable     = LUA_NOREF ;
 
+#import "iokit_error.h" // needs USERDATA_TAG defined
+
 #define get_objectFromUserdata(objType, L, idx, tag) (objType*)*((void**)luaL_checkudata(L, idx, tag))
 
 #pragma mark - Support Functions and Classes
-
-// in case I ever decide to expand upon what the kernel error numbers actually are, consolidate
-// the reporting
-static void logError(BOOL debug, const char *func, kern_return_t err, NSString *message) {
-    if (debug) {
-        [LuaSkin logDebug:@"%s.%s -- %@ (Kernel Error %d)", USERDATA_TAG, func, message, err] ;
-    } else {
-        [LuaSkin  logWarn:@"%s.%s -- %@ (Kernel Error %d)", USERDATA_TAG, func, message, err] ;
-    }
-}
 
 @interface HSASM_IOobject : NSObject
 @property int         selfRefCount ;
