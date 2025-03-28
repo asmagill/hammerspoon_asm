@@ -72,6 +72,7 @@ module.planes = ls.makeConstantsTable(_planes)
 
 for name, func in pairs(module) do
     local typeName = name:match("^_matching(%w+)$")
+    print(name, typeName)
     if typeName then
         module["serviceFor" .. typeName] = function(...)
             local matchCriteria = func(...)

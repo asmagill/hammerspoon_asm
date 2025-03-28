@@ -6,12 +6,20 @@
 @import LuaSkin ;
 @import IOKit.ps ;
 @import IOKit.pwr_mgt ;
-// #import <IOKit/pwr_mgt/IOPMLib.h>
 
 static const char * const USERDATA_TAG = "hs._asm.iokit.power" ;
 static LSRefTable         refTable     = LUA_NOREF ;
 
 #import "iokit_error.h" // needs USERDATA_TAG defined
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdocumentation"
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+#pragma clang diagnostic ignored "-Winvalid-utf8"
+
+#import "IOPMLibPrivate.h"
+
+#pragma clang diagnostic pop
 
 static NSDictionary *aggressivenessMap ;
 
@@ -38,7 +46,7 @@ static int iops_copyExternalPowerAdapterDetails(lua_State *L) {
 
     CFDictionaryRef adapterDetails = IOPSCopyExternalPowerAdapterDetails() ;
     if (adapterDetails) {
-        [skin pushNSObject:(__bridge_transfer NSDictionary *)adapterDetails] ;
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)adapterDetails withOptions:LS_NSDescribeUnknownTypes] ;
     } else {
         lua_pushnil(L) ;
     }
@@ -95,6 +103,21 @@ static int iops_copyPowerSourcesList(lua_State *L) {
     return 1 ;
 }
 
+static int iops_lowBatteryWarningLevel(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    IOPSLowBatteryWarningLevel level = IOPSGetBatteryWarningLevel() ;
+    switch(level) {
+        case kIOPSLowBatteryWarningNone:  lua_pushstring(L, "none")     ; break ;
+        case kIOPSLowBatteryWarningEarly: lua_pushstring(L, "low")      ; break ;
+        case kIOPSLowBatteryWarningFinal: lua_pushstring(L, "critical") ; break ;
+        default:
+            lua_pushfstring(L, "** unrecognized warning level: %d", level) ;
+    }
+    return 1 ;
+}
+
 // typedef void  (*IOPowerSourceCallbackType)(void *context);
 // CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context);
 // CFRunLoopSourceRef IOPSCreateLimitedPowerNotification(IOPowerSourceCallbackType callback, void *context) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -128,7 +151,7 @@ static int iopm_copyCPUPowerStatus(lua_State *L) {
     IOReturn err = IOPMCopyCPUPowerStatus(&cpuPowerStatus) ;
     if (err == kIOReturnSuccess) {
         if (cpuPowerStatus) {
-            [skin pushNSObject:(__bridge_transfer NSDictionary *)cpuPowerStatus] ;
+            [skin pushNSObject:(__bridge_transfer NSDictionary *)cpuPowerStatus withOptions:LS_NSDescribeUnknownTypes] ;
         } else {
             lua_pushnil(L) ;
             lua_pushstring(L, "unable to get cpuPowerStatus") ;
@@ -159,7 +182,7 @@ static int iopm_copyScheduledPowerEvents(lua_State *L) {
 
     CFArrayRef events = IOPMCopyScheduledPowerEvents() ;
     if (events) {
-        [skin pushNSObject:(__bridge_transfer NSArray *)events] ;
+        [skin pushNSObject:(__bridge_transfer NSArray *)events withOptions:LS_NSDescribeUnknownTypes] ;
     } else {
         lua_pushnil(L) ;
         lua_pushstring(L, "unable to get scheduled power events") ;
@@ -177,7 +200,7 @@ static int iopm_getSystemLoadAdvisory(lua_State *L) {
     if (detailed) {
         CFDictionaryRef details = IOCopySystemLoadAdvisoryDetailed() ;
         if (details) {
-            [skin pushNSObject:(__bridge_transfer NSDictionary *)details] ;
+            [skin pushNSObject:(__bridge_transfer NSDictionary *)details withOptions:LS_NSDescribeUnknownTypes] ;
         } else {
             lua_pushnil(L) ;
             lua_pushstring(L, "unable to get systemLoadAdvisory details") ;
@@ -186,15 +209,9 @@ static int iopm_getSystemLoadAdvisory(lua_State *L) {
     } else {
         IOSystemLoadAdvisoryLevel level = IOGetSystemLoadAdvisory() ;
         switch(level) {
-        case kIOSystemLoadAdvisoryLevelGreat:
-            lua_pushstring(L, "great") ;
-            break ;
-        case kIOSystemLoadAdvisoryLevelOK:
-            lua_pushstring(L, "ok") ;
-            break ;
-        case kIOSystemLoadAdvisoryLevelBad:
-            lua_pushstring(L, "bad") ;
-            break ;
+        case kIOSystemLoadAdvisoryLevelGreat: lua_pushstring(L, "great") ; break ;
+        case kIOSystemLoadAdvisoryLevelOK:    lua_pushstring(L, "ok") ;    break ;
+        case kIOSystemLoadAdvisoryLevelBad:   lua_pushstring(L, "bad") ;   break ;
         default:
             lua_pushfstring(L, "** unrecognized load advisory: %ld", level) ;
         }
@@ -210,15 +227,9 @@ static int iopm_getThermalWarningLevel(lua_State *L) {
     IOReturn err = IOPMGetThermalWarningLevel(&level) ;
     if (err == kIOReturnSuccess) {
         switch(level) {
-        case kIOPMThermalWarningLevelNormal:
-            lua_pushstring(L, "normal") ;
-            break ;
-        case kIOPMThermalWarningLevelDanger:
-            lua_pushstring(L, "danger") ;
-            break ;
-        case kIOPMThermalWarningLevelCrisis:
-            lua_pushstring(L, "critical") ;
-            break ;
+        case kIOPMThermalWarningLevelNormal: lua_pushstring(L, "normal") ;   break ;
+        case kIOPMThermalWarningLevelDanger: lua_pushstring(L, "danger") ;   break ;
+        case kIOPMThermalWarningLevelCrisis: lua_pushstring(L, "critical") ; break ;
         default:
             lua_pushfstring(L, "** unrecognized thermal warning level: %ld", level) ;
         }
@@ -240,7 +251,7 @@ static int iopm_copyAssertionsByProcess(lua_State *L) {
     CFDictionaryRef assertions = NULL ;
     IOReturn err = IOPMCopyAssertionsByProcess(&assertions) ;
     if (err == kIOReturnSuccess) {
-        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions] ;
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions withOptions:LS_NSDescribeUnknownTypes] ;
     } else {
         logError(YES, "assertionsByProcess", err, @"error querying assertions") ;
         lua_pushnil(L) ;
@@ -257,7 +268,7 @@ static int iopm_copyAssertionsStatus(lua_State *L) {
     CFDictionaryRef assertions = NULL ;
     IOReturn err = IOPMCopyAssertionsStatus(&assertions) ;
     if (err == kIOReturnSuccess) {
-        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions] ;
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)assertions withOptions:LS_NSDescribeUnknownTypes] ;
     } else {
         logError(YES, "assertionsStatus", err, @"error querying assertions") ;
         lua_pushnil(L) ;
@@ -336,6 +347,31 @@ static int iopm_aggressiveness(lua_State *L) {
     return 1 ;
 }
 
+static int iopm_copyBatteryInfo(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    mach_port_t masterPort;
+    IOReturn err = IOMainPort(MACH_PORT_NULL, &masterPort) ;
+    if (err == kIOReturnSuccess) {
+        CFArrayRef batteryInfo ;
+        err = IOPMCopyBatteryInfo(masterPort, &batteryInfo) ;
+        if (err == kIOReturnSuccess) {
+            [skin pushNSObject:(__bridge_transfer NSArray *)batteryInfo withOptions:LS_NSDescribeUnknownTypes] ;
+            return 1 ;
+        } else {
+            if (batteryInfo) CFRelease(batteryInfo) ;
+            lua_pushnil(L) ;
+            lua_pushstring(L, "unable to get IOPM Battery Info") ;
+            return 2 ;
+        }
+    } else {
+        lua_pushnil(L) ;
+        lua_pushstring(L, "unable to get IO Master Port") ;
+        return 2 ;
+    }
+}
+
 // io_connect_t IORegisterForSystemPower(void *refcon, IONotificationPortRef *thePortRef, IOServiceInterestCallback callback, io_object_t *notifier);
 // IOReturn IOAllowPowerChange(io_connect_t kernelPort, intptr_t notificationID);
 // IOReturn IOCancelPowerChange(io_connect_t kernelPort, intptr_t notificationID);
@@ -358,7 +394,94 @@ static int iopm_aggressiveness(lua_State *L) {
 // // deprecated
 // io_connect_t IORegisterApp(void *refcon, io_service_t theDriver, IONotificationPortRef *thePortRef, IOServiceInterestCallback callback, io_object_t *notifier);
 // IOReturn IOPMAssertionCreate(CFStringRef AssertionType, IOPMAssertionLevel AssertionLevel, IOPMAssertionID *AssertionID);
-// IOReturn IOPMCopyBatteryInfo(mach_port_t masterPort, CFArrayRef *info);
+
+#pragma mark - IOPMLibPrivate.h -
+
+static int iopm_connectionGetSystemCapabilities(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    IOPMCapabilityBits capabilities = IOPMConnectionGetSystemCapabilities() ;
+    lua_pushinteger(L, capabilities) ;
+    return 1 ;
+}
+
+static int iopm_copyRepeatingPowerEvents(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef repeatingEvents = IOPMCopyRepeatingPowerEvents() ;
+    if (repeatingEvents) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)repeatingEvents withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int iopm_copySleepWakeFailure(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef failures = IOPMCopySleepWakeFailure() ;
+    if (failures) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)failures withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int iopm_copyActivePMPreferences(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef preferences = IOPMCopyActivePMPreferences() ;
+//     CFMutableDictionaryRef preferences = IOPMCopyPMPreferences() ;
+    if (preferences) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)preferences withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int iopm_copyDefaultPreferences(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef preferences = IOPMCopyDefaultPreferences() ;
+    if (preferences) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)preferences withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+static int iopm_copySystemPowerSettings(lua_State *L) {
+    LuaSkin *skin = [LuaSkin sharedWithState:L] ;
+    [skin checkArgs:LS_TBREAK] ;
+
+    CFDictionaryRef settings = IOPMCopySystemPowerSettings() ;
+    if (settings) {
+        [skin pushNSObject:(__bridge_transfer NSDictionary *)settings withOptions:LS_NSDescribeUnknownTypes] ;
+    } else {
+        lua_pushnil(L) ;
+    }
+    return 1 ;
+}
+
+// return nil; not sure how useful or what we have to do to make them useful
+//     CFArrayRef IOPMGetCurrentAsyncReleasedAssertions() ;
+//     CFArrayRef IOPMGetCurrentAsyncTimedAssertions() ;
+//     CFDictionaryRef IOPMCopyActiveAsyncAssertionsByProcess() ;
+//     CFDictionaryRef IOPMCopyAssertionActivityAggregate( );
+//     CFDictionaryRef IOPMCopyAssertionActivityAggregateWithAllocator(CFAllocatorRef allocator);
+//     CFDictionaryRef IOPMGetCurrentAsycnRemoteAssertion(void);
+//     CFDictionaryRef IOPMGetCurrentAsyncActiveAssertions(void);
+//     CFDictionaryRef IOPMGetCurrentAsyncInactiveAssertions(void);
+
 
 #pragma mark - Module Methods -
 
@@ -384,24 +507,33 @@ static int iopm_aggressiveness(lua_State *L) {
 
 // Functions for returned object when module loads
 static luaL_Reg moduleLib[] = {
-    {"estimatedTimeRemaining", iops_getTimeRemainingEstimate},
-    {"externalAdapterDetails", iops_copyExternalPowerAdapterDetails},
-    {"providingPowerSource",   iops_getProvidingPowerSourceType},
-    {"powerSources",           iops_copyPowerSourcesList},
+    {"estimatedTimeRemaining",    iops_getTimeRemainingEstimate},
+    {"externalAdapterDetails",    iops_copyExternalPowerAdapterDetails},
+    {"currentPowerSource",        iops_getProvidingPowerSourceType},
+    {"powerSources",              iops_copyPowerSourcesList},
+    {"batteryWarningLevel",       iops_lowBatteryWarningLevel},
 
-    {"systemSleep",            iopm_sleepSystem},
-    {"sleepEnabled",           iopm_sleepEnabled},
-    {"cpuPowerStatus",         iopm_copyCPUPowerStatus},
-    {"scheduledPowerEvents",   iopm_copyScheduledPowerEvents},
-    {"systemLoadAdvisory",     iopm_getSystemLoadAdvisory},
-    {"thermalWarningLevel",    iopm_getThermalWarningLevel},
+    {"systemSleep",               iopm_sleepSystem},
+    {"sleepEnabled",              iopm_sleepEnabled},
+    {"cpuPowerStatus",            iopm_copyCPUPowerStatus},
+    {"scheduledPowerEvents",      iopm_copyScheduledPowerEvents},
+    {"systemLoadAdvisory",        iopm_getSystemLoadAdvisory},
+    {"thermalWarningLevel",       iopm_getThermalWarningLevel},
+    {"intelBatteryInfo",          iopm_copyBatteryInfo},
 
-    {"assertionsByProcess",    iopm_copyAssertionsByProcess},
-    {"assertionsStatus",       iopm_copyAssertionsStatus},
+    {"assertionsByProcess",       iopm_copyAssertionsByProcess},
+    {"assertionsStatus",          iopm_copyAssertionsStatus},
 
-    {"aggressiveness",         iopm_aggressiveness},
+    {"aggressiveness",            iopm_aggressiveness},
 
-    {NULL,                     NULL}
+    {"systemPowerCapabilities",   iopm_connectionGetSystemCapabilities},
+    {"repeatingPowerEvents",      iopm_copyRepeatingPowerEvents},
+    {"sleepWakeFailure",          iopm_copySleepWakeFailure},
+    {"currentPreferences",        iopm_copyActivePMPreferences},
+    {"defaultPreferences",        iopm_copyDefaultPreferences},
+    {"systemPowerSettings",       iopm_copySystemPowerSettings},
+
+    {NULL,                        NULL}
 };
 
 // // Metatable for module, if needed

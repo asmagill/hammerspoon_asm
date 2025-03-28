@@ -395,6 +395,74 @@ classMT.classMethodList = function(self, ...) return self:metaClass():methodList
 ---  * To get a table of the class methods for the object's class, invoke this method on the meta class of the object's class, e.g. `hs._asm.objc.object:class():metaClass():methodList()`.
 objectMT.methodList = function(self, ...) return self:class():methodList(...) end
 
+
+-- allow NSArray and NSDictionary type to mimic lua tables
+
+local objectIndexTable = objectMT.__index
+objectMT.__index = function(self, key)
+    local response = nil
+
+    if type(objectIndexTable) == "function" then
+        response = objectIndexTable(self, key)
+    elseif type(objectIndexTable) == "table" then
+        response = rawget(objectMT, key)
+    end
+
+    if not response then
+    -- we take advantage of the fact that errors, like bad index/key type or oob return nil, stack
+    -- and we only really care about the nil for "nothing there" in the lua tradition
+        if self("respondsToSelector:", _objc.selector("objectForKey:")) then
+            response = self("objectForKey:", key)
+        elseif self("respondsToSelector:", _objc.selector("objectAtIndex:")) then
+            response = self("objectAtIndex:", key - 1)
+        end
+    end
+
+    return response
+end
+
+objectMT.__len = function(self)
+    if self("respondsToSelector:", _objc.selector("count")) then
+        return self("count")
+    else
+        error("attempt to get length of a " .. objectMT.__name .. "value", 3)
+    end
+end
+
+objectMT.__pairs = function(self)
+    local keyArray = self -- so it errors like usual if not array or dictionary
+    local method = nil
+
+    if self("respondsToSelector:", _objc.selector("count")) and self("respondsToSelector:", _objc.selector("objectAtIndex:")) then
+        keyArray = {}
+        for i = 1, self("count"), 1 do table.insert(keyArray, i - 1) end
+        method = "objectAtIndex:"
+    elseif self("respondsToSelector:", _objc.selector("allKeys")) and self("respondsToSelector:", _objc.selector("objectForKey:")) then
+        keyArray = {}
+        local allKeys = self("allKeys")
+        for i = 1, allKeys("count"), 1 do
+            table.insert(keyArray, allKeys("objectAtIndex:", i - 1))
+        end
+        method = "objectForKey:"
+    end
+    local idx = 0
+    local fn = function(_, key)
+        local val = nil
+        idx = idx + 1
+        key = keyArray[idx]
+        if idx <= #keyArray then
+            val = self(method, key)
+            return key, val
+        else
+            return nil
+        end
+    end
+
+    return fn, self, nil
+end
+--   check for allKeys and objectForKey: and count and objectAtIndex:, otherwise error
+-- end
+
 objectMT.__call = function(obj, ...) return objectMT.msgSend(obj, ...) end
 classMT.__call  = function(obj, ...) return classMT.msgSend(obj, ...) end
 
