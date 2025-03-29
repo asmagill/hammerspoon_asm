@@ -1,3 +1,5 @@
+-- TODO: __newindex for modifying mutable array/dictionary?
+
 -- REMOVE IF ADDED TO CORE APPLICATION
     repeat
         -- add proper user dylib path if it doesn't already exist
@@ -42,7 +44,7 @@
 ---
 ---   * Methods with a variable number of arguments (vararg) -- this is not supported by NSInvocation, so is not likely to ever be supported without a substantial (and very non-trivial) re-write.
 ---   * C style union arguments -- this is not supported by NSInvocation, so is not likely to ever be supported without a substantial (and very non-trivial) re-write.
----   * C style array arguments and return types are not currently supported (NSArray objects as arguments and return types are supported, however).  This is likely to be added for fixed-size array's in the future.
+---   * C style array arguments and return types are not currently supported (NSArray objects as arguments and return types are supported, however).  This *MAY* be added for fixed-size array's in the future.
 ---   * C style bitfields -- if the encoding type of a method signature specifies the flags as bitfields, this is currently not supported.  If the flags are specified as one or more integer types in the encoding, they are.  I have not come across an actual bitfield designation in a method encoding yet; however the specification defined at https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html does allow for them.  This will be considered if and when it becomes necessary.
 ---   * objects and data types referred to by reference (pointer) as arguments or a return type -- except for C style character arrays, which have their own designated encoding type, these are not currently supported.  Where it is possible to determine the pointers destination size and/or type, this may be added (for example, specifying an NSError object by reference in an argument list to a method).  However, where the destination type and/or size cannot be precisely determined, this is likely to never be supported because it would create a very fragile and crash prone environment.
 ---   * unknown objects (those specified with a type encoding of ?) are not likely to ever be supported for similar reasons to those stated for objects by reference above.
@@ -413,7 +415,7 @@ objectMT.__index = function(self, key)
     -- and we only really care about the nil for "nothing there" in the lua tradition
         if self("respondsToSelector:", _objc.selector("objectForKey:")) then
             response = self("objectForKey:", key)
-        elseif self("respondsToSelector:", _objc.selector("objectAtIndex:")) then
+        elseif math.type(key) == "integer" and self("respondsToSelector:", _objc.selector("objectAtIndex:")) then
             response = self("objectAtIndex:", key - 1)
         end
     end
@@ -430,28 +432,35 @@ objectMT.__len = function(self)
 end
 
 objectMT.__pairs = function(self)
-    local keyArray = self -- so it errors like usual if not array or dictionary
-    local method = nil
+    local keyArray = nil
+    local isArray  = true
 
     if self("respondsToSelector:", _objc.selector("count")) and self("respondsToSelector:", _objc.selector("objectAtIndex:")) then
         keyArray = {}
-        for i = 1, self("count"), 1 do table.insert(keyArray, i - 1) end
-        method = "objectAtIndex:"
+        for i = 1, self("count"), 1 do table.insert(keyArray, i) end
     elseif self("respondsToSelector:", _objc.selector("allKeys")) and self("respondsToSelector:", _objc.selector("objectForKey:")) then
         keyArray = {}
         local allKeys = self("allKeys")
         for i = 1, allKeys("count"), 1 do
             table.insert(keyArray, allKeys("objectAtIndex:", i - 1))
         end
-        method = "objectForKey:"
+        isArray = false
     end
     local idx = 0
     local fn = function(_, key)
+        if type(keyArray) ~= "table" then
+            error("bad argument #1 to 'for iterator' (NSArray or NSDictionary expected, got " .. self("className")("UTF8String") .. ")", 3)
+        end
+
         local val = nil
         idx = idx + 1
         key = keyArray[idx]
         if idx <= #keyArray then
-            val = self(method, key)
+            if isArray then
+                val = self("objectAtIndex:", key - 1)
+            else
+                val = self("objectForKey:", key)
+            end
             return key, val
         else
             return nil
@@ -460,8 +469,6 @@ objectMT.__pairs = function(self)
 
     return fn, self, nil
 end
---   check for allKeys and objectForKey: and count and objectAtIndex:, otherwise error
--- end
 
 objectMT.__call = function(obj, ...) return objectMT.msgSend(obj, ...) end
 classMT.__call  = function(obj, ...) return classMT.msgSend(obj, ...) end
