@@ -340,7 +340,7 @@ static int dimensional_facesFromLines(lua_State *L) {
 
 // [LuaSkin logInfo:@"%f %ld (∂t = %f)", timeAvg, totalCount, (timeAvg / (double)totalCount)] ;
 
-    [skin pushNSObject:faces] ;
+    [skin pushNSObject:faces withOptions:LS_WithObjectWrapper] ;
     return 1 ;
 }
 

@@ -43,10 +43,10 @@ ALLFILES += $(DYLIBS)
 
 # CC=clang
 CC=@clang
-WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration -Wno-documentation-unknown-command -Wno-poison-system-directories -Wno-declaration-after-statement
+WARNINGS ?= -Weverything -Wno-objc-missing-property-synthesis -Wno-implicit-atomic-properties -Wno-direct-ivar-access -Wno-cstring-format-directive -Wno-padded -Wno-covered-switch-default -Wno-missing-prototypes -Werror-implicit-function-declaration -Wno-documentation-unknown-command -Wno-poison-system-directories -Wno-declaration-after-statement -Wno-quoted-include-in-framework-header
 EXTRA_CFLAGS ?= -F$(HS_APPLICATION)/Hammerspoon.app/Contents/Frameworks -DSOURCE_PATH="$(mkfile_path)"
-INTEL_CFLAGS ?= -mmacosx-version-min=10.15 -target x86_64-apple-macos10.15
-ARM64_CFLAGS ?= -mmacosx-version-min=10.15 -target arm64-apple-macos10.15
+INTEL_CFLAGS ?= -mmacosx-version-min=13.0 -target x86_64-apple-macos13.0
+ARM64_CFLAGS ?= -mmacosx-version-min=13.0 -target arm64-apple-macos13.0
 
 # Apple is #^#$@#%^$ inconsistent with Core Foundation types; some are const, others aren't
 # WARNINGS += -Wno-incompatible-pointer-types-discards-qualifiers
